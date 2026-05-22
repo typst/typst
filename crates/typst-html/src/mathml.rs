@@ -38,10 +38,11 @@ use crate::{attr::mathml as attr, css};
 ///
 /// # Alignment
 ///
-/// To get the alternating alignment working, we use the `text-align` property
-/// on `mtd`. The vendox prefix value is used because it is the only thing that
-/// actually works across browsers. In the future however, we should use
-/// [`justify-items`][alignment] instead.
+/// To get the alternating alignment working, we use the `justify-items` and
+/// `text-align` properties on `mtd`. In the future,
+/// [`justify-items`][alignment] should work across all browsers. For now, only
+/// Chromium support this. So we put `text-align` after to accommodate other
+/// browsers.
 ///
 /// Inline multiline equations and the `cases` class on an `mtable` are always
 /// left aligned. The `aligned` class on an `mtable` alternates right-left
@@ -103,14 +104,16 @@ mtable.{RIGHT_ALIGN_CLASS} mtd,
 mtable mtd.{RIGHT_ALIGN_CLASS},
 mtable.{LEFT_ALIGN_CLASS} mtd.{RIGHT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} mtd:nth-child(odd) {{
-  text-align: {TEXT_ALIGN_RIGHT};
+  justify-items: end;
+  text-align: right;
 }}
 mtable.{CASES_CLASS} mtd,
 mtable.{LEFT_ALIGN_CLASS} mtd,
 mtable mtd.{LEFT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} mtd:nth-child(even),
 math:is(:not([display])) > mtable.{MULTILINE_EQUATION_CLASS} mtd {{
-  text-align: {TEXT_ALIGN_LEFT};
+  justify-items: start;
+  text-align: left;
 }}
 mtable.{CASES_CLASS} mtd,
 mtable.{ALIGNED_CLASS} mtd,
@@ -187,8 +190,6 @@ const LEFT_FLUSH_CLASS: &str = "left-flush";
 const RIGHT_FLUSH_CLASS: &str = "right-flush";
 
 // CSS values.
-const TEXT_ALIGN_RIGHT: &str = "-webkit-right";
-const TEXT_ALIGN_LEFT: &str = "-webkit-left";
 const EQUATION_ROW_GAP: Em = Em::new(0.5);
 
 const SPACE_WIDTH: Em = Em::new(4.0 / 18.0);
