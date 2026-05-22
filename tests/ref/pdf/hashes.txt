@@ -1810,7 +1810,9 @@ aff58474914f136cd1c927eaa894da79 tiling-offset-negative
 918fa7dfc0d3454d625e6558dfbd36f3 tiling-offset-relative
 633a4e0ae1faa3753b43fb7a9a38bc18 tiling-offset-zero
 3c711fb4cb219588885f12e7b757bf77 tiling-relative-parent
+90dea800489da9467c7cf031ea103c21 tiling-relative-polygon
 e509ad7c1d194dd5ed0fd9bc9385cbe4 tiling-relative-self
+ac9aea2eb5a91e4ca96ecd9d342fd24c tiling-relative-stack
 f3958be015f718220396678ae1fb8faf tiling-small
 11a5abf6bdaa0da3e5d1fef7132857e9 tiling-spacing-negative
 5904e3c83115c27e16037ba438152a15 tiling-spacing-positive
