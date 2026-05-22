@@ -133,7 +133,8 @@
   }
 }
 
-// TODO: What's the difference compared to `icon`?
+// Similar to `icon` but ensures that the SVG will respect the current
+// foreground `color` by emitting an inline `<svg>` with a `<use>` element.
 #let use-icon(size, name, alt) = html.elem(
   "svg",
   attrs: {
