@@ -286,15 +286,16 @@ world
 --- issue-8163-document-path-state bundle ---
 // Test that it's possible to use state/context for determining a document's
 // file path.
-#let doc-name-state = state("doc-name", "unknown.html")
-
-#let make-doc(name) = {
-  doc-name-state.update(name)
+#let c = counter("doc-name")
+#let counted-document(body) = {
   context {
-    let filename = doc-name-state.get()
-    document(filename)[This is document #filename]
+    let i = c.get().first() + 1
+    document("doc-"  + str(i) + ".html")[
+      This is document #i with content #body
+    ]
   }
+  c.step()
 }
 
-#make-doc("a.html")
-#make-doc("b.html")
+#counted-document[A]
+#counted-document[B]
