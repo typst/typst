@@ -1,5 +1,6 @@
 #import "../../components/index.typ": (
-  details, docs-chapter, docs-figure, example, info, short-or-long,
+  checked-list, details, docs-chapter, docs-figure, example, info,
+  short-or-long,
 )
 
 #show: docs-chapter.with(
@@ -552,20 +553,8 @@ We provide the rule with a function that takes the heading as a parameter. This 
 
 This looks great! We wrote show rules that selectively apply to the first and second level headings. We used a `where` selector to filter the headings by their level. We then rendered the subsection headings as run-ins. We also automatically add a period to the end of the subsection headings.
 
-#context [
-  #let is-paged = target() == "paged"
-  #let check = "✓"
-  #set list(marker: check) if is-paged
-  #show list.item: it => {
-    if not is-paged and it.body.func() == text and not it.body.fields().text.contains(check) {
-      list.item(it.body + [ ] + check)
-    } else {
-      it
-    }
-  }
-
-
-  Let's review the conference's style guide:
+Let's review the conference's style guide:
+#checked-list[
   - The font should be an 11pt serif font
   - The title should be in 17pt and bold
   - The paper contains a single-column abstract and two-column main text
