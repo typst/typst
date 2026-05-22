@@ -30,7 +30,7 @@ use super::{
 /// the distributor).
 ///
 /// To lay out the in-flow contents of individual subregions, the composer
-/// invokes [distribution](distribute).
+/// invokes [distribution](distribute()).
 pub fn compose(
     engine: &mut Engine,
     work: &mut Work,
@@ -247,7 +247,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
     /// Lays out an item with floating placement.
     ///
-    /// This is called from within [`distribute`]. When the float fits, this
+    /// This is called from within [`distribute()`]. When the float fits, this
     /// returns an `Err(Stop::Relayout(..))`, which bubbles all the way through
     /// distribution and is handled in [`Self::page`] or [`Self::column`]
     /// (depending on `placed.scope`).

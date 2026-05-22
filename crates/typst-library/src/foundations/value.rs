@@ -9,7 +9,6 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
-use typst_utils::ArcExt;
 
 use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
 use crate::foundations::{
@@ -682,7 +681,7 @@ impl<T: Reflect> Reflect for Arc<T> {
 
 impl<T: Clone + IntoValue> IntoValue for Arc<T> {
     fn into_value(self) -> Value {
-        Arc::take(self).into_value()
+        Arc::unwrap_or_clone(self).into_value()
     }
 }
 
@@ -699,13 +698,13 @@ impl<T: Clone + Resolve> Resolve for Arc<T> {
     type Output = Arc<T::Output>;
 
     fn resolve(self, styles: super::StyleChain) -> Self::Output {
-        Arc::new(Arc::take(self).resolve(styles))
+        Arc::new(Arc::unwrap_or_clone(self).resolve(styles))
     }
 }
 
 impl<T: Clone + Fold> Fold for Arc<T> {
     fn fold(self, outer: Self) -> Self {
-        Arc::new(Arc::take(self).fold(Arc::take(outer)))
+        Arc::new(Arc::unwrap_or_clone(self).fold(Arc::unwrap_or_clone(outer)))
     }
 }
 

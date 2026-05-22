@@ -227,7 +227,7 @@ impl HtmlOutput {
     }
 }
 
-/// Wrap the user generated HTML in <html>, <body> or both if needed.
+/// Wrap the user generated HTML in `<html>`, `<body>` or both if needed.
 ///
 /// Returns a vector containing outer introspection tags and the HTML root element.
 /// A direct reference to the root element is also returned.

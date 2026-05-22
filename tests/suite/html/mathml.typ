@@ -34,6 +34,18 @@ $
     & = f + g
 $
 
+--- mathml-multiline-alignment-2 html ---
+$
+  a_n & = a \
+      & = a
+$
+
+--- mathml-multiline-alignment-3 html ---
+$
+  a + b & = c \
+      d & = e + f
+$
+
 --- mathml-stretch-largeop-vs-explicit html ---
 $ integral $
 $ stretch(integral) $
