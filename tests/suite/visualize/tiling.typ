@@ -46,6 +46,24 @@
 
 #rect(fill: t(none, relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
 
+--- tiling-relative-polygon paged ---
+#polygon(
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+  stroke: blue,
+  (20%, 0pt),
+  (60%, 0pt),
+  (80%, 20pt),
+  (0%,  20pt),
+)
+
+--- tiling-relative-stack paged ---
+#set rect(
+  width: 100%,
+  height: 20pt,
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+)
+#stack(spacing: 5pt, rect(), rect())
+
 --- tiling-small paged ---
 // Tests small tilings for pixel accuracy.
 #box(
