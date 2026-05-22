@@ -292,3 +292,22 @@
     html.kbd(shortcut)
   }
 }
+
+// Renders a list with checkmarks as markers.
+//
+// Browser support is not perfect, so this is a best effort in the web version.
+#let checked-list(body) = context {
+  if target() == "paged" {
+    // HK Grotesk does not have the checkmark ...
+    set list(marker: text(font: "Noto Sans", "✓"))
+    body
+  } else {
+    // Adding a class to a Typst-generated element will become cleaner in the
+    // future.
+    show html.elem.where(tag: "ul"): it => {
+      if "class" in it.attrs { return it }
+      html.elem("ul", attrs: (..it.attrs, class: "checked"), it.body)
+    }
+    body
+  }
+}
