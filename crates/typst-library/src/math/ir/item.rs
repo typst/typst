@@ -14,7 +14,7 @@ use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::{Locator, Tag};
 use crate::layout::{
-    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Rel,
+    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Ratio, Rel,
 };
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
@@ -236,6 +236,18 @@ impl<'a> MathItem<'a> {
     pub(crate) fn set_class(&mut self, class: MathClass) {
         if let Self::Component(comp) = self {
             comp.props.class = Some(class);
+
+            // Small hack to ensure the non-explicit stretch gets added, as the
+            // class is not recursive.
+            if let MathKind::Glyph(glyph) = &comp.kind
+                && class == MathClass::Large
+                && comp.props.size == MathSize::Display
+                && !glyph.stretch.get().is_explicit(Axis::Y)
+            {
+                let target = Rel::new(Ratio::one(), Abs::zero());
+                let info = StretchInfo::new(target, Em::zero());
+                glyph.stretch.update(|stretch| stretch.with_y(info));
+            }
         }
     }
 
