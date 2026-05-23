@@ -189,6 +189,31 @@ fn html_document_common(
     // the styles must be resolved last.
     css::resolve_inline_styles(output.root_mut());
 
+    let has_equations = !engine
+        .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
+        .is_empty();
+
+    if has_equations {
+        let root = output.root_mut();
+
+        let head = root.children.make_mut().iter_mut().find_map(|node| match node {
+            HtmlNode::Element(elem) if elem.tag == tag::head => Some(elem),
+            _ => None,
+        });
+
+        // TODO: this becomes an error when html fragments are supported
+        let head = head.expect("head to be present in document output");
+
+        head.children.push(
+            HtmlElement::new(tag::style)
+                .with_children(eco_vec![HtmlNode::Text(
+                    EQUATION_CSS_STYLES.clone(),
+                    Span::detached(),
+                )])
+                .into(),
+        );
+    }
+
     Ok(HtmlDocument::new(output, info))
 }
 
@@ -240,10 +265,6 @@ fn finalize_dom(
 ) -> SourceResult<HtmlOutput> {
     let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
-    let has_equations = !engine
-        .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
-        .is_empty();
-
     let mut needs_body = true;
     for (idx, node) in nodes.iter().enumerate() {
         let HtmlNode::Element(elem) = node else { continue };
@@ -283,14 +304,14 @@ fn finalize_dom(
 
     let mut html = HtmlElement::new(tag::html)
         .with_attr(attr::lang, info.locale.unwrap_or_default().rfc_3066());
-    let head = head_element(info, has_equations);
+    let head = head_element(info);
     html.children.push(head.into());
     html.children.extend(body);
     Ok(HtmlOutput { nodes: eco_vec![html.into()], root_index: 0 })
 }
 
 /// Generate a `<head>` element.
-fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
+fn head_element(info: &DocumentInfo) -> HtmlElement {
     let mut children = EcoVec::new();
 
     children.push(HtmlElement::new(tag::meta).with_attr(attr::charset, "utf-8").into());
@@ -333,17 +354,6 @@ fn head_element(info: &DocumentInfo, has_equations: bool) -> HtmlElement {
             HtmlElement::new(tag::meta)
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
-                .into(),
-        )
-    }
-
-    if has_equations {
-        children.push(
-            HtmlElement::new(tag::style)
-                .with_children(eco_vec![HtmlNode::Text(
-                    EQUATION_CSS_STYLES.clone(),
-                    Span::detached(),
-                )])
                 .into(),
         )
     }

@@ -367,6 +367,7 @@ ae688ecc4fdc9bc25edbde5c95576833 math-vec-linebreaks-trailing
 e5445257ae7d39e6ea09a09b98099cbd mathml-box-block-equation-nested
 86219e3ffd4c7d92a7c22b0bfcc40d54 mathml-box-equation
 1b9f49e06fa701b6c5afbff51d1d9ccb mathml-custom-class
+ba94f3dcfe98a2488cbfae5d230c4e7f mathml-custom-head-stylesheet
 d379b9b098164fabbef194cd262ef5db mathml-dif
 e0ef687d2456dd5b76ce6f7f6aa6417e mathml-equation-alignment
 35badd3e37136de8a559c4364672085f mathml-equation-alignment-spacing
