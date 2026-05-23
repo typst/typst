@@ -443,9 +443,9 @@ impl MathProperties {
 
     /// Creates default properties from the given styles.
     ///
-    /// This gets both the math class and size from the styles.
+    /// This gets the math size from the styles.
     pub fn default(styles: StyleChain, span: Span) -> MathProperties {
-        Self::new(styles, styles.get(EquationElem::class), span)
+        Self::new(styles, None, span)
     }
 
     /// Returns the class, using the default normal class if None.
@@ -926,9 +926,8 @@ impl GlyphItem {
 
         let c = text.chars().next().unwrap();
 
-        let default_class = default_math_class(c);
-        let limits = Limits::for_char_with_class(c, default_class);
-        let class = styles.get(EquationElem::class).or(default_class);
+        let class = default_math_class(c);
+        let limits = Limits::for_char_with_class(c, class);
 
         let kind = MathKind::Glyph(Box::new(Self {
             text,

@@ -286,10 +286,7 @@ impl GlyphFragment {
         };
 
         let c = text.chars().next().unwrap();
-        let class = styles
-            .get(EquationElem::class)
-            .or_else(|| default_math_class(c))
-            .unwrap_or(MathClass::Normal);
+        let class = default_math_class(c).unwrap_or(MathClass::Normal);
 
         let mut fragment = Self {
             item,

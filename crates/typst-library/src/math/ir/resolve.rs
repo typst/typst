@@ -1194,8 +1194,6 @@ fn resolve_class<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let styles =
-        ctx.chain_styles(styles, EquationElem::class.set(Some(elem.class)).wrap());
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
     item.set_class(elem.class);
     item.set_limits(Limits::for_class(elem.class));
