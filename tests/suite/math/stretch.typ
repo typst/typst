@@ -213,3 +213,10 @@ $ body^"text" $
 // Hint: its rendering may appear broken - this is probably a font bug
 // Hint: please file an issue at https://github.com/typst/typst/issues
 $ stretch(->)^"Gauss-Jordan Elimination" $
+
+--- math-stretch-explicit-mixed paged html ---
+$ stretch(size: #200%, \/) quad
+  \/ quad
+  class("large", \/) quad
+  class("large", stretch(size: #200%, \/)) quad
+  stretch(size: #200%, class("large", \/)) $

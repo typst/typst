@@ -46,6 +46,11 @@ $class("large", ->)_a$
 $limits(class("normal", ->))_a$
 $ scripts(class("relation", x))_a $
 
+--- math-class-not-recursive paged html ---
+$ & log x \
+  & log (x+y) \
+  & log class("normal", (x+y)) $
+
 --- issue-4985-up-tack-is-normal-perp-is-relation paged html ---
 $ top = 1 \
   bot = 2 \
