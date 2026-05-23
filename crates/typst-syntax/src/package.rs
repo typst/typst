@@ -319,7 +319,7 @@ fn parse_namespace<'s>(s: &mut Scanner<'s>) -> Result<&'s str, EcoString> {
     let namespace = s.eat_until('/');
     if namespace.is_empty() {
         Err("package specification is missing namespace")?;
-    } else if !is_ident(namespace) {
+    } else if !namespace.split('.').all(|part| !part.is_empty() && is_ident(part)) {
         Err(eco_format!("`{namespace}` is not a valid package namespace"))?;
     }
 
@@ -332,7 +332,7 @@ fn parse_name<'s>(s: &mut Scanner<'s>) -> Result<&'s str, EcoString> {
     let name = s.eat_until(':');
     if name.is_empty() {
         Err("package specification is missing name")?;
-    } else if !is_ident(name) {
+    } else if !name.split('/').all(|part| !part.is_empty() && is_ident(part)) {
         Err(eco_format!("`{name}` is not a valid package name"))?;
     }
 
@@ -654,5 +654,26 @@ mod tests {
         .unwrap();
 
         assert!(manifest.unknown_fields.contains_key("unknown"));
+    }
+
+    #[test]
+    fn valid_namespace() {
+        assert!("@preview/polylux:0.3.1".parse::<PackageSpec>().is_ok());
+        assert!("@example.com/foo/bar:1.2.3".parse::<PackageSpec>().is_ok());
+        assert!("@registry.example.org/foo/bar:0.1.0".parse::<PackageSpec>().is_ok());
+
+        assert!("@example./foo/bar:1.2.3".parse::<PackageSpec>().is_err());
+        assert!("@.example.com/foo/bar:1.2.3".parse::<PackageSpec>().is_err());
+        assert!("@/foo/bar:1.2.3".parse::<PackageSpec>().is_err());
+    }
+
+    #[test]
+    fn valid_name() {
+        assert!("@preview/polylux:0.3.1".parse::<PackageSpec>().is_ok());
+        assert!("@example.com/foo/bar:1.2.3".parse::<PackageSpec>().is_ok());
+        assert!("@example.com/foo/bar/baz:1.2.3".parse::<PackageSpec>().is_ok());
+
+        assert!("@example.com//bar:1.2.3".parse::<PackageSpec>().is_err());
+        assert!("@example.com/:1.2.3".parse::<PackageSpec>().is_err());
     }
 }

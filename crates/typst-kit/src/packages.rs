@@ -93,6 +93,20 @@ impl SystemPackages {
     /// [`FileStore`](crate::files::FileStore), this is already the case since
     /// it acquires a lock during file loading.
     pub fn obtain(&self, spec: &PackageSpec) -> PackageResult<FsRoot> {
+        if spec.namespace.contains('.') {
+            return Err(PackageError::Other(Some(eco_format!(
+                "`{}` is not a valid package namespace",
+                spec.namespace,
+            ))));
+        }
+
+        if spec.name.contains('/') {
+            return Err(PackageError::Other(Some(eco_format!(
+                "`{}` is not a valid package name",
+                spec.name,
+            ))));
+        }
+
         if let Some(packages) = &self.data
             && let Some(root) = packages.obtain(spec)
         {
