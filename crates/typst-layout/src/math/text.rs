@@ -108,7 +108,7 @@ pub fn layout_glyph(
     if let Some(mut glyph) =
         GlyphFragment::new(ctx.engine.world, styles, &text, props.span)
     {
-        glyph.class = props.class;
+        glyph.class = props.class();
 
         if let Some(axis) = glyph.stretch_axis(ctx.engine)
             && let Some(stretch) = item.stretch.get().resolve(axis)

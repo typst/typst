@@ -500,7 +500,7 @@ impl FrameFragment {
         Self {
             frame: frame.modified(&modifiers),
             font_size: styles.resolve(TextElem::size),
-            class: props.class,
+            class: props.class(),
             math_size: props.size,
             base_ascent,
             base_descent,
