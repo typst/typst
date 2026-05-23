@@ -1092,7 +1092,7 @@ impl Array {
             .map(|value| {
                 let value_ty = value.ty();
                 let pair = value.cast::<Array>().map_err(|_| {
-                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                    eco_format!("expected (str, any) pairs, found {value_ty}")
                 })?;
                 if let [key, value] = pair.as_slice() {
                     let key = key.clone().cast::<Str>().map_err(|_| {

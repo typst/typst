@@ -530,7 +530,7 @@ impl FromValue for CslSource {
                 }
 
                 let style = ArchivedStyle::by_name(&string)
-                    .ok_or_else(|| eco_format!("unknown style: {}", string))?;
+                    .ok_or_else(|| eco_format!("unknown style: {string}"))?;
                 return Ok(CslSource::Named(style, warning));
             }
         }

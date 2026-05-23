@@ -349,7 +349,7 @@ impl<'a> ImageResolver<'a> {
             Err(err) => {
                 self.error = Some(LoadError::text(
                     ReportTextPos::None,
-                    eco_format!("failed to load linked image {} in SVG", href),
+                    eco_format!("failed to load linked image {href} in SVG"),
                     err,
                 ));
                 None
@@ -431,7 +431,7 @@ impl<'a> ImageResolver<'a> {
                 FileError::IsDirectory => "is a directory".into(),
                 FileError::Other(Some(msg)) => msg,
                 FileError::Other(None) => "unspecified error".into(),
-                _ => eco_format!("unexpected error: {}", err),
+                _ => eco_format!("unexpected error: {err}"),
             }),
         }
     }

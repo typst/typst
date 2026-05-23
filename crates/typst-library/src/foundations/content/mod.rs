@@ -735,7 +735,7 @@ impl Repr for SequenceElem {
                 &self.children.iter().map(|c| c.repr()).collect::<Vec<_>>(),
                 false,
             );
-            eco_format!("sequence{}", elements)
+            eco_format!("sequence{elements}")
         }
     }
 }

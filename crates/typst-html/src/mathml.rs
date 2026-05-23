@@ -1136,17 +1136,16 @@ fn make_mo(
 
     let lspace = lspace.unwrap_or(Em::zero()).get();
     let lspace =
-        (force_space || lspace != info.lspace).then(|| eco_format!("{}em", lspace));
+        (force_space || lspace != info.lspace).then(|| eco_format!("{lspace}em"));
     let rspace = rspace.unwrap_or(Em::zero()).get();
     let rspace =
-        (force_space || rspace != info.rspace).then(|| eco_format!("{}em", rspace));
+        (force_space || rspace != info.rspace).then(|| eco_format!("{rspace}em"));
 
-    let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
-    let separator =
-        (separator != is_separator(text)).then(|| eco_format!("{}", separator));
+    let fence = (fence != is_fence(text)).then(|| eco_format!("{fence}"));
+    let separator = (separator != is_separator(text)).then(|| eco_format!("{separator}"));
 
     let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
-        .then(|| eco_format!("{}", largeop));
+        .then(|| eco_format!("{largeop}"));
 
     // In compact styles the browser will move top/bottom attachments to the tl
     // and br positions, so we need to explicitly disable this.
@@ -1166,7 +1165,7 @@ fn make_mo(
     };
     let explicit = stretch.is_some_and(|stretch| stretch.is_explicit(stretch_axis));
     let stretchy = (explicit != info.properties.contains(Properties::STRETCHY))
-        .then(|| eco_format!("{}", explicit));
+        .then(|| eco_format!("{explicit}"));
 
     // We don't need to set `maxsize` as it is infinity by default.
     let (symmetric, minsize) = if explicit {
@@ -1342,6 +1341,6 @@ fn ignored_math_item(
 ) -> SourceResult<Content> {
     ctx.engine
         .sink
-        .warn(warning!(span, "{} was ignored during MathML export", name));
+        .warn(warning!(span, "{name} was ignored during MathML export"));
     ctx.handle_into_node(body)
 }

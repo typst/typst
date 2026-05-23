@@ -664,7 +664,7 @@ fn open_output(config: &mut CompileConfig) -> StrResult<()> {
 fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
     if let Some(viewer) = viewer {
         open::with_detached(path, viewer)
-            .map_err(|err| eco_format!("failed to open file with {} ({})", viewer, err))
+            .map_err(|err| eco_format!("failed to open file with {viewer} ({err})"))
     } else {
         open::that_detached(path).map_err(|err| {
             let openers = open::commands(path)
@@ -673,9 +673,8 @@ fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
                 .collect::<Vec<_>>()
                 .join(", ");
             eco_format!(
-                "failed to open file with any of these resource openers: {} ({})",
-                openers,
-                err,
+                "failed to open file with any of these resource openers: {openers} \
+                 ({err})",
             )
         })
     }

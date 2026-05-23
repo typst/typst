@@ -40,6 +40,7 @@ use crate::{World, WorldExt};
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
 macro_rules! __bail {
     // If we don't have a span, forward to `error!` to create a `StrResult` or
     // `HintedStrResult`.
@@ -85,6 +86,7 @@ macro_rules! __bail {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
 macro_rules! __error {
     // For `error!("just a {}", "string")`.
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
@@ -150,6 +152,7 @@ macro_rules! __error {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
@@ -170,9 +173,9 @@ macro_rules! __warning {
 #[rustfmt::skip]
 #[doc(inline)]
 pub use {
-    crate::__bail as bail,
-    crate::__error as error,
-    crate::__warning as warning,
+    __bail as bail,
+    __error as error,
+    __warning as warning,
     ecow::{eco_format, EcoString},
 };
 
@@ -1061,7 +1064,7 @@ fn internal_error(msg: &str) -> HintedString {
     let loc = std::panic::Location::caller();
     let mut error = error!(
         "internal error: {msg} (occurred at {loc})";
-        hint: "please report this as a bug"
+        hint: "please report this as a bug";
     );
 
     if cfg!(debug_assertions) {
