@@ -223,9 +223,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost @block or @box that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -311,9 +310,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost @block or @box that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -431,9 +429,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost @block or @box that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
