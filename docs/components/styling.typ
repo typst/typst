@@ -12,6 +12,18 @@
 // The part of the global styling that applies to the paged version.
 #let paged-styling(body) = {
   set page(margin: (x: 3cm, y: 2.5cm))
+  set page(background: {
+    show: place.with(top + left)
+    show: block.with(width: 2cm, height: 100%)
+    set align(center + horizon)
+    show: rotate.with(-90deg, reflow: true)
+    set text(
+      size: 32pt,
+      weight: "bold",
+      fill: colors.light-gray.shade-30,
+    )
+    upper[Development version]
+  }) if stdx.is-dev-version
   set text(font: (fonts.body, ..fonts.fallback), size: sizes.body)
   set list(marker: [--])
   set underline(offset: 0.2em)
