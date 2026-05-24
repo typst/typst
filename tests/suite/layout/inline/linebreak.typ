@@ -163,3 +163,15 @@ pleasing way.
 --- linebreak-default-ignorables paged ---
 #set text(font: "Noto Sans Math")
 \u{2295}\u{FE00} vs \u{2295}\u{FE00}
+
+--- issue-1920-linebreak-guillemets paged ---
+// In languages like French and German, manually added spaces before and after
+// guillemets should not be breakable.
+#set page(width: 125pt)
+
+#set text(lang: "fr")
+Les principales « guillemets ».\
+Et les autres ‹ guillemets › en français & suisse romande.
+
+#set text(lang: "de")
+Alternative »Anführungszeichen« in DE & AT.

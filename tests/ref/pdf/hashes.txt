@@ -660,6 +660,7 @@ a5ab5ad13e57301e042f5b00f75fbafa issue-1373-bidi-tofus
 75df77d2fa2f371e9d37a246b10b7e2d issue-1833-locate-place
 af08643822c7e5c95c8db3616c0aeae0 issue-1850-list-attach-spacing
 27add346248e9d1ddeb6ccc8dd0d803b issue-1886-locate-after-metadata
+5ff6b63938ff163a2dc3cfd6c6a9b636 issue-1920-linebreak-guillemets
 dddaf55218ae2c195d7a0ce287d28884 issue-1948-math-text-break
 570ef5754955ae10d436b2f828840efd issue-2044-invalid-parsed-ident
 271ab0da23575a389a28c49213facab5 issue-2048-outline-multiline

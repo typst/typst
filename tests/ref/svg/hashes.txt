@@ -660,6 +660,7 @@ c4c4fdf624e70b6e1355a6d8e10bd5c3 issue-1825-rect-overflow
 4310aee9fc52e3c431b6edeb2ae9c49a issue-1833-locate-place
 5e58059011f6b5aabf24ac62577753d1 issue-1850-list-attach-spacing
 d84be4611abe56f9fe5f318fcf26138c issue-1886-locate-after-metadata
+9e5a37c8c4a7848d432a6d20f281683b issue-1920-linebreak-guillemets
 a4b23e541f1059ec094fe77a3d302397 issue-1948-math-text-break
 6c6e077c77c5fed27ccbd0edd5e3ab64 issue-2044-invalid-parsed-ident
 919fe95da552df2fda242fb4b684f77a issue-2048-outline-multiline
