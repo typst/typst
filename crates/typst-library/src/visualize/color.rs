@@ -958,9 +958,9 @@ impl Color {
     pub fn to_hex(self) -> EcoString {
         let (r, g, b, a) = self.to_rgb().into_format::<u8, u8>().into_components();
         if a != 255 {
-            eco_format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
+            eco_format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
         } else {
-            eco_format!("#{:02x}{:02x}{:02x}", r, g, b)
+            eco_format!("#{r:02x}{g:02x}{b:02x}")
         }
     }
 

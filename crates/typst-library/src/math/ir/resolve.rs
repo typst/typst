@@ -1137,7 +1137,7 @@ fn resolve_cells<'a, 'v, 'e>(
             if processed.had_linebreaks {
                 ctx.engine.sink.warn(warning!(
                    cell.span(),
-                   "linebreaks are ignored in {}", children;
+                   "linebreaks are ignored in {children}";
                    hint: "use commas instead to separate each line";
                 ));
             }

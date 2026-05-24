@@ -936,23 +936,22 @@ fn captures_to_dict(cap: regex::Captures) -> Dict {
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("string index out of bounds (index: {}, len: {})", index, len)
+    eco_format!("string index out of bounds (index: {index}, len: {len})")
 }
 
 /// The out of bounds access error message when no default value was given.
 #[cold]
 fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
     eco_format!(
-        "no default value was specified and string index out of bounds (index: {}, len: {})",
-        index,
-        len
+        "no default value was specified and string index out of bounds \
+         (index: {index}, len: {len})"
     )
 }
 
 /// The char boundary access error message.
 #[cold]
 fn not_a_char_boundary(index: i64) -> EcoString {
-    eco_format!("string index {} is not a character boundary", index)
+    eco_format!("string index {index} is not a character boundary")
 }
 
 /// The error message when the string is empty.

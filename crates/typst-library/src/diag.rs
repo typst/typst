@@ -1,5 +1,12 @@
 //! Diagnostics.
 
+// We re-export these types from `ecow` so that the macros below can write
+// `$crate::diag::eco_format` instead of `::ecow::eco_format`. This allows
+// downstream crates to use the macros without needing to include `ecow` as a
+// direct dependency of the crate.
+#[doc(hidden)]
+pub use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
@@ -9,7 +16,6 @@ use std::string::FromUtf8Error;
 
 use az::SaturatingAs;
 use comemo::Tracked;
-use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
@@ -40,6 +46,8 @@ use crate::{World, WorldExt};
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__bail` and not `bail`.
 macro_rules! __bail {
     // If we don't have a span, forward to `error!` to create a `StrResult` or
     // `HintedStrResult`.
@@ -56,12 +64,12 @@ macro_rules! __bail {
 
     // Just early return for a `SourceResult`: `bail!(some_error)`.
     ($error:expr) => {
-        return Err(::ecow::eco_vec![$error])
+        return Err($crate::diag::eco_vec![$error])
     };
 
     // For `bail(span, ...)`, we reuse `error!` and produce a `SourceResult`.
     ($($tts:tt)*) => {
-        return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
+        return Err($crate::diag::eco_vec![$crate::diag::error!($($tts)*)])
     };
 }
 
@@ -85,6 +93,8 @@ macro_rules! __bail {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__error` and not `error`.
 macro_rules! __error {
     // For `error!("just a {}", "string")`.
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
@@ -150,6 +160,8 @@ macro_rules! __error {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__warning` and not `warning`.
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
@@ -167,13 +179,28 @@ macro_rules! __warning {
     }};
 }
 
+// We want the `bail`, `error`, and `warning` macros and their documentation to
+// be scoped locally to this module and imported like normal items, including by
+// modules within this crate. However Rust only allows public macro_rules macros
+// to be exported at the root of the crate, and gives us no tools to avoid that.
+// See the "Import and Export" chapter of "The Little Book of Rust Macros" for
+// more: <https://lukaswirth.dev/tlborm/decl-macros/minutiae/import-export.html>
+//
+// Our solution is simple: the actual macros are named with two underscores, and
+// while they are available at the root of the crate, we add `doc(hidden)` to
+// hide their docs at the crate root. We then we re-export them here with new
+// names and `doc(inline)` so the preferred names and their documentation are
+// scoped to this module.
+//
+// Unfortunately, `__bail` is still available at the crate root here and in all
+// importers, but its name should suggest that we prefer to use `bail` instead.
+// Note that the `disallowed_macros` lint does not handle re-exports like this.
 #[rustfmt::skip]
 #[doc(inline)]
 pub use {
-    crate::__bail as bail,
-    crate::__error as error,
-    crate::__warning as warning,
-    ecow::{eco_format, EcoString},
+    __bail as bail,
+    __error as error,
+    __warning as warning,
 };
 
 /// A result that can carry multiple source errors. The recommended way to
@@ -1061,7 +1088,7 @@ fn internal_error(msg: &str) -> HintedString {
     let loc = std::panic::Location::caller();
     let mut error = error!(
         "internal error: {msg} (occurred at {loc})";
-        hint: "please report this as a bug"
+        hint: "please report this as a bug";
     );
 
     if cfg!(debug_assertions) {
