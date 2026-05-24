@@ -241,6 +241,7 @@ pub struct TextElem {
     /// property instead.
     ///
     /// ```example
+    /// #set text(font: "IBM Plex Sans")
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
@@ -468,7 +469,7 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set text(
-    ///   font: "Libertinus Serif",
+    ///   font: "IBM Plex Sans",
     ///   size: 20pt,
     /// )
     ///
