@@ -14,8 +14,9 @@ use typst_library::foundations::{Regex, Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
-    Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
-    TextElem, TextItem, families, features, is_default_ignorable, language, variant,
+    FontFamily, FontInstance, FontVariant, Glyph, Lang, Region, ShiftSettings,
+    TextEdgeBounds, TextElem, TextItem, families, features, is_default_ignorable,
+    language, variant,
 };
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -131,7 +132,7 @@ impl<'a> Deref for Glyphs<'a> {
 #[derive(Debug, Clone)]
 pub struct ShapedGlyph {
     /// The font the glyph is contained in.
-    pub font: Font,
+    pub font: FontInstance,
     /// The glyph's index in the font.
     pub glyph_id: u16,
     /// The advance width of the glyph.
@@ -478,7 +479,7 @@ impl<'a> ShapedText<'a> {
         let bottom_edge = self.styles.get(TextElem::bottom_edge);
 
         // Expand top and bottom by reading the font's vertical metrics.
-        let mut expand = |font: &Font, bounds: TextEdgeBounds| {
+        let mut expand = |font: &FontInstance, bounds: TextEdgeBounds| {
             let (t, b) = font.edges(top_edge, bottom_edge, size, bounds);
             top.set_max(t);
             bottom.set_max(b);
@@ -493,6 +494,7 @@ impl<'a> ShapedText<'a> {
                     .book()
                     .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
+                    .map(|font| font.instantiate())
             }) {
                 expand(&font, TextEdgeBounds::Zero);
             }
@@ -598,7 +600,7 @@ impl<'a> ShapedText<'a> {
             .flatten();
 
         chain.find_map(|id| {
-            let font = world.font(id)?;
+            let font = world.font(id).map(|font| font.instantiate())?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
@@ -829,7 +831,7 @@ fn shape<'a>(
 struct ShapingContext<'a> {
     world: Tracked<'a, dyn World + 'a>,
     glyphs: Vec<ShapedGlyph>,
-    used: Vec<Font>,
+    used: Vec<FontInstance>,
     styles: StyleChain<'a>,
     size: Abs,
     variant: FontVariant,
@@ -846,9 +848,9 @@ pub trait SharedShapingContext<'a> {
     ///
     /// These font families are considered exhausted and will not be used again,
     /// even if they are declared again (e.g., during fallback after normal selection).
-    fn used(&mut self) -> &mut Vec<Font>;
+    fn used(&mut self) -> &mut Vec<FontInstance>;
 
-    fn first(&self) -> Option<&Font>;
+    fn first(&self) -> Option<&FontInstance>;
 
     fn variant(&self) -> FontVariant;
 
@@ -860,11 +862,11 @@ impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
         self.world
     }
 
-    fn used(&mut self) -> &mut Vec<Font> {
+    fn used(&mut self) -> &mut Vec<FontInstance> {
         &mut self.used
     }
 
-    fn first(&self) -> Option<&Font> {
+    fn first(&self) -> Option<&FontInstance> {
         self.used.first()
     }
 
@@ -882,10 +884,10 @@ pub fn get_font_and_covers<'a, C, F>(
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily>,
     mut shape_tofus: F,
-) -> Option<(Font, Option<&'a Regex>)>
+) -> Option<(FontInstance, Option<&'a Regex>)>
 where
     C: SharedShapingContext<'a>,
-    F: FnMut(&mut C, &str, Font),
+    F: FnMut(&mut C, &str, FontInstance),
 {
     // Find the next available family.
     let world = ctx.world();
@@ -896,6 +898,7 @@ where
         selection = book
             .select(family.as_str(), ctx.variant())
             .and_then(|id| world.font(id))
+            .map(|font| font.instantiate())
             .filter(|font| !ctx.used().contains(font));
         if selection.is_some() {
             covers = family.covers();
@@ -905,10 +908,11 @@ where
 
     // Do font fallback if the families are exhausted and fallback is enabled.
     if selection.is_none() && ctx.fallback() {
-        let first = ctx.first().map(Font::info);
+        let first = ctx.first().map(|font| font.info());
         selection = book
             .select_fallback(first, ctx.variant(), text)
             .and_then(|id| world.font(id))
+            .map(|font| font.instantiate())
             .filter(|font| !ctx.used().contains(font));
     }
 
@@ -945,7 +949,7 @@ fn shape_segment<'a>(
 
     let Some((font, covers)) =
         get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
-            shape_tofus(ctx, base, text, font);
+            shape_tofus(ctx, base, text, &font);
         })
     else {
         return;
@@ -1143,7 +1147,7 @@ fn shape_segment<'a>(
 /// determine how to transform the rendered text to display scripts as expected.
 fn determine_shift(
     text: &str,
-    font: &Font,
+    font: &FontInstance,
     settings: ShiftSettings,
 ) -> (Em, Em, Em, Option<Feature>) {
     settings
@@ -1194,7 +1198,7 @@ fn determine_shift(
 /// Create a shape plan.
 #[comemo::memoize]
 pub fn create_shape_plan(
-    font: &Font,
+    font: &FontInstance,
     direction: rustybuzz::Direction,
     script: rustybuzz::Script,
     language: Option<&rustybuzz::Language>,
@@ -1210,7 +1214,7 @@ pub fn create_shape_plan(
 }
 
 /// Shape the text with tofus from the given font.
-fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
+fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontInstance) {
     let x_advance = font.x_advance(0).unwrap_or_default();
     let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
@@ -1314,7 +1318,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 }
 
 /// Difference between non-breaking and normal space.
-fn nbsp_delta(font: &Font) -> Option<Em> {
+fn nbsp_delta(font: &FontInstance) -> Option<Em> {
     let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
     Some(font.x_advance(nbsp)? - font.x_advance(space)?)

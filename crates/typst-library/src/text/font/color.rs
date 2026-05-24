@@ -9,14 +9,14 @@ use xmlwriter::XmlWriter;
 
 use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Rect, Size};
-use crate::text::Font;
+use crate::text::FontInstance;
 use crate::visualize::{
     ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, Shape, SvgImage,
 };
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
-pub fn should_outline(font: &Font, glyph_id: GlyphId) -> bool {
+pub fn should_outline(font: &FontInstance, glyph_id: GlyphId) -> bool {
     let ttf = font.ttf();
     (ttf.tables().glyf.is_some()
         || ttf.tables().cff.is_some()
@@ -86,7 +86,7 @@ impl GlyphFrameItem {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
-pub fn glyph_frame(font: &Font, glyph_id: u16) -> Option<GlyphFrame> {
+pub fn glyph_frame(font: &FontInstance, glyph_id: u16) -> Option<GlyphFrame> {
     let upem = Abs::pt(font.units_per_em());
     let glyph_id = GlyphId(glyph_id);
 
@@ -103,7 +103,7 @@ pub fn glyph_frame(font: &Font, glyph_id: u16) -> Option<GlyphFrame> {
 }
 
 /// Tries to draw a glyph.
-fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
+fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let ttf = font.ttf();
     let kind = if let Some(raster_image) = ttf
         .glyph_raster_image(glyph_id, u16::MAX)
@@ -122,7 +122,7 @@ fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
 }
 
 /// Draws a fallback tofu box with the advance width of the glyph.
-fn draw_fallback_tofu(font: &Font, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
+fn draw_fallback_tofu(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
     let advance = font
         .ttf()
         .glyph_hor_advance(glyph_id)
@@ -142,7 +142,7 @@ fn draw_fallback_tofu(font: &Font, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
 ///
 /// Supports only PNG images.
 fn draw_raster_glyph(
-    font: &Font,
+    font: &FontInstance,
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<GlyphFrameItem> {
@@ -168,7 +168,11 @@ fn draw_raster_glyph(
 }
 
 /// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+fn draw_colr_glyph(
+    font: &FontInstance,
+    upem: Abs,
+    glyph_id: GlyphId,
+) -> Option<GlyphFrameItem> {
     let svg_string = colr_glyph_to_svg(font, glyph_id)?;
 
     let ttf = font.ttf();
@@ -187,7 +191,7 @@ fn draw_colr_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFra
 }
 
 /// Convert a COLR glyph into an SVG file.
-fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
+fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     let ttf = font.ttf();
@@ -234,7 +238,11 @@ fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
 }
 
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+fn draw_svg_glyph(
+    font: &FontInstance,
+    upem: Abs,
+    glyph_id: GlyphId,
+) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
     let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;

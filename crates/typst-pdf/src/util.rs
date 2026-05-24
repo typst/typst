@@ -11,7 +11,7 @@ use krilla::tagging as kt;
 use smallvec::SmallVec;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
-use typst_library::text::Font;
+use typst_library::text::FontInstance;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
 pub(crate) trait SidesExt<T> {
@@ -160,7 +160,7 @@ impl ValidatorsExt for Validators {
 }
 
 /// Display the font family of a font.
-pub(crate) fn display_font(font: Option<&Font>) -> EcoString {
+pub(crate) fn display_font(font: Option<&FontInstance>) -> EcoString {
     match font {
         Some(font) => eco_format!("font `{}`", font.info().family.repr()),
         None => "a font".into(),

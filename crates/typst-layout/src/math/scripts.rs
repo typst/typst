@@ -10,7 +10,7 @@ use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Axis, Corner, Frame, Point, Size};
 use typst_library::math::EquationElem;
 use typst_library::math::ir::{MathProperties, PRIME_CHAR, PrimesItem, ScriptsItem};
-use typst_library::text::Font;
+use typst_library::text::FontInstance;
 
 use super::MathContext;
 use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
@@ -288,7 +288,7 @@ fn compute_limit_widths(
 /// Returns two lengths, the first being the distance to the upper-limit's
 /// baseline and the second being the distance to the lower-limit's baseline.
 fn compute_limit_shifts(
-    font: &Font,
+    font: &FontInstance,
     font_size: Abs,
     base: &MathFragment,
     [t, b]: [Option<&MathFragment>; 2],
@@ -316,7 +316,7 @@ fn compute_limit_shifts(
 /// Returns two lengths, the first being the distance to the superscripts'
 /// baseline and the second being the distance to the subscripts' baseline.
 fn compute_script_shifts(
-    font: &Font,
+    font: &FontInstance,
     font_size: Abs,
     cramped: bool,
     base: &MathFragment,

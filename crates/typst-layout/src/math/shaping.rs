@@ -9,7 +9,7 @@ use typst_library::foundations::StyleChain;
 use typst_library::layout::Em;
 use typst_library::math::families;
 use typst_library::text::{
-    Font, FontFamily, FontVariant, Glyph, TextElem, language, variant,
+    FontFamily, FontInstance, FontVariant, Glyph, TextElem, language, variant,
 };
 use typst_syntax::Span;
 
@@ -21,7 +21,7 @@ pub fn shape(
     styles: StyleChain,
     features: &[Feature],
     text: &str,
-) -> Option<(Font, Vec<Glyph>)> {
+) -> Option<(FontInstance, Vec<Glyph>)> {
     shape_impl(
         world,
         variant(styles),
@@ -42,7 +42,7 @@ fn shape_impl(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
-) -> Option<(Font, Vec<Glyph>)> {
+) -> Option<(FontInstance, Vec<Glyph>)> {
     let mut ctx = ShapingContext {
         world,
         used: vec![],
@@ -116,13 +116,13 @@ where
 /// Holds shaping results and metadata for shaping some text.
 struct ShapingContext<'a, 'b> {
     world: Tracked<'a, dyn World + 'a>,
-    used: Vec<Font>,
+    used: Vec<FontInstance>,
     variant: FontVariant,
     features: &'b [Feature],
     language: Language,
     fallback: bool,
     glyphs: Vec<Glyph>,
-    font: Option<Font>,
+    font: Option<FontInstance>,
 }
 
 impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
@@ -130,11 +130,11 @@ impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
         self.world
     }
 
-    fn used(&mut self) -> &mut Vec<Font> {
+    fn used(&mut self) -> &mut Vec<FontInstance> {
         &mut self.used
     }
 
-    fn first(&self) -> Option<&Font> {
+    fn first(&self) -> Option<&FontInstance> {
         self.used.first()
     }
 
@@ -153,7 +153,7 @@ fn shape_text<'a, 'b>(
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {
-    let shape_tofus = |ctx: &mut ShapingContext, text: &str, font: Font| {
+    let shape_tofus = |ctx: &mut ShapingContext, text: &str, font: FontInstance| {
         for _ in text.chars() {
             ctx.glyphs.push(Glyph {
                 id: 0,

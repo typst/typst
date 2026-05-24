@@ -10,7 +10,7 @@ use typst_library::introspection::Tag;
 use typst_library::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::MathSize;
 use typst_library::math::ir::MathProperties;
-use typst_library::text::{Font, TextElem};
+use typst_library::text::{FontInstance, TextElem};
 use typst_library::visualize::{FixedStroke, Paint};
 use unicode_math_class::MathClass;
 
@@ -108,7 +108,7 @@ impl MathFragment {
     }
 
     #[inline]
-    pub fn font(&self, ctx: &MathContext, styles: StyleChain) -> (Font, Abs) {
+    pub fn font(&self, ctx: &MathContext, styles: StyleChain) -> (FontInstance, Abs) {
         (
             match self {
                 Self::Glyph(glyph) => glyph.item.font.clone(),

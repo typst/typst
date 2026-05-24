@@ -1,9 +1,8 @@
 use std::sync::OnceLock;
 
-use super::Font;
 use crate::foundations::Cast;
 use crate::layout::{Em, Frame};
-use crate::text::{DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS};
+use crate::text::{DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS, FontInstance};
 
 /// Metrics of a font.
 #[derive(Debug, Clone)]
@@ -195,7 +194,7 @@ pub struct MathConstants {
 }
 
 impl MathConstants {
-    pub(super) fn new(font: &Font) -> Box<Self> {
+    pub(super) fn new(font: &FontInstance) -> Box<Self> {
         let ttf = font.ttf();
 
         let space_width = ttf
@@ -211,7 +210,7 @@ impl MathConstants {
     }
 
     fn from_constants(
-        font: &Font,
+        font: &FontInstance,
         constants: &ttf_parser::math::Constants,
         space_width: Em,
     ) -> Box<Self> {
@@ -323,7 +322,7 @@ impl MathConstants {
     ///
     /// <https://www.w3.org/TR/mathml-core/#layout-constants-mathconstants>
     /// <https://github.com/notofonts/math/blob/main/documentation/building-math-fonts/index.md>
-    fn fallback(font: &Font, space_width: Em) -> Box<Self> {
+    fn fallback(font: &FontInstance, space_width: Em) -> Box<Self> {
         let metrics = font.metrics();
         Box::new(MathConstants {
             space_width,

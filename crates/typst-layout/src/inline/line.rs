@@ -466,6 +466,7 @@ pub fn apply_shift<'a>(
                     .book()
                     .select(family.as_str(), variant(styles))
                     .and_then(|id| world.font(id))
+                    .map(|font| font.instantiate())
             })
             .map_or(*scripts.kind.default_metrics(), |f| {
                 *scripts.kind.read_metrics(f.metrics())

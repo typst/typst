@@ -5,7 +5,7 @@ use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, NumberItem, TextItem};
 use typst_library::math::{EquationElem, style_dtls, style_flac};
-use typst_library::text::{Font, TextElem};
+use typst_library::text::{FontInstance, TextElem};
 use unicode_math_class::MathClass;
 
 use super::MathContext;
@@ -119,7 +119,7 @@ pub fn layout_glyph(
 }
 
 /// Whether the given font has the dtls OpenType feature.
-fn has_dtls_feat(font: &Font) -> bool {
+fn has_dtls_feat(font: &FontInstance) -> bool {
     font.ttf()
         .tables()
         .gsub

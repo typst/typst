@@ -24,7 +24,7 @@ use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
-use typst_library::text::Font;
+use typst_library::text::FontInstance;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -267,8 +267,8 @@ impl FrameContext {
 /// Globally needed context for converting a Typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,
-    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, Font>,
+    pub(crate) fonts_forward: FxHashMap<FontInstance, krilla::text::Font>,
+    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, FontInstance>,
     /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
