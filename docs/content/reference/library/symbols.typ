@@ -223,11 +223,14 @@
         .map(((variant, ..)) => complete(variant))
         .filter(v => v != full-name)
 
-      entries.push(symbol-entry(
-        full-name,
+      entries.push((
         value,
-        deprecation,
-        alternates,
+        symbol-entry(
+          full-name,
+          value,
+          deprecation,
+          alternates,
+        ),
       ))
     }
   }
@@ -252,7 +255,17 @@
 // A list / grid of symbols with their names.
 #let symbol-name-list(mod, emoji: false) = {
   let entries = symbol-list-entries(mod, none)
-  symbol-list(entries, emoji: emoji)
+  if emoji {
+    // Order entries in CLDR order.
+    entries = entries.sorted(
+      key: ((value, entry)) => value,
+      by: stdx.emoji-ordering,
+    )
+  }
+  symbol-list(
+    entries.map(((_, entry)) => entry),
+    emoji: emoji,
+  )
 }
 
 // A list / grid of symbols with their shorthands.
