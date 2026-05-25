@@ -320,7 +320,7 @@ impl<'a> StackLayouter<'a> {
             bail!(self.span, "stack spacing is infinite");
         }
 
-        let mut output = Frame::hard(size);
+        let mut output = Frame::soft(size);
         let mut cursor = Abs::zero();
         let mut ruler: FixedAlignment = self.dir.start().into();
 

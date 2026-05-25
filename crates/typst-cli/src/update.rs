@@ -165,8 +165,7 @@ impl Release {
     ) -> StrResult<Vec<u8>> {
         let asset = self.assets.iter().find(|a| a.name.starts_with(asset_name)).ok_or(
             eco_format!(
-                "could not find prebuilt binary `{}` for your platform",
-                asset_name
+                "could not find prebuilt binary `{asset_name}` for your platform"
             ),
         )?;
 

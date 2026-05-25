@@ -23,6 +23,7 @@ a435ca208442488e4e2aabe6e6099ba0 disable-tags-artifact
 e3af0bddd6bcdbad33943109d3c79fcb figure-basic
 cb9571403237411f8d62aa142f1f5c80 figure-tags-additional-caption-inside-body
 33b17e86c8121a1a5694dbaf9c68927a figure-tags-alt-with-different-lang
+f12cadecddcdeb92c1408c4ce670b78d figure-tags-bbox-of-square-with-stroke
 bc6a83eb915ca43700b5baedd0fb16f0 figure-tags-block-equation-with-caption
 04921fc62f0fdc8f19495c62366e5efd figure-tags-image-basic
 c08fe735930451017157dcb2ab74552b figure-tags-image-figure-with-caption

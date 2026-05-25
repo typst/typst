@@ -154,6 +154,10 @@ main > ul > li::marker {
   content: "–   ";
 }
 
+ul.checked > li::marker {
+  content: "✓   ";
+}
+
 dl {
   padding-inline-start: 32px;
   margin-block: 16px;

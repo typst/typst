@@ -125,3 +125,15 @@ $ f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise!",
 ) $
+
+--- issue-8261-string-as-empty paged html ---
+// Testing that empty strings produce no element in MathML
+$ "" " " $
+
+--- issue-8261-string-as-ellipsis paged html ---
+// Testing that ellipses produce `<mtext>` in MathML, not `<mn>`
+$ "..." $
+
+--- issue-8261-string-as-non-numeric paged html ---
+// Testing that various "bogus" strings produce `<mtext>` in MathML, not `<mn>`
+$ "1..1" ".1.1" "1.1." "1..1..1" "1.1.1" ".." $

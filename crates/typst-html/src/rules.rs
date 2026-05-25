@@ -503,12 +503,12 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     let span = elem.span();
     let works = Works::with_bibliography(engine, elem.clone())?;
-    let references = works.references(elem, styles)?;
+    let bibliography = works.bibliography()?;
 
-    let items = references.iter().map(|(prefix, reference, loc)| {
-        let mut realized = reference.clone();
+    let items = bibliography.entries.iter().map(|entry| {
+        let mut realized = entry.body.clone();
 
-        if let Some(mut prefix) = prefix.clone() {
+        if let Some(mut prefix) = entry.prefix.clone() {
             // If we have a link back to the first citation referencing this
             // entry, attach the appropriate role.
             if prefix.is::<DirectLinkElem>() {
@@ -528,7 +528,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         HtmlElem::new(tag::li)
             .with_body(Some(realized))
             .pack()
-            .located(*loc)
+            .located(entry.backlink)
             .spanned(span)
     });
 
@@ -544,7 +544,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
             .with_attr(attr::role, "doc-bibliography")
             .with_optional_attr(
                 attr::class,
-                works.hanging_indent.then_some("hanging-indent"),
+                bibliography.hanging_indent.then_some("hanging-indent"),
             )
             .with_body(Some(title.unwrap_or_default() + list))
             .pack()

@@ -1,5 +1,12 @@
 //! Diagnostics.
 
+// We re-export these types from `ecow` so that the macros below can write
+// `$crate::diag::eco_format` instead of `::ecow::eco_format`. This allows
+// downstream crates to use the macros without needing to include `ecow` as a
+// direct dependency of the crate.
+#[doc(hidden)]
+pub use ecow::{EcoString, EcoVec, eco_format, eco_vec};
+
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
@@ -9,7 +16,6 @@ use std::string::FromUtf8Error;
 
 use az::SaturatingAs;
 use comemo::Tracked;
-use ecow::{EcoVec, eco_vec};
 use typst_syntax::package::{PackageSpec, PackageVersion};
 use typst_syntax::{Lines, Span, Spanned, SyntaxError, VirtualRoot};
 use utf8_iter::ErrorReportingUtf8Chars;
@@ -40,6 +46,8 @@ use crate::{World, WorldExt};
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__bail` and not `bail`.
 macro_rules! __bail {
     // If we don't have a span, forward to `error!` to create a `StrResult` or
     // `HintedStrResult`.
@@ -56,12 +64,12 @@ macro_rules! __bail {
 
     // Just early return for a `SourceResult`: `bail!(some_error)`.
     ($error:expr) => {
-        return Err(::ecow::eco_vec![$error])
+        return Err($crate::diag::eco_vec![$error])
     };
 
     // For `bail(span, ...)`, we reuse `error!` and produce a `SourceResult`.
     ($($tts:tt)*) => {
-        return Err(::ecow::eco_vec![$crate::diag::error!($($tts)*)])
+        return Err($crate::diag::eco_vec![$crate::diag::error!($($tts)*)])
     };
 }
 
@@ -85,6 +93,8 @@ macro_rules! __bail {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__error` and not `error`.
 macro_rules! __error {
     // For `error!("just a {}", "string")`.
     ($fmt:literal $(, $arg:expr)* $(,)?) => {
@@ -150,6 +160,8 @@ macro_rules! __error {
 /// ```
 #[macro_export]
 #[doc(hidden)]
+#[clippy::format_args]
+// See the comment below for why this is `__warning` and not `warning`.
 macro_rules! __warning {
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
@@ -167,13 +179,28 @@ macro_rules! __warning {
     }};
 }
 
+// We want the `bail`, `error`, and `warning` macros and their documentation to
+// be scoped locally to this module and imported like normal items, including by
+// modules within this crate. However Rust only allows public macro_rules macros
+// to be exported at the root of the crate, and gives us no tools to avoid that.
+// See the "Import and Export" chapter of "The Little Book of Rust Macros" for
+// more: <https://lukaswirth.dev/tlborm/decl-macros/minutiae/import-export.html>
+//
+// Our solution is simple: the actual macros are named with two underscores, and
+// while they are available at the root of the crate, we add `doc(hidden)` to
+// hide their docs at the crate root. We then we re-export them here with new
+// names and `doc(inline)` so the preferred names and their documentation are
+// scoped to this module.
+//
+// Unfortunately, `__bail` is still available at the crate root here and in all
+// importers, but its name should suggest that we prefer to use `bail` instead.
+// Note that the `disallowed_macros` lint does not handle re-exports like this.
 #[rustfmt::skip]
 #[doc(inline)]
 pub use {
-    crate::__bail as bail,
-    crate::__error as error,
-    crate::__warning as warning,
-    ecow::{eco_format, EcoString},
+    __bail as bail,
+    __error as error,
+    __warning as warning,
 };
 
 /// A result that can carry multiple source errors. The recommended way to
@@ -710,23 +737,36 @@ pub type LoadResult<T> = Result<T, LoadError>;
 /// [`FileId`]: typst_syntax::FileId
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct LoadError {
-    /// The position in the file at which the error occurred.
-    pos: ReportPos,
+    /// The position in the file at which the error occurred, or `None` for
+    /// binary sources.
+    text_pos: Option<ReportTextPos>,
     /// Must contain a message formatted like this: `"failed to do thing (cause)"`.
     message: EcoString,
 }
 
 impl LoadError {
-    /// Creates a new error from a position in a file, a base message
-    /// (e.g. `failed to parse JSON`) and a concrete error (e.g. `invalid
-    /// number`)
-    pub fn new(
-        pos: impl Into<ReportPos>,
+    /// Creates a new error from a position in a text file, a base message (e.g.
+    /// `failed to parse JSON`) and a concrete error (e.g. `invalid number`)
+    pub fn text(
+        pos: impl Into<ReportTextPos>,
         message: impl std::fmt::Display,
         error: impl std::fmt::Display,
     ) -> Self {
         Self {
-            pos: pos.into(),
+            text_pos: Some(pos.into()),
+            message: eco_format!("{message} ({error})"),
+        }
+    }
+
+    /// Creates a new error from a base message (e.g. `failed to parse PDF`) and
+    /// a concrete error (e.g. `invalid number`). For use with binary sources,
+    /// which do not have useful position information.
+    pub fn binary(
+        message: impl std::fmt::Display,
+        error: impl std::fmt::Display,
+    ) -> Self {
+        Self {
+            text_pos: None,
             message: eco_format!("{message} ({error})"),
         }
     }
@@ -736,7 +776,7 @@ impl From<Utf8Error> for LoadError {
     fn from(err: Utf8Error) -> Self {
         let start = err.valid_up_to();
         let end = start + err.error_len().unwrap_or(0);
-        LoadError::new(
+        LoadError::text(
             start..end,
             "failed to convert to string",
             "file is not valid UTF-8",
@@ -761,8 +801,12 @@ where
     type Output = SourceDiagnostic;
 
     fn within(self, loaded: &Loaded) -> Self::Output {
-        let LoadError { pos, message } = self.into();
-        load_err_in_text(loaded, pos, message)
+        let LoadError { text_pos: pos, message } = self.into();
+        if let Some(pos) = pos {
+            load_err_in_text(loaded, pos, message)
+        } else {
+            load_err_in_binary(loaded, None, message)
+        }
     }
 }
 
@@ -778,19 +822,20 @@ where
 }
 
 /// Report an error, possibly in an external file. This will delegate to
-/// [`load_err_in_invalid_text`] if the data isn't valid UTF-8.
+/// [`load_err_in_binary`] if the data isn't valid UTF-8.
 fn load_err_in_text(
     loaded: &Loaded,
-    pos: impl Into<ReportPos>,
+    pos: ReportTextPos,
     mut message: EcoString,
 ) -> SourceDiagnostic {
-    let pos = pos.into();
     // This also does UTF-8 validation. Only report an error in an external
     // file if it is human readable (valid UTF-8), otherwise fall back to
-    // `load_err_in_invalid_text`.
-    let lines = loaded.data.lines();
-    match (loaded.source.v, lines) {
-        (LoadSource::Path(file_id), Ok(lines)) => {
+    // `load_err_in_binary`.
+    let Ok(lines) = loaded.data.lines() else {
+        return load_err_in_binary(loaded, Some(pos), message);
+    };
+    match loaded.source.v {
+        LoadSource::Path(file_id) => {
             if let Some(range) = pos.range(&lines) {
                 let span = Span::from_range(file_id, range);
                 return SourceDiagnostic::error(span, message);
@@ -807,7 +852,7 @@ fn load_err_in_text(
             }
             SourceDiagnostic::error(span, message)
         }
-        (LoadSource::Bytes, Ok(lines)) => {
+        LoadSource::Bytes => {
             if let Some(pair) = pos.line_col(&lines) {
                 message.pop();
                 let (line, col) = pair.numbers();
@@ -815,19 +860,20 @@ fn load_err_in_text(
             }
             SourceDiagnostic::error(loaded.source.span, message)
         }
-        _ => load_err_in_invalid_text(loaded, pos, message),
     }
 }
 
 /// Report an error (possibly from an external file) that isn't valid UTF-8.
-fn load_err_in_invalid_text(
+fn load_err_in_binary(
     loaded: &Loaded,
-    pos: impl Into<ReportPos>,
+    pos: Option<ReportTextPos>,
     mut message: EcoString,
 ) -> SourceDiagnostic {
-    let line_col = pos.into().try_line_col(&loaded.data).map(|p| p.numbers());
-    match (loaded.source.v, line_col) {
-        (LoadSource::Path(file), _) => {
+    let line_col = pos
+        .and_then(|pos| pos.try_line_col(&loaded.data))
+        .map(|p| p.numbers());
+    match loaded.source.v {
+        LoadSource::Path(file) => {
             message.pop();
             match file.root() {
                 VirtualRoot::Project => {
@@ -847,18 +893,19 @@ fn load_err_in_invalid_text(
             }
             message.push(')');
         }
-        (LoadSource::Bytes, Some((line, col))) => {
-            message.pop();
-            write!(&mut message, " at {line}:{col})").ok();
+        LoadSource::Bytes => {
+            if let Some((line, col)) = line_col {
+                message.pop();
+                write!(&mut message, " at {line}:{col})").ok();
+            }
         }
-        (LoadSource::Bytes, None) => (),
     }
     SourceDiagnostic::error(loaded.source.span, message)
 }
 
-/// A position at which an error was reported.
+/// A position in a text document at which an error was reported.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub enum ReportPos {
+pub enum ReportTextPos {
     /// Contains a range, and a line/column pair.
     Full(std::ops::Range<u32>, LineCol),
     /// Contains a range.
@@ -869,19 +916,19 @@ pub enum ReportPos {
     None,
 }
 
-impl From<std::ops::Range<usize>> for ReportPos {
+impl From<std::ops::Range<usize>> for ReportTextPos {
     fn from(value: std::ops::Range<usize>) -> Self {
         Self::Range(value.start.saturating_as()..value.end.saturating_as())
     }
 }
 
-impl From<LineCol> for ReportPos {
+impl From<LineCol> for ReportTextPos {
     fn from(value: LineCol) -> Self {
         Self::LineCol(value)
     }
 }
 
-impl ReportPos {
+impl ReportTextPos {
     /// Creates a position from a pre-existing range and line-column pair.
     pub fn full(range: std::ops::Range<usize>, pair: LineCol) -> Self {
         let range = range.start.saturating_as()..range.end.saturating_as();
@@ -891,27 +938,29 @@ impl ReportPos {
     /// Tries to determine the byte range for this position.
     fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
         match self {
-            ReportPos::Full(range, _) => Some(range.start as usize..range.end as usize),
-            ReportPos::Range(range) => Some(range.start as usize..range.end as usize),
-            &ReportPos::LineCol(pair) => {
+            ReportTextPos::Full(range, _) => {
+                Some(range.start as usize..range.end as usize)
+            }
+            ReportTextPos::Range(range) => Some(range.start as usize..range.end as usize),
+            &ReportTextPos::LineCol(pair) => {
                 let i =
                     lines.line_column_to_byte(pair.line as usize, pair.col as usize)?;
                 Some(i..i)
             }
-            ReportPos::None => None,
+            ReportTextPos::None => None,
         }
     }
 
     /// Tries to determine the line/column for this position.
     fn line_col(&self, lines: &Lines<String>) -> Option<LineCol> {
         match self {
-            &ReportPos::Full(_, pair) => Some(pair),
-            ReportPos::Range(range) => {
+            &ReportTextPos::Full(_, pair) => Some(pair),
+            ReportTextPos::Range(range) => {
                 let (line, col) = lines.byte_to_line_column(range.start as usize)?;
                 Some(LineCol::zero_based(line, col))
             }
-            &ReportPos::LineCol(pair) => Some(pair),
-            ReportPos::None => None,
+            &ReportTextPos::LineCol(pair) => Some(pair),
+            ReportTextPos::None => None,
         }
     }
 
@@ -919,12 +968,12 @@ impl ReportPos {
     /// invalid UTF-8 data.
     fn try_line_col(&self, bytes: &[u8]) -> Option<LineCol> {
         match self {
-            &ReportPos::Full(_, pair) => Some(pair),
-            ReportPos::Range(range) => {
+            &ReportTextPos::Full(_, pair) => Some(pair),
+            ReportTextPos::Range(range) => {
                 LineCol::try_from_byte_pos(range.start as usize, bytes)
             }
-            &ReportPos::LineCol(pair) => Some(pair),
-            ReportPos::None => None,
+            &ReportTextPos::LineCol(pair) => Some(pair),
+            ReportTextPos::None => None,
         }
     }
 }
@@ -999,7 +1048,7 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> LoadError
         err => eco_format!("failed to parse {format} ({err})"),
     };
 
-    LoadError { pos: pos.into(), message }
+    LoadError { text_pos: Some(pos.into()), message }
 }
 
 /// Asserts a condition, generating an internal compiler error with the provided
@@ -1032,14 +1081,14 @@ impl<T> ExpectInternal<T> for Option<T> {
     }
 }
 
-/// The shared internal implementation of [`assert_internal`] and
-/// [`expect_internal`].
+/// The shared internal implementation of [`assert_internal`],
+/// [`panic_internal`] and [`ExpectInternal::expect_internal`].
 #[track_caller]
 fn internal_error(msg: &str) -> HintedString {
     let loc = std::panic::Location::caller();
     let mut error = error!(
         "internal error: {msg} (occurred at {loc})";
-        hint: "please report this as a bug"
+        hint: "please report this as a bug";
     );
 
     if cfg!(debug_assertions) {

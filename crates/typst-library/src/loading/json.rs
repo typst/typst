@@ -109,7 +109,7 @@ pub fn json(
     // friendly error message.
     if raw.starts_with(b"\xef\xbb\xbf") {
         bail!(
-            LoadError::new(
+            LoadError::text(
                 LineCol::one_based(1, 1),
                 "failed to parse JSON",
                 "unexpected Byte Order Mark",
@@ -122,7 +122,7 @@ pub fn json(
     serde_json::from_slice(raw)
         .map_err(|err| {
             let pos = LineCol::one_based(err.line(), err.column());
-            LoadError::new(pos, "failed to parse JSON", err)
+            LoadError::text(pos, "failed to parse JSON", err)
         })
         .within(&loaded)
 }

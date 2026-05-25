@@ -47,7 +47,7 @@ pub enum Whitespace {
     ///   lookahead and lookbehind across different levels of the element
     ///   hierarchy.
     ///
-    /// [^1]: https://www.w3.org/TR/css-text-3/#white-space-rules
+    /// [^1]: <https://www.w3.org/TR/css-text-3/#white-space-rules>
     Normal,
     /// The whitespace is emitted as-is. This happens in
     /// - `<pre>` elements as they already have `white-space: pre`,

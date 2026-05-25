@@ -407,7 +407,7 @@ impl From<Deprecation> for HintedString {
         HintedString::new(deprecation.message.into()).with_hints(
             deprecation
                 .until
-                .map(|v| eco_format!("it will be removed in Typst {}", v)),
+                .map(|v| eco_format!("it will be removed in Typst {v}")),
         )
     }
 }
@@ -416,13 +416,13 @@ impl From<Deprecation> for HintedString {
 /// library.
 #[cold]
 fn cannot_mutate_constant(var: &str) -> HintedString {
-    eco_format!("cannot mutate a constant: {}", var).into()
+    eco_format!("cannot mutate a constant: {var}").into()
 }
 
 /// The error message when a variable wasn't found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
 
     if var.contains('-') {
         res.hint(eco_format!(
@@ -439,7 +439,7 @@ fn unknown_variable(var: &str) -> HintedString {
 /// The error message when a variable wasn't found it math.
 #[cold]
 fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
 
     if matches!(var, "none" | "auto" | "false" | "true") {
         res.hint(eco_format!(

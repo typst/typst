@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock};
+use std::sync::LazyLock;
 
 use az::SaturatingAs;
 use comemo::{Track, TrackedMut};
@@ -7,9 +7,8 @@ use ecow::{EcoString, eco_format};
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Binding, Bytes, Context, Datetime, Dict, Duration, IntoValue, Label,
-    LocatableSelector, Module, NativeElement, PathOrStr, Repr, Scope, Selector, ShowFn,
-    Str, Target, Value, array, elem, func,
+    Binding, Bytes, Context, Datetime, Dict, Duration, IntoValue, Label, Module,
+    NativeElement, PathOrStr, Repr, Scope, ShowFn, Str, Target, Value, array, elem, func,
 };
 use typst::introspection::{EmptyIntrospector, MetadataElem};
 use typst::model::{Destination, EarlyLinkResolver, LinkElem, ResolvedLink};
@@ -215,7 +214,6 @@ fn stdx_module() -> Module {
     scope.define_elem::<ConfigElem>();
     scope.define_func::<read_dev_asset>();
     scope.define_func::<read_font>();
-    scope.define_func::<selector_within>();
     scope.define_func::<eval_mapped>();
     scope.define_func::<crate::live::docs_in_source>();
     scope.define_func::<crate::example::compile_example>();
@@ -259,16 +257,6 @@ fn read_font(post_script_name: EcoString) -> StrResult<Bytes> {
         })
         .map(|font| font.data().clone())
         .ok_or("unknown font")?)
-}
-
-/// This exists just because the within selector is not yet publicly exposed.
-/// It can be removed once it is.
-#[func]
-fn selector_within(selector: LocatableSelector, ancestor: LocatableSelector) -> Selector {
-    Selector::Within {
-        selector: Arc::new(selector.0),
-        ancestor: Arc::new(ancestor.0),
-    }
 }
 
 /// Evaluates a string of Typst markup with mapped spans.
@@ -377,7 +365,7 @@ const PATCHED_IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     let web_image = typst_svg::WebImage::new(&image);
     let hash = typst_utils::hash128(&web_image.data);
 
-    let base = styles.get_ref(ConfigElem::asset_base).as_ref();
+    let base = styles.get_ref(ConfigElem::asset_base);
     let path = eco_format!(
         "{base}images/{}.{}",
         encode_hash(hash),

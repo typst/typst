@@ -98,7 +98,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features
       - run: cargo clippy --workspace --all-targets --no-default-features
       - run: cargo fmt --check --all
-      - run: cargo doc --workspace --no-deps
+      - run: cargo doc --workspace --no-deps --document-private-items
       - run: git diff --exit-code
 
   docs:

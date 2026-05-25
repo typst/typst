@@ -46,6 +46,24 @@
 
 #rect(fill: t(none, relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
 
+--- tiling-relative-polygon paged ---
+#polygon(
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+  stroke: blue,
+  (20%, 0pt),
+  (60%, 0pt),
+  (80%, 20pt),
+  (0%,  20pt),
+)
+
+--- tiling-relative-stack paged ---
+#set rect(
+  width: 100%,
+  height: 20pt,
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+)
+#stack(spacing: 5pt, rect(), rect())
+
 --- tiling-small paged ---
 // Tests small tilings for pixel accuracy.
 #box(
@@ -94,6 +112,46 @@
 #set page(width: 100pt, height: 100pt)
 
 #rect(fill: t(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-negative paged ---
+// Test with offset set to `(-10pt, -10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (-10pt, -10pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-zero paged ---
+// Test with offset set to `(0pt, 0pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (0pt, 0pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-positive paged ---
+// Test with offset set to `(10pt, 10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (10pt, 10pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-relative paged ---
+// Test with offset set to `(10pt, 10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), spacing: (10pt, 10pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (50%, -50%)), width: 100%, height: 100%, stroke: 1pt)
 
 --- tiling-stroke paged ---
 // Test tiling on strokes

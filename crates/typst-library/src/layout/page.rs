@@ -110,9 +110,9 @@ pub struct PageElem {
     /// _Procurement Manager_
     ///
     /// #set text(10pt)
-    /// 17 Main Street \
-    /// New York, NY 10001 \
-    /// +1 555 555 5555
+    /// 23 W 23rd Street \
+    /// New York, NY 10010 \
+    /// +1 (212) 555-0155
     /// ```
     #[default(false)]
     #[ghost]
