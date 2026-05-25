@@ -705,6 +705,21 @@ h4 code + .pill {
   margin-inline-start: 16px;
 }
 
+.dev-version-warning {
+  position: absolute;
+  right: 16px;
+  top: 8px;
+  padding-block: 4px;
+  padding-inline: 8px;
+  border-radius: 8px;
+  width: unset;
+  background: #ea3e47;
+  color: #fdfdfd;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
 /* Navigation breadcrumbs */
 
 .breadcrumbs {
