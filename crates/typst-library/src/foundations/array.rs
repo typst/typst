@@ -378,9 +378,7 @@ impl Array {
     /// #range(2, 5) \
     /// #range(20, step: 4) \
     /// #range(21, step: 4) \
-    /// #range(5, 2, step: -1) \
-    /// #range(3, inclusive: true) \
-    /// #range(-2, step: -1, inclusive: true)
+    /// #range(5, 2, step: -1)
     /// ```
     #[func]
     pub fn range(
@@ -393,6 +391,13 @@ impl Array {
         #[external]
         end: i64,
         /// Whether `end` is inclusive.
+        ///
+        /// ```example
+        /// #range(0, inclusive: true) \
+        /// #range(7, 10, inclusive: true) \
+        /// #range(-8, -4, inclusive: true) \
+        /// #range(-6, step: -2, inclusive: true)
+        /// ```
         #[named]
         #[default(false)]
         inclusive: bool,
