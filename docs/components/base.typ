@@ -324,3 +324,24 @@
 #let insertion(name, fallback: none) = context {
   stdx.config.insertions.at(name, default: fallback)
 }
+
+#let dev-version-warning() = {
+  if stdx.is-dev-version {
+    let body = [Dev build #stdx.commit]
+    context if target() == "html" {
+      html.div(class: "dev-version-warning", body)
+    } else {
+      set text(
+        size: 0.75em,
+        weight: "bold",
+        fill: colors.genuine.white,
+      )
+      show: box.with(
+        fill: colors.red.shade-50,
+        inset: 0.67em,
+        radius: 0.67em,
+      )
+      upper(body)
+    }
+  }
+}

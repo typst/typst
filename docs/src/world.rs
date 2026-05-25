@@ -25,7 +25,7 @@ use typst_html::{HtmlAttrs, HtmlElem, attr, tag};
 use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
-use typst_utils::{LazyHash, PicoStr};
+use typst_utils::{LazyHash, PicoStr, display_commit};
 
 use crate::Config;
 use crate::example::FRAME_RULE;
@@ -227,6 +227,7 @@ fn stdx_module(is_dev_version: bool) -> Module {
     scope.define_func::<crate::reflect::is_global_html_attr>();
     scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
+    scope.define("commit", display_commit(typst_utils::version().commit()));
     scope.define("is-dev-version", is_dev_version);
     Module::new("stdx", scope)
 }

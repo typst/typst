@@ -4,7 +4,9 @@
 //   element docs (as opposed to componentized non-prose content).
 
 #import "system.typ": colors, fonts, sizes
-#import "base.typ": labelled, small, title-state, with-short-versions
+#import "base.typ": (
+  labelled, small, title-state, with-short-versions, dev-version-warning,
+)
 #import "example.typ": example, preview, source
 #import "footnote.typ": footnote-rule, with-footnotes
 #import "linking.typ": def-label, def-metadata, register-def
@@ -12,18 +14,6 @@
 // The part of the global styling that applies to the paged version.
 #let paged-styling(body) = {
   set page(margin: (x: 3cm, y: 2.5cm))
-  set page(background: {
-    show: place.with(top + left)
-    show: block.with(width: 2cm, height: 100%)
-    set align(center + horizon)
-    show: rotate.with(-90deg, reflow: true)
-    set text(
-      size: 32pt,
-      weight: "bold",
-      fill: colors.light-gray.shade-30,
-    )
-    upper[Development version]
-  }) if stdx.is-dev-version
   set text(font: (fonts.body, ..fonts.fallback), size: sizes.body)
   set list(marker: [--])
   set underline(offset: 0.2em)
@@ -80,11 +70,14 @@
   set page(
     numbering: "1",
     header: {
+      set align(right)
       counter(footnote).update(())
+      dev-version-warning()
+      h(1fr)
       context {
         let title = title-state.get()
         if title != none {
-          align(right, small(title))
+          small(title)
         }
       }
     },
