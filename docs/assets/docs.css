@@ -311,7 +311,7 @@ pre > button.copy {
   padding: 8px;
   background: #fdfdfd;
   border: 1px solid var(--border-secondary);
-  color: #565565; /* Should be var(--text-secondary) */
+  color: var(--text-primary);
   position: absolute;
   float: right;
   cursor: pointer;
