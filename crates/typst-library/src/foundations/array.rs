@@ -378,7 +378,9 @@ impl Array {
     /// #range(2, 5) \
     /// #range(20, step: 4) \
     /// #range(21, step: 4) \
-    /// #range(5, 2, step: -1)
+    /// #range(5, 2, step: -1) \
+    /// #range(3, inclusive: true) \
+    /// #range(-2, step: -1, inclusive: true)
     /// ```
     #[func]
     pub fn range(
@@ -387,9 +389,13 @@ impl Array {
         #[external]
         #[default]
         start: i64,
-        /// The end of the range (exclusive).
+        /// The end of the range.
         #[external]
         end: i64,
+        /// Whether `end` is inclusive.
+        #[named]
+        #[default(false)]
+        inclusive: bool,
         /// The distance between the generated numbers.
         #[named]
         #[default(NonZeroI64::new(1).unwrap())]
@@ -402,11 +408,12 @@ impl Array {
         };
 
         let step = step.get();
+        let inclusive_end = end + if inclusive { step.signum() } else { 0 };
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&end) == 0.cmp(&step) {
+        while x.cmp(&inclusive_end) == 0.cmp(&step) {
             array.push(x.into_value());
             x += step;
         }

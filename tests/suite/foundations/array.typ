@@ -134,6 +134,12 @@
 #test(range(5, 2, step: -1), (5, 4, 3))
 #test(range(10, 0, step: -3), (10, 7, 4, 1))
 
+#test(range(inclusive: true, 0, 0), (0,))
+#test(range(inclusive: true, -10, -8), (-10, -9, -8))
+#test(range(inclusive: true, -2, 4, step: 2), (-2, 0, 2, 4))
+#test(range(inclusive: true, 5, 2, step: -1), (5, 4, 3, 2))
+#test(range(inclusive: true, 0, -2, step: -1), (0, -1, -2))
+
 --- array-range-end-missing eval ---
 // Error: 2-9 missing argument: end
 #range()
