@@ -151,3 +151,11 @@ $ a/sqrt(b) $
 --- mathml-show-rule-math-in-non-math-in-math html ---
 #show html.elem.where(tag: "msqrt"): html.elem("div", $x^2$)
 $ a/sqrt(b) $
+
+--- mathml-custom-head-stylesheet html ---
+#html.html({
+  html.head()
+  html.body[
+    Hello $x$
+  ]
+})
