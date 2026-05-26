@@ -16,9 +16,10 @@ pub fn finalize(
     LayoutedPage {
         inner,
         mut margin,
-        bleed,
+        margin_two_sided,
+        mut bleed,
+        bleed_two_sided,
         binding,
-        two_sided,
         header,
         footer,
         background,
@@ -31,8 +32,12 @@ pub fn finalize(
     // If two sided, left becomes inside and right becomes outside.
     // Thus, for left-bound pages, we want to swap on even pages and
     // for right-bound pages, we want to swap on odd pages.
-    if two_sided && binding.swap(counter.physical()) {
+    let swap = binding.swap(counter.physical());
+    if margin_two_sided && swap {
         std::mem::swap(&mut margin.left, &mut margin.right);
+    }
+    if bleed_two_sided && swap {
+        std::mem::swap(&mut bleed.left, &mut bleed.right);
     }
 
     // Create a frame for the full page.

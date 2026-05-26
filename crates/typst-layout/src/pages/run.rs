@@ -29,9 +29,10 @@ use crate::flow::{FlowMode, layout_flow};
 pub struct LayoutedPage {
     pub inner: Frame,
     pub margin: Sides<Abs>,
+    pub margin_two_sided: bool,
     pub bleed: Sides<Abs>,
+    pub bleed_two_sided: bool,
     pub binding: Binding,
-    pub two_sided: bool,
     pub header: Option<Frame>,
     pub footer: Option<Frame>,
     pub background: Option<Frame>,
@@ -119,15 +120,16 @@ fn layout_page_run_impl(
     // Determine the margins.
     let default = Rel::<Length>::from((2.5 / 21.0) * min);
     let margin = styles.get(PageElem::margin).custom().unwrap_or_default();
-    let two_sided = margin.two_sided.unwrap_or(false);
+    let margin_two_sided = margin.two_sided.unwrap_or(false);
     let margin = margin
         .sides
         .map(|side| side.and_then(Smart::custom).unwrap_or(default))
         .resolve(styles)
         .relative_to(size);
 
-    let bleed = styles
-        .get(PageElem::bleed)
+    let bleed = styles.get(PageElem::bleed);
+    let bleed_two_sided = bleed.two_sided.unwrap_or(false);
+    let bleed = bleed
         .sides
         .map(|side| side.unwrap_or(Rel::zero()))
         .resolve(styles)
@@ -232,9 +234,10 @@ fn layout_page_run_impl(
             background: layout_marginal(&background, full_size, mid)?,
             foreground: layout_marginal(foreground, full_size, mid)?,
             margin,
+            margin_two_sided,
             bleed,
+            bleed_two_sided,
             binding,
-            two_sided,
         });
     }
 
