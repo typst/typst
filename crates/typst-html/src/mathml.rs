@@ -38,10 +38,11 @@ use crate::{attr::mathml as attr, css};
 ///
 /// # Alignment
 ///
-/// To get the alternating alignment working, we use the `text-align` property
-/// on `mtd`. The vendox prefix value is used because it is the only thing that
-/// actually works across browsers. In the future however, we should use
-/// [`justify-items`][alignment] instead.
+/// To get the alternating alignment working, we use the `justify-items` and
+/// `text-align` properties on `mtd`. In the future,
+/// [`justify-items`][alignment] should work across all browsers. For now, only
+/// Chromium support this. So we put `text-align` after to accommodate other
+/// browsers.
 ///
 /// Inline multiline equations and the `cases` class on an `mtable` are always
 /// left aligned. The `aligned` class on an `mtable` alternates right-left
@@ -103,14 +104,16 @@ mtable.{RIGHT_ALIGN_CLASS} mtd,
 mtable mtd.{RIGHT_ALIGN_CLASS},
 mtable.{LEFT_ALIGN_CLASS} mtd.{RIGHT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} mtd:nth-child(odd) {{
-  text-align: {TEXT_ALIGN_RIGHT};
+  justify-items: end;
+  text-align: right;
 }}
 mtable.{CASES_CLASS} mtd,
 mtable.{LEFT_ALIGN_CLASS} mtd,
 mtable mtd.{LEFT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} mtd:nth-child(even),
 math:is(:not([display])) > mtable.{MULTILINE_EQUATION_CLASS} mtd {{
-  text-align: {TEXT_ALIGN_LEFT};
+  justify-items: start;
+  text-align: left;
 }}
 mtable.{CASES_CLASS} mtd,
 mtable.{ALIGNED_CLASS} mtd,
@@ -187,8 +190,6 @@ const LEFT_FLUSH_CLASS: &str = "left-flush";
 const RIGHT_FLUSH_CLASS: &str = "right-flush";
 
 // CSS values.
-const TEXT_ALIGN_RIGHT: &str = "-webkit-right";
-const TEXT_ALIGN_LEFT: &str = "-webkit-left";
 const EQUATION_ROW_GAP: Em = Em::new(0.5);
 
 const SPACE_WIDTH: Em = Em::new(4.0 / 18.0);
@@ -1135,17 +1136,16 @@ fn make_mo(
 
     let lspace = lspace.unwrap_or(Em::zero()).get();
     let lspace =
-        (force_space || lspace != info.lspace).then(|| eco_format!("{}em", lspace));
+        (force_space || lspace != info.lspace).then(|| eco_format!("{lspace}em"));
     let rspace = rspace.unwrap_or(Em::zero()).get();
     let rspace =
-        (force_space || rspace != info.rspace).then(|| eco_format!("{}em", rspace));
+        (force_space || rspace != info.rspace).then(|| eco_format!("{rspace}em"));
 
-    let fence = (fence != is_fence(text)).then(|| eco_format!("{}", fence));
-    let separator =
-        (separator != is_separator(text)).then(|| eco_format!("{}", separator));
+    let fence = (fence != is_fence(text)).then(|| eco_format!("{fence}"));
+    let separator = (separator != is_separator(text)).then(|| eco_format!("{separator}"));
 
     let largeop = (largeop != info.properties.contains(Properties::LARGEOP))
-        .then(|| eco_format!("{}", largeop));
+        .then(|| eco_format!("{largeop}"));
 
     // In compact styles the browser will move top/bottom attachments to the tl
     // and br positions, so we need to explicitly disable this.
@@ -1165,7 +1165,7 @@ fn make_mo(
     };
     let explicit = stretch.is_some_and(|stretch| stretch.is_explicit(stretch_axis));
     let stretchy = (explicit != info.properties.contains(Properties::STRETCHY))
-        .then(|| eco_format!("{}", explicit));
+        .then(|| eco_format!("{explicit}"));
 
     // We don't need to set `maxsize` as it is infinity by default.
     let (symmetric, minsize) = if explicit {
@@ -1341,6 +1341,6 @@ fn ignored_math_item(
 ) -> SourceResult<Content> {
     ctx.engine
         .sink
-        .warn(warning!(span, "{} was ignored during MathML export", name));
+        .warn(warning!(span, "{name} was ignored during MathML export"));
     ctx.handle_into_node(body)
 }

@@ -598,7 +598,7 @@ cast! {
 /// Format the `Format` error of the time crate in an appropriate way.
 fn format_time_format_error(error: Format) -> EcoString {
     match error {
-        Format::InvalidComponent(name) => eco_format!("invalid component '{}'", name),
+        Format::InvalidComponent(name) => eco_format!("invalid component '{name}'"),
         Format::InsufficientTypeInformation { .. } => {
             "failed to format datetime (insufficient information)".into()
         }
@@ -613,29 +613,25 @@ fn format_time_invalid_format_description_error(
 ) -> EcoString {
     match error {
         InvalidFormatDescription::UnclosedOpeningBracket { index, .. } => {
-            eco_format!("missing closing bracket for bracket at index {}", index)
+            eco_format!("missing closing bracket for bracket at index {index}")
         }
         InvalidFormatDescription::InvalidComponentName { name, index, .. } => {
-            eco_format!("invalid component name '{}' at index {}", name, index)
+            eco_format!("invalid component name '{name}' at index {index}")
         }
         InvalidFormatDescription::InvalidModifier { value, index, .. } => {
-            eco_format!("invalid modifier '{}' at index {}", value, index)
+            eco_format!("invalid modifier '{value}' at index {index}")
         }
         InvalidFormatDescription::Expected { what, index, .. } => {
-            eco_format!("expected {} at index {}", what, index)
+            eco_format!("expected {what} at index {index}")
         }
         InvalidFormatDescription::MissingComponentName { index, .. } => {
-            eco_format!("expected component name at index {}", index)
+            eco_format!("expected component name at index {index}")
         }
         InvalidFormatDescription::MissingRequiredModifier { name, index, .. } => {
-            eco_format!(
-                "missing required modifier {} for component at index {}",
-                name,
-                index
-            )
+            eco_format!("missing required modifier {name} for component at index {index}")
         }
         InvalidFormatDescription::NotSupported { context, what, index, .. } => {
-            eco_format!("{} is not supported in {} at index {}", what, context, index)
+            eco_format!("{what} is not supported in {context} at index {index}")
         }
         err => eco_format!("failed to parse datetime format ({err})"),
     }

@@ -169,10 +169,10 @@ impl Eval for ast::ForLoop<'_> {
                 iter!(for pattern in bytes.as_slice());
             }
             (Pattern::Destructuring(_), Value::Str(_) | Value::Bytes(_)) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iterable_type);
+                bail!(pattern.span(), "cannot destructure values of {iterable_type}");
             }
             _ => {
-                bail!(self.iterable().span(), "cannot loop over {}", iterable_type);
+                bail!(self.iterable().span(), "cannot loop over {iterable_type}");
             }
         }
 

@@ -85,9 +85,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
 /// - For other shapes, the ancestor is the innermost @block or @box that
-///   contains the shape. This includes the boxes and blocks that are implicitly
-///   created by show rules and elements. For example, a @rotate will not affect
-///   the parent of a gradient, but a @grid will.
+///   contains the shape.
 ///
 /// = Color spaces and interpolation <color-spaces-and-interpolation>
 /// Gradients can be interpolated in any color space. By default, gradients are
@@ -225,10 +223,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost block, box, column, grid, or stack that contains the
-        /// element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -314,10 +310,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost block, box, column, grid, or stack that contains the
-        /// element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -435,10 +429,8 @@ impl Gradient {
         space: ColorSpace,
         /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost block, box, column, grid, or stack that contains the
-        /// element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,

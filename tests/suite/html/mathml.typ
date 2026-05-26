@@ -34,6 +34,18 @@ $
     & = f + g
 $
 
+--- mathml-multiline-alignment-2 html ---
+$
+  a_n & = a \
+      & = a
+$
+
+--- mathml-multiline-alignment-3 html ---
+$
+  a + b & = c \
+      d & = e + f
+$
+
 --- mathml-stretch-largeop-vs-explicit html ---
 $ integral $
 $ stretch(integral) $
@@ -139,3 +151,11 @@ $ a/sqrt(b) $
 --- mathml-show-rule-math-in-non-math-in-math html ---
 #show html.elem.where(tag: "msqrt"): html.elem("div", $x^2$)
 $ a/sqrt(b) $
+
+--- mathml-custom-head-stylesheet html ---
+#html.html({
+  html.head()
+  html.body[
+    Hello $x$
+  ]
+})

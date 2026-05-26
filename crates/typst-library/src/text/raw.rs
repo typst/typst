@@ -13,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::Lang;
 use crate::World;
 use crate::diag::{
-    LineCol, LoadError, LoadResult, LoadedWithin, ReportPos, SourceResult,
+    LineCol, LoadError, LoadResult, LoadedWithin, ReportTextPos, SourceResult,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -621,19 +621,19 @@ impl RawSyntax {
 
 fn format_syntax_error(error: ParseSyntaxError) -> LoadError {
     let pos = syntax_error_pos(&error);
-    LoadError::new(pos, "failed to parse syntax", error)
+    LoadError::text(pos, "failed to parse syntax", error)
 }
 
-fn syntax_error_pos(error: &ParseSyntaxError) -> ReportPos {
+fn syntax_error_pos(error: &ParseSyntaxError) -> ReportTextPos {
     match error {
         ParseSyntaxError::InvalidYaml(scan_error) => {
             let m = scan_error.marker();
-            ReportPos::full(
+            ReportTextPos::full(
                 m.index()..m.index(),
                 LineCol::one_based(m.line(), m.col() + 1),
             )
         }
-        _ => ReportPos::None,
+        _ => ReportTextPos::None,
     }
 }
 
@@ -670,9 +670,9 @@ impl RawTheme {
 fn format_theme_error(error: syntect::LoadingError) -> LoadError {
     let pos = match &error {
         syntect::LoadingError::ParseSyntax(err, _) => syntax_error_pos(err),
-        _ => ReportPos::None,
+        _ => ReportTextPos::None,
     };
-    LoadError::new(pos, "failed to parse theme", error)
+    LoadError::text(pos, "failed to parse theme", error)
 }
 
 /// A highlighted line of raw text.

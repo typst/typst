@@ -260,8 +260,9 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 
 /// Handle children frames logically belonging to another element, because
 /// [typst_library::layout::GroupItem::parent] has been set. All elements that
-/// can have children set by this mechanism must be handled in [`handle_start`]
-/// and must produce a located [`Group`], so the children can be inserted there.
+/// can have children set by this mechanism must be handled in
+/// [`crate::tags::handle_start`] and must produce a located
+/// [`crate::tags::groups::Group`], so the children can be inserted there.
 ///
 /// Currently the frame parent is only set for:
 /// - place elements [`PlaceElem`]

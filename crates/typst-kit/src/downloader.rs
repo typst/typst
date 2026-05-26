@@ -376,8 +376,8 @@ fn format_seconds(duration: Duration) -> impl Display {
     typst_utils::display(move |f| write!(f, "{} s", duration.as_secs()))
 }
 
-// Acknowledgement:
-// The `RemoteReader` is closely modelled after rustup's `DownloadTracker`.
+// Acknowledgment:
+// The `RemoteReader` is closely modeled after rustup's `DownloadTracker`.
 // https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs
 
 /// Keep track of this many download speed samples.

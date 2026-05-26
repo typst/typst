@@ -3,6 +3,10 @@
 /** General note: The docs class is used in some places to increase the
  * specificity. */
 
+:root {
+  scrollbar-gutter: stable;
+}
+
 body.docs {
   font-size: 16px;
 }
@@ -152,6 +156,10 @@ main > ul {
 
 main > ul > li::marker {
   content: "–   ";
+}
+
+ul.checked > li::marker {
+  content: "✓   ";
 }
 
 dl {

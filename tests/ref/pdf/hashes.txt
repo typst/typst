@@ -823,6 +823,9 @@ df0abf320f6cb053b4258361fbc478e5 issue-7872-negative-scale
 796d7ef7c0ac15b62841d1186b6969e4 issue-7991-show-text-symbol-grapheme-sliced
 b7bbb059b348bb1ec6830f22141ea99a issue-80-emoji-linebreak
 30ef28da1d1b15e166dd6547ce1a506b issue-8058-show-text-grapheme-sliced
+55b839d2ea298538d673081c1304d07d issue-8261-string-as-ellipsis
+3cfc89b243a17d8f02eab4f7c35c9303 issue-8261-string-as-empty
+c68e898527355da4137144405e1f8b5a issue-8261-string-as-non-numeric
 b02159e7aef2950fa752d8bc410e9912 issue-852-mat-type
 40a0c2e4d119d9f2515575c488dba6d7 issue-886-args-sink
 bbb7d3ddcbab61ee9313daea5483c3d7 issue-color-mix-luma
@@ -1807,8 +1810,14 @@ fabb4e6c8206344cffc47d7c188ad9ff text-tracking-negative
 b68ba872ae19b8c3c58b1288d2e4f941 text-unknown-font-family-warning
 f81370fe7db884600d9168025ea700ce tiling-line
 55a9a7f62377cb78bc5faa5ff78252b6 tiling-lines
+aff58474914f136cd1c927eaa894da79 tiling-offset-negative
+9e73db5c8daafa42a619697ba19d845c tiling-offset-positive
+918fa7dfc0d3454d625e6558dfbd36f3 tiling-offset-relative
+633a4e0ae1faa3753b43fb7a9a38bc18 tiling-offset-zero
 3c711fb4cb219588885f12e7b757bf77 tiling-relative-parent
+90dea800489da9467c7cf031ea103c21 tiling-relative-polygon
 e509ad7c1d194dd5ed0fd9bc9385cbe4 tiling-relative-self
+ac9aea2eb5a91e4ca96ecd9d342fd24c tiling-relative-stack
 f3958be015f718220396678ae1fb8faf tiling-small
 11a5abf6bdaa0da3e5d1fef7132857e9 tiling-spacing-negative
 5904e3c83115c27e16037ba438152a15 tiling-spacing-positive

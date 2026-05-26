@@ -232,7 +232,7 @@ impl Lexer<'_> {
                 .and_then(std::char::from_u32)
                 .is_none()
             {
-                return self.error(eco_format!("invalid Unicode codepoint: {}", hex));
+                return self.error(eco_format!("invalid Unicode codepoint: {hex}"));
             }
 
             return SyntaxKind::Escape;

@@ -77,7 +77,7 @@ impl Eval for ast::Expr<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
-            error!(span, "{} is only allowed directly in code and content blocks", name)
+            error!(span, "{name} is only allowed directly in code and content blocks")
         };
 
         let value = match self {

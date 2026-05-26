@@ -323,7 +323,7 @@ pub fn layout_polygon(
         bail!(elem.span(), "cannot create polygon with infinite size");
     }
 
-    let mut frame = Frame::hard(size);
+    let mut frame = Frame::soft(size);
 
     // Only create a curve if there are more than zero points.
     if points.is_empty() {
