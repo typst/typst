@@ -10,7 +10,7 @@
 )[
   Welcome to Typst's tutorial! In this tutorial, you will learn how to write and format documents in Typst. We will start with everyday tasks and gradually introduce more advanced features. This tutorial does not assume prior knowledge of Typst, other markup languages, or programming. We do assume that you know how to edit a text file.
 
-  The best way to start is to sign up to the Typst app for free and follow along with the steps below. The app gives you instant preview, syntax highlighting and helpful autocompletions. Alternatively, you can follow along in your local text editor with the #link("https://github.com/typst/typst")[open-source CLI].
+  The best way to start is to open the #link("https://typst.app/play/")[Typst app] and follow along with the steps below. The app gives you instant preview, syntax highlighting and helpful autocompletions. Alternatively, you can follow along in your local text editor with the #link("https://github.com/typst/typst")[open-source CLI].
 
   = #short-or-long[When Typst][When to use Typst] <when-typst>
   Before we get started, let's check what Typst is and when to use it. Typst is a markup language for typesetting documents. It is designed to be easy to learn, fast, and versatile. Typst takes text files with markup in them and outputs PDFs.

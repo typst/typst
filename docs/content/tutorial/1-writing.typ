@@ -8,7 +8,7 @@
   description: "Typst's tutorial.",
 )
 
-Let's get started! Suppose you got assigned to write a technical report for university. It will contain prose, maths, headings, and figures. To get started, you create a new project on the Typst app. You'll be taken to the editor where you see two panels: A source panel where you compose your document and a preview panel where you see the rendered document.
+Let's get started! Suppose you got assigned to write a technical report for university. It will contain prose, maths, headings, and figures. To get started, you create a new project in the #link("https://typst.app/play/")[Typst app]. You'll be taken to the editor where you see two panels: A source panel where you compose your document and a preview panel where you see the rendered document.
 
 #docs-figure(
   "1-writing-app.png",
