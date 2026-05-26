@@ -12,6 +12,7 @@
 
 extern crate self as typst_library;
 
+pub mod compat;
 pub mod diag;
 pub mod engine;
 pub mod foundations;

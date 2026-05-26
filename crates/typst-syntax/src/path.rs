@@ -79,6 +79,13 @@ pub enum VirtualRoot {
     Package(PackageSpec),
 }
 
+impl VirtualRoot {
+    /// Joins the given `path` to this root.
+    pub fn join(&self, path: impl AsRef<str>) -> Result<RootedPath, PathError> {
+        VirtualPath::new(path).map(|path| RootedPath::new(self.clone(), path))
+    }
+}
+
 /// The global interner for rooted paths.
 static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
     RwLock::new(Interner { to_id: FxHashMap::default(), from_id: Vec::new() })
