@@ -491,6 +491,61 @@ World
 
 longlonglonglonglonglonglong
 
+--- list-big-marker-full-width paged ---
+#set page(width: 200pt)
+#[
+  #set list(indent: 100pt)
+  - #lorem(12)
+]
+#[
+  #set list(marker: [AAAAAAAAAAAAAAAAAAAAA])
+  - #lorem(12)
+]
+
+--- list-big-marker-block paged ---
+#set page(width: 200pt)
+#block[
+  #set list(indent: 100pt)
+  - #lorem(12)
+]
+#block[
+  #set list(marker: [AAAAAAAAAAAAAAAAAAAAA])
+  - #lorem(12)
+]
+
+--- list-negative-indent-full-width paged ---
+#set page(width: 200pt)
+#[
+  #set list(indent: -50pt)
+  - #lorem(12)
+]
+#[
+  #set list(marker: box(width: 100%, height: 1em, fill: red))
+  - abc
+  #set list(indent: -50pt)
+  - abc
+]
+
+--- list-negative-indent-block paged ---
+#set page(width: 200pt)
+#block[
+  #set list(indent: -50pt)
+  - #lorem(12)
+]
+#block[
+  #set list(marker: box(width: 100%, height: 1em, fill: red))
+  - abc
+  #set list(indent: -50pt)
+  - abc
+]
+
+--- list-negative-indent-auto paged ---
+#set page(width: auto)
+#[
+  #set list(indent: -50pt)
+  - #lorem(20)
+]
+
 --- list-vertical-alignment-in-item paged ---
 #set page(height: auto)
 - a

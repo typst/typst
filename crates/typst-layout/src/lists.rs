@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, Resolve, StyleChain};
-use typst_library::introspection::Locator;
+use typst_library::introspection::{Locator, SplitLocator};
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
 };
@@ -67,6 +67,7 @@ pub fn layout_list(
         body_indent,
         baseline_align,
         is_rtl,
+        styles,
     );
 
     layout_items(layouter, items, engine, locator, styles, regions)
@@ -161,6 +162,7 @@ pub fn layout_enum(
         body_indent,
         baseline_align,
         is_rtl,
+        styles,
     );
 
     layout_items(layouter, items, engine, locator, styles, regions)
@@ -181,9 +183,9 @@ struct ListLayouter {
     /// Span of the list/enum element.
     span: Span,
     /// List indent from the text start.
-    indent: Length,
+    indent: Abs,
     /// Indent between the marker and the body.
-    body_indent: Length,
+    body_indent: Abs,
     /// Whether baseline alignment should be enabled. When disabled, markers
     /// control their own alignment.
     baseline_align: bool,
@@ -208,7 +210,11 @@ impl ListLayouter {
         body_indent: Length,
         baseline_align: bool,
         is_rtl: bool,
+        styles: StyleChain,
     ) -> Self {
+        let indent = indent.resolve(styles);
+        let body_indent = body_indent.resolve(styles);
+
         Self {
             gutter,
             span,
@@ -221,6 +227,96 @@ impl ListLayouter {
             marker_width: Abs::zero(),
             body_width: None,
         }
+    }
+
+    /// Measure marker and store locators for later layout to ensure proper
+    /// introspection.
+    fn measure_marker_with_locators<'a>(
+        &mut self,
+        items: &[ItemContent],
+        locator: &mut SplitLocator<'a>,
+        locators: &mut Vec<(Locator<'a>, Locator<'a>)>,
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<()> {
+        let available_width = regions.size.x - self.indent - self.body_indent;
+
+        // Measure markers, so we can align them horizontally relative to the
+        // largest width.
+        let mut marker_width = Abs::zero();
+
+        for item in items {
+            let marker_locator = locator.next(&item.marker.span());
+            let body_locator = locator.next(&item.body.span());
+            let marker = crate::layout_frame(
+                engine,
+                &item.marker,
+                marker_locator.relayout(),
+                styles,
+                Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
+            )?;
+
+            locators.push((marker_locator, body_locator));
+            marker_width.set_max(marker.width());
+        }
+
+        // Redistribute width if necessary. It is okay to do this before
+        // measuring the body (thus effectively checking for the width in two
+        // places) since a non-zero-width body would cause an overlarge marker
+        // to surpass page width regardless. That is, this check doesn't affect
+        // the semantics of the other check, but it is necessary in case we
+        // don't measure the body at all.
+        self.marker_width = marker_width.min(available_width);
+
+        Ok(())
+    }
+
+    /// Infinite space or `width: auto` used. Both would prevent the list from
+    /// expanding to fit, breaking alignment. Therefore, restrict the list size
+    /// to the size of the largest item, prompting list items to align between
+    /// themselves instead of relative to the full page width.
+    fn measure_body(
+        &mut self,
+        items: &[ItemContent],
+        locators: &[(Locator, Locator)],
+        engine: &mut Engine,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<()> {
+        let available_width = regions.size.x - self.indent - self.body_indent;
+        let mut measured_body_width = Abs::zero();
+        for (item, (_, body_locator)) in items.iter().zip(locators) {
+            let body = crate::layout_frame(
+                engine,
+                &item.body,
+                body_locator.relayout(),
+                styles,
+                Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
+            )?;
+
+            measured_body_width.set_max(body.width());
+        }
+
+        let mut body_width = measured_body_width;
+        if self.marker_width + measured_body_width > available_width {
+            // Marker and body exceed the page width, so we must redistribute
+            // their widths, unfortunately disrespecting their requested sizes.
+            //
+            // If the marker is too large, both marker and body occupy half of
+            // the page width. Otherwise, the body takes all the remaining
+            // space. Adapted from grid's `shrink_auto_columns`.
+            if self.marker_width > available_width / 2. {
+                self.marker_width = available_width / 2.;
+                body_width.set_min(available_width / 2.);
+            } else {
+                body_width = available_width - self.marker_width;
+            }
+        };
+
+        self.body_width = Some(body_width);
+
+        Ok(())
     }
 }
 
@@ -247,53 +343,21 @@ fn layout_items(
 ) -> SourceResult<Fragment> {
     let mut locator = locator.split();
 
-    // Measure markers, so we can align them horizontally relative to the
-    // largest width.
-    let mut marker_width = Abs::zero();
-
     // Store locators used during measuring to ensure the same locators will be
     // used later when laying out. This is needed to make introspection work
     // properly.
     let mut locators = Vec::with_capacity(items.len());
-    for item in &items {
-        let marker_locator = locator.next(&item.marker.span());
-        let body_locator = locator.next(&item.body.span());
-        let marker = crate::layout_frame(
-            engine,
-            &item.marker,
-            marker_locator.relayout(),
-            styles,
-            Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
-        )?;
-
-        locators.push((marker_locator, body_locator));
-        marker_width.set_max(marker.width());
-    }
-
-    layouter.marker_width = marker_width;
+    layouter.measure_marker_with_locators(
+        &items,
+        &mut locator,
+        &mut locators,
+        engine,
+        styles,
+        regions,
+    )?;
 
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
-        // Infinite space or `width: auto` used. Both would prevent the list
-        // from expanding to fit, breaking alignment. Therefore, restrict the
-        // list size to the size of the largest item, prompting list items to
-        // align between themselves instead of relative to the full page width.
-        let mut measured_body_width = Abs::zero();
-        for (item, (_, body_locator)) in items.iter().zip(&locators) {
-            let body = crate::layout_frame(
-                engine,
-                &item.body,
-                body_locator.relayout(),
-                styles,
-                Region::new(Axes::new(regions.size.x, Abs::inf()), Axes::splat(false)),
-            )?;
-
-            measured_body_width.set_max(body.width());
-        }
-
-        layouter.body_width = Some(measured_body_width);
-    } else {
-        // Let the list body expand to the full width of the environment.
-        layouter.body_width = None;
+        layouter.measure_body(&items, &locators, engine, styles, regions)?;
     }
 
     let cells =
@@ -403,10 +467,7 @@ impl<'a> ItemLayouter<'a> {
         styles: StyleChain<'a>,
         regions: Regions<'a>,
     ) -> Self {
-        let indent = list.indent.resolve(styles);
-        let body_indent = list.body_indent.resolve(styles);
-
-        let total_body_indent = indent + list.marker_width + body_indent;
+        let total_body_indent = list.indent + list.marker_width + list.body_indent;
 
         // Restrict the body to the available space.
         let mut body_regions = regions;
@@ -426,7 +487,7 @@ impl<'a> ItemLayouter<'a> {
             first_frame: 0,
             body_regions,
             body_offset: Point::with_x(total_body_indent),
-            marker_offset: Point::with_x(indent),
+            marker_offset: Point::with_x(list.indent),
         }
     }
 

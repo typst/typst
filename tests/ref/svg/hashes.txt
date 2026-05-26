@@ -954,6 +954,8 @@ b57991ec99edcc524418f1cd23f6746e list-baseline-pars
 fa0c0690a45556d1b8ac489daddba90f list-baseline-text-with-math
 7ded84cefe7ebe63c3dee6be2f29d162 list-baseline-transform
 75285984737fc39bd85bd9908397cc53 list-basic
+5c586986e3e5f1894d7633554a3d71bf list-big-marker-block
+6b69c9846ae839762ca7befa31dea67d list-big-marker-full-width
 9c0fd8fe1dcb4b846b8abe1a9c536a75 list-colbreak
 21dcb583fffecc4e354c61be78890ceb list-content-block
 365f40a7602a9b279832df869bb68a5a list-expand-auto
@@ -974,6 +976,9 @@ ef5d2316513a1da8e589ee518776e8b8 list-marker-cycle
 a07f34bcfa1981dfbad2eab806382864 list-mix
 4d82c2ef123c102d911770d06dd2b097 list-mixed-tabs-and-spaces
 b1b672a8f8f08081f954059a11e86922 list-multi-page
+0dd709608311753fc054f89dbd75408d list-negative-indent-auto
+ec6212252244f1453ab2c155a6301ea0 list-negative-indent-block
+f42d0096a114874289760d261a177abe list-negative-indent-full-width
 033581b45f8ed053aed80e1575ebc8fa list-nested
 0ec555ce2d7b9e0788279a23b08aa488 list-non-attached-followed-by-attached
 54a076929e4f89ca04b6bdec23fe12bc list-par
