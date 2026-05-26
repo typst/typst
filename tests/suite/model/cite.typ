@@ -246,3 +246,101 @@ Par 6 @arrgh[*p. 9-10*]
 )
 
 #bibliography("/assets/bib/works.bib", style: style)
+
+--- cite-no-bib paged ---
+// Error: 2-19 the document does not contain a bibliography
+#cite(<something>)
+
+--- cite-unknown paged ---
+// Error: 2-19 citation key `something` is not present in the bibliography
+#cite(<something>)
+#bibliography("/assets/bib/works.bib")
+
+--- cite-unknown-multi-bib paged ---
+// Error: 2-19 citation key `something` is not present in any bibliography
+#cite(<something>)
+#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works_too.bib")
+
+--- cite-uncovered paged ---
+// Error: 1-8 citation is not covered by any bibliography
+@netwok
+// Hint: 1:10-4:2 a bibliography containing the key `netwok` exists, but its `target` excludes this citation
+#context bibliography(
+  "/assets/bib/works.bib",
+  target: selector(cite).after(here()),
+)
+
+--- cite-nonexistent paged ---
+// Error: 2-14 key `baum` does not exist in the bibliography
+#cite(<baum>)
+// Hint: 2-72 the citation was assigned to this bibliography
+#bibliography("/assets/bib/works.bib", target: cite.where(key: <baum>))
+
+--- cite-assignment-by-chapter html ---
+#show bibliography: set heading(offset: 1)
+
+= Pirates
+@netwok @arrgh
+#bibliography("/assets/bib/works.bib")
+
+= Glaciers
+@glacier-melt
+#bibliography("/assets/bib/works.bib")
+
+--- cite-assignment-auto html ---
+#show bibliography: set heading(numbering: "(A)")
+@netwok // bib (C)
+#bibliography("/assets/bib/works_too.bib")
+#bibliography("/assets/bib/works.bib", target: cite.where(key: <never>))
+#bibliography("/assets/bib/works.bib")
+@keshav2007read // bib (A)
+@arrgh // bib (D)
+#bibliography("/assets/bib/works.bib")
+
+--- cite-assignment-target html ---
+#bibliography(
+  "/assets/bib/works.bib",
+  title: [The middle],
+  target: selector(cite).after(<b>).before(<c>),
+  style: "mla",
+)
+
+= A <a>
+@netwok @arrgh
+
+= B <b>
+@netwok
+@arrgh
+
+= C <c>
+@distress
+
+#bibliography(
+  "/assets/bib/works.bib",
+  title: [The rest],
+)
+
+--- cite-assignment-mixed-group html ---
+// There's a space between [2] and (Keshav), but none between (Keshav) and [3].
+// Should be the same in the output.
+See @netwok @arrgh @keshav2007read#cite(<quark>) @distress @tolkien54 @sharing
+
+#show bibliography: set heading(offset: 1)
+= Bibliographies
+#bibliography(
+  "/assets/bib/works.bib",
+  title: [IEEE],
+  style: "ieee",
+)
+#bibliography(
+  "/assets/bib/works_too.bib",
+  title: [MLA],
+  style: "mla",
+)
+#bibliography(
+  "/assets/bib/works.bib",
+  title: [Chicago],
+  style: "chicago-author-date",
+  target: selector.or(cite.where(key: <tolkien54>), cite.where(key: <sharing>)),
+)

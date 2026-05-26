@@ -501,9 +501,10 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // properly overridden. For those, we currently emit classes so that a user can
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let loc = elem.location().unwrap();
     let span = elem.span();
-    let works = Works::with_bibliography(engine, elem.clone())?;
-    let bibliography = works.bibliography()?;
+    let works = Works::generate(engine, elem.span())?;
+    let bibliography = works.bibliography(loc, span)?;
 
     let items = bibliography.entries.iter().map(|entry| {
         let mut realized = entry.body.clone();
