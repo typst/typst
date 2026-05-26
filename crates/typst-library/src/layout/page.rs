@@ -65,7 +65,7 @@ pub struct PageElem {
     /// In professional printing setups, this may be smaller than the sheet size
     /// fed into the printer.
     ///
-    /// See the @page.bleed[bleed] argument for details on how to set a trim
+    /// See the @page.bleed[`bleed`] parameter for details on how to set a trim
     /// or bleed area.
     ///
     /// ```example
@@ -148,7 +148,7 @@ pub struct PageElem {
     /// All keys are optional; omitted keys will use their previously set value,
     /// or the default margin if never set. In addition, the values for `left`
     /// and `right` are mutually exclusive with the values for `inside` and
-    /// `outside`.
+    /// `outside`. The values should be relative lengths or `{auto}`.
     ///
     /// ```example
     /// #set page(
@@ -194,22 +194,26 @@ pub struct PageElem {
     ///
     /// All keys are optional; omitted keys will use their previously set value,
     /// or `{0pt}` if never set. In addition, the values for `left` and `right`
-    /// are mutually exclusive with the values for `inside` and `outside`.
+    /// are mutually exclusive with the values for `inside` and `outside`. The
+    /// values should be relative lengths.
     ///
-    /// In PDF output, if the bleed is non-zero, a `TrimBox` is defined for the page.
+    /// In PDF export, if the bleed is non-zero, a `TrimBox` is defined for the
+    /// page.
     ///
     /// ```example
     /// #set page(
-    ///   width: 3cm,
-    ///   height: 3cm,
+    ///   width: 8cm,
+    ///   height: 5cm,
     ///   margin: 1cm,
-    ///   bleed: 1cm,
-    ///   background: rect(width: 100%, height: 100%, fill: olive),
+    ///   // The bleed is not visible in the preview;
+    ///   // it exceeds beyond the page.
+    ///   bleed: 0.5cm,
+    ///   // Fills the entire bleed area, so there will
+    ///   // be no white strips after printing and trimming.
+    ///   background: rect(width: 100%, height: 100%, fill: aqua),
     /// )
     ///
-    /// #place(center+horizon, rect(width: 3cm, height: 3cm, fill: yellow))
-    ///
-    /// #rect(width: 100%, height: 100%, fill: red)
+    /// #rect(width: 100%, height: 100%, fill: white)
     /// ```
     #[ghost]
     pub bleed: Margin<Rel<Length>>,
@@ -473,8 +477,9 @@ pub struct PageElem {
     ///
     /// This content will overlay the page's body.
     ///
-    /// Relative lengths are resolved against the page size including `bleed`,
-    /// following the same behavior as @page.background[`background`].
+    /// Relative lengths are resolved against the page size including
+    /// @page.bleed[`bleed`], following the same behavior as
+    /// @page.background[`background`].
     ///
     /// ```example
     /// #set page(foreground: text(24pt)[🤓])

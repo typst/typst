@@ -89,15 +89,15 @@ pub struct RenderOptions {
     /// Controls the scale of the rendered output in pixels per typographic
     /// point. By default, a value of `1.0` is used, meaning one pixel is
     /// generated per point. Increasing this value produces higher-resolution
-    /// images, while lower  values reduce the output size and rendering cost.
+    /// images, while lower values reduce the output size and rendering cost.
     /// This can be useful when adjusting the final image quality for display or
     /// printing purposes.
     pub pixel_per_pt: f32,
-    /// By default, rendered pages are limited to the bounds of the Media Box.
-    /// In some circumstances, such as when preparing documents for print, it
-    /// may be desirable to include content beyond these bounds to account for
-    /// bleed margins. This field allows expanding the rendered area to include
-    /// such bleed.
+    /// By default, rendered pages are bounded to the page size. In some
+    /// circumstances, such as when preparing documents for print, it may be
+    /// desirable to include content beyond these bounds to account for bleed
+    /// margins. This field allows expanding the rendered area to include such
+    /// bleed.
     pub render_bleed: bool,
 }
 
