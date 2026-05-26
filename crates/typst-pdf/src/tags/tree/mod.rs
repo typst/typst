@@ -12,6 +12,7 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{HintedStrResult, SourceDiagnostic, assert_internal};
+use typst_library::format::Complete;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
 use typst_library::layout::Inherit;
@@ -41,7 +42,7 @@ pub struct Tree {
 }
 
 impl Tree {
-    pub fn empty(document: &PagedDocument, options: &PdfOptions) -> Self {
+    pub fn empty(document: &PagedDocument, options: &PdfOptions<Complete>) -> Self {
         TreeBuilder::new(document, options).finish()
     }
 
@@ -336,7 +337,7 @@ fn open_group(
     groups: &Groups,
     state: &mut TraversalState,
     fc: &FrameContext,
-    options: &PdfOptions,
+    options: &PdfOptions<Complete>,
     surface: &mut Surface,
     id: GroupId,
 ) {
@@ -360,7 +361,7 @@ fn open_group(
 fn open_multiple_groups<'a>(
     state: &mut TraversalState,
     fc: &FrameContext,
-    options: &PdfOptions,
+    options: &PdfOptions<Complete>,
     surface: &mut Surface,
     rev_iter: impl Iterator<Item = (GroupId, &'a Group)>,
 ) {

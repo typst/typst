@@ -21,15 +21,15 @@ use typst_layout::PagedDocument;
 use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
+use typst_library::format::Complete;
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
-use typst_library::model::{HeadingElem, LateLinkResolver};
+use typst_library::model::{Document as _, HeadingElem, LateLinkResolver};
 use typst_library::text::FontInstance;
 use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
-use crate::PdfOptions;
 use crate::attach::attach_files;
 use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
@@ -43,6 +43,7 @@ use crate::util::{
     AbsExt, SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path,
     display_font,
 };
+use crate::{Pdf, PdfOptions};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -51,20 +52,26 @@ pub fn convert(
     anchors: &[(Location, EcoString)],
     link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
+    let options = options
+        .resolve(typst_document.options().get::<Pdf>())
+        // TODO: maybe we can store `Spanned<T>` values for format options set
+        // from the document.
+        .at(Span::detached())?;
+
     let settings = SerializeSettings {
-        compress_content_streams: !options.pretty,
+        compress_content_streams: !options.format.pretty,
         no_device_cs: true,
-        ascii_compatible: options.pretty,
+        ascii_compatible: options.format.pretty,
         xmp_metadata: true,
         cmyk_profile: None,
-        configuration: options.standards.config,
-        enable_tagging: options.tagged,
+        configuration: options.format.standard.config,
+        enable_tagging: options.format.tagged,
         render_svg_glyph_fn: render_svg_glyph,
-        pretty: options.pretty,
+        pretty: options.format.pretty,
     };
 
     let mut document = Document::new_with(settings);
-    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    let page_index_converter = PageIndexConverter::new(typst_document, &options);
     let named_destinations = collect_named_destinations(
         &mut document,
         typst_document,
@@ -72,11 +79,11 @@ pub fn convert(
         &page_index_converter,
     );
 
-    let tags = tags::init(typst_document, options)?;
+    let tags = tags::init(typst_document, &options)?;
 
     let mut gc = GlobalContext::new(
         typst_document,
-        options,
+        &options,
         link_resolver,
         named_destinations,
         page_index_converter,
@@ -91,7 +98,7 @@ pub fn convert(
     document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
 
-    finish(document, gc, options.standards.config)
+    finish(document, gc, options.format.standard.config)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -290,7 +297,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions,
+    pub(crate) options: &'a PdfOptions<Complete>,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.
@@ -303,7 +310,7 @@ pub(crate) struct GlobalContext<'a> {
 impl<'a> GlobalContext<'a> {
     pub(crate) fn new(
         document: &'a PagedDocument,
-        options: &'a PdfOptions,
+        options: &'a PdfOptions<Complete>,
         link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
         loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
@@ -797,7 +804,7 @@ fn convert_error(
             let min_version = feature.minimum_pdf_version();
 
             let mut most_restrictive: Option<(Validator, PdfVersion)> = None;
-            for validator in gc.options.standards.config.validators() {
+            for validator in gc.options.validators() {
                 let max = validator.max();
                 if most_restrictive.is_none_or(|(_, prev_max)| prev_max > max) {
                     most_restrictive = Some((validator, max));
@@ -890,15 +897,13 @@ pub(crate) struct PageIndexConverter {
 }
 
 impl PageIndexConverter {
-    pub fn new(document: &PagedDocument, options: &PdfOptions) -> Self {
+    pub fn new(document: &PagedDocument, options: &PdfOptions<Complete>) -> Self {
         let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
         for i in 0..document.pages().len() {
-            if options
-                .page_ranges
-                .as_ref()
-                .is_some_and(|ranges| !ranges.includes_page_index(i))
+            if let Some(ranges) = &options.format.pages
+                && !ranges.includes_page_index(i)
             {
                 skipped_pages += 1;
             } else {

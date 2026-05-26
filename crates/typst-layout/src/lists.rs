@@ -7,8 +7,9 @@ use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
 };
-use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
-use typst_library::pdf::PdfMarkerTag;
+use typst_library::model::{
+    EnumElem, ListElem, Numbering, ParElem, ParbreakElem, PdfMarkerTag,
+};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
 
