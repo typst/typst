@@ -1485,8 +1485,7 @@ dependencies = [
 [[package]]
 name = "krilla"
 version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27da593198b20eeba65caeb73c2bbeec3e53ab08fa549898312ce81c4fce5e33"
+source = "git+https://github.com/LaurenzV/krilla?rev=b118ef7#b118ef77ef55f38e7cbeae3bed3cf306998c28a3"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1516,8 +1515,7 @@ dependencies = [
 [[package]]
 name = "krilla-svg"
 version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1237d7c37b16ca9fbc2e72dde13a10d321f9a44aceee35c062bc0a43bfc7ce16"
+source = "git+https://github.com/LaurenzV/krilla?rev=b118ef7#b118ef77ef55f38e7cbeae3bed3cf306998c28a3"
 dependencies = [
  "flate2",
  "fontdb",
@@ -3068,7 +3066,10 @@ dependencies = [
  "typst-layout",
  "typst-library",
  "typst-macros",
+ "typst-pdf",
  "typst-realize",
+ "typst-render",
+ "typst-svg",
  "typst-syntax",
  "typst-timing",
  "typst-utils",

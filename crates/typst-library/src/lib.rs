@@ -14,13 +14,13 @@ extern crate self as typst_library;
 
 pub mod diag;
 pub mod engine;
+pub mod format;
 pub mod foundations;
 pub mod introspection;
 pub mod layout;
 pub mod loading;
 pub mod math;
 pub mod model;
-pub mod pdf;
 pub mod routines;
 pub mod symbols;
 pub mod text;
@@ -35,6 +35,7 @@ use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
+use crate::format::Format;
 use crate::foundations::{
     Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
 };
@@ -182,6 +183,8 @@ pub struct Library {
     pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
+    // TODO: docs
+    pub formats: Vec<Format>,
 }
 
 /// Configurable builder for the standard library.
@@ -192,6 +195,7 @@ pub struct LibraryBuilder {
     routines: &'static Routines,
     inputs: Option<Dict>,
     features: Features,
+    formats: Vec<Format>,
 }
 
 impl LibraryBuilder {
@@ -202,6 +206,7 @@ impl LibraryBuilder {
             routines,
             inputs: None,
             features: Features::default(),
+            formats: Vec::new(),
         }
     }
 
@@ -219,19 +224,35 @@ impl LibraryBuilder {
         self
     }
 
+    /// Configure document format elements that should be defined in
+    /// `std.format` and whose set rules will store their [`FormatOptions`] in
+    /// the compiled document through [`RealizationKind::Document`].
+    ///
+    /// [`FormatOptions`]: crate::format::FormatOptions
+    /// [`RealizationKind::Document`]: crate::routines::RealizationKind::Document
+    pub fn with_formats(mut self, formats: impl IntoIterator<Item = Format>) -> Self {
+        self.formats.extend(formats);
+        self
+    }
+
     /// Consumes the builder and returns a `Library`.
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(self.routines, math.clone(), inputs, &self.features);
+        let global = global(&self.formats, math.clone(), inputs);
+        let mut rules = (self.routines.rules)();
+        for format in &self.formats {
+            format.register_rules(&mut rules);
+        }
         Library {
             routines: self.routines,
             global: global.clone(),
             math,
             styles: Styles::new(),
-            rules: (self.routines.rules)(),
+            rules,
             std: Binding::detached(global),
             features: self.features,
+            formats: self.formats,
         }
     }
 }
@@ -321,6 +342,7 @@ pub enum Category {
     Symbols,
     Text,
     Visualize,
+    Format,
     Pdf,
     Html,
     Svg,
@@ -341,6 +363,7 @@ impl Category {
             Self::Symbols => "symbols",
             Self::Text => "text",
             Self::Visualize => "visualize",
+            Self::Format => "format",
             Self::Pdf => "pdf",
             Self::Html => "html",
             Self::Svg => "svg",
@@ -351,12 +374,7 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(
-    routines: &Routines,
-    math: Module,
-    inputs: Dict,
-    features: &Features,
-) -> Module {
+fn global(formats: &[Format], math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs);
@@ -367,17 +385,8 @@ fn global(
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
-
+    global.define("format", self::format::module(formats));
     global.define("math", math);
-    global.define("pdf", self::pdf::module());
-
-    // Only initialize the HTML module if the feature is enabled.
-    let html = if features.is_enabled(Feature::Html) {
-        (routines.html_module)()
-    } else {
-        Module::new("html", Scope::new())
-    };
-    global.define("html", html).with_feature(Feature::Html);
 
     prelude(&mut global);
 
@@ -422,4 +431,15 @@ fn prelude(global: &mut Scope) {
     global.define("top", Alignment::TOP);
     global.define("horizon", Alignment::HORIZON);
     global.define("bottom", Alignment::BOTTOM);
+
+    let format = global
+        .get("format")
+        .unwrap()
+        .read_unchecked("format isn't deprecated or feature gated")
+        .scope()
+        .unwrap();
+    let pdf = format.get("pdf").unwrap().clone();
+    let html = format.get("html").unwrap().clone();
+    global.bind("pdf".into(), pdf);
+    global.bind("html".into(), html);
 }

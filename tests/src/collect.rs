@@ -9,7 +9,6 @@ use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Target;
 use typst::{Feature, Features};
-use typst_pdf::PdfStandard;
 use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
@@ -97,7 +96,6 @@ pub struct Attrs {
     pub large: bool,
     pub empty: bool,
     pub features: Option<Features>,
-    pub pdf_standard: Vec<PdfStandard>,
     /// Tolerance for image comparisons. Render tests are not 100% reproducible.
     /// By default, we allow a byte difference of 1, but in rare cases, we need
     /// to increase it. This can for example happen due to cross-platform
@@ -690,9 +688,7 @@ impl<'a> Parser<'a> {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
         let mut features = None;
-        let mut pdf_standard = Vec::new();
         let mut tolerance = None;
-
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -711,16 +707,6 @@ impl<'a> Parser<'a> {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
                 "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
-                "pdfstandard" => {
-                    let Some(params) = attr_params.take() else {
-                        self.error("expected parameter for `pdfstandard`");
-                        continue;
-                    };
-                    pdf_standard =
-                        self.parse_attr_param_list(params, "pdf standard", |s| {
-                            serde_yaml::from_str(s)
-                        });
-                }
                 "tolerance" => {
                     let Some(param) = attr_params.take() else {
                         self.error("expected parameter for `tolerance`");
@@ -780,7 +766,6 @@ impl<'a> Parser<'a> {
             large: flags.contains(AttrFlags::LARGE),
             empty: flags.contains(AttrFlags::EMPTY),
             features,
-            pdf_standard,
             stages,
             tolerance,
         }

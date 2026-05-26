@@ -15,6 +15,9 @@ readme = { workspace = true }
 [dependencies]
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
+typst-pdf = { workspace = true }
+typst-svg = { workspace = true }
+typst-render = { workspace = true }
 typst-layout = { workspace = true }
 typst-library = { workspace = true }
 typst-macros = { workspace = true }
