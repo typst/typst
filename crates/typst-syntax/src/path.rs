@@ -596,7 +596,7 @@ impl fmt::Display for VirtualizeError {
         match self {
             Self::Path(inner) => fmt::Display::fmt(inner, f),
             Self::Invalid(component) => {
-                write!(f, "path contains invalid component {component:?}")
+                write!(f, "path contains invalid component `{component:?}`")
             }
             Self::Utf8 => write!(f, "path contains non-UTF-8 bytes"),
         }
