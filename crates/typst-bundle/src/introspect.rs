@@ -13,9 +13,10 @@ use typst_library::introspection::{
     DocumentPosition, ElementIntrospector, ElementIntrospectorBuilder, Introspector,
     Location,
 };
-use typst_library::model::{AssetElem, DocumentElem, LinkElem, Numbering};
+use typst_library::model::{DocumentElem, LinkElem, Numbering};
 use typst_syntax::VirtualPath;
 
+use crate::format::AssetElem;
 use crate::{BundleDocument, Item};
 
 /// An introspector implementation for bundles.

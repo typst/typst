@@ -1,7 +1,43 @@
-use typst_macros::elem;
+use typst_library::Feature;
+use typst_library::diag::{SourceResult, bail};
+use typst_library::engine::Engine;
+use typst_library::format::{Format, FormatElement};
+use typst_library::foundations::{
+    Args, BundlePath, Bytes, Construct, Content, NativeRuleMap, ShowFn, Str, Target,
+    cast, elem, scope,
+};
 
-use crate::diag::bail;
-use crate::foundations::{BundlePath, Bytes, ShowFn, Str, cast};
+/// The format element for registering the bundle format.
+pub const FORMAT: Format = Format::new::<BundleFormat>()
+    .with_feature(Feature::Bundle)
+    .with_rules(register);
+
+/// Registers show rules for bundle specific elements.
+pub fn register(rules: &mut NativeRuleMap) {
+    for target in [Target::Paged, Target::Html] {
+        rules.register(target, ASSET_UNSUPPORTED_RULE);
+        rules.register(target, typst_library::model::DOCUMENT_UNSUPPORTED_RULE);
+    }
+}
+
+#[elem(scope, name = "bundle", since = "unreleased", Construct)]
+pub struct BundleFormat {}
+
+impl Construct for BundleFormat {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually")
+    }
+}
+
+impl FormatElement for BundleFormat {
+    type Options = ();
+}
+
+#[scope]
+impl BundleFormat {
+    #[elem]
+    type AssetElem;
+}
 
 /// Adds a custom file to a bundle.
 ///

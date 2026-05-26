@@ -2,6 +2,7 @@ use ecow::EcoString;
 use typst_syntax::VirtualPath;
 
 use crate::diag::{HintedStrResult, bail, error};
+use crate::format::DocumentFormatOptions;
 use crate::foundations::{
     Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, ShowSet,
     Smart, StyleChain, Styles, Target, Value, cast, elem,
@@ -323,6 +324,9 @@ cast! {
 pub trait Document {
     /// Get the document's metadata.
     fn info(&self) -> &DocumentInfo;
+
+    /// Get the format options set by the document.
+    fn options(&self) -> &DocumentFormatOptions;
 }
 
 /// Details about the document.

@@ -6,6 +6,7 @@ use comemo::Tracked;
 use either::Either;
 use typst::diag::{At, FileError, FileResult, SourceResult, Trace, Tracepoint, bail};
 use typst::engine::Engine;
+use typst::format::{Complete, SpannedValue};
 use typst::foundations::{
     Args, Array, Bytes, Construct, Content, Context, Datetime, Derived, Duration,
     NativeElement, Packed, Resolve, ShowFn, Smart, StyleChain, Target, TargetElem, array,
@@ -23,7 +24,7 @@ use typst::visualize::{
 };
 use typst::{Features, Library, LibraryExt, World, WorldExt};
 use typst_layout::{Page, PagedDocument};
-use typst_render::RenderOptions;
+use typst_render::{PngFormatOptions, RenderOptions};
 use typst_utils::{LazyHash, Scalar};
 
 /// Processes a code example in the docs and returns an array of `image`
@@ -73,11 +74,8 @@ pub fn compile_example(
     }
 
     let tracepoint = || Tracepoint::Call(None);
-    let mut pages = warned
-        .output
-        .trace(engine.world, tracepoint, raw.span())?
-        .pages()
-        .to_vec();
+    let doc = warned.output.trace(engine.world, tracepoint, raw.span())?;
+    let mut pages = doc.pages().to_vec();
 
     if single || zoom.is_some() {
         pages.truncate(1);
@@ -159,9 +157,12 @@ fn trim_page(page: &mut Page, Zoom { x, y, w, h }: &Zoom, styles: StyleChain) {
 
 /// Turns a compiled `Page` into a Typst `image` element by rendering it.
 fn page_to_image(page: Page) -> Content {
-    let opts = RenderOptions {
-        pixel_per_pt: Scalar::new(2.0),
+    // NOTE: This discards format options set by the document.
+    let opts = RenderOptions::<Complete> {
         render_bleed: false,
+        format: PngFormatOptions {
+            pixel_per_pt: SpannedValue::detached(Scalar::new(2.0)),
+        },
     };
     let pixmap = typst_render::render(&page, &opts);
     let format = ImageFormat::Raster(RasterFormat::Pixel(PixelFormat {

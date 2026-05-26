@@ -24,8 +24,9 @@ use typst_library::layout::{
     Abs, Angle, ColumnsElem, Dir, Em, Fragment, Frame, HAlignment, PageElem,
     PlacementScope, Region, Regions, Rel, Size, VAlignment,
 };
-use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
-use typst_library::pdf::ArtifactKind;
+use typst_library::model::{
+    ArtifactKind, FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine,
+};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
 use typst_library::visualize::LineElem;

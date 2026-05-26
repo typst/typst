@@ -1023,11 +1023,6 @@ impl NativeRuleMap {
             rules.register(target, empty::<crate::model::PrefixInfo>());
         }
 
-        for target in [Target::Paged, Target::Html] {
-            rules.register(target, crate::model::ASSET_UNSUPPORTED_RULE);
-            rules.register(target, crate::model::DOCUMENT_UNSUPPORTED_RULE);
-        }
-
         rules
     }
 
