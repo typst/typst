@@ -25,8 +25,8 @@ use crate::diag::{
 use crate::engine::{Engine, Sink};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    NativeElement, OneOrMultiple, Packed, Reflect, Scope, ShowSet, Smart, StyleChain,
-    Styles, Synthesize, Value, elem,
+    NativeElement, OneOrMultiple, Packed, Reflect, Repr, Scope, ShowSet, Smart,
+    StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
@@ -409,7 +409,7 @@ impl CslStyle {
         let style = match &source {
             CslSource::Named(style, deprecation) => {
                 if let Some(message) = deprecation {
-                    engine.sink.warn(warning!(span, "{message}"));
+                    engine.sink.warn(SourceDiagnostic::warning(span, message.clone()));
                 }
                 Self::from_archived(*style)
             }
@@ -460,7 +460,7 @@ impl CslStyle {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum CslSource {
     /// A predefined named style and potentially a deprecation warning.
-    Named(ArchivedStyle, Option<&'static str>),
+    Named(ArchivedStyle, Option<EcoString>),
     /// A normal data source.
     Normal(DataSource),
 }
@@ -515,23 +515,20 @@ impl FromValue for CslSource {
         if EcoString::castable(&value) {
             let string = EcoString::from_value(value.clone())?;
             if Path::new(string.as_str()).extension().is_none() {
-                let mut warning = None;
-                if string.as_str() == "chicago-fullnotes" {
-                    warning = Some(
-                        "style \"chicago-fullnotes\" has been deprecated \
-                         in favor of \"chicago-notes\"",
-                    );
-                } else if string.as_str() == "modern-humanities-research-association" {
-                    warning = Some(
-                        "style \"modern-humanities-research-association\" \
-                         has been deprecated in favor of \
-                         \"modern-humanities-research-association-notes\"",
-                    );
-                }
-
-                let style = ArchivedStyle::by_name(&string)
-                    .ok_or_else(|| eco_format!("unknown style: {string}"))?;
-                return Ok(CslSource::Named(style, warning));
+                let replacement = replacement(&string);
+                let deprecation = replacement.map(|instead| {
+                    eco_format!(
+                        "style `{}` has been deprecated in favor of `{}`",
+                        string.repr(),
+                        instead.repr(),
+                    )
+                });
+                let style = ArchivedStyle::by_name(&string).ok_or_else(|| {
+                    deprecation
+                        .clone()
+                        .unwrap_or_else(|| eco_format!("unknown style: {string}"))
+                })?;
+                return Ok(CslSource::Named(style, deprecation));
             }
         }
 
@@ -547,6 +544,24 @@ impl IntoValue for CslSource {
             Self::Normal(v) => v.into_value(),
         }
     }
+}
+
+/// Maps from style names to their replacements.
+///
+/// TODO: Fully move this into hayagriva somehow.
+fn replacement(style: &str) -> Option<&'static str> {
+    Some(match style {
+        "chicago-fullnotes" => "chicago-notes",
+        "modern-humanities-research-association" => {
+            "modern-humanities-research-association-notes"
+        }
+        "council-of-science-editors" => "cse-citation-sequence-brackets-8th-edition",
+        "council-of-science-editors-author-date" => "cse-name-year",
+        "modern-language-association-8" | "mla-8" => "modern-language-association",
+        "vancouver" => "nlm-citation-sequence",
+        "vancouver-superscript" => "nlm-citation-sequence-superscript",
+        _ => return None,
+    })
 }
 
 /// Fully formatted citations and references, generated once (through

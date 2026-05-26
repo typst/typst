@@ -124,12 +124,12 @@ hi:
 
 --- bibliography-chicago-fullnotes-warning paged empty ---
 // Test warning for deprecated alias.
-// Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
+// Warning: 47-66 style `"chicago-fullnotes"` has been deprecated in favor of `"chicago-notes"`
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
 --- bibliography-modern-humanities-research-association-warning paged empty ---
 // Test warning for deprecated alias.
-// Warning: 47-87 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
+// Warning: 47-87 style `"modern-humanities-research-association"` has been deprecated in favor of `"modern-humanities-research-association-notes"`
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
 
 --- bibliography-csl-display paged html ---
