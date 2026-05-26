@@ -140,6 +140,10 @@
 #test(range(inclusive: true, 5, 2, step: -1), (5, 4, 3, 2))
 #test(range(inclusive: true, 0, -2, step: -1), (0, -1, -2))
 
+// verify extremes
+#test(range(inclusive: true, 9223372036854775806, 9223372036854775807), (9223372036854775806, 9223372036854775807))
+#test(range(inclusive: true, -9223372036854775807, int("-9223372036854775808"), step: -1), (-9223372036854775807, int("-9223372036854775808")))
+
 --- array-range-basic-overflow eval ---
 // Error: 2-40 result became too large
 #range(2, 3, step: 9223372036854775806)
@@ -149,12 +153,12 @@
 #range(-2, -3, step: -9223372036854775807)
 
 --- array-range-inclusive-overflow eval ---
-// Error: 2-66 result became too large
-#range(inclusive: true, 9223372036854775806, 9223372036854775807)
+// Error: 2-75 result became too large
+#range(inclusive: true, 9223372036854775806, 9223372036854775807, step: 2)
 
 --- array-range-inclusive-underflow eval ---
 // Error: 2-85 result became too large
-#range(inclusive: true, -9223372036854775807, int("-9223372036854775808"), step: -1)
+#range(inclusive: true, -9223372036854775807, int("-9223372036854775808"), step: -2)
 
 --- array-range-end-missing eval ---
 // Error: 2-9 missing argument: end

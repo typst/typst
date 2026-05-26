@@ -425,7 +425,14 @@ impl Array {
             // Push while `x` has not stepped past `end` in the `step` direction
             while x.cmp(&end) != 0.cmp(&step).reverse() {
                 array.push(x.into_value());
-                x = try_step(x)?;
+                match try_step(x) {
+                    Ok(v) => x = v,
+                    Err(_) if x == end => {
+                        // don't error if we've reached `end` exactly
+                        break;
+                    }
+                    Err(e) => Err(e)?,
+                }
             }
         } else {
             // Push while `x` is strictly before `end` in the `step` direction
