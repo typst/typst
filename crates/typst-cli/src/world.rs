@@ -1,3 +1,4 @@
+use std::error;
 use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -318,6 +319,15 @@ impl fmt::Display for WorldCreationError {
                 write!(f, "creation timestamp out of range")
             }
             WorldCreationError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl error::Error for WorldCreationError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            _ => None,
         }
     }
 }
