@@ -343,6 +343,20 @@ impl Scope {
         }
     }
 
+    /// Inserts a binding into this scope, if the name is unused.
+    ///
+    /// Panics if the scope already contains a binding with the same name.
+    pub fn prelude(&mut self, name: EcoString, binding: BindingRead<'_>) {
+        match self.map.entry(name) {
+            Entry::Occupied(_) => {
+                panic!("preluding this binding will overwrite an existing value");
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(binding.0.clone());
+            }
+        }
+    }
+
     /// Mark a binding as captured and insert it into this scope.
     pub fn capture_from(
         &mut self,
@@ -478,6 +492,11 @@ impl<'a> BindingRead<'a> {
             self.0.check_access(guard)?;
         }
         Ok(self.0)
+    }
+
+    /// Get the value of this binding without running access checks.
+    pub fn unchecked(self, _justification: &'static str) -> &'a Value {
+        self.0.read()
     }
 }
 

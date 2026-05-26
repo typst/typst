@@ -304,6 +304,22 @@ pub enum CastInfo {
 }
 
 impl CastInfo {
+    /// Returns the value if self is [`CastInfo::Value`], `None` otherwise.
+    pub fn value(self) -> Option<(Value, &'static str)> {
+        match self {
+            CastInfo::Value(value, doc) => Some((value, doc)),
+            _ => None,
+        }
+    }
+
+    /// Returns the union if self is [`CastInfo::Union`], `None` otherwise.
+    pub fn union(self) -> Option<Vec<Self>> {
+        match self {
+            CastInfo::Union(infos) => Some(infos),
+            _ => None,
+        }
+    }
+
     /// Produce an error message describing what was expected and what was
     /// found.
     pub fn error(&self, found: &Value) -> HintedString {

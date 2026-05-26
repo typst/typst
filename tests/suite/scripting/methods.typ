@@ -39,7 +39,7 @@
 #test($module.item(#1, #2)$, $#3$)
 
 --- field-call-missing-field eval ---
-// Error: 6-13 module `pdf` does not contain `attache`
+// Error: 6-13 function `pdf` does not contain field `attache`
 #pdf.attache()
 
 --- math-field-call-missing-field eval ---

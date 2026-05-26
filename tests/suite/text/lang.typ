@@ -1,16 +1,19 @@
 // Test setting the document language.
 
---- text-lang paged html pdftags pdfstandard(ua-1) ---
+--- text-lang paged html pdftags ---
+#set pdf(standard: "ua-1")
 // without any region
 #set text(font: "Noto Serif CJK TC", lang: "zh")
 #outline()
 
---- text-lang-unknown-region paged html pdftags pdfstandard(ua-1) ---
+--- text-lang-unknown-region paged html pdftags ---
+#set pdf(standard: "ua-1")
 // with unknown region configured
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "XX")
 #outline()
 
---- text-lang-region paged html pdftags pdfstandard(ua-1) ---
+--- text-lang-region paged html pdftags ---
+#set pdf(standard: "ua-1")
 // with region configured
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "TW")
 #outline()

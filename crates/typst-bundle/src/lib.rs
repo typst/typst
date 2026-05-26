@@ -20,6 +20,7 @@ use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::FormatOptions;
 use typst_library::foundations::{
     Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
 };
@@ -98,12 +99,19 @@ impl Document for BundleDocument {
             BundleDocument::Html(doc) => doc.info(),
         }
     }
+
+    fn options(&self) -> &FormatOptions {
+        match self {
+            BundleDocument::Paged(doc, _) => doc.options(),
+            BundleDocument::Html(doc) => doc.options(),
+        }
+    }
 }
 
 /// Extra data relevant for exporting a paged document in a bundle.
 #[derive(Debug, Clone, Hash)]
 pub struct PagedExtras {
-    /// The format to export in.
+    /// The format to export in and the corresponding document options.
     pub format: PagedFormat,
     /// Named anchors that should be exported, so that cross-document links can
     /// jump to a precise location.
