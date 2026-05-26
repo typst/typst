@@ -1,5 +1,6 @@
 //! Rendering of Typst documents into raster images.
 
+mod format;
 mod image;
 mod paint;
 mod shape;
@@ -7,22 +8,25 @@ mod text;
 
 use tiny_skia as sk;
 use typst_layout::{Page, PagedDocument};
+use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Sides, Size, Transform,
 };
+use typst_library::model::Document;
 use typst_library::visualize::{Color, Geometry, Paint};
-use typst_utils::Scalar;
+
+pub use self::format::*;
 
 /// Export a page into a raster image.
 ///
 /// This renders the page at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
 #[typst_macros::time(name = "render")]
-pub fn render(page: &Page, opts: &RenderOptions) -> sk::Pixmap {
+pub fn render(page: &Page, opts: &RenderOptions<Complete>) -> sk::Pixmap {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
 
     let size = page.frame.size() + bleed.sum_by_axis();
-    let pixel_per_pt = opts.pixel_per_pt.get() as f32;
+    let pixel_per_pt = opts.format.pixel_per_pt.get() as f32;
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
@@ -54,10 +58,11 @@ pub fn render_merged(
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {
+    let opts = opts.resolve(document.options().get::<Png>());
     let pixmaps: Vec<_> =
-        document.pages().iter().map(|page| render(page, opts)).collect();
+        document.pages().iter().map(|page| render(page, &opts)).collect();
 
-    let pixel_per_pt = opts.pixel_per_pt.get() as f32;
+    let pixel_per_pt = opts.format.pixel_per_pt.get() as f32;
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
@@ -86,28 +91,23 @@ pub fn render_merged(
 }
 
 /// Settings for raster image export.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct RenderOptions {
-    /// Controls the scale of the rendered output in pixels per typographic
-    /// point. By default, a value of `1.0` is used, meaning one pixel is
-    /// generated per point. Increasing this value produces higher-resolution
-    /// images, while lower values reduce the output size and rendering cost.
-    /// This can be useful when adjusting the final image quality for display or
-    /// printing purposes.
-    pub pixel_per_pt: Scalar,
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct RenderOptions<F: Fields = Partial> {
     /// By default, rendered pages are bounded to the page size. In some
     /// circumstances, such as when preparing documents for print, it may be
     /// desirable to include content beyond these bounds to account for bleed
     /// margins. This field allows expanding the rendered area to include such
     /// bleed.
     pub render_bleed: bool,
+    /// Format options that override the defaults set by the document.
+    pub format: PngFormatOptions<F>,
 }
 
-impl Default for RenderOptions {
-    fn default() -> Self {
-        Self {
-            pixel_per_pt: Scalar::new(2.0),
-            render_bleed: false,
+impl RenderOptions {
+    pub fn resolve(&self, doc: &PngFormatOptions) -> RenderOptions<Complete> {
+        RenderOptions {
+            render_bleed: self.render_bleed,
+            format: self.format.resolve(doc),
         }
     }
 }

@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
+use ecow::{EcoVec, eco_vec};
 use typst_utils::{NonZeroExt, Scalar, singleton};
 
 use crate::diag::{HintedStrResult, SourceResult, bail};
@@ -758,8 +759,34 @@ cast! {
 }
 
 /// A list of page ranges to be exported.
-#[derive(Debug, Clone, Hash)]
-pub struct PageRanges(Vec<PageRange>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PageRanges(EcoVec<PageRange>);
+
+// TODO: Maybe just accept an array of page numbers?
+// This would allow using the `range()` function and just joining the resulting
+// arrays: `set pdf(pages: range(1, 5, inclusive: true) + (8,))`
+// FIXME: This doesn't work, because half-open ranges at the end would need to
+// know how many pages the document will have...
+cast! {
+    PageRanges,
+    self => {
+        todo!()
+        // let mut start = 0;
+        // Value::Array(self.iter().map(|r| {
+        //     todo!()
+        // }).flatten().map(Value::Int).collect())
+    },
+    nr: i64 => {
+        if nr < 1 {
+            bail!("page numbers start at one");
+        }
+        let Some(nr) = usize::try_from(nr).ok().and_then(NonZeroUsize::new) else {
+            bail!("not a valid page number");
+        };
+        Self(eco_vec![Some(nr)..=Some(nr)])
+    },
+    // array: Array => todo!(),
+}
 
 /// A range of pages to export.
 ///
@@ -769,8 +796,13 @@ pub type PageRange = RangeInclusive<Option<NonZeroUsize>>;
 
 impl PageRanges {
     /// Create new page ranges.
-    pub fn new(ranges: Vec<PageRange>) -> Self {
+    pub fn new(ranges: EcoVec<PageRange>) -> Self {
         Self(ranges)
+    }
+
+    /// Returns an iterator over the page ranges.
+    pub fn iter(&self) -> impl Iterator<Item = PageRange> {
+        self.0.iter().cloned()
     }
 
     /// Check if a page, given its number, should be included when exporting the

@@ -473,7 +473,7 @@ impl<'a> Runner<'a> {
     /// Run test for a specific output format, and save the live output to disk.
     fn run_test<T: OutputType>(&mut self, doc: Option<&T::Doc>) -> Option<T::Live> {
         let doc = doc?;
-        let live = T::make_live(self.test, doc);
+        let live = T::make_live(doc);
 
         if let Err(errors) = &live {
             if errors.is_empty() {

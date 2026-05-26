@@ -11,20 +11,21 @@ use typst::diag::{
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;
+use typst::model::Document;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
-use typst_html::{HtmlDocument, HtmlOptions};
+use typst_html::{HtmlDocument, HtmlFormatOptions, HtmlOptions};
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
-use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
-use typst_render::RenderOptions;
-use typst_svg::SvgOptions;
+use typst_pdf::{PdfFormatOptions, PdfOptions, PdfStandards, Timestamp};
+use typst_render::{Png, PngFormatOptions, RenderOptions};
+use typst_svg::{Svg, SvgFormatOptions, SvgOptions};
 use typst_utils::Scalar;
 
 use crate::args::{
-    CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
-    OutputFormat, PdfStandard, WatchCommand,
+    self, CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
+    OutputFormat, WatchCommand,
 };
 use crate::deps::write_deps;
 use crate::watch::Status;
@@ -60,7 +61,7 @@ pub struct CompileConfig {
     /// The format of the output file.
     pub output_format: OutputFormat,
     /// Whether to make the serialized document pretty.
-    pub pretty: bool,
+    pub pretty: Option<bool>,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
     /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
@@ -71,15 +72,15 @@ pub struct CompileConfig {
     /// compilation.
     pub open: Option<Option<String>>,
     /// A list of standards the PDF should conform to.
-    pub pdf_standards: PdfStandards,
+    pub pdf_standards: Option<PdfStandards>,
     /// Whether to write PDF (accessibility) tags.
-    pub tagged: bool,
+    pub tagged: Option<bool>,
     /// A destination to write a list of dependencies to.
     pub deps: Option<Output>,
     /// The format to use for dependencies.
     pub deps_format: DepsFormat,
     /// The PPI (pixels per inch) to use for PNG export.
-    pub ppi: f64,
+    pub ppi: Option<f64>,
     /// The export cache for images, used for caching output files in `typst
     /// watch` sessions with images.
     pub export_cache: ExportCache,
@@ -145,7 +146,7 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let tagged = !args.no_pdf_tags && pages.is_none();
+        let tagged = (args.no_pdf_tags || pages.is_some()).then_some(false);
         if output_format == OutputFormat::Pdf && pages.is_some() && !args.no_pdf_tags {
             warnings.push(
                 HintedString::from("using --pages implies --no-pdf-tags").with_hints([
@@ -155,12 +156,14 @@ impl CompileConfig {
             );
         }
 
-        if !tagged {
-            const ACCESSIBLE: &[(PdfStandard, &str)] = &[
-                (PdfStandard::A_1a, "PDF/A-1a"),
-                (PdfStandard::A_2a, "PDF/A-2a"),
-                (PdfStandard::A_3a, "PDF/A-3a"),
-                (PdfStandard::UA_1, "PDF/UA-1"),
+        // TODO: A similar check should be present for PDFs exported in the
+        // bundle export.
+        if tagged == Some(false) {
+            const ACCESSIBLE: &[(args::PdfStandard, &str)] = &[
+                (args::PdfStandard::A_1a, "PDF/A-1a"),
+                (args::PdfStandard::A_2a, "PDF/A-2a"),
+                (args::PdfStandard::A_3a, "PDF/A-3a"),
+                (args::PdfStandard::UA_1, "PDF/UA-1"),
             ];
 
             for (standard, name) in ACCESSIBLE {
@@ -177,9 +180,9 @@ impl CompileConfig {
             }
         }
 
-        let pdf_standards = PdfStandards::new(
-            &args.pdf_standard.iter().copied().map(Into::into).collect::<Vec<_>>(),
-        )?;
+        let pdf_standards = (!args.pdf_standard.is_empty())
+            .then(|| PdfStandards::new(args.pdf_standard.iter().copied()))
+            .transpose()?;
 
         #[cfg(feature = "http-server")]
         let server = if let Some(command) = watch
@@ -342,7 +345,7 @@ fn compile_and_export(
 
 /// Export to HTML.
 fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<()> {
-    let options = HtmlOptions { pretty: config.pretty };
+    let options = html_options(config);
     let html = typst_html::html(document, &options)?;
     let result = config.output.write(html.as_bytes());
 
@@ -464,6 +467,42 @@ fn export_image(
     config: &CompileConfig,
     fmt: ImageExportFormat,
 ) -> StrResult<Vec<Output>> {
+    match fmt {
+        ImageExportFormat::Png => {
+            let options = png_options(config).resolve(document.options().get::<Png>());
+            export_image_pages(config, document, |page, output| {
+                let pixmap = typst_render::render(page, &options);
+                let buf = pixmap
+                    .encode_png()
+                    .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
+                output
+                    .write(&buf)
+                    .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
+                Ok(())
+            })
+        }
+        ImageExportFormat::Svg => {
+            let options = svg_options(config).resolve(document.options().get::<Svg>());
+            export_image_pages(config, document, |page, output| {
+                let svg = typst_svg::svg(page, &options);
+                output
+                    .write(svg.as_bytes())
+                    .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
+                Ok(())
+            })
+        }
+    }
+}
+
+fn export_image_pages<F>(
+    config: &CompileConfig,
+    document: &PagedDocument,
+    export_image_page: F,
+) -> StrResult<Vec<Output>>
+where
+    F: Fn(&Page, &Output) -> StrResult<()>,
+    F: Send + Sync,
+{
     // Determine whether we have indexable templates in output
     let can_handle_multiple = match config.output {
         Output::Stdout => false,
@@ -519,7 +558,7 @@ fn export_image(
                         && config.export_cache.is_cached(*i, page)
                         && path.exists()
                     {
-                        return Ok(Output::Path(path.to_path_buf()));
+                        return Ok(Output::Path(path.to_owned()));
                     }
 
                     Output::Path(path.to_owned())
@@ -527,7 +566,8 @@ fn export_image(
                 Output::Stdout => Output::Stdout,
             };
 
-            export_image_page(config, page, &output, fmt)?;
+            export_image_page(page, &output)?;
+
             Ok(output)
         })
         .collect::<StrResult<Vec<Output>>>()
@@ -562,38 +602,11 @@ mod output_template {
     }
 }
 
-/// Export single image.
-fn export_image_page(
-    config: &CompileConfig,
-    page: &Page,
-    output: &Output,
-    fmt: ImageExportFormat,
-) -> StrResult<()> {
-    match fmt {
-        ImageExportFormat::Png => {
-            let options = png_options(config);
-            let pixmap = typst_render::render(page, &options);
-            let buf = pixmap
-                .encode_png()
-                .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
-            output
-                .write(&buf)
-                .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
-        }
-        ImageExportFormat::Svg => {
-            let options = svg_options(config);
-            let svg = typst_svg::svg(page, &options);
-            output
-                .write(svg.as_bytes())
-                .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
-        }
-    }
-    Ok(())
-}
-
 /// Creates options for HTML export.
 fn html_options(config: &CompileConfig) -> HtmlOptions {
-    HtmlOptions { pretty: config.pretty }
+    HtmlOptions {
+        format: HtmlFormatOptions { pretty: config.pretty },
+    }
 }
 
 /// Creates options for PDF export.
@@ -617,23 +630,30 @@ fn pdf_options(config: &CompileConfig) -> PdfOptions {
         ident: Smart::Auto,
         creator: Smart::Auto,
         timestamp,
-        page_ranges: config.pages.clone(),
-        standards: config.pdf_standards.clone(),
-        tagged: config.tagged,
-        pretty: config.pretty,
+        format: PdfFormatOptions {
+            pages: config.pages.clone().map(Some),
+            standard: config.pdf_standards.clone(),
+            tagged: config.tagged,
+            pretty: config.pretty,
+        },
     }
 }
 
 /// Creates options for SVG export.
 fn svg_options(config: &CompileConfig) -> SvgOptions {
-    SvgOptions { render_bleed: false, pretty: config.pretty }
+    SvgOptions {
+        render_bleed: false,
+        format: SvgFormatOptions { pretty: config.pretty },
+    }
 }
 
 /// Creates options for PNG export.
 fn png_options(config: &CompileConfig) -> RenderOptions {
     RenderOptions {
-        pixel_per_pt: Scalar::new(config.ppi / 72.0),
         render_bleed: false,
+        format: PngFormatOptions {
+            pixel_per_pt: config.ppi.map(|ppi| Scalar::new(ppi / 72.0)),
+        },
     }
 }
 
@@ -732,26 +752,26 @@ pub fn print_diagnostics(
     )
 }
 
-impl From<PdfStandard> for typst_pdf::PdfStandard {
-    fn from(standard: PdfStandard) -> Self {
+impl From<args::PdfStandard> for typst_pdf::PdfStandard {
+    fn from(standard: args::PdfStandard) -> Self {
         match standard {
-            PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
-            PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
-            PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
-            PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
-            PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
-            PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
-            PdfStandard::A_1a => typst_pdf::PdfStandard::A_1a,
-            PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
-            PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
-            PdfStandard::A_2a => typst_pdf::PdfStandard::A_2a,
-            PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
-            PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
-            PdfStandard::A_3a => typst_pdf::PdfStandard::A_3a,
-            PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
-            PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
-            PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
-            PdfStandard::UA_1 => typst_pdf::PdfStandard::Ua_1,
+            args::PdfStandard::V_1_4 => typst_pdf::PdfStandard::V_1_4,
+            args::PdfStandard::V_1_5 => typst_pdf::PdfStandard::V_1_5,
+            args::PdfStandard::V_1_6 => typst_pdf::PdfStandard::V_1_6,
+            args::PdfStandard::V_1_7 => typst_pdf::PdfStandard::V_1_7,
+            args::PdfStandard::V_2_0 => typst_pdf::PdfStandard::V_2_0,
+            args::PdfStandard::A_1b => typst_pdf::PdfStandard::A_1b,
+            args::PdfStandard::A_1a => typst_pdf::PdfStandard::A_1a,
+            args::PdfStandard::A_2b => typst_pdf::PdfStandard::A_2b,
+            args::PdfStandard::A_2u => typst_pdf::PdfStandard::A_2u,
+            args::PdfStandard::A_2a => typst_pdf::PdfStandard::A_2a,
+            args::PdfStandard::A_3b => typst_pdf::PdfStandard::A_3b,
+            args::PdfStandard::A_3u => typst_pdf::PdfStandard::A_3u,
+            args::PdfStandard::A_3a => typst_pdf::PdfStandard::A_3a,
+            args::PdfStandard::A_4 => typst_pdf::PdfStandard::A_4,
+            args::PdfStandard::A_4f => typst_pdf::PdfStandard::A_4f,
+            args::PdfStandard::A_4e => typst_pdf::PdfStandard::A_4e,
+            args::PdfStandard::UA_1 => typst_pdf::PdfStandard::UA_1,
         }
     }
 }
