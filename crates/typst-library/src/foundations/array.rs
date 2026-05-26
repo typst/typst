@@ -413,14 +413,26 @@ impl Array {
         };
 
         let step = step.get();
-        let inclusive_end = end + if inclusive { step.signum() } else { 0 };
+        let try_step = |v: i64| match v.checked_add(step) {
+            Some(v) => Ok(v),
+            None => bail!(args.span, "result became too large"),
+        };
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&inclusive_end) == 0.cmp(&step) {
-            array.push(x.into_value());
-            x += step;
+        if inclusive {
+            // Push while `x` has not stepped past `end` in the `step` direction
+            while x.cmp(&end) != 0.cmp(&step).reverse() {
+                array.push(x.into_value());
+                x = try_step(x)?;
+            }
+        } else {
+            // Push while `x` is strictly before `end` in the `step` direction
+            while x.cmp(&end) == 0.cmp(&step) {
+                array.push(x.into_value());
+                x = try_step(x)?;
+            }
         }
 
         Ok(array)
