@@ -20,7 +20,7 @@ use typst_library::visualize::Paint;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Numeric, Protected};
 
-use crate::flow::{FlowMode, layout_flow};
+use crate::flow::{ColumnOptions, FlowMode, layout_flow};
 
 /// A mostly finished layout for one page. Needs only knowledge of its exact
 /// page number to be finalized into a `Page`. (Because the margins can depend
@@ -183,11 +183,11 @@ fn layout_page_run_impl(
         &mut locator,
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
-        (
-            styles.get(PageElem::columns),
-            styles.get(ColumnsElem::balanced),
-            styles.get(ColumnsElem::gutter).resolve(styles),
-        ),
+        ColumnOptions {
+            count: styles.get(PageElem::columns),
+            balanced: styles.get(ColumnsElem::balanced),
+            gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+        },
         FlowMode::Root,
     )?;
 

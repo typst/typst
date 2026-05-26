@@ -45,7 +45,7 @@ pub fn compose(
         column: 0,
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
-        column_balancing: ColumnBalancing::default(),
+        column_height_tracker: ColumnHeightTracker::default(),
         work,
         footnote_spill: None,
         footnote_queue: vec![],
@@ -69,7 +69,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
-    pub(crate) column_balancing: ColumnBalancing,
+    pub(crate) column_height_tracker: ColumnHeightTracker,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -144,7 +144,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         for i in 0..self.config.columns.count {
             self.column = i;
             let frame = self.column(locator.next(&()), inner)?;
-            balancing_height += self.column_balancing.used_height;
+            balancing_height += self.column_height_tracker.used_height;
 
             if !regions.expand.y {
                 output.size_mut().y.set_max(frame.height());
@@ -173,8 +173,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Column balancing with re-layout
         if self.config.columns.balanced && self.work.children.is_empty() {
             let column_height = balancing_height / self.config.columns.count as f64;
-            if self.column_balancing.column_height.is_none_or(|h| h < column_height) {
-                self.column_balancing.column_height = Some(column_height);
+            if self
+                .column_height_tracker
+                .column_height
+                .is_none_or(|h| h < column_height)
+            {
+                self.column_height_tracker.column_height = Some(column_height);
                 return Err(Stop::Relayout(PlacementScope::Parent));
             }
         }
@@ -202,7 +206,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             pod.size.y -= self.column_insertions.height();
 
             // For column balancing, only consider float size, not footnotes
-            self.column_balancing.used_height = self.column_insertions.float_height();
+            self.column_height_tracker.used_height =
+                self.column_insertions.float_height();
 
             match self.column_contents(pod) {
                 Ok(frame) => break frame,
@@ -226,7 +231,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             self.work,
             self.config,
             inner,
-            self.column_balancing.column_height,
+            self.column_height_tracker.column_height,
         );
 
         // Lay out per-column line numbers.
@@ -269,7 +274,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// The height limit if column balancing is active
     pub fn column_balancing_limit(&self) -> Option<Abs> {
         if self.column < self.config.columns.count - 1 {
-            self.column_balancing.column_height
+            self.column_height_tracker.column_height
         } else {
             None
         }
@@ -280,7 +285,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut fits = regions.size.y.fits(amount);
         if let Some(limit) = self.column_balancing_limit() {
             // 50% or less over the limit is still better balanced than 50% or more ahead of it
-            fits &= limit.fits(self.column_balancing.used_height + 0.5 * amount)
+            fits &= limit.fits(self.column_height_tracker.used_height + 0.5 * amount)
         }
         fits
     }
@@ -683,7 +688,7 @@ struct Insertions<'a, 'b> {
 
 /// State for column balancing
 #[derive(Default)]
-pub struct ColumnBalancing {
+pub struct ColumnHeightTracker {
     // The height used by the inner contents (e.g. text) during column layouting.
     pub(crate) used_height: Abs,
     // The balanced height of the columns
