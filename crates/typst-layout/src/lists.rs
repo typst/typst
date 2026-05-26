@@ -230,12 +230,12 @@ impl ListLayouter {
 ///
 /// 1. Compute marker widths for horizontal marker alignment;
 /// 2. If necessary (when within a `width: auto` block or page), compute body
-/// widths as well for horizontal body alignment to work;
+///    widths as well for horizontal body alignment to work;
 /// 3. Generate list item layouters, each of which is responsible for vertical
-/// marker alignment (baseline-aligned or not, depending on user settings);
+///    marker alignment (baseline-aligned or not, depending on user settings);
 /// 4. Pass each list item to the stack layouter. The stack layouter makes it
-/// possible for them to expand to the full available width, allowing for center
-/// or right alignment to work within the item body.
+///    possible for them to expand to the full available width, allowing for center
+///    or right alignment to work within the item body.
 #[typst_macros::time(span = layouter.span)]
 fn layout_items(
     mut layouter: ListLayouter,
@@ -381,11 +381,13 @@ struct ItemLayouter<'a> {
     first_frame: usize,
     /// The item's regions, but adapted for the body's expected width.
     body_regions: Regions<'a>,
-    /// Total body indent from the left of the region, as well as its offset from the top of the region.
+    /// Total body indent from the left of the region, as well as its offset
+    /// from the top of the region.
     ///
     /// Vertical offset is always zero without baseline alignment.
     body_offset: Point,
-    /// Resolved marker indent from the left of the region, as well as its offset from the top of the region.
+    /// Resolved marker indent from the left of the region, as well as its
+    /// offset from the top of the region.
     ///
     /// Vertical offset is always zero without baseline alignment.
     marker_offset: Point,
@@ -453,9 +455,12 @@ impl<'a> ItemLayouter<'a> {
             regions,
         )?;
 
-        // First non-empty frame (ignores frames with only tags due to a forced
-        // region break).
-        self.first_frame = if should_skip_first_frame(&fragment) { 1 } else { 0 };
+        // Update the first non-empty frame (ignoring a frame with only tags due
+        // to a forced region break). If the first frame is not virtually empty,
+        // then keep the default of 0.
+        if should_skip_first_frame(&fragment) {
+            self.first_frame = 1;
+        }
 
         Ok(fragment)
     }
@@ -544,24 +549,33 @@ impl<'a> ItemLayouter<'a> {
         let mut frames = vec![];
         for (i, body_frame) in body_fragment.into_iter().enumerate() {
             let width = self.body_offset.x + body_frame.width();
-            let mut frame = Frame::soft(Size::new(
-                width,
-                (marker.size().y + self.marker_offset.y)
-                    .max(body_frame.height() + self.body_offset.y),
-            ));
+            let height = (marker.height() + self.marker_offset.y)
+                .max(body_frame.height() + self.body_offset.y);
+
+            let mut frame = Frame::soft(Size::new(width, height));
 
             let mut body_pos = self.body_offset;
             if self.list.is_rtl {
-                // In RTL cells expand to the left, thus the position must
-                // additionally be offset by the cell's width.
-                body_pos.x = width - (body_pos.x + body_frame.width());
+                // In RTL, items expand to the left, thus the position must
+                // additionally be offset by the full width. However, since the
+                // body is always at the end, it will expand to the right in
+                // LTR, and therefore to the left in RTL. That is, its leftmost
+                // corner must be at the left of the frame, since it now expands
+                // to the left.
+                //
+                // Or, mathematically:
+                // body_pos.x = width - (body_frame.width() + body_pos.x)
+                //            = self.body_offset.x + body_frame.width() -
+                //                  - (body_frame.width() + self.body_offset.x)
+                //            = 0.
+                body_pos.x = Abs::zero();
             }
 
             // Only place the marker on the first non-empty frame.
             if i == self.first_frame {
                 let mut marker_pos = self.marker_offset;
                 if self.list.is_rtl {
-                    marker_pos.x = width - (marker_pos.x + self.list.marker_width);
+                    marker_pos.x = width - (self.list.marker_width + marker_pos.x);
                 }
                 frame.push_frame(marker_pos, marker.clone());
             }
