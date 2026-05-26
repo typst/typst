@@ -71,7 +71,11 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        (NonZeroUsize::ONE, false, Rel::zero()),
+        ColumnOptions {
+            count: NonZeroUsize::ONE,
+            balanced: false,
+            gutter: Rel::zero(),
+        },
     )
 }
 
@@ -98,7 +102,11 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        (elem.count.get(styles), elem.balanced.get(styles), elem.gutter.resolve(styles)),
+        ColumnOptions {
+            count: elem.count.get(styles),
+            balanced: elem.balanced.get(styles),
+            gutter: elem.gutter.resolve(styles),
+        },
     )
 }
 
@@ -116,7 +124,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: (NonZeroUsize, bool, Rel<Abs>),
+    column: ColumnOptions,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -156,7 +164,7 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
+        column,
         kind.into(),
     )
 }
@@ -189,11 +197,11 @@ pub fn layout_flow<'a>(
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: (NonZeroUsize, bool, Rel<Abs>),
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, mode);
+    let config = configuration(shared, regions, column, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -232,20 +240,19 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: (NonZeroUsize, bool, Rel<Abs>),
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> Config<'x> {
-    let (column_count, column_balanced, column_gutter) = columns;
     Config {
         mode,
         shared,
         columns: {
-            let mut count = column_count.get();
+            let mut count = column.count.get();
             if !regions.size.x.is_finite() {
                 count = 1;
             }
 
-            let gutter = column_gutter.relative_to(regions.base().x);
+            let gutter = column.gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
             ColumnConfig {
@@ -253,7 +260,7 @@ fn configuration<'x>(
                 width,
                 gutter,
                 dir,
-                balanced: column_balanced,
+                balanced: column.balanced,
             }
         },
         footnote: FootnoteConfig {
@@ -350,6 +357,13 @@ impl<'a, 'b> Work<'a, 'b> {
             Rc::make_mut(&mut self.skips).extend(skips.iter().copied());
         }
     }
+}
+
+#[derive(Hash)]
+pub struct ColumnOptions {
+    pub count: NonZeroUsize,
+    pub balanced: bool,
+    pub gutter: Rel<Abs>,
 }
 
 /// Shared configuration for the whole flow.
