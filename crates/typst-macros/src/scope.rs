@@ -5,7 +5,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{BareType, foundations, kw, parse_flag};
+use crate::util::{BareType, foundations, kw, parse_expr, parse_flag, parse_ident};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -55,6 +55,16 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
             _ => bail!(child, "unexpected item in scope"),
         };
 
+        if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("feature")) {
+            match &attr.meta {
+                syn::Meta::NameValue(pair) if pair.path.is_ident("feature") => {
+                    let feature = &pair.value;
+                    def = quote! { #def.feature(::typst_library::Feature::#feature) }
+                }
+                _ => {}
+            }
+        }
+
         if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("deprecated")) {
             match &attr.meta {
                 syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
@@ -67,7 +77,7 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                     )?;
 
                     let mut deprecation =
-                        quote! { crate::foundations::Deprecation::new() };
+                        quote! { ::typst_library::foundations::Deprecation::new() };
 
                     if let Some(message) = args.iter().find_map(|pair| {
                         pair.path.is_ident("message").then_some(&pair.value)
@@ -97,6 +107,12 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
         Some(ident_ext) => rewrite_primitive_base(&item, ident_ext),
     };
 
+    let category = meta.category.map(|category| {
+        quote! { scope.start_category(::typst_library::Category::#category); }
+    });
+
+    let custom = meta.custom;
+
     Ok(quote! {
         #base
 
@@ -108,7 +124,12 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
             #[allow(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
+                #category
                 #(#definitions;)*
+                {
+                    let scope = &mut scope;
+                    #custom;
+                }
                 scope
             }
         }
@@ -120,11 +141,19 @@ struct Meta {
     /// Whether this the scope should be implemented through an extension
     /// trait instead of an inherent impl.
     ext: bool,
+    /// The category of the scope.
+    category: Option<syn::Ident>,
+    /// A block with custom definitions.
+    custom: Option<syn::Expr>,
 }
 
 impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self { ext: parse_flag::<kw::ext>(input)? })
+        Ok(Self {
+            ext: parse_flag::<kw::ext>(input)?,
+            category: parse_ident::<kw::category>(input)?,
+            custom: parse_expr::<kw::custom>(input)?,
+        })
     }
 }
 

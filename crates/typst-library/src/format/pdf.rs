@@ -1,10 +1,9 @@
 use ecow::EcoString;
+use typst_library::World;
+use typst_library::diag::At;
+use typst_library::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
+use typst_library::introspection::Locatable;
 use typst_syntax::Spanned;
-
-use crate::World;
-use crate::diag::At;
-use crate::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
-use crate::introspection::Locatable;
 
 /// A file that will be attached to the output PDF.
 ///
@@ -29,6 +28,8 @@ use crate::introspection::Locatable;
 /// - This element is ignored if exporting to a format other than PDF.
 /// - File attachments are not currently supported for PDF/A-2, even if the
 ///   attached file conforms to PDF/A-1 or PDF/A-2.
+// FIXME: This should live in `typst-pdf`, but `Locatable` can only be
+// implemented for `Packed<AttachElem>` inside of `typst-library`.
 #[elem(keywords = ["embed"], Locatable)]
 pub struct AttachElem {
     /// The path of the file to be attached.

@@ -83,6 +83,8 @@ clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
+typst = { workspace = true }
+typst-pdf = { workspace = true }
 typst-utils = { workspace = true }
 
 [features]

@@ -8,6 +8,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::FormatOptions;
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, ManualPageCounter, SplitLocator, TagElem,
@@ -157,8 +158,11 @@ fn layout_document_common(
     info.populate(styles);
     info.populate_locale(styles);
 
+    let mut options = FormatOptions::new(&library.formats);
+    options.populate(styles);
+
     let mut children = (engine.library.routines.realize)(
-        RealizationKind::Document { info: &mut info },
+        RealizationKind::Document { info: &mut info, options: &mut options },
         &mut engine,
         &mut locator,
         &arenas,
@@ -168,7 +172,7 @@ fn layout_document_common(
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
 
-    Ok(PagedDocument::new(pages, info))
+    Ok(PagedDocument::new(pages, info, options))
 }
 
 /// Layouts the document's pages.
