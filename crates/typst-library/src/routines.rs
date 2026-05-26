@@ -7,9 +7,10 @@ use typst_utils::LazyHash;
 
 use crate::diag::SourceResult;
 use crate::engine::{Engine, Route, Sink, Traced};
+use crate::format::FormatOptions;
 use crate::foundations::{
-    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
-    Styles, Value,
+    Args, Closure, Content, Context, Func, NativeRuleMap, Scope, StyleChain, Styles,
+    Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
@@ -97,9 +98,6 @@ routines! {
         region: Region,
     ) -> SourceResult<Frame>
 
-    /// Constructs the `html` module.
-    fn html_module() -> Module
-
     /// Returns the body of a MathML `HtmlElem`, if the content is one.
     fn html_mathml_body<'a>(
         content: &'a Content,
@@ -157,7 +155,7 @@ pub enum RealizationKind<'a> {
     Bundle,
     /// This the root realization for a document. Requires a mutable reference
     /// to document metadata that will be filled from `set document` rules.
-    Document { info: &'a mut DocumentInfo },
+    Document { info: &'a mut DocumentInfo, options: &'a mut FormatOptions },
     /// A nested realization in a container (e.g. a `block` or an `html.div`).
     /// Requires a mutable reference to an enum that will be set to
     /// `FragmentKind::Inline` if the fragment's content was fully inline.
