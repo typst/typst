@@ -1,6 +1,6 @@
 use az::SaturatingAs;
 use comemo::Tracked;
-use rustybuzz::{BufferFlags, UnicodeBuffer};
+use harfrust::{BufferFlags, UnicodeBuffer};
 use typst_library::World;
 use typst_library::layout::Em;
 use typst_library::text::{Font, FontFamily, FontVariant, Glyph};
@@ -13,8 +13,8 @@ use crate::inline::{SharedShapingContext, create_shape_plan, get_font_and_covers
 pub fn shape(
     world: Tracked<dyn World + '_>,
     variant: FontVariant,
-    features: Vec<rustybuzz::Feature>,
-    language: rustybuzz::Language,
+    features: Vec<harfrust::Feature>,
+    language: harfrust::Language,
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
@@ -40,8 +40,8 @@ struct ShapingContext<'a> {
     world: Tracked<'a, dyn World + 'a>,
     used: Vec<Font>,
     variant: FontVariant,
-    features: Vec<rustybuzz::Feature>,
-    language: rustybuzz::Language,
+    features: Vec<harfrust::Feature>,
+    language: harfrust::Language,
     fallback: bool,
     glyphs: Vec<Glyph>,
     font: Option<Font>,
@@ -98,13 +98,8 @@ fn shape_impl<'a>(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(ctx.language.clone());
-    // TODO: Use `rustybuzz::script::MATH` once
-    // https://github.com/harfbuzz/rustybuzz/pull/165 is released.
-    buffer.set_script(
-        rustybuzz::Script::from_iso15924_tag(ttf_parser::Tag::from_bytes(b"math"))
-            .unwrap(),
-    );
-    buffer.set_direction(rustybuzz::Direction::LeftToRight);
+    buffer.set_script(harfrust::script::MATH);
+    buffer.set_direction(harfrust::Direction::LeftToRight);
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
     let plan = create_shape_plan(
@@ -115,7 +110,7 @@ fn shape_impl<'a>(
         &ctx.features,
     );
 
-    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
+    let buffer = font.shaper().shape_with_plan(&plan, buffer, &ctx.features);
     // Because we will only ever shape single grapheme clusters, we will
     // (incorrectly) assume that the output from the shaper is a single cluster
     // that spans the entire range of the given text. The only problem this

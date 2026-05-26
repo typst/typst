@@ -61,7 +61,7 @@ impl SVGRenderer<'_> {
         x_offset: Abs,
         y_offset: Abs,
     ) {
-        if should_outline(&text.font, glyph_id) {
+        if should_outline(&text.font, glyph_id.0) {
             // Pre-scale outlined glyphs, so strokes and fill patterns don't
             // need to consider text size glyph scaling.
             let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());

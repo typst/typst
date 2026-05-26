@@ -25,6 +25,7 @@ codex = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 either = { workspace = true }
+harfrust = { workspace = true }
 hypher = { workspace = true }
 icu_properties = { workspace = true }
 icu_provider = { workspace = true }
@@ -34,8 +35,8 @@ icu_segmenter = { workspace = true }
 kurbo = { workspace = true }
 libm = { workspace = true }
 memchr = { workspace = true }
+read-fonts = { workspace = true }
 rustc-hash = { workspace = true }
-rustybuzz = { workspace = true }
 smallvec = { workspace = true }
 ttf-parser = { workspace = true }
 unicode-bidi = { workspace = true }
