@@ -61,7 +61,7 @@ flate2 = "1"
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 glidesort = "0.1.2"
-hayagriva = "0.9.1"
+hayagriva = { git = "https://github.com/typst/hayagriva", rev = "292b880" }
 hayro = { version = "0.4.0", default-features = false }
 hayro-svg = { version = "0.2.0", default-features = false }
 hayro-syntax = "0.4.0"

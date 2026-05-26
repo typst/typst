@@ -336,8 +336,7 @@ dependencies = [
 [[package]]
 name = "citationberg"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f6597e8bdbca37f1f56e5a80d15857b0932aead21a78d20de49e99e74933046"
+source = "git+https://github.com/typst/citationberg?rev=0999ab7#0999ab79842d79c7aae665cf1c6eece5a4b9ef2e"
 dependencies = [
  "quick-xml 0.38.3",
  "serde",
@@ -917,8 +916,7 @@ checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 [[package]]
 name = "hayagriva"
 version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cb69425736f184173b3ca6e27fcba440a61492a790c786b1c6af7e06a03e575"
+source = "git+https://github.com/typst/hayagriva?rev=292b880#292b88010d75e5fea8c8ff41fad250b2cd4d9a9a"
 dependencies = [
  "biblatex",
  "ciborium",
