@@ -152,6 +152,20 @@ impl<T: NumericLength + Repr> Repr for Rel<T> {
     }
 }
 
+impl<T: NumericLength> Numeric for Rel<T> {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_zero(self) -> bool {
+        self.rel.is_zero() && self.abs.is_zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.rel.is_finite() && self.abs.is_finite()
+    }
+}
+
 impl From<Abs> for Rel<Length> {
     fn from(abs: Abs) -> Self {
         Rel::from(Length::from(abs))

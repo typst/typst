@@ -119,7 +119,7 @@ fn layout_page_run_impl(
 
     // Determine the margins.
     let default = Rel::<Length>::from((2.5 / 21.0) * min);
-    let margin = styles.get(PageElem::margin).custom().unwrap_or_default();
+    let margin = styles.get(PageElem::margin).unwrap_or_default();
     let margin_two_sided = margin.two_sided.unwrap_or(false);
     let margin = margin
         .sides

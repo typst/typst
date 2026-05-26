@@ -159,10 +159,8 @@ fn trim_page(page: &mut Page, Zoom { x, y, w, h }: &Zoom, styles: StyleChain) {
 
 /// Turns a compiled `Page` into a Typst `image` element by rendering it.
 fn page_to_image(page: Page) -> Content {
-    let pixmap = typst_render::render(
-        &page,
-        &RenderOptions { pixel_per_pt: 2.0, render_bleed: false },
-    );
+    let opts = RenderOptions { pixel_per_pt: 2.0, render_bleed: false };
+    let pixmap = typst_render::render(&page, &opts);
     let format = ImageFormat::Raster(RasterFormat::Pixel(PixelFormat {
         encoding: PixelEncoding::Rgba8,
         width: pixmap.width(),

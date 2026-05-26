@@ -93,7 +93,6 @@ pub struct RenderOptions {
     /// This can be useful when adjusting the final image quality for display or
     /// printing purposes.
     pub pixel_per_pt: f32,
-
     /// By default, rendered pages are limited to the bounds of the Media Box.
     /// In some circumstances, such as when preparing documents for print, it
     /// may be desirable to include content beyond these bounds to account for

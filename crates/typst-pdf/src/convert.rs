@@ -107,12 +107,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         .expect_internal("invalid page size")
         .at(Span::detached())?;
 
-        if typst_page.bleed != Sides::splat(Abs::zero()) {
+        if !typst_page.bleed.is_zero() {
             settings = settings.with_trim_box(Rect::from_ltrb(
                 typst_page.bleed.left.to_f32(),
                 typst_page.bleed.top.to_f32(),
-                (typst_page.frame.width() + typst_page.bleed.left).to_f32(),
-                (typst_page.frame.height() + typst_page.bleed.top).to_f32(),
+                (typst_page.bleed.left + typst_page.frame.width()).to_f32(),
+                (typst_page.bleed.top + typst_page.frame.height()).to_f32(),
             ));
         }
 
@@ -362,7 +362,6 @@ pub(crate) fn handle_frame(
     }
 
     fc.pop();
-
     fc.pop();
 
     Ok(())

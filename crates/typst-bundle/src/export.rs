@@ -82,17 +82,15 @@ fn export_pdf(
 #[comemo::memoize]
 #[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> {
-    typst_render::render(
-        &doc.pages()[0],
-        &RenderOptions {
-            pixel_per_pt: pixel_per_pt.get() as f32,
-            render_bleed: false,
-        },
-    )
-    .encode_png()
-    .map(Bytes::new)
-    .map_err(|_| "failed to encode PNG")
-    .at(Span::detached())
+    let opts = RenderOptions {
+        pixel_per_pt: pixel_per_pt.get() as f32,
+        render_bleed: false,
+    };
+    typst_render::render(&doc.pages()[0], &opts)
+        .encode_png()
+        .map(Bytes::new)
+        .map_err(|_| "failed to encode PNG")
+        .at(Span::detached())
 }
 
 /// Exports an SVG document.

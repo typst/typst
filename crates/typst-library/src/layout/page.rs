@@ -618,9 +618,11 @@ impl<T: Reflect + PartialEq> Reflect for Margin<T> {
     fn input() -> CastInfo {
         T::input() + Dict::input()
     }
+
     fn output() -> CastInfo {
         Self::input()
     }
+
     fn castable(value: &Value) -> bool {
         T::castable(value) || Dict::castable(value)
     }
@@ -637,7 +639,6 @@ impl<T: IntoValue + PartialEq> IntoValue for Margin<T> {
         }
 
         let mut dict = Dict::new();
-
         let mut handle = |key: &str, component: Option<T>| {
             if let Some(c) = component {
                 dict.insert(key.into(), c.into_value());
