@@ -23,6 +23,7 @@ use typst::visualize::{
 };
 use typst::{Features, Library, LibraryExt, World, WorldExt};
 use typst_layout::{Page, PagedDocument};
+use typst_render::RenderOptions;
 use typst_utils::LazyHash;
 
 /// Processes a code example in the docs and returns an array of `image`
@@ -158,7 +159,8 @@ fn trim_page(page: &mut Page, Zoom { x, y, w, h }: &Zoom, styles: StyleChain) {
 
 /// Turns a compiled `Page` into a Typst `image` element by rendering it.
 fn page_to_image(page: Page) -> Content {
-    let pixmap = typst_render::render(&page, 2.0);
+    let opts = RenderOptions { pixel_per_pt: 2.0, render_bleed: false };
+    let pixmap = typst_render::render(&page, &opts);
     let format = ImageFormat::Raster(RasterFormat::Pixel(PixelFormat {
         encoding: PixelEncoding::Rgba8,
         width: pixmap.width(),
@@ -303,8 +305,10 @@ static EXAMPLE_LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
     // Adjust the default look a bit.
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(240.0).into()));
     lib.styles.set(PageElem::height, Smart::Auto);
-    lib.styles
-        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(15.0).into()))));
+    lib.styles.set(
+        PageElem::margin,
+        Smart::Custom(Margin::splat(Some(Smart::Custom(Abs::pt(15.0).into())))),
+    );
 
     LazyHash::new(lib)
 });

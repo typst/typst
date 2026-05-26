@@ -1365,6 +1365,8 @@ f75a795476c6705f300cfabb7f883c3e overhang-lone
 0d0331ac839fd4a6a0e700a269cbb2e2 pad-basic
 3f89288282da247bcf5c6a8dda8503da pad-expanding-contents
 7812e636d5849092c1ce1eae71c78bd2 pad-followed-by-content
+560a2e9dfff9abcd19ccc63428788519 page-bleed
+3ab1f28d493d54ec6ee4b820c03504e8 page-bleed-binding
 1aa58a44b1041882a013b167994a21bd page-call-followed-by-pagebreak
 a1880dd82ec477cc9ce53f2c7e556635 page-call-styled-empty
 e32588587f73fd3816c8bd87b7c8c634 page-fill
