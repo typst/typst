@@ -41,7 +41,7 @@ pub fn svg(page: &Page, opts: &SvgOptions) -> String {
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
-    let mut svg = svg_header(&mut xml, page.frame.size());
+    let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
     let ts = Transform::translate(bleed.left, bleed.top);
