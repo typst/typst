@@ -51,6 +51,7 @@
 #let fonts = (
   body: "HK Grotesk",
   mono: "Cascadia Mono",
+  math: "New Computer Modern Math",
   fallback: ("Noto Serif CJK SC",),
 )
 
@@ -58,6 +59,7 @@
 #let sizes = (
   body: 9pt,
   mono: 0.9em,
+  math: 1.1em,
   small: 0.85em,
 )
 

@@ -177,6 +177,11 @@ dd {
   margin-inline: 0px;
 }
 
+math {
+  font-family: "NewComputerModernMath", math;
+  font-size: 1.1em;
+}
+
 main table {
   border-collapse: collapse;
   margin-block: 16px;
