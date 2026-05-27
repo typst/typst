@@ -228,7 +228,7 @@ impl Groups {
 pub enum BreakOpportunity {
     /// The group is unbreakable.
     Never,
-    /// The group can only be broken, when
+    /// The group can only be broken when PDF/UA isn't targeted.
     NoPdfUa(BreakPriority),
     /// The group can always be broken.
     Always(BreakPriority),
