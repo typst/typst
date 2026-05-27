@@ -368,9 +368,7 @@ pub fn atan2(
 /// Calculates the hyperbolic sine of a hyperbolic angle.
 ///
 /// The hyperbolic sine of $x$ is defined as follows:
-/// $
-///   (e^x - e^(-x)) / 2
-/// $
+/// $ (e^x - e^(-x)) / 2 $
 ///
 /// ```example
 /// #calc.sinh(0) \
@@ -387,9 +385,7 @@ pub fn sinh(
 /// Calculates the hyperbolic cosine of a hyperbolic angle.
 ///
 /// The hyperbolic cosine of $x$ is defined as follows:
-/// $
-///   (e^x + e^(-x)) / 2
-/// $
+/// $ (e^x + e^(-x)) / 2 $
 ///
 /// ```example
 /// #calc.cosh(0) \
@@ -406,9 +402,7 @@ pub fn cosh(
 /// Calculates the hyperbolic tangent of a hyperbolic angle.
 ///
 /// The hyperbolic tangent of $x$ is defined as follows:
-/// $
-///   (e^x - e^(-x)) / (e^x + e^(-x))
-/// $
+/// $ (e^x - e^(-x)) / (e^x + e^(-x)) $
 ///
 /// ```example
 /// #calc.tanh(0) \
@@ -425,9 +419,7 @@ pub fn tanh(
 /// Calculates the inverse hyperbolic sine of a number.
 ///
 /// The inverse hyperbolic sine of $x$ is defined as follows:
-/// $
-///   ln(x + sqrt(x^2 + 1))
-/// $
+/// $ ln(x + sqrt(x^2 + 1)) $
 ///
 /// ```example
 /// #calc.asinh(0) \
@@ -444,9 +436,7 @@ pub fn asinh(
 /// Calculates the inverse hyperbolic cosine of a number.
 ///
 /// The inverse hyperbolic cosine of $x$ is defined as follows:
-/// $
-///   ln(x + sqrt(x^2 - 1))
-/// $
+/// $ ln(x + sqrt(x^2 - 1)) $
 ///
 /// ```example
 /// #calc.acosh(1) \
@@ -468,9 +458,7 @@ pub fn acosh(
 /// Calculates the inverse hyperbolic tangent of a number.
 ///
 /// The inverse hyperbolic tangent of $x$ is defined as follows:
-/// $
-///   1/2 ln((1 + x) / (1 - x))
-/// $
+/// $ 1/2 ln((1 + x) / (1 - x)) $
 ///
 /// ```example
 /// #calc.atanh(0) \
@@ -559,9 +547,7 @@ pub fn ln(
 /// Applies the error function to a number.
 ///
 /// The value of the error function at $x$ is defined as follows:
-/// $
-///   2 / sqrt(pi) integral_0^x e^(-t^2) dif t
-/// $
+/// $ 2 / sqrt(pi) integral_0^x e^(-t^2) dif t $
 ///
 /// ```example
 /// #calc.erf(0.2)
@@ -1205,9 +1191,7 @@ pub fn norm(
     /// The value of $p$. Must be greater than zero.
     ///
     /// The default value of `{2.0}` corresponds to the Euclidean norm:
-    /// $
-    ///   sqrt(sum_(i=1)^n x_i^2)
-    /// $
+    /// $ sqrt(sum_(i=1)^n x_i^2) $
     #[named]
     #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
