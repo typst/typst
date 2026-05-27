@@ -245,8 +245,7 @@ impl<'a> MathItem<'a> {
                 && comp.props.size == MathSize::Display
                 && !glyph.stretch.get().is_explicit(Axis::Y)
             {
-                let target = Rel::new(Ratio::one(), Abs::zero());
-                let info = StretchInfo::new(target, Em::zero());
+                let info = StretchInfo::default();
                 glyph.stretch.update(|stretch| stretch.with_y(info));
             }
         }
@@ -1245,6 +1244,13 @@ impl StretchInfo {
             relative_to: None,
             font_size: None,
         }
+    }
+}
+
+impl Default for StretchInfo {
+    fn default() -> Self {
+        let target = Rel::new(Ratio::one(), Abs::zero());
+        Self::new(target, Em::zero())
     }
 }
 

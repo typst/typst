@@ -348,8 +348,7 @@ fn resolve_symbol<'a, 'v, 'e>(
         let item = GlyphItem::create(text, styles, elem.span());
 
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
-            let target = Rel::new(Ratio::one(), Abs::zero());
-            let stretch = Stretch::new().with_y(StretchInfo::new(target, Em::zero()));
+            let stretch = Stretch::new().with_y(StretchInfo::default());
             item.replace_stretch(stretch);
         }
 
