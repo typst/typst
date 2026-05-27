@@ -83,7 +83,7 @@ pub struct ToAbs(Value);
 
 cast! {
     ToAbs,
-    v: i64 => Self(v.abs().into_value()),
+    v: i64 => Self(v.checked_abs().ok_or_else(too_large)?.into_value()),
     v: f64 => Self(v.abs().into_value()),
     v: Length => Self(Value::Length(v.try_abs()
         .ok_or("cannot take absolute value of this length")?)),
@@ -650,7 +650,7 @@ pub fn gcd(
         a = temp;
     }
 
-    Ok(a.abs())
+    Ok(a.checked_abs().ok_or_else(too_large)?)
 }
 
 /// Calculates the least common multiple of two integers.
@@ -666,12 +666,12 @@ pub fn lcm(
     b: i64,
 ) -> StrResult<i64> {
     if a == b {
-        return Ok(a.abs());
+        return Ok(a.checked_abs().ok_or_else(too_large)?);
     }
 
     Ok(a.checked_div(gcd(a, b)?)
         .and_then(|gcd| gcd.checked_mul(b))
-        .map(|v| v.abs())
+        .and_then(|v| v.checked_abs())
         .ok_or_else(too_large)?)
 }
 

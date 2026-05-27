@@ -38,6 +38,10 @@
 // Error: 11-22 expected integer, float, length, angle, ratio, fraction, or decimal, found string
 #calc.abs("no number")
 
+--- calc-abs-too-large eval ---
+// Error: 11-38 the result is too large
+#calc.abs(int("-9223372036854775808"))
+
 --- calc-even-and-odd eval ---
 // Test the `even` and `odd` functions.
 #test(calc.even(2), true)
@@ -331,6 +335,10 @@
 // Error: 2-43 the result is too large
 #calc.gcd(int("-9223372036854775808"), -1)
 
+--- calc-gcd-min-int eval ---
+// Error: 2-42 the result is too large
+#calc.gcd(int("-9223372036854775808"), 0)
+
 --- calc-lcm eval ---
 // Test the `lcm` function.
 #test(calc.lcm(112, 77), 1232)
@@ -344,6 +352,10 @@
 --- calc-lcm-too-large eval ---
 // Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
+
+--- calc-lcm-min-int eval ---
+// Error: 2-42 the result is too large
+#calc.lcm(int("-9223372036854775808"), 1)
 
 --- calc-round-larger-than-max-int eval ---
 #test(calc.round(decimal("9223372036854775809.5")), decimal("9223372036854775810"))
