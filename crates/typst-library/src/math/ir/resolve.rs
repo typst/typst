@@ -348,8 +348,7 @@ fn resolve_symbol<'a, 'v, 'e>(
         let item = GlyphItem::create(text, styles, elem.span());
 
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
-            let target = Rel::new(Ratio::one(), Abs::zero());
-            let stretch = Stretch::new().with_y(StretchInfo::new(target, Em::zero()));
+            let stretch = Stretch::new().with_y(StretchInfo::default());
             item.replace_stretch(stretch);
         }
 
@@ -1194,8 +1193,6 @@ fn resolve_class<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let styles =
-        ctx.chain_styles(styles, EquationElem::class.set(Some(elem.class)).wrap());
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
     item.set_class(elem.class);
     item.set_limits(Limits::for_class(elem.class));

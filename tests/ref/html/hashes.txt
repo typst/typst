@@ -175,6 +175,7 @@ e82902ff68a2be3bd055709b4c7d82df math-cases-linebreaks
 77c2ffc684f94a533207a76132765b54 math-class-exceptions
 2a29ee3a3cedaca4859b7fdf5dfa01a5 math-class-limits
 766bf4baa8c6c3fbee5216a29fd1a223 math-class-nested
+81a8382c4d901a49b3b7bcf37c32a56b math-class-not-recursive
 a47c1172eb41e54f2caf7898579ccd9d math-common-symbols
 0af60c585acf38434002a4ac8af41c35 math-consecutive
 5309d0fc34a332d9f51b5c3bab1181b1 math-delim-show-rule-1
@@ -327,6 +328,7 @@ bf9547773150f62e2e3824c6d4f0c33d math-spacing-weak
 f0dd9b4b15d95e50d15b71f13b31c9ba math-stretch-attach-nested-equation
 88ec267f8dc14cccab55aa35b9b0710c math-stretch-basic
 c6f4f1caf46009fe16fc2746ab283b52 math-stretch-complex
+33c9ee459f9b6de39ba073fba20efe43 math-stretch-explicit-mixed
 132ea149920a76e79961b39b9901f268 math-stretch-horizontal
 572fdb0e7106f0aec447a1b4ede2abba math-stretch-horizontal-attach
 311b2e558fb4fffadafac7594f03eea1 math-stretch-lr-nested-horizontal
