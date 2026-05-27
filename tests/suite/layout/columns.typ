@@ -191,3 +191,15 @@ B
 #set par(justify: true)
 #set columns(separator: red + 1pt)
 #lorem(30)
+
+--- columns-separator-content paged ---
+#set page(width: 200pt, height: 100pt, columns: 2)
+#set text(hyphenate: true)
+#set par(justify: true)
+#set curve(stroke: blue)
+#set columns(
+    gutter: 20pt,
+    separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%)))
+)
+#lorem(29)
+

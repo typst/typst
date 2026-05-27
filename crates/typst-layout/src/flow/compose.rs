@@ -8,8 +8,9 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
-    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
+    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, HAlignment,
+    Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Separator,
+    Size, VAlignment,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
@@ -169,7 +170,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             }
 
             // Column separators
-            if self.config.columns.separator.is_some()
+            if let Some(separator) = &self.config.columns.separator
                 && !self.column_height_tracker.separator_height.min(sep_height).is_zero()
             {
                 let mut xsep = x - 0.5 * self.config.columns.gutter;
@@ -177,13 +178,35 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     xsep += width + self.config.columns.gutter
                 }
                 let ysep = self.column_height_tracker.separator_height.max(sep_height);
-                let stroke = self.config.columns.separator.clone().unwrap();
-                let line = Geometry::Line(Point::with_y(ysep)).stroked(stroke);
-                output.prepend(
-                    // prepend so it's behind both adjacent columns
-                    Point::with_x(xsep),
-                    FrameItem::Shape(line, Span::detached()),
-                );
+                match separator {
+                    Separator::Stroke(stroke) => {
+                        let stroke = stroke.clone().resolve(self.config.shared);
+                        let line = Geometry::Line(Point::with_y(ysep))
+                            .stroked(stroke.unwrap_or_default());
+                        output.prepend(
+                            Point::with_x(xsep),
+                            FrameItem::Shape(line, Span::detached()),
+                        )
+                    }
+                    Separator::Content(content) => {
+                        let frame = crate::layout_frame(
+                            self.engine,
+                            &content
+                                .clone()
+                                .aligned(HAlignment::Center + VAlignment::Horizon),
+                            Locator::root(),
+                            self.config.shared,
+                            Region::new(
+                                Size::new(self.config.columns.gutter, ysep),
+                                Axes::new(true, true),
+                            ),
+                        )?;
+                        output.prepend_frame(
+                            Point::with_x(xsep - 0.5 * frame.width()),
+                            frame,
+                        );
+                    }
+                };
             }
             sep_height = self.column_height_tracker.separator_height;
 

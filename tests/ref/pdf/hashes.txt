@@ -115,6 +115,7 @@ db563be49fe546ffa6f713a524430666 columns-more-with-gutter
 3230f82ef368b514ddd52ad4ddc33ca6 columns-page-width-auto
 20e6548815d3c805781b0c7fddb9c3ec columns-rtl
 ab89944b571eac9cb0def2142ee96cd5 columns-separator
+67b4c202626367adc14cc058174d3f27 columns-separator-content
 2a2ca8b9745c7d27a0e4c0f975b87300 columns-set-page
 3d52cdc4a054394fe4182264b7922666 columns-set-page-colbreak-pagebreak
 48fcad01da99457965e01f69e6a76ab1 coma
