@@ -1,8 +1,8 @@
-use std::num::NonZeroUsize;
-
-use crate::foundations::{Content, elem};
+use crate::diag::HintedStrResult;
+use crate::foundations::{CastInfo, Content, FromValue, IntoValue, Reflect, Value, elem};
 use crate::layout::{Length, Ratio, Rel};
 use crate::visualize::Stroke;
+use std::num::NonZeroUsize;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -90,19 +90,43 @@ pub struct ColumnsElem {
     #[default(false)]
     pub balanced: bool,
 
-    /// The stroke of the separator line between each column.
+    /// The stroke of the separator line or the content to place between each
+    /// non-empty column.
     ///
     /// #example(
     /// ```
     /// #set page(columns: 2, height: 5cm)
     /// #set par(justify: true)
-    /// #set columns(separator: 1pt + red)
+    /// #set columns(separator: 1pt + orange)
     /// #lorem(35)
     /// ```
     /// )
-    #[fold]
+    ///
+    /// #example(title: "Separator with extended line",
+    /// ```
+    /// #set page(columns: 2, height: 5cm)
+    /// #set par(justify: true)
+    /// #set columns(separator: line(
+    ///   angle: 90deg,
+    ///   length: 100% + 2*3pt,
+    /// ))
+    /// #lorem(35)
+    /// ```
+    /// )
+    ///
+    /// #example(title: "Custom separator ornament",
+    /// ```
+    /// #set page(columns: 3, width: 15cm, height: 3cm)
+    /// #set par(justify: true)
+    /// #set columns(
+    ///   gutter: 25pt,
+    ///   separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%))
+    /// ))
+    /// #lorem(36)
+    /// ```
+    /// )
     #[default(None)]
-    pub separator: Option<Stroke>,
+    pub separator: Option<Separator>,
 
     /// The content that should be layouted into the columns.
     #[required]
@@ -138,4 +162,48 @@ pub struct ColbreakElem {
     /// already empty.
     #[default(false)]
     pub weak: bool,
+}
+
+/// Separator as a stroked line or content
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Separator {
+    Content(Content),
+    Stroke(Stroke),
+}
+
+impl Reflect for Separator {
+    fn input() -> CastInfo {
+        Content::input() + Stroke::input()
+    }
+
+    fn output() -> CastInfo {
+        Content::output() + Stroke::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Content::castable(value) || Stroke::castable(value)
+    }
+}
+
+impl FromValue for Separator {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if Content::castable(&value) {
+            return Content::from_value(value).map(Self::Content);
+        }
+
+        if Stroke::castable(&value) {
+            return Stroke::from_value(value).map(Self::Stroke);
+        }
+
+        Err(Self::error(&value))
+    }
+}
+
+impl IntoValue for Separator {
+    fn into_value(self) -> Value {
+        match self {
+            Self::Content(content) => content.into_value(),
+            Self::Stroke(stroke) => stroke.into_value(),
+        }
+    }
 }
