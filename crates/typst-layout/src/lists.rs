@@ -228,73 +228,6 @@ impl ListLayouter {
             body_width: None,
         }
     }
-
-    /// Measure marker.
-    fn measure_markers<'a>(
-        &self,
-        items: &[ItemContent],
-        locators: &[(Locator<'a>, Locator<'a>)],
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Abs> {
-        let available_width = regions.size.x - self.indent - self.body_indent;
-
-        // Measure markers, so we can align them horizontally relative to the
-        // largest width.
-        let mut marker_width = Abs::zero();
-        for (item, (marker_locator, _)) in items.iter().zip(locators) {
-            let marker = crate::layout_frame(
-                engine,
-                &item.marker,
-                marker_locator.relayout(),
-                styles,
-                Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
-            )?;
-            marker_width.set_max(marker.width());
-        }
-
-        // Redistribute width if necessary. It is okay to do this before
-        // measuring the body (thus effectively checking for the width in two
-        // places) since a non-zero-width body would cause an overlarge marker
-        // to surpass page width regardless. That is, this check doesn't affect
-        // the semantics of the other check, but it is necessary in case we
-        // don't measure the body at all.
-        Ok(marker_width.min(available_width))
-    }
-
-    /// Infinite space or `width: auto` used. Both would prevent the list from
-    /// expanding to fit, breaking alignment. Therefore, restrict the list size
-    /// to the size of the largest item, prompting list items to align between
-    /// themselves instead of relative to the full page width.
-    fn measure_bodies(
-        &self,
-        items: &[ItemContent],
-        locators: &[(Locator, Locator)],
-        engine: &mut Engine,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Abs> {
-        let available_width = regions.size.x - self.indent - self.body_indent;
-        let mut measured_body_width = Abs::zero();
-        for (item, (_, body_locator)) in items.iter().zip(locators) {
-            let body = crate::layout_frame(
-                engine,
-                &item.body,
-                body_locator.relayout(),
-                styles,
-                Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
-            )?;
-            measured_body_width.set_max(body.width());
-        }
-
-        // If marker and body together exceed the page width, the marker gets
-        // the space it requested and the body the rest. This makes some sense
-        // since the marker comes first, is unlikely to be large, and is
-        // unlikely to be able to wrap. It also keeps consistency between the
-        // case where we measure the body and the case where we don't.
-        Ok(measured_body_width.min(available_width - self.marker_width))
-    }
 }
 
 /// Layout list items.
@@ -318,11 +251,10 @@ fn layout_items(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
-    let mut locator = locator.split();
-
     // Store locators used during measuring to ensure the same locators will be
     // used later when laying out. This is needed to make introspection work
     // properly.
+    let mut locator = locator.split();
     let locators: Vec<_> = items
         .iter()
         .map(|item| {
@@ -333,11 +265,11 @@ fn layout_items(
         .collect();
 
     layouter.marker_width =
-        layouter.measure_markers(&items, &locators, engine, styles, regions)?;
+        measure_markers(&layouter, &items, &locators, engine, styles, regions)?;
 
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
         layouter.body_width =
-            Some(layouter.measure_bodies(&items, &locators, engine, styles, regions)?);
+            Some(measure_bodies(&layouter, &items, &locators, engine, styles, regions)?);
     }
 
     let cells =
@@ -369,6 +301,72 @@ fn layout_items(
         styles,
         regions,
     )
+}
+
+/// Measure marker.
+fn measure_markers<'a>(
+    list: &ListLayouter,
+    items: &[ItemContent],
+    locators: &[(Locator<'a>, Locator<'a>)],
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Abs> {
+    let available_width = regions.size.x - list.indent - list.body_indent;
+
+    // Measure markers, so we can align them horizontally relative to the
+    // largest width.
+    let mut marker_width = Abs::zero();
+    for (item, (marker_locator, _)) in items.iter().zip(locators) {
+        let marker = crate::layout_frame(
+            engine,
+            &item.marker,
+            marker_locator.relayout(),
+            styles,
+            Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
+        )?;
+        marker_width.set_max(marker.width());
+    }
+
+    // Redistribute width if necessary. It is okay to do this before measuring
+    // the body (thus effectively checking for the width in two places) since a
+    // non-zero-width body would cause an overlarge marker to surpass page width
+    // regardless. That is, this check doesn't affect the semantics of the other
+    // check, but it is necessary in case we don't measure the body at all.
+    Ok(marker_width.min(available_width))
+}
+
+/// Infinite space or `width: auto` used. Both would prevent the list from
+/// expanding to fit, breaking alignment. Therefore, restrict the list size to
+/// the size of the largest item, prompting list items to align between
+/// themselves instead of relative to the full page width.
+fn measure_bodies(
+    list: &ListLayouter,
+    items: &[ItemContent],
+    locators: &[(Locator, Locator)],
+    engine: &mut Engine,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Abs> {
+    let available_width = regions.size.x - list.indent - list.body_indent;
+    let mut measured_body_width = Abs::zero();
+    for (item, (_, body_locator)) in items.iter().zip(locators) {
+        let body = crate::layout_frame(
+            engine,
+            &item.body,
+            body_locator.relayout(),
+            styles,
+            Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
+        )?;
+        measured_body_width.set_max(body.width());
+    }
+
+    // If marker and body together exceed the page width, the marker gets the
+    // space it requested and the body the rest. This makes some sense since the
+    // marker comes first, is unlikely to be large, and is unlikely to be able
+    // to wrap. It also keeps consistency between the case where we measure the
+    // body and the case where we don't.
+    Ok(measured_body_width.min(available_width - list.marker_width))
 }
 
 /// Layout the item, with support for vertical marker alignment.
