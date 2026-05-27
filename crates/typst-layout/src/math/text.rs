@@ -56,7 +56,7 @@ pub fn layout_number(
     // differently to normal text and is worth re-evaluating in the future.
     let mut fragments = vec![];
     for c in text.chars() {
-        if let Some(glyph) = GlyphFragment::new_char(ctx, styles, c, span) {
+        if let Some(glyph) = GlyphFragment::synthetic(ctx.engine.world, styles, c, span) {
             fragments.push(glyph.into());
         }
     }

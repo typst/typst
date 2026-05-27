@@ -16,7 +16,6 @@ use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 
-use super::MathContext;
 use crate::math::shaping::shape;
 use crate::modifiers::{FrameModifiers, FrameModify};
 
@@ -42,14 +41,14 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
-    /// Calls `new` with the given character.
-    pub fn new_char(
-        ctx: &MathContext,
+    /// Creates a synthetic glyph fragment from the given character.
+    pub fn synthetic(
+        world: Tracked<dyn World + '_>,
         styles: StyleChain,
         c: char,
         span: Span,
     ) -> Option<Self> {
-        Self::new(ctx.engine.world, styles, c.encode_utf8(&mut [0; 4]), span)
+        Self::new(world, styles, c.encode_utf8(&mut [0; 4]), span)
     }
 
     /// Selects a font to use and then shapes text.
