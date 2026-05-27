@@ -20,6 +20,7 @@ use std::hash::{Hash, Hasher};
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
+use krilla::configure::Accessibility;
 use serde::{Deserialize, Serialize};
 use typst_layout::PagedDocument;
 use typst_library::diag::{HintedStrResult, HintedString, SourceResult, StrResult, bail};
@@ -83,10 +84,10 @@ pub struct PdfOptions<'a> {
 }
 
 impl PdfOptions<'_> {
-    /// Whether the current export mode is PDF/UA-1, and in the future maybe
-    /// PDF/UA-2.
-    pub(crate) fn is_pdf_ua(&self) -> bool {
-        self.standards.config.validators().accessibility().is_some()
+    /// Returns the accessibility validator. Returns `Some` for PDF/UA-1, and in
+    /// the future maybe PDF/UA-2.
+    pub(crate) fn accessibility_validator(&self) -> Option<Accessibility> {
+        self.standards.config.validators().accessibility()
     }
 }
 

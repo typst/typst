@@ -12,7 +12,7 @@ use crate::PdfOptions;
 use crate::tags::tree::Tree;
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 use crate::tags::{GroupId, util};
-use crate::util::{AbsExt, ValidatorsExt};
+use crate::util::AbsExt;
 
 #[derive(Debug, Clone)]
 pub struct TextAttrs {
@@ -254,9 +254,12 @@ fn compute_deco<'a>(
     match resolved {
         Some((elem, deco)) => {
             // PDF can only represent one text decoration style at a time.
-            // If PDF/UA-1 is enforced throw an error.
-            if err.is_none() && deco.kind != kind && options.is_pdf_ua() {
-                let validator = options.standards.config.validators().to_comma_list();
+            // If PDF/UA-1 is enforced, throw an error.
+            if err.is_none()
+                && deco.kind != kind
+                && let Some(accessibility) = options.accessibility_validator()
+            {
+                let validator = accessibility.as_str();
                 let span = elem.span();
                 *err = Some(error!(
                     span,
