@@ -174,7 +174,7 @@ fn bundle_impl(
         styles,
     )?;
 
-    let children = collect(&children, &mut engine, &mut locator);
+    let children = collect(&children, &mut engine, &mut locator)?;
 
     let mut items = engine
         .parallelize(children, |engine, child| -> SourceResult<_> {
@@ -237,7 +237,7 @@ fn collect<'a>(
     children: &'a [Pair<'a>],
     engine: &mut Engine,
     locator: &mut SplitLocator<'a>,
-) -> Vec<Child<'a>> {
+) -> SourceResult<Vec<Child<'a>>> {
     let mut items = Vec::new();
     let mut errors = EcoVec::new();
     let mut seen = FxHashMap::default();
@@ -266,7 +266,7 @@ fn collect<'a>(
                 entry.insert(elem.span());
             }
             Entry::Occupied(entry) => {
-                errors.push(error!(
+                engine.sink.delayed_error(error!(
                     elem.span(), "path `{}` occurs multiple times in the bundle",
                     path.get_without_slash();
                     hint: "{} paths must be unique in the bundle",
@@ -277,8 +277,11 @@ fn collect<'a>(
         }
     }
 
-    engine.sink.delay(errors);
-    items
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+
+    Ok(items)
 }
 
 /// Compiles a single document.

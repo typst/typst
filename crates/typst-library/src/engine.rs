@@ -43,7 +43,7 @@ impl Engine<'_> {
         match result {
             Ok(value) => value,
             Err(errors) => {
-                self.sink.delay(errors);
+                self.sink.delayed_errors(errors);
                 T::default()
             }
         }
@@ -208,8 +208,13 @@ impl Sink {
         self.introspections.push(introspection);
     }
 
-    /// Push delayed errors.
-    pub fn delay(&mut self, errors: EcoVec<SourceDiagnostic>) {
+    /// Add a delayed error.
+    pub fn delayed_error(&mut self, error: SourceDiagnostic) {
+        self.delayed.push(error);
+    }
+
+    /// Add multiple delayed errors.
+    pub fn delayed_errors(&mut self, errors: EcoVec<SourceDiagnostic>) {
         self.delayed.extend(errors);
     }
 
