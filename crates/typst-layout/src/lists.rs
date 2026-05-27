@@ -231,13 +231,13 @@ impl ListLayouter {
 
     /// Measure marker.
     fn measure_markers<'a>(
-        &mut self,
+        &self,
         items: &[ItemContent],
         locators: &[(Locator<'a>, Locator<'a>)],
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<()> {
+    ) -> SourceResult<Abs> {
         let available_width = regions.size.x - self.indent - self.body_indent;
 
         // Measure markers, so we can align them horizontally relative to the
@@ -260,9 +260,7 @@ impl ListLayouter {
         // to surpass page width regardless. That is, this check doesn't affect
         // the semantics of the other check, but it is necessary in case we
         // don't measure the body at all.
-        self.marker_width = marker_width.min(available_width);
-
-        Ok(())
+        Ok(marker_width.min(available_width))
     }
 
     /// Infinite space or `width: auto` used. Both would prevent the list from
@@ -270,13 +268,13 @@ impl ListLayouter {
     /// to the size of the largest item, prompting list items to align between
     /// themselves instead of relative to the full page width.
     fn measure_bodies(
-        &mut self,
+        &self,
         items: &[ItemContent],
         locators: &[(Locator, Locator)],
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
-    ) -> SourceResult<()> {
+    ) -> SourceResult<Abs> {
         let available_width = regions.size.x - self.indent - self.body_indent;
         let mut measured_body_width = Abs::zero();
         for (item, (_, body_locator)) in items.iter().zip(locators) {
@@ -295,10 +293,7 @@ impl ListLayouter {
         // since the marker comes first, is unlikely to be large, and is
         // unlikely to be able to wrap. It also keeps consistency between the
         // case where we measure the body and the case where we don't.
-        self.body_width =
-            Some(measured_body_width.min(available_width - self.marker_width));
-
-        Ok(())
+        Ok(measured_body_width.min(available_width - self.marker_width))
     }
 }
 
@@ -337,10 +332,12 @@ fn layout_items(
         })
         .collect();
 
-    layouter.measure_markers(&items, &locators, engine, styles, regions)?;
+    layouter.marker_width =
+        layouter.measure_markers(&items, &locators, engine, styles, regions)?;
 
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
-        layouter.measure_bodies(&items, &locators, engine, styles, regions)?;
+        layouter.body_width =
+            Some(layouter.measure_bodies(&items, &locators, engine, styles, regions)?);
     }
 
     let cells =
