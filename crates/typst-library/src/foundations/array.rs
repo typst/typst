@@ -413,32 +413,29 @@ impl Array {
         };
 
         let step = step.get();
-        let try_step = |v: i64| match v.checked_add(step) {
-            Some(v) => Ok(v),
-            None => bail!(args.span, "result became too large"),
-        };
+        let step_dir = 0.cmp(&step);
 
         let mut x = start;
         let mut array = Self::new();
 
-        if inclusive {
-            // Push while `x` has not stepped past `end` in the `step` direction
-            while x.cmp(&end) != 0.cmp(&step).reverse() {
-                array.push(x.into_value());
-                match try_step(x) {
-                    Ok(v) => x = v,
-                    Err(_) if x == end => {
-                        // don't error if we've reached `end` exactly
-                        break;
-                    }
-                    Err(e) => Err(e)?,
-                }
+        let in_bounds = |x: i64| {
+            if inclusive {
+                // `x` must not exceed `end`.
+                x.cmp(&end) != step_dir.reverse()
+            } else {
+                // `x` must stay strictly before `end`.
+                x.cmp(&end) == step_dir
             }
-        } else {
-            // Push while `x` is strictly before `end` in the `step` direction
-            while x.cmp(&end) == 0.cmp(&step) {
-                array.push(x.into_value());
-                x = try_step(x)?;
+        };
+
+        while in_bounds(x) {
+            array.push(x.into_value());
+
+            if let Some(next) = x.checked_add(step) {
+                x = next;
+            } else {
+                // `end` must have been exceeded this iteration, so we yield.
+                break;
             }
         }
 

@@ -140,25 +140,21 @@
 #test(range(inclusive: true, 5, 2, step: -1), (5, 4, 3, 2))
 #test(range(inclusive: true, 0, -2, step: -1), (0, -1, -2))
 
-// verify extremes
-#test(range(inclusive: true, 9223372036854775806, 9223372036854775807), (9223372036854775806, 9223372036854775807))
-#test(range(inclusive: true, -9223372036854775807, int("-9223372036854775808"), step: -1), (-9223372036854775807, int("-9223372036854775808")))
 
---- array-range-basic-overflow eval ---
-// Error: 2-40 result became too large
-#range(2, 3, step: 9223372036854775806)
+#let i64-max = 9223372036854775807
+#let i64-min = int("-9223372036854775808")
 
---- array-range-basic-underflow eval ---
-// Error: 2-43 result became too large
-#range(-2, -3, step: -9223372036854775807)
+// the user should be able to reach these values.
+#test(range(i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806))
+#test(range(i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807))
+#test(range(inclusive: true, i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806, 9223372036854775807))
+#test(range(inclusive: true, i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807, int("-9223372036854775808")))
 
---- array-range-inclusive-overflow eval ---
-// Error: 2-75 result became too large
-#range(inclusive: true, 9223372036854775806, 9223372036854775807, step: 2)
-
---- array-range-inclusive-underflow eval ---
-// Error: 2-85 result became too large
-#range(inclusive: true, -9223372036854775807, int("-9223372036854775808"), step: -2)
+// stepping would overflow if not caught.
+#test(range(2, 3, step: i64-max), (2,))
+#test(range(-2, -3, step: i64-min), (-2,))
+#test(range(inclusive: true, i64-max - 1, i64-max, step: 2), (9223372036854775806,))
+#test(range(inclusive: true, i64-min + 1, i64-min, step: -2), (-9223372036854775807,))
 
 --- array-range-end-missing eval ---
 // Error: 2-9 missing argument: end
