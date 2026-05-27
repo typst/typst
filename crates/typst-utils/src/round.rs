@@ -84,7 +84,7 @@ pub fn round_int_with_precision(value: i64, precision: i16) -> Option<i64> {
         return Some(value);
     }
 
-    let digits = -precision as u32;
+    let digits = u32::from(precision.unsigned_abs());
     let Some(ten_to_digits) = 10i64.checked_pow(digits - 1) else {
         // Larger than any possible amount of integer digits.
         return Some(0);

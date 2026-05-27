@@ -168,7 +168,7 @@ impl Decimal {
         // We received negative digits, so we round to integer digits.
         let mut num = self.0;
         let old_scale = num.scale();
-        let digits = -digits as u32;
+        let digits = digits.unsigned_abs();
 
         let (Ok(_), Some(ten_to_digits)) = (
             // Same as dividing by 10^digits.

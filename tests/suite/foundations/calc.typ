@@ -21,6 +21,9 @@
 #test(calc.round(decimal("79228162514264337593543950335"), digits: 12), decimal("79228162514264337593543950335"))
 #test(calc.round(decimal("79228162514264337593543950335"), digits: -50), decimal("0"))
 #test(calc.round(decimal("-79228162514264337593543950335"), digits: -2), decimal("-79228162514264337593543950300"))
+#test(calc.round(31114, digits: -4000000000), 0)
+#test(calc.round(238959235.129590203, digits: -4000000000), 0.0)
+#test(calc.round(decimal("238959235.129590203"), digits: -4000000000), decimal("0"))
 
 --- calc-abs eval ---
 // Test the `abs` function.
