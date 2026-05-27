@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Context, Depth, Packed, Resolve, StyleChain};
-use typst_library::introspection::{Locator, SplitLocator};
+use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
 };
@@ -229,13 +229,11 @@ impl ListLayouter {
         }
     }
 
-    /// Measure marker and store locators for later layout to ensure proper
-    /// introspection.
-    fn measure_marker_with_locators<'a>(
+    /// Measure marker.
+    fn measure_markers<'a>(
         &mut self,
         items: &[ItemContent],
-        locator: &mut SplitLocator<'a>,
-        locators: &mut Vec<(Locator<'a>, Locator<'a>)>,
+        locators: &[(Locator<'a>, Locator<'a>)],
         engine: &mut Engine,
         styles: StyleChain,
         regions: Regions,
@@ -245,10 +243,7 @@ impl ListLayouter {
         // Measure markers, so we can align them horizontally relative to the
         // largest width.
         let mut marker_width = Abs::zero();
-
-        for item in items {
-            let marker_locator = locator.next(&item.marker.span());
-            let body_locator = locator.next(&item.body.span());
+        for (item, (marker_locator, _)) in items.iter().zip(locators) {
             let marker = crate::layout_frame(
                 engine,
                 &item.marker,
@@ -256,8 +251,6 @@ impl ListLayouter {
                 styles,
                 Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
             )?;
-
-            locators.push((marker_locator, body_locator));
             marker_width.set_max(marker.width());
         }
 
@@ -276,7 +269,7 @@ impl ListLayouter {
     /// expanding to fit, breaking alignment. Therefore, restrict the list size
     /// to the size of the largest item, prompting list items to align between
     /// themselves instead of relative to the full page width.
-    fn measure_body(
+    fn measure_bodies(
         &mut self,
         items: &[ItemContent],
         locators: &[(Locator, Locator)],
@@ -294,7 +287,6 @@ impl ListLayouter {
                 styles,
                 Region::new(Axes::new(available_width, Abs::inf()), Axes::splat(false)),
             )?;
-
             measured_body_width.set_max(body.width());
         }
 
@@ -306,9 +298,9 @@ impl ListLayouter {
             // If the marker is too large, both marker and body occupy half of
             // the page width. Otherwise, the body takes all the remaining
             // space. Adapted from grid's `shrink_auto_columns`.
-            if self.marker_width > available_width / 2. {
-                self.marker_width = available_width / 2.;
-                body_width.set_min(available_width / 2.);
+            if self.marker_width > available_width / 2.0 {
+                self.marker_width = available_width / 2.0;
+                body_width.set_min(available_width / 2.0);
             } else {
                 body_width = available_width - self.marker_width;
             }
@@ -346,18 +338,19 @@ fn layout_items(
     // Store locators used during measuring to ensure the same locators will be
     // used later when laying out. This is needed to make introspection work
     // properly.
-    let mut locators = Vec::with_capacity(items.len());
-    layouter.measure_marker_with_locators(
-        &items,
-        &mut locator,
-        &mut locators,
-        engine,
-        styles,
-        regions,
-    )?;
+    let locators: Vec<_> = items
+        .iter()
+        .map(|item| {
+            let marker_locator = locator.next(&item.marker.span());
+            let body_locator = locator.next(&item.body.span());
+            (marker_locator, body_locator)
+        })
+        .collect();
+
+    layouter.measure_markers(&items, &locators, engine, styles, regions)?;
 
     if regions.size.x.to_raw().is_infinite() || !regions.expand.x {
-        layouter.measure_body(&items, &locators, engine, styles, regions)?;
+        layouter.measure_bodies(&items, &locators, engine, styles, regions)?;
     }
 
     let cells =
