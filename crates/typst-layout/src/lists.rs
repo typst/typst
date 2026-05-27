@@ -290,23 +290,13 @@ impl ListLayouter {
             measured_body_width.set_max(body.width());
         }
 
-        let mut body_width = measured_body_width;
-        if self.marker_width + measured_body_width > available_width {
-            // Marker and body exceed the page width, so we must redistribute
-            // their widths, unfortunately disrespecting their requested sizes.
-            //
-            // If the marker is too large, both marker and body occupy half of
-            // the page width. Otherwise, the body takes all the remaining
-            // space. Adapted from grid's `shrink_auto_columns`.
-            if self.marker_width > available_width / 2.0 {
-                self.marker_width = available_width / 2.0;
-                body_width.set_min(available_width / 2.0);
-            } else {
-                body_width = available_width - self.marker_width;
-            }
-        };
-
-        self.body_width = Some(body_width);
+        // If marker and body together exceed the page width, the marker gets
+        // the space it requested and the body the rest. This makes some sense
+        // since the marker comes first, is unlikely to be large, and is
+        // unlikely to be able to wrap. It also keeps consistency between the
+        // case where we measure the body and the case where we don't.
+        self.body_width =
+            Some(measured_body_width.min(available_width - self.marker_width));
 
         Ok(())
     }
