@@ -332,14 +332,16 @@
       html.div(class: "dev-version-warning", body)
     } else {
       set text(
-        size: 0.75em,
+        size: sizes.small,
         weight: "bold",
         fill: colors.genuine.white,
       )
+      // Same metrics as `ty-pill`.
       show: box.with(
         fill: colors.red.shade-50,
-        inset: 0.67em,
-        radius: 0.67em,
+        inset: (x: 0.3em),
+        outset: (y: 0.3em),
+        radius: 0.3em,
       )
       upper(body)
     }
