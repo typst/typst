@@ -238,7 +238,8 @@ impl<'a> MathItem<'a> {
             comp.props.class = Some(class);
 
             // Small hack to ensure the non-explicit stretch gets added, as the
-            // class is not recursive.
+            // class is not recursive. This applies an equivalent stretch to
+            // the one in `resolve_symbol`.
             if let MathKind::Glyph(glyph) = &comp.kind
                 && class == MathClass::Large
                 && comp.props.size == MathSize::Display
