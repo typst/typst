@@ -11,6 +11,7 @@ use typst_library::introspection::Location;
 use typst_library::model::{LateLinkResolver, PagedFormat};
 use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
+use typst_svg::SvgOptions;
 use typst_syntax::{Span, VirtualPath};
 use typst_utils::Scalar;
 
@@ -101,6 +102,7 @@ fn export_svg(
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Bytes> {
+    let options = SvgOptions::default();
     let anchors = anchors
         .iter()
         .filter_map(|(loc, name)| {
@@ -113,6 +115,7 @@ fn export_svg(
         .collect::<Vec<_>>();
     Ok(Bytes::from_string(typst_svg::svg_in_bundle(
         &doc.pages()[0],
+        &options,
         &anchors,
         link_resolver,
     )))
