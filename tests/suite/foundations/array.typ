@@ -140,17 +140,16 @@
 #test(range(inclusive: true, 5, 2, step: -1), (5, 4, 3, 2))
 #test(range(inclusive: true, 0, -2, step: -1), (0, -1, -2))
 
-
 #let i64-max = 9223372036854775807
 #let i64-min = int("-9223372036854775808")
 
-// the user should be able to reach these values.
+// The user should be able to reach these values.
 #test(range(i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806))
 #test(range(i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807))
 #test(range(inclusive: true, i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806, 9223372036854775807))
 #test(range(inclusive: true, i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807, int("-9223372036854775808")))
 
-// stepping would overflow if not caught.
+// Stepping would overflow if not caught.
 #test(range(2, 3, step: i64-max), (2,))
 #test(range(-2, -3, step: i64-min), (-2,))
 #test(range(inclusive: true, i64-max - 1, i64-max, step: 2), (9223372036854775806,))
