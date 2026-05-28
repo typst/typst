@@ -816,7 +816,7 @@ pub enum EvalSerializationFormat {
 display_possible_values!(EvalSerializationFormat);
 
 /// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
-/// `CompileCommand.pages` argument, through the `FromStr` trait instead of a
+/// `CompileCommand.pages` argument, through the [`FromStr`] trait instead of a
 /// value parser, in order to generate better errors.
 ///
 /// See also: <https://github.com/clap-rs/clap/issues/5065>
