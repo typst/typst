@@ -164,6 +164,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         self.regions.size.y -= amount;
+        self.composer.column_height_tracker.used_height += amount;
         self.items.push(Item::Abs(amount, weakness));
     }
 
@@ -193,6 +194,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                         && (weakness < prev_weakness || amount > prev_amount)
                     {
                         self.regions.size.y -= amount - prev_amount;
+                        self.composer.column_height_tracker.used_height +=
+                            amount - prev_amount;
                         *item = Item::Abs(amount, weakness);
                     }
                     return false;
@@ -245,6 +248,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             match *item {
                 Item::Abs(amount, 1..) => {
                     self.regions.size.y += amount;
+                    self.composer.column_height_tracker.used_height -= amount;
                     self.items.remove(i);
                     break;
                 }
@@ -274,7 +278,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(line.frame.height()) && self.regions.may_progress() {
+        if !self.composer.fits(self.regions, line.frame.height())
+            && self.regions.may_progress()
+        {
             return Err(Stop::Finish(false));
         }
 
@@ -282,7 +288,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // following lines grouped by widow/orphan prevention, does not fit into
         // the current region, but does fit into the next region, finish the
         // region.
-        if !self.regions.size.y.fits(line.need)
+        if !self.composer.fits(self.regions, line.need)
             && self
                 .regions
                 .iter()
@@ -314,7 +320,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
+        if !self.composer.fits(self.regions, frame.height())
+            && self.regions.may_progress()
+        {
             return Err(Stop::Finish(false));
         }
 
@@ -329,8 +337,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
+        // For column balancing, reduce the region size for layout
+        let original_size = self.regions.size.y;
+        if let Some(lim) = self.composer.column_balancing_limit() {
+            let remaining = lim - self.composer.column_height_tracker.used_height;
+            self.regions.size.y.set_min(remaining)
+        }
         // Lay out the block.
         let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        self.regions.size.y = original_size; // Restore the original size
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -427,6 +442,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
+        self.composer.column_height_tracker.used_height += frame.height();
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -442,6 +458,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
             self.regions.size.y += weak_spacing;
+            self.composer.column_height_tracker.used_height -= weak_spacing;
             self.composer.float(
                 placed,
                 &self.regions,
@@ -449,6 +466,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 true,
             )?;
             self.regions.size.y -= weak_spacing;
+            self.composer.column_height_tracker.used_height += weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer

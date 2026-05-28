@@ -22,7 +22,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Regions, Rel, Separator, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
@@ -71,8 +71,12 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        ColumnOptions {
+            count: NonZeroUsize::ONE,
+            balanced: false,
+            gutter: Rel::zero(),
+            separator: None,
+        },
     )
 }
 
@@ -99,8 +103,12 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        ColumnOptions {
+            count: elem.count.get(styles),
+            balanced: elem.balanced.get(styles),
+            gutter: elem.gutter.resolve(styles),
+            separator: elem.separator.get_cloned(styles),
+        },
     )
 }
 
@@ -118,8 +126,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -159,8 +166,7 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
-        column_gutter,
+        column,
         kind.into(),
     )
 }
@@ -194,12 +200,11 @@ pub fn layout_flow<'a>(
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, column, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -238,23 +243,29 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
         mode,
         shared,
         columns: {
-            let mut count = columns.get();
+            let mut count = column.count.get();
             if !regions.size.x.is_finite() {
                 count = 1;
             }
 
-            let gutter = column_gutter.relative_to(regions.base().x);
+            let gutter = column.gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+            ColumnConfig {
+                count,
+                width,
+                gutter,
+                dir,
+                balanced: column.balanced,
+                separator: column.separator,
+            }
         },
         footnote: FootnoteConfig {
             separator: shared
@@ -352,6 +363,14 @@ impl<'a, 'b> Work<'a, 'b> {
     }
 }
 
+#[derive(Hash)]
+pub struct ColumnOptions {
+    pub count: NonZeroUsize,
+    pub balanced: bool,
+    pub gutter: Rel<Abs>,
+    pub separator: Option<Separator>,
+}
+
 /// Shared configuration for the whole flow.
 struct Config<'x> {
     /// Whether this is the root flow, which can host footnotes and line
@@ -391,6 +410,10 @@ struct ColumnConfig {
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,
+    /// Whether to equalize the height of columns by breaking columns early.
+    balanced: bool,
+    /// The separator between columns.
+    separator: Option<Separator>,
 }
 
 /// Configuration of line numbers.

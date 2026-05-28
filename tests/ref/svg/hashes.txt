@@ -99,6 +99,12 @@ cf4d26f288a7caae198f57e92891e20c code-block-basic-syntax
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
 575969816062df61becf97966c5a44d1 color-spaces
+8abd0c117e80ca2fabe2301aafe99ba2 columns-balanced
+ff431ab87ab387b2fb9ab3dae1263582 columns-balanced-blocks
+7edc9449549f4dc8b9f4195fbb7c74f7 columns-balanced-figures
+f5e9689523057a62b0a2c8745cc0fff6 columns-balanced-footnotes
+acc462bc19b318ce1b8da37a715f582b columns-balanced-pagebreak
+8d6dc8b052461e91948a86538fe04eb7 columns-balanced-tables
 7c3c5ac6abbb0940d64d754a13834845 columns-colbreak-after-place
 0ebfece91a658f298190631141783a17 columns-empty-second-column
 0c028ea067ea7eb779e5116443f9ea19 columns-in-auto-sized-rect
@@ -108,6 +114,8 @@ d987cac0c0f029a3410b9441489ceb3a columns-one
 6d36e35f633abc44bc85138f6c253023 columns-page-height-auto
 fddbb616166f958f8d00ac1b8409a0bf columns-page-width-auto
 0c6a22101fa6a9e4679964c44dd5bcdb columns-rtl
+393aae507bcca13685aee35bd472ae3f columns-separator
+118eab335ec078de3c10b6e56adfc4b5 columns-separator-content
 89ad7ca2e9fed680d8a6cbdbb8ff606b columns-set-page
 50f9ac3d802bccb71bd2d40d17f7a3e0 columns-set-page-colbreak-pagebreak
 ecb6c81a81eb0d6cc8fed82aca580a01 coma

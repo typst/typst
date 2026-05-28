@@ -99,6 +99,12 @@ f3235db90792c9e3a6a9fec9759f6d05 closure-without-params-non-atomic
 5e9073169dc2cf4f86951e7eea500c7a color-rotate-hue
 b77a1e96c7559389ee4cff200a5fe1cf color-saturation
 7b55e4a79f5bc0303965ac308125dc8e color-spaces
+cd74507483074b86f9e34656d60e8867 columns-balanced
+39f319956e33940b84f3a1c4f054f18b columns-balanced-blocks
+7075a1245af36fb610a7b589cd762fff columns-balanced-figures
+b39d7ffde57bc1fe9246bba0dc3bc5d6 columns-balanced-footnotes
+40c32f7a47cb25f9c9016d6b3cc2f07d columns-balanced-pagebreak
+7759bd31aab13f9aafa3c13654364d3d columns-balanced-tables
 552dcead7dbfde11647d79b69a335b66 columns-colbreak-after-place
 a0142e23f0d78d826ddf277b6a0b8d46 columns-empty-second-column
 0f16d29d7a021a01ed427b50b57d77a0 columns-in-auto-sized-rect
@@ -108,6 +114,8 @@ db563be49fe546ffa6f713a524430666 columns-more-with-gutter
 4b817ca92cd80f050ee1dd446a8caf0f columns-page-height-auto
 3230f82ef368b514ddd52ad4ddc33ca6 columns-page-width-auto
 20e6548815d3c805781b0c7fddb9c3ec columns-rtl
+ab89944b571eac9cb0def2142ee96cd5 columns-separator
+67b4c202626367adc14cc058174d3f27 columns-separator-content
 2a2ca8b9745c7d27a0e4c0f975b87300 columns-set-page
 3d52cdc4a054394fe4182264b7922666 columns-set-page-colbreak-pagebreak
 48fcad01da99457965e01f69e6a76ab1 coma

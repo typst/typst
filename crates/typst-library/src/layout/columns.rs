@@ -1,18 +1,16 @@
-use std::num::NonZeroUsize;
-
-use crate::foundations::{Content, elem};
+use crate::diag::HintedStrResult;
+use crate::foundations::{CastInfo, Content, FromValue, IntoValue, Reflect, Value, elem};
 use crate::layout::{Length, Ratio, Rel};
+use crate::visualize::Stroke;
+use std::num::NonZeroUsize;
 
 /// Separates a region into multiple equally sized columns.
 ///
-/// The `column` function lets you separate the interior of any container into
-/// multiple columns. It will currently not balance the height of the columns.
-/// Instead, the columns will take up the height of their container or the
-/// remaining height on the page. Support for balanced columns is planned for
-/// the future.
-///
-/// When arranging content across multiple columns, use @colbreak to explicitly
-/// continue in the next column.
+/// The `column` function lets you separate the contents of any container into
+/// multiple columns. By default, columns take up the height of their container or the
+/// remaining height on the page and are filled up one after another.
+/// Use @colbreak to explicitly end a column and continue in the next one.
+/// Use @columns.balanced to automatically equalize the height of the columns.
 ///
 /// = Example <example>
 /// ```example
@@ -65,8 +63,72 @@ pub struct ColumnsElem {
     pub count: NonZeroUsize,
 
     /// The size of the gutter space between each column.
+    ///
+    /// #example(
+    ///   ```
+    ///   >>> #set page(background: place(center + horizon, dy: -1cm, rect(
+    ///   >>>   width: 1cm, height: 1cm, stroke: (x: green + 2pt), inset: 0pt,
+    ///   >>>   line(length: 1cm, stroke: green + 2pt)
+    ///   >>> )))
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   #set columns(gutter: 1cm)
+    ///   #lorem(30)
+    ///   ```
+    /// )
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
+
+    /// Whether to equalize the height of columns by breaking columns early.
+    ///
+    /// #example(
+    ///   ```
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   >>> #set columns(gutter: 1cm)
+    ///   #set columns(balanced: true)
+    ///   #lorem(30)
+    ///   ```
+    /// )
+    #[default(false)]
+    pub balanced: bool,
+
+    /// The stroke of the separator line between each column.
+    ///
+    /// #example(
+    ///   ```
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   #set columns(separator: 1pt + orange)
+    ///   #lorem(35)
+    ///   ```
+    /// )
+    ///
+    /// #example(title: "Separator with extended line",
+    ///   ```
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   #set columns(separator: line(
+    ///     angle: 90deg,
+    ///     length: 100% + 2*3pt,
+    ///   ))
+    ///   #lorem(35)
+    ///   ```
+    /// )
+    ///
+    /// #example(title: "Custom separator ornament",
+    ///   ```
+    ///   #set page(columns: 2, height: 3cm)
+    ///   #set par(justify: true)
+    ///   #set columns(
+    ///     gutter: 20pt,
+    ///     separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%))
+    ///   ))
+    ///   #lorem(23)
+    ///   ```
+    /// )
+    #[default(None)]
+    pub separator: Option<Separator>,
 
     /// The content that should be layouted into the columns.
     #[required]
@@ -102,4 +164,48 @@ pub struct ColbreakElem {
     /// already empty.
     #[default(false)]
     pub weak: bool,
+}
+
+/// Separator as a stroked line or content
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum Separator {
+    Content(Content),
+    Stroke(Stroke),
+}
+
+impl Reflect for Separator {
+    fn input() -> CastInfo {
+        Content::input() + Stroke::input()
+    }
+
+    fn output() -> CastInfo {
+        Content::output() + Stroke::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Content::castable(value) || Stroke::castable(value)
+    }
+}
+
+impl FromValue for Separator {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if Content::castable(&value) {
+            return Content::from_value(value).map(Self::Content);
+        }
+
+        if Stroke::castable(&value) {
+            return Stroke::from_value(value).map(Self::Stroke);
+        }
+
+        Err(Self::error(&value))
+    }
+}
+
+impl IntoValue for Separator {
+    fn into_value(self) -> Value {
+        match self {
+            Self::Content(content) => content.into_value(),
+            Self::Stroke(stroke) => stroke.into_value(),
+        }
+    }
 }
