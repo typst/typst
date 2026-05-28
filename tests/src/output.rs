@@ -245,12 +245,13 @@ impl OutputType for Pdf {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
         // If another standard is specified in the test, run that as well.
-        let standards = &test.attrs.pdf_standard;
-        let _ = generate_pdf(doc, &[]);
-        if !standards.contains(&PdfStandard::Ua_1) {
-            let _ = generate_pdf(doc, &[PdfStandard::Ua_1]);
+        let default_pdf = generate_pdf(doc, &[]);
+        let ua1_pdf = generate_pdf(doc, &[PdfStandard::Ua_1]);
+        match test.attrs.pdf_standard.as_slice() {
+            &[] => default_pdf,
+            &[PdfStandard::Ua_1] => ua1_pdf,
+            others => generate_pdf(doc, others),
         }
-        generate_pdf(doc, standards)
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
