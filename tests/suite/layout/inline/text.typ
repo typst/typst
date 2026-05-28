@@ -105,6 +105,11 @@ fi vs. #text(features: (liga: 0))[No fi]
 #set text(tracking: -0.01em)
 I saw Zoe yӛsterday, on the tram.
 
+--- text-tracking-ligatures paged ---
+// Test that tracking disables ligatures.
+#set text(tracking: 1em)
+office
+
 --- text-tracking-changed-temporarily paged ---
 // Test tracking for only part of paragraph.
 I'm in#text(tracking: 0.15em + 1.5pt)[ spaace]!

@@ -1855,6 +1855,7 @@ ddf8a0f4ecbc3290eb9a8faa50c7da5e text-slashed-zero-and-fractions
 dd0db7485900a97924c1982e9483e30b text-spacing-relative
 97d493c3c8f34f28a4dc580d194b8e94 text-tracking-arabic
 b0d567f83f730d9375bb55f80deac21a text-tracking-changed-temporarily
+bd0b6abcdbea255af16363462f16f1b8 text-tracking-ligatures
 b46f146af48c1e4345feef93d586f620 text-tracking-mark-placement
 cb01ca96787162811c4990cbd8931559 text-tracking-negative
 889b9feeeaac95230204fbca723d2d55 text-unknown-font-family-warning
