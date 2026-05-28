@@ -1007,7 +1007,8 @@ dependencies = [
 [[package]]
 name = "hayro"
 version = "0.7.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d902b3d98560c06c42dd4154eb8eae7dca187f91c75742cc551f409f7aeb22d2"
 dependencies = [
  "bytemuck",
  "fast_image_resize",
@@ -1020,12 +1021,14 @@ dependencies = [
 [[package]]
 name = "hayro-ccitt"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f4d0e94ddd48749f06bbe4e5389fb9799a0c45bcaf00495042076ef05e3241a"
 
 [[package]]
 name = "hayro-cmap"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24d285dc30731c8485de5fa732fbdf2b3affdf01e4da7c2135022ca6fa664bf6"
 dependencies = [
  "hayro-postscript",
 ]
@@ -1033,7 +1036,8 @@ dependencies = [
 [[package]]
 name = "hayro-interpret"
 version = "0.7.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2613d0406898995042d0794c4245b2f2fba1246490c8ac593769bba6551129d"
 dependencies = [
  "bitflags 2.11.1",
  "hayro-cmap",
@@ -1051,7 +1055,8 @@ dependencies = [
 [[package]]
 name = "hayro-jbig2"
 version = "0.3.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69374b3668dd45aeb3d3145cda68f2c7b4f223aaa2511e67d076f1c7d741388d"
 dependencies = [
  "fearless_simd",
  "hayro-ccitt",
@@ -1060,7 +1065,8 @@ dependencies = [
 [[package]]
 name = "hayro-jpeg2000"
 version = "0.3.5"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c75ab947623ef4ccaa7acf0579edf7cbb5a73838e3839a7be73335e522f433a1"
 dependencies = [
  "fearless_simd",
 ]
@@ -1068,12 +1074,14 @@ dependencies = [
 [[package]]
 name = "hayro-postscript"
 version = "0.1.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "885c5ef0654933139a9b9546fc2c69e18d37f38aa2520f079092b1be18f1fcaa"
 
 [[package]]
 name = "hayro-svg"
 version = "0.7.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7434c89e920d84e077214a29e69b462a6518754610f732f1124af3948410cb8c"
 dependencies = [
  "base64",
  "hayro-interpret",
@@ -1085,8 +1093,9 @@ dependencies = [
 
 [[package]]
 name = "hayro-syntax"
-version = "0.7.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0edeafd70aa2db743de8ede8637d07ec87db05efe69cde371d03f1b185fcef27"
 dependencies = [
  "flate2",
  "hayro-ccitt",
@@ -1101,7 +1110,8 @@ dependencies = [
 [[package]]
 name = "hayro-write"
 version = "0.7.0"
-source = "git+https://github.com/LaurenzV/hayro?rev=8488d9ba076274ef5f6de433249a2314d4fbee0d#8488d9ba076274ef5f6de433249a2314d4fbee0d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a0b3db92c4917aad24ff30d61413a9a7509ae88b27aee1ae34eff881e1d2723a"
 dependencies = [
  "flate2",
  "hayro-syntax",
@@ -1496,8 +1506,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.7.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=a1e40af#a1e40afa201b2dbd9661f74b8922d852a608f7a6"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0cd0ba7aeea683d25d7d991b8e1fa34e8f8e89b51710f8c5a46cb0679e81fe7d"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1526,8 +1537,9 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.7.0"
-source = "git+https://github.com/LaurenzV/krilla?rev=a1e40af#a1e40afa201b2dbd9661f74b8922d852a608f7a6"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a5f8418129c0dc4b25834d39f753df617597510951d306cdfe1a92973e403bf"
 dependencies = [
  "flate2",
  "fontdb",
@@ -1977,8 +1989,9 @@ checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
 
 [[package]]
 name = "pdf-writer"
-version = "0.14.0"
-source = "git+https://github.com/typst/pdf-writer?rev=bc50acaea3c6022ef095a52bb75a273ef656813b#bc50acaea3c6022ef095a52bb75a273ef656813b"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e456864a7a304047bff84977dc6fb162bd956475d40ba50b2dcecaada7f753"
 dependencies = [
  "bitflags 2.11.1",
  "itoa",
@@ -2734,8 +2747,9 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.2.3"
-source = "git+https://github.com/typst/subsetter/?rev=d849a0e5ab178e62b7c80c7eace30260c85d0b7a#d849a0e5ab178e62b7c80c7eace30260c85d0b7a"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8178bfc97de4bc56fa2daa1c84bde1182943f3730414b0a362a1fefc72b7db4b"
 dependencies = [
  "kurbo",
  "rustc-hash",
