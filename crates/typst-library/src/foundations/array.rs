@@ -387,9 +387,20 @@ impl Array {
         #[external]
         #[default]
         start: i64,
-        /// The end of the range (exclusive).
+        /// The end of the range.
         #[external]
         end: i64,
+        /// Whether `end` is inclusive.
+        ///
+        /// ```example
+        /// #range(0, inclusive: true) \
+        /// #range(7, 10, inclusive: true) \
+        /// #range(-8, -4, inclusive: true) \
+        /// #range(-6, step: -2, inclusive: true)
+        /// ```
+        #[named]
+        #[default(false)]
+        inclusive: bool,
         /// The distance between the generated numbers.
         #[named]
         #[default(NonZeroI64::new(1).unwrap())]
@@ -402,13 +413,30 @@ impl Array {
         };
 
         let step = step.get();
+        let step_dir = 0.cmp(&step);
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&end) == 0.cmp(&step) {
+        let in_bounds = |x: i64| {
+            if inclusive {
+                // `x` must not exceed `end`.
+                x.cmp(&end) != step_dir.reverse()
+            } else {
+                // `x` must stay strictly before `end`.
+                x.cmp(&end) == step_dir
+            }
+        };
+
+        while in_bounds(x) {
             array.push(x.into_value());
-            x += step;
+
+            if let Some(next) = x.checked_add(step) {
+                x = next;
+            } else {
+                // `end` must have been exceeded this iteration, so we yield.
+                break;
+            }
         }
 
         Ok(array)
