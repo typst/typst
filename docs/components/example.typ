@@ -171,7 +171,7 @@
       let reconstructed = html.elem(
         "pre",
         attrs: pre.attrs,
-        copy-button + pre.body
+        copy-button + pre.body,
       )
       labelled(reconstructed, <_stop>)
     }

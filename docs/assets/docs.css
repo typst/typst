@@ -334,7 +334,7 @@ pre > button.copy:focus-visible {
 }
 
 pre > button.copy:disabled {
-  color: rgba(25, 24, 31, 0.5) /* Should be var(--text-disabled) */
+  color: var(--text-disabled);
 }
 
 @media (hover: hover) {
