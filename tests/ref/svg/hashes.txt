@@ -99,6 +99,12 @@ cf4d26f288a7caae198f57e92891e20c code-block-basic-syntax
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
 575969816062df61becf97966c5a44d1 color-spaces
+b8f867dedd59b6bc581ee3b5eb22837e columns-balanced
+8163207fdb93246d57ef4a6e2259d9a9 columns-balanced-blocks
+9b0acfa711085c9ae44f28ea9a07b9dd columns-balanced-figures
+77415ef0d6a9c277a3232d91e898f48d columns-balanced-footnotes
+68d8edd0f30f13c95ac6803889173d30 columns-balanced-pagebreak
+aa0fb7f180f28ad9b23f909bceef0611 columns-balanced-tables
 7c3c5ac6abbb0940d64d754a13834845 columns-colbreak-after-place
 0ebfece91a658f298190631141783a17 columns-empty-second-column
 0c028ea067ea7eb779e5116443f9ea19 columns-in-auto-sized-rect
