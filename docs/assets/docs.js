@@ -430,7 +430,6 @@ function setUpPreviewSplits() {
 function setUpPreviewCopy() {
   for (const button of document.querySelectorAll("pre > button.copy")) {
     const pre = button.parentElement;
-    const code = pre.innerText;
     // Display the Copy button for 30s when the `<pre>` is tapped on touch
     // screens.
     let timeoutId;
@@ -440,7 +439,7 @@ function setUpPreviewCopy() {
       timeoutId = setTimeout(() => pre.classList.remove("tapped"), 30_000);
     });
     button.addEventListener("click", () => {
-      copyText(code);
+      copyText(pre.innerText);
     });
     button.disabled = false;
   }
