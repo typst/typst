@@ -1176,7 +1176,7 @@ impl Resolve for TextDir {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => styles.get(TextElem::lang).dir(),
+            Smart::Auto => Locale::get_in(styles).dir(),
             Smart::Custom(dir) => dir,
         }
     }

@@ -149,6 +149,17 @@ impl Locale {
         }
         buf
     }
+
+    /// The default direction for the locale.
+    pub fn dir(self) -> Dir {
+        if self.lang == Lang::PUNJABI {
+            if self.region.as_ref().is_some_and(|r| r.as_str() == "PK") {
+                return Dir::RTL;
+            }
+            return Dir::LTR;
+        }
+        self.lang.dir()
+    }
 }
 
 /// An identifier for a natural language.
@@ -487,7 +498,6 @@ impl Lang {
             | Lang::PERSIAN
             | Lang::HEBREW
             | Lang::KASHMIRI
-            | Lang::PUNJABI
             | Lang::PASHTO
             | Lang::SINDHI
             | Lang::UYGHUR

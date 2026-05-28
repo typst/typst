@@ -13,7 +13,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
     // so the metadata and outline entries have an applicable language.
     let lang = doc_lang.unwrap_or(Locale::DEFAULT);
 
-    let dir = if lang.lang.dir() == Dir::RTL {
+    let dir = if lang.dir() == Dir::RTL {
         TextDirection::RightToLeft
     } else {
         TextDirection::LeftToRight

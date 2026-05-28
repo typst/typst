@@ -8,7 +8,7 @@ use crate::foundations::{
     elem,
 };
 use crate::layout::Dir;
-use crate::text::{Lang, Region, TextElem};
+use crate::text::{Lang, Locale, Region, TextElem};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -228,6 +228,7 @@ impl<'s> SmartQuotes<'s> {
         region: Option<Region>,
         alternative: bool,
     ) -> Self {
+        let orig_region = region;
         let region = region.as_ref().map(Region::as_str);
 
         let default = ("‘", "’", "“", "”");
@@ -285,7 +286,7 @@ impl<'s> SmartQuotes<'s> {
             Lang::CROATIAN => ("‘", "’", "„", "”"),
             Lang::BULGARIAN => ("’", "’", "„", "“"),
             Lang::ARABIC if !alternative => ("’", "‘", "«", "»"),
-            _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
+            _ if Locale::new(lang, orig_region).dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };
 
