@@ -161,6 +161,10 @@
 // Error: 2-29 `end` and `count` are mutually exclusive
 #"abc".slice(0, 1, count: 2)
 
+--- string-slice-count-overflow eval ---
+// Error: 2-44 string index out of bounds (index: 9223372036854775807, len: 3)
+#"abc".slice(1, count: 9223372036854775807)
+
 --- string-slice-not-a-char-boundary eval ---
 // Error: 2-21 string index -1 is not a character boundary
 #"🏳️‍🌈".slice(0, -1)

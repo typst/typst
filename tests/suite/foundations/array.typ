@@ -259,6 +259,10 @@
 // Error: 2-30 array index out of bounds (index: 12, len: 10)
 #range(10).slice(9, count: 3)
 
+--- array-slice-count-overflow eval ---
+// Error: 2-48 array index out of bounds (index: 9223372036854775807, len: 3)
+#(1, 2, 3).slice(1, count: 9223372036854775807)
+
 --- array-slice-out-of-bounds-from-back eval ---
 // Error: 2-31 array index out of bounds (index: 12, len: 10)
 #range(10).slice(-2, count: 4)

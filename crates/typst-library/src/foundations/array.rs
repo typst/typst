@@ -294,7 +294,7 @@ impl Array {
             bail!("`end` and `count` are mutually exclusive");
         }
         let start = self.locate(start, true)?;
-        let end = end.or(count.map(|c| start as i64 + c));
+        let end = end.or(count.map(|c| (start as i64).saturating_add(c)));
         let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
         Ok(self.0[start..end].into())
     }
