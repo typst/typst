@@ -93,12 +93,12 @@ fa1d0044dd1e0fd0aea4ae5c02d50644 closure-capture-in-lvalue
 a6faa1a6b2b7f80c2a8885b7e77d8b1f closure-without-params-non-atomic
 cf4d26f288a7caae198f57e92891e20c code-block-basic-syntax
 0b09017973a4b3e58a0e6ca508de07a1 colbreak-weak
-7308d3a0e7ded6569b71eb4003c8fe91 color-cmyk-ops
+20bf6746e08f3fc6b69c8b4cb5a48a3d color-cmyk-ops
 6c00964f82a2df6563abf11827f53b68 color-luma
 65e7062d506d1467922a03a7146ee779 color-outside-srgb-gamut
 79c68a827aaded34d36c0612fe10b102 color-rotate-hue
 deeba65cb9f265841a1f94c0a472f159 color-saturation
-575969816062df61becf97966c5a44d1 color-spaces
+a2bc7d8dcb908647fa9494a451d7d592 color-spaces
 7c3c5ac6abbb0940d64d754a13834845 columns-colbreak-after-place
 0ebfece91a658f298190631141783a17 columns-empty-second-column
 0c028ea067ea7eb779e5116443f9ea19 columns-in-auto-sized-rect
@@ -302,7 +302,7 @@ d83568f1695c5c0019abe06fbe5a502e gradient-linear-repeat-and-mirror-2
 edbc4f1f0bea229da4ffa43df5b2317f gradient-linear-sharp-and-repeat
 0457503599f108b935f51e8e6ee4752a gradient-linear-sharp-and-smooth
 2cbf69923df90afa127f1197432d6cb3 gradient-linear-sharp-repeat-and-mirror
-3329559709c325e132d6e073a3380a1e gradient-linear-spaces
+681304d3253f55af1228793221ab65b1 gradient-linear-spaces
 5f12deb5a8b25151c3cbf705bb640374 gradient-linear-stroke
 eb0eb2125eca02ee6048bb4af5f6bd1b gradient-linear-stroke-relative-parent
 6440b639f25afc3c009869fbf1704bea gradient-math-cancel
@@ -615,8 +615,8 @@ a7c52c1fffd40914b1f07a83468c143b image-jump-to-next-page
 f0efdc4f903d354f49fc52ae6fbaff82 image-natural-dpi-sizing
 a3174a704e367b8359abb10eea8f2219 image-pdf-base14-fonts
 a1d173f3647a1993e27aba41e7df301d image-pdf-basic
-5ccba315cbc5e02f78c1bd7ced796fac image-pdf-complex
-249b37f0cc5e2a172dcbd9cc1547c70f image-pdf-multiple-pages
+97e84cff8efc0b0b62547df9d2eb6d23 image-pdf-complex
+d680ac666465e4774d2d7ca250881798 image-pdf-multiple-pages
 6d0be651e0c2a431806480976e947426 image-pixmap-luma8
 2880b102c6b76ae1fcf2691de5ce7832 image-pixmap-lumaa8
 a63af691bb0aa3d59819cedd237ebcc4 image-pixmap-rgb8
@@ -844,7 +844,7 @@ cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
 6b5fd25fd3e6565cc3e1d05c66489ae1 issue-flow-trailing-leading
 dfbd05f0366f20bf22b4ab5a1de13581 issue-flow-weak-spacing
 685c2458ed2b078e14fa2b58483e5343 issue-footnotes-skip-first-page
-c9c58e148519a7fb1cf0ecef971108ac issue-gradient-cmyk-encode
+edb17b1c3f987da860d13c58b7fa7174 issue-gradient-cmyk-encode
 7c9ddd2e13fc8e1cef6d7b2b70fe9ab1 issue-grid-base-auto-row
 c9f3c8f7c9322ebea118798787ebc19d issue-grid-base-auto-row-list
 bb9b10a74dc6965e5938851f528e3290 issue-grid-double-skip
