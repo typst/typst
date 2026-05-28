@@ -27,19 +27,13 @@ use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 use crate::write::{SvgDisplay, SvgElem, SvgTransform, SvgUrl, SvgWrite};
 
-const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
-    use_single_quote: false,
-    indent: xmlwriter::Indent::Spaces(2),
-    attributes_indent: xmlwriter::Indent::None,
-};
-
 /// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
 pub fn svg(page: &Page, opts: &SvgOptions) -> String {
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
+    let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -64,7 +58,7 @@ pub fn svg_in_bundle(
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
-    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
+    let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -88,6 +82,7 @@ pub fn svg_in_bundle(
 pub fn svg_in_html(
     frame: &Frame,
     text_size: Abs,
+    pretty: bool,
     id: Option<&str>,
     styles: &str,
     anchors: &[(Point, EcoString)],
@@ -96,7 +91,7 @@ pub fn svg_in_html(
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(xmlwriter::Options {
         indent: xmlwriter::Indent::None,
-        ..XML_WRITE_OPTIONS
+        ..xml_options(pretty)
     });
     let mut svg = svg_header_with_custom_attrs(&mut xml, frame.size(), |svg| {
         if let Some(id) = id {
@@ -140,7 +135,7 @@ pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> Stri
     }
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
+    let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let mut y = Abs::zero();
@@ -167,6 +162,18 @@ fn page_bleed(page: &Page, opts: &SvgOptions) -> (Size, Transform) {
     (size, ts)
 }
 
+fn xml_options(pretty: bool) -> xmlwriter::Options {
+    xmlwriter::Options {
+        use_single_quote: false,
+        indent: if pretty {
+            xmlwriter::Indent::Spaces(2)
+        } else {
+            xmlwriter::Indent::None
+        },
+        attributes_indent: xmlwriter::Indent::None,
+    }
+}
+
 /// Settings for SVG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct SvgOptions {
@@ -176,6 +183,8 @@ pub struct SvgOptions {
     /// margins. This field allows expanding the document area to include such
     /// bleed.
     pub render_bleed: bool,
+    /// Whether to format the SVG in a human-readable way.
+    pub pretty: bool,
 }
 
 /// Renders one or multiple frames to an SVG file.

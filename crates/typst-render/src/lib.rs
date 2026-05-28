@@ -11,6 +11,7 @@ use typst_library::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Sides, Size, Transform,
 };
 use typst_library::visualize::{Color, Geometry, Paint};
+use typst_utils::Scalar;
 
 /// Export a page into a raster image.
 ///
@@ -21,7 +22,7 @@ pub fn render(page: &Page, opts: &RenderOptions) -> sk::Pixmap {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
 
     let size = page.frame.size() + bleed.sum_by_axis();
-    let pixel_per_pt = opts.pixel_per_pt;
+    let pixel_per_pt = opts.pixel_per_pt.get() as f32;
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
@@ -56,7 +57,8 @@ pub fn render_merged(
     let pixmaps: Vec<_> =
         document.pages().iter().map(|page| render(page, opts)).collect();
 
-    let gap = (opts.pixel_per_pt * gap.to_f32()).round() as u32;
+    let pixel_per_pt = opts.pixel_per_pt.get() as f32;
+    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
         + gap * pixmaps.len().saturating_sub(1) as u32;
@@ -84,7 +86,7 @@ pub fn render_merged(
 }
 
 /// Settings for raster image export.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct RenderOptions {
     /// Controls the scale of the rendered output in pixels per typographic
     /// point. By default, a value of `1.0` is used, meaning one pixel is
@@ -92,7 +94,7 @@ pub struct RenderOptions {
     /// images, while lower values reduce the output size and rendering cost.
     /// This can be useful when adjusting the final image quality for display or
     /// printing purposes.
-    pub pixel_per_pt: f32,
+    pub pixel_per_pt: Scalar,
     /// By default, rendered pages are bounded to the page size. In some
     /// circumstances, such as when preparing documents for print, it may be
     /// desirable to include content beyond these bounds to account for bleed
@@ -103,7 +105,10 @@ pub struct RenderOptions {
 
 impl Default for RenderOptions {
     fn default() -> Self {
-        Self { pixel_per_pt: 1.0, render_bleed: false }
+        Self {
+            pixel_per_pt: Scalar::new(2.0),
+            render_bleed: false,
+        }
     }
 }
 

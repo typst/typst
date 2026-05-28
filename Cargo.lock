@@ -3481,6 +3481,7 @@ dependencies = [
  "typst-library",
  "typst-macros",
  "typst-timing",
+ "typst-utils",
 ]
 
 [[package]]

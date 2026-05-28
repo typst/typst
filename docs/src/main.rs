@@ -182,7 +182,7 @@ fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
         BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
     );
 
-    let options = BundleOptions { pixel_per_pt: 1.0, pdf: PdfOptions::default() };
+    let options = BundleOptions::default();
     let fs = typst_bundle::export(&bundle, &options)?;
 
     if let Some(path) = &config.output {
@@ -210,7 +210,7 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
 
 /// Exports a document to PDF and writes it to disk.
 fn export_pdf(document: &PagedDocument, config: &Config) -> SourceResult<()> {
-    let data = typst_pdf::pdf(document, &typst_pdf::PdfOptions::default())?;
+    let data = typst_pdf::pdf(document, &PdfOptions::default())?;
     if let Some(path) = &config.output {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).unwrap();
