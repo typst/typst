@@ -3,12 +3,12 @@
 use std::fmt::Display;
 
 use ecow::{EcoString, eco_format};
-use krilla::configure::Validator;
-use krilla::configure::Validators;
+use krilla::configure::{Validator, Validators};
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use krilla::tagging as kt;
+use smallvec::SmallVec;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
@@ -119,8 +119,7 @@ impl AbsExt for Abs {
 }
 
 pub(crate) trait ValidatorsExt {
-    fn to_names(self) -> Vec<&'static str>;
-
+    /// Formats the validators into a comma separated list.
     fn to_comma_list(self) -> impl Display;
 
     /// Formats the validators into a comma separated list with a conjunction
@@ -129,10 +128,6 @@ pub(crate) trait ValidatorsExt {
 }
 
 impl ValidatorsExt for Validators {
-    fn to_names(self) -> Vec<&'static str> {
-        self.into_iter().map(Validator::as_str).collect()
-    }
-
     fn to_comma_list(self) -> impl Display {
         typst_utils::display(move |f| {
             for (i, v) in self.into_iter().enumerate() {
@@ -146,16 +141,19 @@ impl ValidatorsExt for Validators {
     }
 
     fn to_and_list(self) -> impl Display {
-        let names = self.to_names();
-        typst_utils::display(move |f| match names.as_slice() {
-            [] => Ok(()),
-            [a] => f.write_str(a),
-            [a, b] => write!(f, "{a} and {b}"),
-            [rest @ .., last] => {
-                for v in rest.iter() {
-                    write!(f, "{v}, ")?;
+        typst_utils::display(move |f| {
+            let names: SmallVec<[_; 2]> =
+                self.into_iter().map(Validator::as_str).collect();
+            match names.as_slice() {
+                [] => Ok(()),
+                [a] => f.write_str(a),
+                [a, b] => write!(f, "{a} and {b}"),
+                [rest @ .., last] => {
+                    for v in rest.iter() {
+                        write!(f, "{v}, ")?;
+                    }
+                    write!(f, "and {last}")
                 }
-                write!(f, "and {last}")
             }
         })
     }

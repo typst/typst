@@ -26,7 +26,7 @@ Hello
 
 --- pdf-validation-version-required-feature pdf pdfstandard(1.4, ua-1) ---
 // Error: PDF/UA-1 error: links and other annotations cannot be navigated accessibly in PDF 1.4 files
-// Hint: set the PDF version to PDF 1.5
+// Hint: set the PDF version to PDF 1.5 or later
 #link("https://typst.app")[typst]
 
 --- pdf-validation-bundle bundle pdfstandard(ua-1) ---

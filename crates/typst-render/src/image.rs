@@ -2,7 +2,6 @@ use hayro::RenderCache;
 use hayro::RenderSettings;
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
-use hayro::vello_cpu::color::PremulRgba8;
 use hayro::vello_cpu::color::palette::css::TRANSPARENT;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
@@ -140,8 +139,11 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
             FontQuery::Standard(s) => select_standard_font(*s),
             FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
+        // Fairly niche and enabling hayro's embedded cmap would add a
+        // considerable amount of data.
         cmap_resolver: Arc::new(|_| None),
         warning_sink: Arc::new(|_| {}),
+        // We want to render like it prints, so no annotations.
         render_annotations: false,
     };
 
@@ -157,10 +159,6 @@ fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
     let hayro_pix =
         hayro::render(pdf.page(), &cache, &interpreter_settings, &render_settings);
 
-    let bytes: Vec<u8> = hayro_pix
-        .take()
-        .into_iter()
-        .flat_map(PremulRgba8::to_u8_array)
-        .collect();
+    let bytes: Vec<u8> = bytemuck::cast_vec(hayro_pix.take());
     sk::Pixmap::from_vec(bytes, IntSize::from_wh(w, h)?)
 }

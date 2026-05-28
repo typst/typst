@@ -320,7 +320,7 @@ fn pdf_to_svg(bytes: &[u8]) -> String {
         &pdf.pages()[0],
         &cache,
         &interpreter_settings,
-        &SvgRenderSettings::default(),
+        &SvgRenderSettings { bg_color: [0, 0, 0, 0] },
     );
 
     // Insert a white background, since PDFs don't set a background by default.

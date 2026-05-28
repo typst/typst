@@ -437,7 +437,6 @@ fn png_dpi(mut data: &[u8]) -> Option<f64> {
     }
 
     let dims = decoder.info().and_then(|i| i.pixel_dims)?;
-
     let dpu = dims.xppu.max(dims.yppu) as f64;
     match dims.unit {
         png::Unit::Meter => Some(dpu * 0.0254), // meter -> inches

@@ -113,12 +113,11 @@ impl PdfStandards {
     /// Validates a list of PDF standards for compatibility and returns their
     /// encapsulated representation.
     pub fn new(list: &[PdfStandard]) -> HintedStrResult<Self> {
-        use crate::util::ValidatorsExt;
-
         use krilla::configure::{
-            Accessibility, Archival, ConfigurationBuilder, ConfigurationError,
-            PdfVersion, Validators,
+            Accessibility, Archival, ConfigurationBuilder, ConfigurationError, PdfVersion,
         };
+
+        use crate::util::ValidatorsExt;
 
         let mut version: Option<PdfVersion> = None;
         let mut set_version = |v: PdfVersion| -> StrResult<()> {
@@ -187,49 +186,51 @@ impl PdfStandards {
             builder = builder.with_accessibility_validator(accessibility_validator)
         }
 
-        let config = builder.finish().map_err(|e| -> HintedString {
-            let report_validator_version_ranges = |mut e:  HintedString, validators: Validators| -> HintedString {
-                for validator in validators {
-                    let min = validator.min();
-                    let max = validator.max();
-
-                    e = e.with_hint(if let Some(min) = min {
-                        if min == max {
-                            eco_format!("{} requires version {}", validator.as_str(), min.as_str())
-                        } else {
-                            eco_format!("{} requires a version between {} and {}", validator.as_str(), min.as_str(), max.as_str())
-                        }
-                    } else {
-                        eco_format!("{} requires at least {}", validator.as_str(), max.as_str())
-                    })
-
-                }
-
-                e
-            };
-
-            match e {
+        let config = builder.finish().map_err(|e| {
+            let (message, validators) = match e {
                 ConfigurationError::NoOverlappingValidatorsRange(validators) => {
                     let list = validators.to_and_list();
-                    let mut result = HintedString::new(eco_format!(
-                        "{list} are mutually incompatible because they do not have any overlapping PDF versions"
-                    ));
-
-                    result = report_validator_version_ranges(result, validators);
-                    result
+                    let message = eco_format!(
+                        "{list} are mutually incompatible because \
+                         they do not have any overlapping PDF versions"
+                    );
+                    (message, validators)
                 }
-                ConfigurationError::VersionDoesNotMatchValidatorsRange(version, validators) => {
+                ConfigurationError::VersionDoesNotMatchValidatorsRange(
+                    version,
+                    validators,
+                ) => {
                     let list = validators.to_and_list();
-
-                    let mut result = HintedString::new(eco_format!("{} is not compatible with {list}", version.as_str()));
-
-                    result = report_validator_version_ranges(result, validators);
-                    result
+                    let message =
+                        eco_format!("{} is not compatible with {list}", version.as_str());
+                    (message, validators)
                 }
-            }
+            };
+            HintedString::new(message)
+                .with_hints(validators.into_iter().map(version_hint))
         })?;
 
         Ok(Self { config })
+    }
+}
+
+/// A hint specifying which PDF version a validator is compatible with.
+fn version_hint(validator: krilla::configure::Validator) -> EcoString {
+    let min = validator.min();
+    let max = validator.max();
+    if let Some(min) = min {
+        if min == max {
+            eco_format!("{} requires version {}", validator.as_str(), min.as_str())
+        } else {
+            eco_format!(
+                "{} requires a version between {} and {}",
+                validator.as_str(),
+                min.as_str(),
+                max.as_str()
+            )
+        }
+    } else {
+        eco_format!("{} requires at least {}", validator.as_str(), max.as_str())
     }
 }
 

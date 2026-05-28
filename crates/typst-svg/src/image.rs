@@ -179,6 +179,6 @@ fn pdf_to_svg(pdf: &PdfImage) -> String {
         pdf.page(),
         &cache,
         &interpreter_settings,
-        &SvgRenderSettings::default(),
+        &SvgRenderSettings { bg_color: [0, 0, 0, 0] },
     )
 }

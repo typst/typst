@@ -106,7 +106,7 @@ pub fn format(doc: &[u8]) -> StrResult<String> {
             let mut marked_content = HashMap::new();
             let mut ops = page.typed_operations();
             while let Some(op) = ops.next() {
-                let Some((mcid, mc)) = (match op {
+                if let Some((mcid, mc)) = match op {
                     TypedInstruction::MarkedContentPointWithProperties(mc) => {
                         mc.1.clone().into_dict().and_then(|props| {
                             let mcid = props.get(keys::MCID)?;
@@ -120,11 +120,9 @@ pub fn format(doc: &[u8]) -> StrResult<String> {
                         })
                     }
                     _ => None,
-                }) else {
-                    continue;
+                } {
+                    marked_content.insert(mcid, mc);
                 };
-
-                marked_content.insert(mcid, mc);
             }
 
             Ok((page_ref, PageContent { idx, marked_content }))

@@ -765,9 +765,8 @@ fn convert_error(
                     )
                 }
             };
-
             SourceDiagnostic::error(span, message).with_hint(eco_format!(
-                "set the PDF version to {}",
+                "set the PDF version to {} or later",
                 feature.minimum_pdf_version().as_str(),
             ))
         }
