@@ -639,11 +639,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         (Some(_), None) => Ok(split_outer_group(tree, outer.parent, stack_idx)),
         (None, Some(_)) => Ok(split_inner_groups(tree, outer.parent, stack_idx)),
         (None, None) => {
-            let non_breakable_span = if inner_non_breakable_span.is_detached() {
-                outer.span
-            } else {
-                inner_non_breakable_span
-            };
+            let non_breakable_span = inner_non_breakable_span.or(outer.span);
 
             let non_breakable_in_pdf_ua = inner_non_breakable_in_pdf_ua
                 || matches!(outer_break_opportunity, BreakOpportunity::NoPdfUa(_));
