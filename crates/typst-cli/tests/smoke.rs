@@ -218,7 +218,7 @@ fn test_tracepoints() {
         .stderr
         .must_contain("while calling `my-figure` at")
         .must_contain("chapter1.typ:2:12")
-        .must_contain("my-figure(…)");
+        .must_contain("my-figure(…");
     output
         .stderr
         .must_contain("while including `chapter1.typ` at")
@@ -228,7 +228,7 @@ fn test_tracepoints() {
         .stderr
         .must_contain("while showing strong element at")
         .must_contain("main.typ:2:11")
-        .must_contain("*Slightly unusual…*");
+        .must_contain("*Slightly unusual…");
 }
 
 #[test]

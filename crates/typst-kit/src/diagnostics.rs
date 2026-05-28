@@ -132,13 +132,8 @@ fn emit_trace(
     if let Some(first) = lines.next() {
         write!(dest, "{first}")?;
     }
-    if let Some(last) = lines.next_back()
-        && let Some(last_char) = last.chars().next_back()
-        && !last_char.is_whitespace()
-    {
-        // If the traced source text is multi-line, try to display it
-        // with inner ellipses followed by the last character.
-        write!(dest, "…{last_char}")?;
+    if lines.next().is_some() {
+        write!(dest, "…")?;
     }
     dest.reset()?;
     writeln!(dest)?;
