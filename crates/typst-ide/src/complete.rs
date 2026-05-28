@@ -1296,7 +1296,8 @@ impl<'a> CompletionContext<'a> {
             && !self.after.starts_with(['(', '['])
         {
             if let Value::Func(func) = value {
-                apply = Some(match BracketMode::of(func) {
+                let in_math = self.leaf.mode_after() == Some(SyntaxMode::Math);
+                apply = Some(match BracketMode::of(func, in_math) {
                     BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
                     BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
                     BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
@@ -1468,7 +1469,7 @@ enum BracketMode {
 }
 
 impl BracketMode {
-    fn of(func: &Func) -> Self {
+    fn of(func: &Func, in_math: bool) -> Self {
         // If we have no parameters or only the self one, it's friendlier to put
         // the cursor after the method call.
         if func.params().all(|param| param.name() == Some("self")) {
@@ -1479,7 +1480,7 @@ impl BracketMode {
             Some(
                 "emph" | "footnote" | "quote" | "strong" | "highlight" | "overline"
                 | "underline" | "smallcaps" | "strike" | "sub" | "super",
-            ) => Self::SquareWithin,
+            ) if !in_math => Self::SquareWithin,
             Some("colbreak" | "parbreak" | "linebreak" | "pagebreak") => Self::RoundAfter,
             Some("figure" | "table" | "grid" | "stack") => Self::RoundNewline,
             _ => Self::RoundWithin,
@@ -1989,6 +1990,17 @@ mod tests {
         let res = test(&world, -1);
         res.must_include(["foo"]);
         res.at("foo").must_have_detail("A useful function.");
+    }
+
+    #[test]
+    fn test_autocomplete_math_brackets() {
+        let res1 = test("$ overli $", -2);
+        res1.must_include(["overline"]);
+        res1.at("overline").must_apply_as("overline(${})");
+
+        let res2 = test("#overli", -1);
+        res2.must_include(["overline"]);
+        res2.at("overline").must_apply_as("overline[${}]");
     }
 
     #[test]
