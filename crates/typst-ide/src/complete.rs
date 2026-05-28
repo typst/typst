@@ -223,6 +223,11 @@ fn field_access_completions(
                 ctx.value_completion(name.clone(), value);
             }
         }
+        Value::Args(args) => {
+            for (name, value) in args.to_named().iter() {
+                ctx.value_completion(name.clone(), value);
+            }
+        }
         Value::Func(func) => {
             // Autocomplete get rules.
             if let Some((elem, styles)) = func.to_element().zip(styles.as_ref()) {
@@ -1697,6 +1702,61 @@ mod tests {
         test("$vec(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
         test("$vec(size:pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
         test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+    }
+
+    /// Test dict field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_dict_fields() {
+        let with = |text| &*format!("#let dict = (a: (c: 1), b: 2); {text}").leak();
+        test(with("#dict."), -1)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("$dict.$"), -2)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("#dict.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$dict.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#dict.a."), -1)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("$dict.a.$"), -2)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("#dict.a.c."), -1).must_include(["bit-or"]);
+        test(with("$dict.a.c.$"), -2).must_include(["bit-or"]);
+    }
+
+    /// Test argument field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_argument_fields() {
+        let with = |text| {
+            &*format!("#let args = arguments(0, a: arguments(c: 1), b: 2); {text}").leak()
+        };
+        test(with("#args."), -1)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("$args.$"), -2)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("#args.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$args.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#args.at(0)."), -1).must_include(["bit-or"]);
+        test(with("#args.a."), -1)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("$args.a.$"), -2)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("#args.a.c."), -1).must_include(["bit-or"]);
+        test(with("$args.a.c.$"), -2).must_include(["bit-or"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte

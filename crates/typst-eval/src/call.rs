@@ -266,9 +266,9 @@ fn eval_field_callee<'a, 'b>(
         match target.field(field, sink) {
             // The field does exist.
             Ok(callee_value) => {
-                // Aside from Dict and Content, only a few other types have
-                // accessible fields which could produce these errors. As of
-                // March 2026, they are:
+                // Aside from Dict, named Args, and Content, only a few other
+                // types have accessible fields which could produce these
+                // errors. As of June 2026, they are:
                 // - Alignment (.x, .y)
                 // - Length (.abs, .em)
                 // - Relative Length (.ratio, .length)
@@ -277,6 +277,7 @@ fn eval_field_callee<'a, 'b>(
                 // The other types with fields (Symbol, Func, Type, Module) are
                 // handled above.
                 let is_dict = matches!(target, Value::Dict(_));
+                let is_named = matches!(target, Value::Args(_));
                 let mut err = if is_dict {
                     // Dictionaries get a specific error & hint because they're
                     // the easiest to attempt this with, and users need to be
@@ -284,6 +285,12 @@ fn eval_field_callee<'a, 'b>(
                     error!(
                         access.span(),
                         "cannot directly call dictionary keys as functions";
+                    )
+                } else if is_named {
+                    // Also give the custom error & hint for named arguments.
+                    error!(
+                        access.span(),
+                        "cannot directly call named argument fields as functions";
                     )
                 } else {
                     let (kind, name) = element_or_type_with_name(&target);
@@ -305,7 +312,13 @@ fn eval_field_callee<'a, 'b>(
                 } else {
                     err.hint(eco_format!(
                         "to access the `{field}` {}, remove the function arguments: `{}`",
-                        if is_dict { "key" } else { "field" },
+                        if is_dict {
+                            "key"
+                        } else if is_named {
+                            "argument"
+                        } else {
+                            "field"
+                        },
                         access.full_text(),
                     ));
                 }
@@ -313,6 +326,11 @@ fn eval_field_callee<'a, 'b>(
                     err.hint(
                         "dictionary keys cannot be used with method syntax as keys \
                             could conflict with built-in method names",
+                    );
+                } else if is_named {
+                    err.hint(
+                        "named arguments cannot be used with method syntax as argument \
+                            names could conflict with built-in method names",
                     );
                 }
 

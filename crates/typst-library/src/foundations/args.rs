@@ -15,6 +15,13 @@ use crate::foundations::{
 
 /// Captured arguments to a function.
 ///
+/// Arguments are either _positional_ or _named_, and can be accessed by the
+/// @arguments.pos[`pos`], @arguments.named[`named`], or @arguments.at[`at`]
+/// methods.
+///
+/// Additionally, named arguments can be accessed with @arguments.at[field
+/// syntax] similar to @dictionary[dictionaries].
+///
 /// = Argument Sinks <argument-sinks>
 /// Like built-in functions, custom functions can also take a variable number of
 /// arguments. You can specify an _argument sink_ which collects all excess
@@ -299,6 +306,15 @@ impl Args {
         };
         item.map(|item| &item.value.v)
     }
+
+    /// Access a named argument as a field.
+    pub fn field(&self, field: &str) -> StrResult<&Value> {
+        self.items
+            .iter()
+            .rfind(|item| item.name.as_ref().map(|name| name.as_str()) == Some(field))
+            .ok_or_else(|| eco_format!("no named argument {}", field.repr()))
+            .map(|item| &item.value.v)
+    }
 }
 
 #[scope]
@@ -330,6 +346,10 @@ impl Args {
 
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
+    ///
+    /// Named arguments can also be accessed with field syntax
+    /// `{arguments(key: 42).key}` if no default is needed. Unlike
+    /// @dictionary[dictionaries], fields on arguments cannot be modified.
     ///
     /// If the key is an @int[integer], this is equivalent to first calling
     /// @arguments.pos[`pos`] and then @array.at. If it is a @str[string], this
@@ -554,12 +574,13 @@ where
 /// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
-    eco_format!(
-        "arguments do not contain key {} \
-         and no default value was specified",
-        match key {
-            ArgumentKey::Index(i) => i.repr(),
-            ArgumentKey::Name(name) => name.repr(),
-        }
-    )
+    match key {
+        ArgumentKey::Index(i) => eco_format!(
+            "no positional argument at index {i} and no default value was specified",
+        ),
+        ArgumentKey::Name(name) => eco_format!(
+            "no named argument {} and no default value was specified",
+            name.repr()
+        ),
+    }
 }
