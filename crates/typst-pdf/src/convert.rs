@@ -2,7 +2,9 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
 use krilla::configure::validate::VersionedFeature;
-use krilla::configure::{Configuration, PdfVersion, ValidationError, Validators};
+use krilla::configure::{
+    Configuration, PdfVersion, ValidationError, Validator, Validators,
+};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
 use krilla::error::{KrillaError, LimitError};
@@ -765,10 +767,48 @@ fn convert_error(
                     )
                 }
             };
-            SourceDiagnostic::error(span, message).with_hint(eco_format!(
-                "set the PDF version to {} or later",
-                feature.minimum_pdf_version().as_str(),
-            ))
+
+            let diagnostic = SourceDiagnostic::error(span, message);
+
+            let min_version = feature.minimum_pdf_version();
+
+            let mut most_restrictive: Option<(Validator, PdfVersion)> = None;
+            for validator in gc.options.standards.config.validators() {
+                let max = validator.max();
+                if most_restrictive.is_none_or(|(_, prev_max)| prev_max > max) {
+                    most_restrictive = Some((validator, max));
+                }
+            }
+
+            let Some((restrictive_validator, max_version)) = most_restrictive else {
+                // Does not happen in practice: A validator is required to raise
+                // this error and they always have a maximum version.
+                return diagnostic;
+            };
+
+            if min_version < max_version {
+                diagnostic.with_hint(eco_format!(
+                    "select a version between {} and {}",
+                    min_version.as_str(),
+                    max_version.as_str(),
+                ))
+            } else if min_version == max_version {
+                diagnostic
+                    .with_hint(eco_format!("set the version to {}", min_version.as_str()))
+            } else {
+                diagnostic
+                    .with_hint(eco_format!(
+                        "PDF version must be at least {} to satisfy {}",
+                        min_version.as_str(),
+                        failing_validators.to_and_list(),
+                    ))
+                    .with_hint(eco_format!(
+                        "remove or replace the {} standard, \
+                         as it prevents PDF versions beyond {}",
+                        restrictive_validator.as_str(),
+                        max_version.as_str(),
+                    ))
+            }
         }
     }
 }
