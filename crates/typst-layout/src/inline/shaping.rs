@@ -488,15 +488,13 @@ impl<'a> ShapedText<'a> {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             let world = engine.world;
-            for family in families(self.styles) {
-                if let Some(font) = world
+            if let Some(font) = families(self.styles).find_map(|family| {
+                world
                     .book()
                     .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
-                {
-                    expand(&font, TextEdgeBounds::Zero);
-                    break;
-                }
+            }) {
+                expand(&font, TextEdgeBounds::Zero);
             }
         } else {
             for g in self.glyphs.iter() {
