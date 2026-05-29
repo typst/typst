@@ -5,10 +5,7 @@ use crate::args::PackageArgs;
 /// Returns a new package storage for the given args.
 pub fn system(args: &PackageArgs) -> SystemPackages {
     SystemPackages::from_parts(
-        args.package_path
-            .iter()
-            .map(FsPackages::new)
-            .collect(),
+        args.package_path.iter().map(FsPackages::new).collect(),
         args.package_cache_path
             .clone()
             .map(FsPackages::new)

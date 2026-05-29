@@ -615,7 +615,9 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
     write!(out, "  ")?;
     write_key(&mut out, "Package cache path", None)?;
     write!(out, " ")?;
-    value.packages.package_cache_path
+    value
+        .packages
+        .package_cache_path
         .as_deref()
         .map(Value::Path)
         .unwrap_or(Value::Unset)
