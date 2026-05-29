@@ -12,7 +12,11 @@
 )
 
 --- gradient-linear-spaces paged ---
-// The tests below test whether hue rotation works correctly.
+// CMYK is excluded here and tested separately below because it's currently not
+// 100% reproducible for SVG with the colors used in this test. (The color value
+// is off by one on macOS. This might be due to different SIMD instruction sets
+// being used by CMYK conversion in moxcms. We should investigate whether we can
+// somehow fix this in the future.)
 #set page(height: auto, margin: 0pt)
 #set block(spacing: 0pt)
 #let spaces = (
@@ -22,7 +26,6 @@
   ("Oklab", color.oklab),
   ("sRGB", color.rgb),
   ("linear-RGB", color.linear-rgb),
-  ("CMYK", color.cmyk),
   ("Luma", color.luma),
 )
 #for (name, space) in spaces {
@@ -33,6 +36,33 @@
     name,
   )
 }
+
+--- gradient-linear-cmyk paged ---
+// Test that CMYK works on gradients
+#set page(margin: 0pt, width: 100pt, height: auto)
+
+#let violet = cmyk(75%, 80%, 0%, 0%)
+#let blue = cmyk(75%, 30%, 0%, 0%)
+
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(violet, blue)
+)
+
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(rgb(violet), rgb(blue))
+)
+
+// In PDF format, this gradient can look different from the others.
+// This is because PDF readers do weird things with CMYK.
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(violet, blue, space: cmyk)
+)
 
 --- gradient-linear-relative-parent paged ---
 // The image should look as if there is a single gradient that is being used for
@@ -663,33 +693,6 @@ $ A = mat(
 #block(fill: gradient.linear(red, purple, space: oklab))
 #block(fill: gradient.linear(..color.map.rainbow, space: oklab))
 #block(fill: gradient.linear(..color.map.plasma, space: oklab))
-
---- issue-gradient-cmyk-encode paged ---
-// Test that CMYK works on gradients
-#set page(margin: 0pt, width: 100pt, height: auto)
-
-#let violet = cmyk(75%, 80%, 0%, 0%)
-#let blue = cmyk(75%, 30%, 0%, 0%)
-
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(violet, blue)
-)
-
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(rgb(violet), rgb(blue))
-)
-
-// In PDF format, this gradient can look different from the others.
-// This is because PDF readers do weird things with CMYK.
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(violet, blue, space: cmyk)
-)
 
 --- issue-5819-gradient-repeat eval ---
 // Ensure the gradient constructor generates monotonic stops which can be fed

@@ -1,10 +1,14 @@
 //! Basic utilities for converting Typst types to krilla.
 
+use std::fmt::Display;
+
 use ecow::{EcoString, eco_format};
+use krilla::configure::{Validator, Validators};
 use krilla::geom as kg;
 use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use krilla::tagging as kt;
+use smallvec::SmallVec;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::Font;
@@ -111,6 +115,47 @@ pub(crate) trait AbsExt {
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
+    }
+}
+
+pub(crate) trait ValidatorsExt {
+    /// Formats the validators into a comma separated list.
+    fn to_comma_list(self) -> impl Display;
+
+    /// Formats the validators into a comma separated list with a conjunction
+    /// before the last item (if more than one item exists). Uses Oxford commas.
+    fn to_and_list(self) -> impl Display;
+}
+
+impl ValidatorsExt for Validators {
+    fn to_comma_list(self) -> impl Display {
+        typst_utils::display(move |f| {
+            for (i, v) in self.into_iter().enumerate() {
+                if i != 0 {
+                    f.write_str(", ")?;
+                }
+                f.write_str(v.as_str())?;
+            }
+            Ok(())
+        })
+    }
+
+    fn to_and_list(self) -> impl Display {
+        typst_utils::display(move |f| {
+            let names: SmallVec<[_; 2]> =
+                self.into_iter().map(Validator::as_str).collect();
+            match names.as_slice() {
+                [] => Ok(()),
+                [a] => f.write_str(a),
+                [a, b] => write!(f, "{a} and {b}"),
+                [rest @ .., last] => {
+                    for v in rest.iter() {
+                        write!(f, "{v}, ")?;
+                    }
+                    write!(f, "and {last}")
+                }
+            }
+        })
     }
 }
 
