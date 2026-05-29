@@ -7,7 +7,7 @@ pub fn system(args: &PackageArgs) -> SystemPackages {
     SystemPackages::from_parts(
         args.package_path
             .iter()
-            .map(|p| FsPackages::new(p))
+            .map(FsPackages::new)
             .collect(),
         args.package_cache_path
             .clone()
