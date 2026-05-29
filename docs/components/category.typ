@@ -243,7 +243,7 @@
     html.a(
       href: url,
       class: "sources-link",
-      use-icon(16, "code", "Source"),
+      use-icon(16, "code", "Go to source"),
     )
   }
 }
