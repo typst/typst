@@ -443,8 +443,16 @@ pub struct ProcessArgs {
 #[derive(Debug, Clone, Args)]
 pub struct PackageArgs {
     /// Custom path to local packages, defaults to system-dependent location.
-    #[clap(long = "package-path", env = "TYPST_PACKAGE_PATH", value_name = "DIR")]
-    pub package_path: Option<PathBuf>,
+    ///
+    /// If multiple paths are specified, they are separated by the system's path
+    /// separator (`:` on Unix-like systems and `;` on Windows).
+    #[clap(
+        long = "package-path",
+        env = "TYPST_PACKAGE_PATH",
+        value_name = "DIR",
+        value_delimiter = ENV_PATH_SEP,
+    )]
+    pub package_path: Vec<PathBuf>,
 
     /// Custom path to package cache, defaults to system-dependent location.
     #[clap(

@@ -161,21 +161,17 @@ impl Fonts {
 #[derive(Default, Serialize)]
 #[serde(rename_all = "kebab-case")]
 struct Packages {
-    /// The resolved package path.
-    package_path: Option<PathBuf>,
+    /// The resolved package paths.
+    package_paths: Vec<PathBuf>,
 
     /// The resolved package cache path.
     package_cache_path: Option<PathBuf>,
 }
 
 impl Packages {
-    /// Return the resolved package paths.
-    fn paths(&self) -> impl Iterator<Item = (&'static str, Value<'_>)> {
-        let Self { package_path, package_cache_path } = self;
-
-        [("Package path", package_path), ("Package cache path", package_cache_path)]
-            .into_iter()
-            .map(|(k, v)| (k, v.as_deref().map(Value::Path).unwrap_or(Value::Unset)))
+    /// Return the custom package paths.
+    fn custom_paths(&self) -> impl Iterator<Item = Value<'_>> {
+        self.package_paths.iter().map(|p| Value::Path(p))
     }
 }
 
@@ -341,11 +337,14 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
                 .unwrap_or(false),
         },
         packages: Packages {
-            package_path: env
+            package_paths: env
                 .typst_package_path
-                .as_ref()
+                .as_deref()
+                .unwrap_or_default()
+                .split(':')
+                .filter(|s| !s.is_empty())
                 .map(PathBuf::from)
-                .or_else(|| FsPackages::system_data().map(|fs| fs.path().into())),
+                .collect(),
             package_cache_path: env
                 .typst_package_cache_path
                 .as_ref()
@@ -598,14 +597,30 @@ fn format_human_readable(value: &Info) -> io::Result<()> {
 
     writeln!(out)?;
     writeln!(out, "Packages")?;
-    let key_pad = value.packages.paths().map(|(name, _)| name.len()).max();
-    for (key, val) in value.packages.paths() {
-        write!(out, "  ")?;
-        write_key(&mut out, key, key_pad)?;
+    write!(out, "  ")?;
+    write_key(&mut out, "Package paths", None)?;
+    if value.packages.package_paths.is_empty() {
         write!(out, " ")?;
-        val.format(&mut out, None)?;
+        write_value_special(&mut out, "<none>", None)?;
         writeln!(out)?;
+    } else {
+        writeln!(out)?;
+        for path in value.packages.custom_paths() {
+            write!(out, "    - ")?;
+            path.format(&mut out, None)?;
+            writeln!(out)?;
+        }
     }
+
+    write!(out, "  ")?;
+    write_key(&mut out, "Package cache path", None)?;
+    write!(out, " ")?;
+    value.packages.package_cache_path
+        .as_deref()
+        .map(Value::Path)
+        .unwrap_or(Value::Unset)
+        .format(&mut out, None)?;
+    writeln!(out)?;
 
     writeln!(out)?;
     writeln!(out, "Environment variables")?;

@@ -21,11 +21,11 @@ use {
 ///
 /// In order of priority, this tries to obtain a package from
 ///
-/// - a package data directory (that is intended for system-wide storage of user
-///   packages)
-/// - a package cache directory (that is intended for caching of automatically
+/// - one or more package data directories (intended for system-wide storage of
+///   user packages), searched in order
+/// - a package cache directory (intended for caching of automatically
 ///   downloaded packages)
-/// - by downloading it from Typst Universe or a mirror of it (if it's namespace
+/// - by downloading it from Typst Universe or a mirror of it (if its namespace
 ///   matches the one Typst Universe serves)
 ///
 /// With default configuration, this loads packages from the same sources as the
@@ -33,7 +33,7 @@ use {
 #[cfg(feature = "system-packages")]
 #[derive(Debug)]
 pub struct SystemPackages {
-    data: Option<FsPackages>,
+    data: Vec<FsPackages>,
     cache: Option<FsPackages>,
     universe: UniversePackages,
 }
@@ -51,7 +51,7 @@ impl SystemPackages {
     /// configuration.
     pub fn new(downloader: impl Downloader) -> Self {
         Self::from_parts(
-            FsPackages::system_data(),
+            FsPackages::system_data().into_iter().collect(),
             FsPackages::system_cache(),
             UniversePackages::new(downloader),
         )
@@ -59,16 +59,16 @@ impl SystemPackages {
 
     /// Creates a new system package loader from custom configured parts.
     pub fn from_parts(
-        data: Option<FsPackages>,
+        data: Vec<FsPackages>,
         cache: Option<FsPackages>,
         universe: UniversePackages,
     ) -> Self {
         Self { data, cache, universe }
     }
 
-    /// Returns a handle to the data package directory.
-    pub fn data(&self) -> Option<&FsPackages> {
-        self.data.as_ref()
+    /// Returns handles to the data package directories.
+    pub fn data(&self) -> &[FsPackages] {
+        &self.data
     }
 
     /// Returns a handle to the cache package directory.
@@ -93,10 +93,11 @@ impl SystemPackages {
     /// [`FileStore`](crate::files::FileStore), this is already the case since
     /// it acquires a lock during file loading.
     pub fn obtain(&self, spec: &PackageSpec) -> PackageResult<FsRoot> {
-        if let Some(packages) = &self.data
-            && let Some(root) = packages.obtain(spec)
-        {
-            return Ok(root);
+        // Search all data directories in order; return on first hit.
+        for packages in &self.data {
+            if let Some(root) = packages.obtain(spec) {
+                return Ok(root);
+            }
         }
 
         if let Some(cache) = &self.cache {
@@ -131,12 +132,12 @@ impl SystemPackages {
         if spec.namespace == UniversePackages::NAMESPACE {
             self.universe.latest_version(spec)
         } else {
-            // For other namespaces, search locally. We only search in the data
-            // directory and not the cache directory, because the latter is not
-            // intended for storage of local packages.
+            // For other namespaces, search locally across all data directories.
+            // We only search in the data directories and not the cache directory,
+            // because the latter is not intended for storage of local packages.
             self.data
-                .as_ref()
-                .and_then(|pkgs| pkgs.latest_version(spec))
+                .iter()
+                .find_map(|pkgs| pkgs.latest_version(spec))
                 .ok_or_else(|| eco_format!("please specify the desired version"))
         }
     }

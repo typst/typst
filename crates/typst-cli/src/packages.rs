@@ -6,9 +6,9 @@ use crate::args::PackageArgs;
 pub fn system(args: &PackageArgs) -> SystemPackages {
     SystemPackages::from_parts(
         args.package_path
-            .clone()
-            .map(FsPackages::new)
-            .or_else(FsPackages::system_data),
+            .iter()
+            .map(|p| FsPackages::new(p))
+            .collect(),
         args.package_cache_path
             .clone()
             .map(FsPackages::new)
