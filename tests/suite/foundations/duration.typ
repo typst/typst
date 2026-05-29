@@ -116,3 +116,7 @@
 #test(duration(minutes: 20) < duration(minutes: 10), false)
 #test(duration(minutes: 20) <= duration(minutes: 10), false)
 #test(duration(minutes: 20) == duration(minutes: 10), false)
+
+--- duration-too-large eval ---
+// Error: 2-35 duration is too large
+#duration(weeks: 9999999999999999)

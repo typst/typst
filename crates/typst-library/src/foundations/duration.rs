@@ -4,6 +4,7 @@ use std::ops::{Add, Div, Mul, Neg, Sub};
 use ecow::{EcoString, eco_format};
 use time::ext::NumericalDuration;
 
+use crate::diag::StrResult;
 use crate::foundations::{Repr, func, repr, scope, ty};
 
 /// Represents a positive or negative span of time.
@@ -69,14 +70,20 @@ impl Duration {
         #[named]
         #[default(0)]
         weeks: i64,
-    ) -> Duration {
-        Duration::from(
-            time::Duration::seconds(seconds)
-                + time::Duration::minutes(minutes)
-                + time::Duration::hours(hours)
-                + time::Duration::days(days)
-                + time::Duration::weeks(weeks),
-        )
+    ) -> StrResult<Duration> {
+        // The `time::Duration` constructors and additions multiply by the unit
+        // size and panic on overflow, so accumulate the total in seconds with
+        // checked arithmetic before handing it off.
+        let mut total = seconds;
+        for (value, factor) in
+            [(minutes, 60), (hours, 3_600), (days, 86_400), (weeks, 604_800)]
+        {
+            total = value
+                .checked_mul(factor)
+                .and_then(|v| total.checked_add(v))
+                .ok_or("duration is too large")?;
+        }
+        Ok(Duration::from(time::Duration::seconds(total)))
     }
 
     /// The duration expressed in seconds.
