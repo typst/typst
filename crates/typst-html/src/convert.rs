@@ -4,7 +4,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
 use typst_library::layout::{
-    Abs, Axes, BlockBody, BlockElem, BoxElem, HElem, Region, Size,
+    Abs, AlignElem, Axes, BlockBody, BlockElem, BoxElem, HAlignment, HElem, Region, Size, VAlignment
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
@@ -152,6 +152,8 @@ fn handle(
         // be wrapped in a `box` to omit the `display` annotation.
         make_block_level(&mut node).unwrap();
         converter.push(node);
+    } else if let Some(elem) = child.to_packed::<AlignElem>() {
+        handle_align(converter, elem, styles)?;
     } else {
         converter.engine.sink.warn(warning!(
             child.span(),
@@ -361,6 +363,51 @@ fn handle_box(
         // TODO: This is rather incomplete.
         HtmlElement::new(tag::span)
             .with_css(css::Properties::new().with("display", "inline-block"))
+            .with_children(children)
+            .spanned(elem.span()),
+    );
+
+    Ok(())
+}
+
+/// Processes an align element.
+fn handle_align(
+    converter: &mut Converter,
+    elem: &Packed<AlignElem>,
+    styles: StyleChain,
+) -> SourceResult<()> {
+    let children = html_block_fragment(
+        converter.engine,
+        &elem.body,
+        converter.locator.next(&elem.span()),
+        styles,
+        converter.whitespace,
+    )?;
+
+    let halignment = match elem.alignment.get(styles).x() {
+        Some(HAlignment::End) | Some(HAlignment::Right) => "right",
+        Some(HAlignment::Center) => "center",
+        // Default to left
+        Some(HAlignment::Start) | Some(HAlignment::Left) | _ => "left"
+    };
+
+    // Default VAlignment is VAlignment::Top, so this has not effect anyways.
+    // Hence, no warning is reported.
+    let has_valignment = match elem.alignment.get(styles).y() {
+        Some(VAlignment::Bottom) | Some(VAlignment::Horizon) => true,
+        _ => false
+    };
+
+    if has_valignment {
+        converter.engine.sink.warn(warning!(
+            elem.span(),
+            "Vertical alignment was ignored during HTML export",
+        ));
+    }
+
+    converter.push(
+        HtmlElement::new(tag::div)
+            .with_attr(attr::align, halignment)
             .with_children(children)
             .spanned(elem.span()),
     );

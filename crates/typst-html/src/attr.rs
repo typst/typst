@@ -10,6 +10,7 @@ pub const accept: HtmlAttr = HtmlAttr::constant("accept");
 pub const accept_charset: HtmlAttr = HtmlAttr::constant("accept-charset");
 pub const accesskey: HtmlAttr = HtmlAttr::constant("accesskey");
 pub const action: HtmlAttr = HtmlAttr::constant("action");
+pub const align: HtmlAttr = HtmlAttr::constant("align");
 pub const allow: HtmlAttr = HtmlAttr::constant("allow");
 pub const allowfullscreen: HtmlAttr = HtmlAttr::constant("allowfullscreen");
 pub const alpha: HtmlAttr = HtmlAttr::constant("alpha");
