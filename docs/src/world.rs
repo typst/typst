@@ -212,6 +212,7 @@ fn library() -> Library {
 fn stdx_module() -> Module {
     let mut scope = Scope::new();
     scope.define_elem::<ConfigElem>();
+    scope.define_func::<str_from_path>();
     scope.define_func::<read_dev_asset>();
     scope.define_func::<read_font>();
     scope.define_func::<eval_mapped>();
@@ -237,6 +238,14 @@ fn stdx_module() -> Module {
 pub struct ConfigElem {
     pub content_base: EcoString,
     pub asset_base: EcoString,
+}
+
+/// Returns the virtual path part of a path as a string.
+///
+/// This does not include the package spec.
+#[func]
+fn str_from_path(path: RootedPath) -> EcoString {
+    path.vpath().get_with_slash().into()
 }
 
 /// Loads an asset from the `typst_dev_assets` crate by file name.
