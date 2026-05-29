@@ -393,10 +393,10 @@ fn handle_align(
 
     // Default VAlignment is VAlignment::Top, so this has not effect anyways.
     // Hence, no warning is reported.
-    let has_valignment = match elem.alignment.get(styles).y() {
-        Some(VAlignment::Bottom) | Some(VAlignment::Horizon) => true,
-        _ => false
-    };
+    let has_valignment = matches!(
+        elem.alignment.get(styles).y(),
+        Some(VAlignment::Bottom) | Some(VAlignment::Horizon)
+    );
 
     if has_valignment {
         converter.engine.sink.warn(warning!(
