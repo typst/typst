@@ -36,15 +36,13 @@ const XML_WRITE_OPTIONS: xmlwriter::Options = xmlwriter::Options {
 /// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
 pub fn svg(page: &Page, opts: &SvgOptions) -> String {
-    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
-    let size = page.frame.size() + bleed.sum_by_axis();
+    let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
-    let ts = Transform::translate(bleed.left, bleed.top);
     renderer.render_page(&mut svg, &state, ts, page);
     renderer.finalize(svg);
     xml.end_document()
@@ -59,15 +57,18 @@ pub fn svg(page: &Page, opts: &SvgOptions) -> String {
 #[typst_macros::time(name = "svg in bundle")]
 pub fn svg_in_bundle(
     page: &Page,
+    opts: &SvgOptions,
     anchors: &[(Point, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
+    let (size, ts) = page_bleed(page, opts);
+
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
-    let mut svg = svg_header(&mut xml, page.frame.size());
+    let mut svg = svg_header(&mut xml, size);
 
-    let state = State::new(page.frame.size());
-    renderer.render_page(&mut svg, &state, Transform::identity(), page);
+    let state = State::new(size);
+    renderer.render_page(&mut svg, &state, ts, page);
 
     for (pos, id) in anchors {
         renderer.render_anchor(&mut svg, *pos, id);
@@ -129,38 +130,45 @@ pub fn svg_in_html(
 /// Export a document with potentially multiple pages into a single SVG file.
 ///
 /// The gap will be added between the individual pages.
-pub fn svg_merged(document: &PagedDocument, gap: Abs) -> String {
-    let width = document
-        .pages()
-        .iter()
-        .map(|page| page.frame.width())
-        .max()
-        .unwrap_or_default();
-    let height = document.pages().len().saturating_sub(1) as f64 * gap
-        + document.pages().iter().map(|page| page.frame.height()).sum::<Abs>();
+pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> String {
+    let num_gaps = document.pages().len().saturating_sub(1) as f64;
+    let mut size = Size::new(Abs::zero(), num_gaps * gap);
+    for page in document.pages() {
+        let (page_size, _ts) = page_bleed(page, opts);
+        size.x.set_max(page_size.x);
+        size.y += page_size.y;
+    }
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(XML_WRITE_OPTIONS);
-    let mut svg = svg_header(&mut xml, Size::new(width, height));
+    let mut svg = svg_header(&mut xml, size);
 
     let mut y = Abs::zero();
     for page in document.pages() {
-        let state = State::new(page.frame.size());
+        let (page_size, bleed_ts) = page_bleed(page, opts);
+        let state = State::new(page_size);
         renderer.render_page(
             &mut svg,
             &state,
-            Transform::translate(Abs::zero(), y),
+            Transform::translate(Abs::zero(), y).pre_concat(bleed_ts),
             page,
         );
-        y += page.frame.height() + gap;
+        y += page_size.y + gap;
     }
 
     renderer.finalize(svg);
     xml.end_document()
 }
 
+fn page_bleed(page: &Page, opts: &SvgOptions) -> (Size, Transform) {
+    let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
+    let size = page.frame.size() + bleed.sum_by_axis();
+    let ts = Transform::translate(bleed.left, bleed.top);
+    (size, ts)
+}
+
 /// Settings for SVG export.
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct SvgOptions {
     /// By default, SVG documents are bounded to the page size. In some
     /// circumstances, such as when preparing documents for print, it may be
