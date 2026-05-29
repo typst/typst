@@ -153,22 +153,23 @@ fn shape_text<'a, 'b>(
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {
+    let shape_tofus = |ctx: &mut ShapingContext, text: &str, font: Font| {
+        for _ in text.chars() {
+            ctx.glyphs.push(Glyph {
+                id: 0,
+                x_advance: font.x_advance(0).unwrap_or_default(),
+                x_offset: Em::zero(),
+                y_advance: Em::zero(),
+                y_offset: Em::zero(),
+                range: 0..text.len().saturating_as(),
+                span: (Span::detached(), 0),
+            });
+        }
+        ctx.font = Some(font);
+    };
+
     let Some((font, covers)) =
-        get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
-            let add_glyph = |_| {
-                ctx.glyphs.push(Glyph {
-                    id: 0,
-                    x_advance: font.x_advance(0).unwrap_or_default(),
-                    x_offset: Em::zero(),
-                    y_advance: Em::zero(),
-                    y_offset: Em::zero(),
-                    range: 0..text.len().saturating_as(),
-                    span: (Span::detached(), 0),
-                })
-            };
-            text.chars().for_each(add_glyph);
-            ctx.font = Some(font);
-        })
+        get_font_and_covers(ctx, text, families.by_ref(), shape_tofus)
     else {
         return;
     };
