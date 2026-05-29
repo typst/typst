@@ -6,7 +6,7 @@
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
-#import "live.typ": live-docs
+#import "live.typ": live-docs, item-source-link
 #import "pill.typ": ty-pill
 #import "reflect.typ": cast-strings, flat-types, std-path-of
 #import "search.typ": register-index-item
@@ -238,16 +238,13 @@
 //
 // Requires context.
 #let sources-link(info) = {
-  if info.def-site != none {
-    let file = eval(repr(info.def-site.path).slice("path".len()))
-    let url = "https://github.com/typst/typst/blob/" + stdx.commit + file
-    if target() == "html" {
-      html.a(
-        href: url,
-        class: "sources-link",
-        use-icon(16, "code", "Source"),
-      )
-    }
+  if target() == "html" and info.def-site != none {
+    let url = item-source-link(info.def-site)
+    html.a(
+      href: url,
+      class: "sources-link",
+      use-icon(16, "code", "Source"),
+    )
   }
 }
 

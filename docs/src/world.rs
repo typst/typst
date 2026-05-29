@@ -215,7 +215,7 @@ fn stdx_module() -> Module {
     scope.define_func::<read_dev_asset>();
     scope.define_func::<read_font>();
     scope.define_func::<eval_mapped>();
-    scope.define_func::<crate::live::docs_in_source>();
+    scope.define_func::<crate::live::live_item_data>();
     scope.define_func::<crate::example::compile_example>();
     scope.define_func::<crate::reflect::describe>();
     scope.define_func::<crate::reflect::binding>();
