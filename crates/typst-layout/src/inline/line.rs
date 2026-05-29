@@ -6,7 +6,7 @@ use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, variant};
+use typst_library::text::{Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -460,9 +460,7 @@ pub fn apply_shift<'a>(
     let mut baseline = styles.resolve(TextElem::baseline);
     let mut compensation = Abs::zero();
     if let Some(scripts) = styles.get_ref(TextElem::shift_settings) {
-        let font_metrics = styles
-            .get_ref(TextElem::font)
-            .into_iter()
+        let font_metrics = families(styles)
             .find_map(|family| {
                 world
                     .book()
