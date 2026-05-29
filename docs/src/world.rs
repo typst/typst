@@ -212,10 +212,11 @@ fn library() -> Library {
 fn stdx_module() -> Module {
     let mut scope = Scope::new();
     scope.define_elem::<ConfigElem>();
+    scope.define_func::<str_from_path>();
     scope.define_func::<read_dev_asset>();
     scope.define_func::<read_font>();
     scope.define_func::<eval_mapped>();
-    scope.define_func::<crate::live::docs_in_source>();
+    scope.define_func::<crate::live::live_item_data>();
     scope.define_func::<crate::example::compile_example>();
     scope.define_func::<crate::reflect::describe>();
     scope.define_func::<crate::reflect::binding>();
@@ -224,6 +225,7 @@ fn stdx_module() -> Module {
     scope.define_func::<crate::reflect::unicode_name>();
     scope.define_func::<crate::reflect::latex_name>();
     scope.define_func::<crate::reflect::is_global_html_attr>();
+    scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
     Module::new("stdx", scope)
 }
@@ -236,6 +238,14 @@ fn stdx_module() -> Module {
 pub struct ConfigElem {
     pub content_base: EcoString,
     pub asset_base: EcoString,
+}
+
+/// Returns the virtual path part of a path as a string.
+///
+/// This does not include the package spec.
+#[func]
+fn str_from_path(path: RootedPath) -> EcoString {
+    path.vpath().get_with_slash().into()
 }
 
 /// Loads an asset from the `typst_dev_assets` crate by file name.

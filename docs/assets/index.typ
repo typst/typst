@@ -21,6 +21,7 @@
   "16-check.svg",
   "16-chevron-right.svg",
   "16-close.svg",
+  "16-code.svg",
   "16-copy.svg",
   "16-docs-dark.svg",
   "16-hamburger-dark.svg",
