@@ -291,6 +291,7 @@ f70d93cbcffcd1b6130228739f9dd03c gradient-line-cap
 41955b67be5b88effdfb098420b24c64 gradient-line-stroke
 459adaf241243f2afeee3e524680df77 gradient-linear-angled
 a276449c2d1d183262e8228d09b5a411 gradient-linear-angled-aspect-ratio
+8992cc9d11078aac798d774d800f49f4 gradient-linear-cmyk
 f8990db84b3386abc34806dbbda97258 gradient-linear-line
 99e0c028e8ef5afc37df7d788f98d372 gradient-linear-relative-parent
 8a853a4874bcd6883013669bd179b7a5 gradient-linear-relative-parent-block
@@ -302,7 +303,7 @@ b7152136513c4b336543da6353fe4607 gradient-linear-repeat-and-mirror-3
 8a33db07b4528e6adc5e6ebf871e306a gradient-linear-sharp-and-repeat
 01ffab7f15c99b31b4c70a38330e380b gradient-linear-sharp-and-smooth
 dff27851712f78556c286d4239d100ea gradient-linear-sharp-repeat-and-mirror
-44a2613b6594e10dfb1bd30ad510a61c gradient-linear-spaces
+e09e3584823ad571664268185d0e91d3 gradient-linear-spaces
 6520a72f2df5afa764f818c8a37750ba gradient-linear-stroke
 b67b38d7ceed69c030c3e45fb0b98669 gradient-linear-stroke-relative-parent
 9dc464c1bd7b9ccffd30a6089d083c66 gradient-math-cancel
@@ -844,7 +845,6 @@ a79c7c9883fe7973f1b484449b772df0 issue-flow-frame-placement
 68247e6a32ce9a02d98cc3935849e703 issue-flow-trailing-leading
 0365061c9856189ed27bafbe95e39924 issue-flow-weak-spacing
 cbebbf4a9f77b8efd1d92b920fa8d216 issue-footnotes-skip-first-page
-bbbf906e0c13469389730818287003bd issue-gradient-cmyk-encode
 ccdab912575293cbda84cf1bdd84b08d issue-grid-base-auto-row
 f125c978ae19cf478555ee6419d00649 issue-grid-base-auto-row-list
 3ea719c950b971986864c01ab736bd38 issue-grid-double-skip

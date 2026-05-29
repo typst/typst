@@ -291,6 +291,7 @@ b4619a4ad9ba514c4539a210afa1a04c gradient-curve-stroke-quad
 15fa19ce1b8d6334a7fa931d6ca4a029 gradient-line-stroke
 e257133ae8296d6cd2c7c3570ae9b0b7 gradient-linear-angled
 ae4baa4cebfcb2c2c33c936c8665a899 gradient-linear-angled-aspect-ratio
+edb17b1c3f987da860d13c58b7fa7174 gradient-linear-cmyk
 9a8b5bd68e38a1b77fcf2174d84bcefc gradient-linear-line
 e7ee8b614b6053b667a68fee89ab10e2 gradient-linear-relative-parent
 ce72f9782e51a877ca968f7dc04c8ed2 gradient-linear-relative-parent-block
@@ -302,7 +303,7 @@ d83568f1695c5c0019abe06fbe5a502e gradient-linear-repeat-and-mirror-2
 edbc4f1f0bea229da4ffa43df5b2317f gradient-linear-sharp-and-repeat
 0457503599f108b935f51e8e6ee4752a gradient-linear-sharp-and-smooth
 2cbf69923df90afa127f1197432d6cb3 gradient-linear-sharp-repeat-and-mirror
-681304d3253f55af1228793221ab65b1 gradient-linear-spaces
+ff79c4e55fe9af0fb85be040ff723a85 gradient-linear-spaces
 5f12deb5a8b25151c3cbf705bb640374 gradient-linear-stroke
 eb0eb2125eca02ee6048bb4af5f6bd1b gradient-linear-stroke-relative-parent
 6440b639f25afc3c009869fbf1704bea gradient-math-cancel
@@ -844,7 +845,6 @@ cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
 6b5fd25fd3e6565cc3e1d05c66489ae1 issue-flow-trailing-leading
 dfbd05f0366f20bf22b4ab5a1de13581 issue-flow-weak-spacing
 685c2458ed2b078e14fa2b58483e5343 issue-footnotes-skip-first-page
-edb17b1c3f987da860d13c58b7fa7174 issue-gradient-cmyk-encode
 7c9ddd2e13fc8e1cef6d7b2b70fe9ab1 issue-grid-base-auto-row
 c9f3c8f7c9322ebea118798787ebc19d issue-grid-base-auto-row-list
 bb9b10a74dc6965e5938851f528e3290 issue-grid-double-skip
