@@ -8,6 +8,7 @@
 //! feature-flagged, so that you can pick exactly what you need. By default, all
 //! features are disabled. The available feature flags are:
 //!
+//! - `bundle`: Enables functionality related to [`typst_bundle`].
 //! - `embedded-fonts`: Enables loading of embedded fonts via
 //!   [`fonts::embedded`].
 //! - `scan-fonts`: Enables font discovery at paths and from the system via
@@ -19,34 +20,41 @@
 //! - `universe-packages`: Enables loading of packages from Typst Universe via
 //!   [`packages::UniversePackages`].
 //! - `emit-diagnostics`: Enables emitting terminal-style diagnostics via
+//! - `datetime`: Enables obtaining the current date via [`datetime::Time::today`].
 //!   [`diagnostics::emit`].
 //! - `system-downloader`: Enables network requests via
 //!   [`downloader::SystemDownloader`].
 //! - `watcher`: Enables file system watching via [`watcher::Watcher`].
-//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`]
+//! - `timer`: Enables performance tracing via [`timer::Timer`].
+//! - `http-server`: Enables a live-reloading HTTP serving via [`server::HttpServer`].
 //! - `vendor-openssl`: Whether to vendor OpenSSL for the `system-downloader`.
 //!   Not applicable to Windows and macOS build.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![cfg_attr(
     not(all(
+        feature = "bundle",
         feature = "embedded-fonts",
         feature = "scan-fonts",
         feature = "system-files",
         feature = "system-packages",
         feature = "universe-packages",
         feature = "emit-diagnostics",
+        feature = "datetime",
         feature = "system-downloader",
         feature = "watcher",
+        feature = "timer",
         feature = "http-server",
     )),
     allow(rustdoc::broken_intra_doc_links)
 )]
 
+pub mod datetime;
 pub mod diagnostics;
 pub mod downloader;
 pub mod files;
 pub mod fonts;
 pub mod packages;
 pub mod server;
+pub mod timer;
 pub mod watcher;

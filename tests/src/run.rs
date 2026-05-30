@@ -3,9 +3,11 @@ use std::path::Path;
 
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
-use typst::foundations::{Content, Repr};
-use typst::layout::PagedDocument;
+use typst::foundations::{Content, Output, Repr};
+use typst::model::Document;
+use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
+use typst_layout::PagedDocument;
 use typst_syntax::Spanned;
 
 use crate::collect::{
@@ -14,9 +16,7 @@ use crate::collect::{
 };
 use crate::logger::TestResult;
 use crate::notes::{Note, NoteKind, NoteStatus};
-use crate::output::{
-    FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType, TestDocument,
-};
+use crate::output::{FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType};
 use crate::report::{Old, ReportFile};
 use crate::world::TestWorld;
 use crate::{ARGS, STORE_PATH, custom, git, output};
@@ -175,9 +175,9 @@ impl<'a> Runner<'a> {
             }
 
             if let Some(doc) = &mut doc
-                && doc.info.title.is_none()
+                && doc.info().title.is_none()
             {
-                doc.info.title = Some(self.test.name.clone());
+                doc.info_mut().title = Some(self.test.name.clone());
             }
 
             if self.test.should_run(TestOutput::Render) {
@@ -189,15 +189,21 @@ impl<'a> Runner<'a> {
             if self.test.should_run(TestOutput::Pdf) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
                 if self.test.should_run(TestOutput::Pdftags) {
-                    self.run_file_test::<output::Pdftags>(pdf.as_ref());
+                    self.run_hash_test::<output::Pdftags>(pdf.as_ref());
                 }
             }
         }
 
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
-            let doc = self.compile::<HtmlDocument>(evaluated);
-            self.run_file_test::<output::Html>(doc.as_ref());
+            let doc = self.compile::<HtmlDocument>(evaluated.clone());
+            self.run_hash_test::<output::Html>(doc.as_ref());
+        }
+
+        // Only compile bundle when the bundle target is specified.
+        if self.test.should_run(TestTarget::Bundle) {
+            let bundle = self.compile::<Bundle>(evaluated.clone());
+            self.run_file_test::<output::Bundle>(bundle.as_ref());
         }
 
         self.handle_empty();
@@ -401,15 +407,16 @@ impl<'a> Runner<'a> {
     /// produces a document. In practice it also re-evaluates the sources and
     /// thus generates duplicate diagnostics for the eval stage, so we filter
     /// those out.
-    fn compile<D: TestDocument>(
+    fn compile<D: Output>(
         &mut self,
         evaluated: Warned<SourceResult<Content>>,
     ) -> Option<D> {
         let Warned { output, warnings } = typst::compile::<D>(&self.world);
+        let target = TestTarget::from(D::target());
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
         for warning in warnings.iter() {
-            self.check_diagnostic(NoteKind::Warning, warning, D::TARGET);
+            self.check_diagnostic(NoteKind::Warning, warning, target);
         }
 
         match output {
@@ -421,7 +428,7 @@ impl<'a> Runner<'a> {
                 let errors = eval::deduplicate_with(errors, eval_errors);
 
                 for error in errors.iter() {
-                    self.check_diagnostic(NoteKind::Error, error, D::TARGET);
+                    self.check_diagnostic(NoteKind::Error, error, target);
                 }
 
                 None
@@ -550,7 +557,11 @@ impl<'a> Runner<'a> {
                     let old = old_ref_data.map(|data| (ref_path, Old::Data(data)));
                     let new = output.map(|(_, _, data)| (live_path, data));
                     let file_report = make_report::<T>(old, new);
-                    self.result.add_report(self.test.name.clone(), file_report);
+                    self.result.add_report(
+                        self.test.name.clone(),
+                        self.test.body.source.clone(),
+                        file_report,
+                    );
                 }
                 return;
             }
@@ -602,7 +613,11 @@ impl<'a> Runner<'a> {
 
             if ARGS.gen_report() {
                 let file_report = make_report::<T>(old, Some((live_path, new_ref_data)));
-                self.result.add_report(self.test.name.clone(), file_report);
+                self.result.add_report(
+                    self.test.name.clone(),
+                    self.test.body.source.clone(),
+                    file_report,
+                );
             }
         }
     }
@@ -641,7 +656,11 @@ impl<'a> Runner<'a> {
                     });
 
                     let file_report = make_report::<T>(old, new);
-                    self.result.add_report(self.test.name.clone(), file_report);
+                    self.result.add_report(
+                        self.test.name.clone(),
+                        self.test.body.source.clone(),
+                        file_report,
+                    );
                 }
 
                 return;
@@ -685,7 +704,11 @@ impl<'a> Runner<'a> {
             if ARGS.gen_report() {
                 let new_hash_path = T::OUTPUT.hash_path(new_hash, &self.test.name);
                 let file_report = make_report::<T>(old, Some((new_hash_path, live_data)));
-                self.result.add_report(self.test.name.clone(), file_report);
+                self.result.add_report(
+                    self.test.name.clone(),
+                    self.test.body.source.clone(),
+                    file_report,
+                );
             }
         }
     }
@@ -744,7 +767,9 @@ impl<'a> Runner<'a> {
         stage: impl TestStage,
     ) {
         // TODO: remove this once HTML export is stable
-        if diag.message == "html export is under active development and incomplete" {
+        if diag.message == "html export is under active development and incomplete"
+            || diag.message == "bundle export is experimental"
+        {
             return;
         }
         let stage = stage.into();
@@ -799,10 +824,10 @@ mod eval {
     use comemo::{Track, Tracked};
     use ecow::EcoVec;
     use rustc_hash::FxHashSet;
+    use typst::World;
     use typst::diag::{SourceDiagnostic, SourceResult, Warned};
     use typst::engine::{Route, Sink, Traced};
     use typst::foundations::Content;
-    use typst::{ROUTINES, World};
 
     pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
         let mut sink = Sink::new();
@@ -823,8 +848,8 @@ mod eval {
 
         // First evaluate the main source file into a module.
         let content = typst_eval::eval(
-            &ROUTINES,
             world,
+            world.library(),
             traced,
             sink.track_mut(),
             Route::default().track(),

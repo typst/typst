@@ -141,16 +141,16 @@
 )
 
 --- grid-footer-not-at-last-row paged ---
-// Error: 2:3-2:19 footer must end at the last row
 #grid(
+  // Error: 3-19 footer must end at the last row
   grid.footer([a]),
   [b],
 )
 
 --- grid-footer-not-at-last-row-two-columns paged ---
-// Error: 3:3-3:19 footer must end at the last row
 #grid(
   columns: 2,
+  // Error: 3-19 footer must end at the last row
   grid.footer([a]),
   [b],
 )
@@ -175,26 +175,26 @@
 )
 
 --- grid-footer-multiple paged ---
-// Error: 4:3-4:19 cannot have more than one footer
 #grid(
   [a],
   grid.footer([a]),
+  // Error: 3-19 cannot have more than one footer
   grid.footer([b]),
 )
 
 --- table-footer-in-grid eval ---
-// Error: 3:3-3:20 cannot use `table.footer` as a grid footer
-// Hint: 3:3-3:20 use `grid.footer` instead
 #grid(
   [a],
+  // Error: 3-20 cannot use `table.footer` as a grid footer
+  // Hint: 3-20 use `grid.footer` instead
   table.footer([a]),
 )
 
 --- grid-footer-in-table eval ---
-// Error: 3:3-3:19 cannot use `grid.footer` as a table footer
-// Hint: 3:3-3:19 use `table.footer` instead
 #table(
   [a],
+  // Error: 3-19 cannot use `grid.footer` as a table footer
+  // Hint: 3-19 use `table.footer` instead
   grid.footer([a]),
 )
 

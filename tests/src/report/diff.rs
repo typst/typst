@@ -267,7 +267,7 @@ pub fn text_diff(a: Option<Old<&str>>, b: Result<&str, ()>) -> FileDiff<Lines> {
     FileDiff::Diff(Old::Data(Lines::new(left)), Ok(Lines::new(right)))
 }
 
-fn file_lines(text: &str, kind: LineKind) -> Lines {
+pub(crate) fn file_lines(text: &str, kind: LineKind) -> Lines {
     let lines = text
         .lines()
         .zip(1..)

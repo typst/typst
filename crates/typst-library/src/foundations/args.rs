@@ -15,7 +15,7 @@ use crate::foundations::{
 
 /// Captured arguments to a function.
 ///
-/// # Argument Sinks
+/// = Argument Sinks <argument-sinks>
 /// Like built-in functions, custom functions can also take a variable number of
 /// arguments. You can specify an _argument sink_ which collects all excess
 /// arguments as `..sink`. The resulting `sink` value is of the `arguments`
@@ -33,7 +33,7 @@ use crate::foundations::{
 /// #format("ArtosFlow", "Jane", "Joe")
 /// ```
 ///
-/// # Spreading
+/// = Spreading <spreading>
 /// Inversely to an argument sink, you can _spread_ arguments, arrays and
 /// dictionaries into a function call with the `..spread` operator:
 ///
@@ -331,10 +331,10 @@ impl Args {
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///
-    /// If the key is an [integer]($int), this is equivalent to first calling
-    /// [`pos`]($arguments.pos) and then [`array.at`]. If it is a [string]($str),
-    /// this is equivalent to first calling [`named`]($arguments.named) and then
-    /// [`dictionary.at`].
+    /// If the key is an @int[integer], this is equivalent to first calling
+    /// @arguments.pos[`pos`] and then @array.at. If it is a @str[string], this
+    /// is equivalent to first calling @arguments.named[`named`] and then
+    /// @dictionary.at.
     #[func]
     pub fn at(
         &self,

@@ -14,12 +14,11 @@ use crate::introspection::Introspector;
 ///
 /// The `query` function lets you search your document for elements of a
 /// particular type or with a particular label. To use it, you first need to
-/// ensure that [context] is available.
+/// ensure that @reference:context[context] is available.
 ///
-
-/// # Finding elements
+/// = Finding elements <finding-elements>
 /// In the example below, we manually create a table of contents instead of
-/// using the [`outline`] function.
+/// using the @outline function.
 ///
 /// To do this, we first query for all headings in the document at level 1 and
 /// where `outlined` is true. Querying only for headings at level 1 ensures
@@ -66,12 +65,12 @@ use crate::introspection::Introspector;
 /// ```
 ///
 /// To get the page numbers, we first get the location of the elements returned
-/// by `query` with [`location`]($content.location). We then also retrieve the
-/// [page numbering]($location.page-numbering) and [page
-/// counter]($counter/#page-counter) at that location and apply the numbering to
-/// the counter.
+/// by `query` with @content.location[`location`]. We then also retrieve the
+/// @location.page-numbering[page numbering] and
+/// @counter:page-counter[page counter] at that location and apply the numbering
+/// to the counter.
 ///
-/// # A word of caution { #caution }
+/// = #short-or-long[Caution][A word of caution] <caution>
 /// To resolve all your queries, Typst evaluates and layouts parts of the
 /// document multiple times. However, there is no guarantee that your queries
 /// can actually be completely resolved. If you aren't careful a query can
@@ -87,30 +86,38 @@ use crate::introspection::Introspector;
 ///
 /// In general, you should try not to write queries that affect themselves. The
 /// same words of caution also apply to other introspection features like
-/// [counters]($counter) and [state].
+/// @counter[counters] and @state[state].
 ///
-/// ```example
-/// = Real
-/// #context {
-///   let elems = query(heading)
-///   let count = elems.len()
-///   count * [= Fake]
-/// }
-/// ```
+/// #example(
+///   ```
+///   = Real
+///   #context {
+///     let elems = query(heading)
+///     let count = elems.len()
+///     count * [= Fake]
+///   }
+///   ```,
+///   warnings: false,
+/// )
 ///
-/// # Command line queries
-/// You can also perform queries from the command line with the `typst query`
-/// command. This command executes an arbitrary query on the document and
-/// returns the resulting elements in serialized form. Consider the following
-/// `example.typ` file which contains some invisible [metadata]:
+/// = Command line queries <command-line-queries>
+/// You can also perform queries from the command line, using the `typst eval`
+/// command. This command evaluates Typst code, potentially in the context of a
+/// document, and outputs the resulting value in serialized form. It takes the
+/// code to evaluate as its first argument and (optionally) the path to a
+/// document via `--in`.
+///
+/// Consider the following `example.typ` file which contains some invisible
+/// @metadata[metadata]:
 ///
 /// ```typ
 /// #metadata("This is a note") <note>
 /// ```
 ///
-/// You can execute a query on it as follows using Typst's CLI:
+/// You can execute a query on it as follows using Typst's CLI.
+///
 /// ```sh
-/// $ typst query example.typ "<note>"
+/// $ typst eval 'query(<note>)' --in example.typ
 /// [
 ///   {
 ///     "func": "metadata",
@@ -120,31 +127,35 @@ use crate::introspection::Introspector;
 /// ]
 /// ```
 ///
-/// ## Retrieving a specific field
+/// This command tells Typst to compile `example.typ` and then run the code
+/// `{query(<note>)}` with access to the resulting document.
 ///
+/// *Note:* The code is surrounded with quotes to avoid special characters being
+/// interpreted by the shell. How to quote strings depends on your
+/// platform/shell.
+///
+/// == Retrieving a specific field <retrieving-a-specific-field>
 /// Frequently, you're interested in only one specific field of the resulting
 /// elements. In the case of the `metadata` element, the `value` field is the
-/// interesting one. You can extract just this field with the `--field`
-/// argument.
+/// interesting one. You can extract just this field by adjusting the code.
 ///
 /// ```sh
-/// $ typst query example.typ "<note>" --field value
+/// $ typst eval 'query(<note>).map(it => it.value)' --in example.typ
 /// ["This is a note"]
 /// ```
 ///
-/// If you are interested in just a single element, you can use the `--one`
-/// flag to extract just it.
+/// If you are interested in just a single element, you can also use the
+/// @array.first[`first()`] method to extract just it.
 ///
 /// ```sh
-/// $ typst query example.typ "<note>" --field value --one
+/// $ typst eval 'query(<note>).first().value' --in example.typ
 /// "This is a note"
 /// ```
 ///
-/// ## Querying for a specific export target
-///
+/// == Querying for a specific export target <querying-for-a-specific-export-target>
 /// In case you need to query a document when exporting for a specific target,
 /// you can use the `--target` argument. Valid values are `paged`, and `html`
-/// (if the [`html`] feature is enabled).
+/// (if the @html feature is enabled).
 #[func(contextual)]
 pub fn query(
     engine: &mut Engine,
@@ -156,7 +167,7 @@ pub fn query(
     /// - a more complex selector like `{heading.where(level: 1)}`,
     /// - or `{selector(heading).before(here())}`.
     ///
-    /// Only [locatable]($location/#locatable) element functions are supported.
+    /// Only @location:locatable[locatable] element functions are supported.
     target: LocatableSelector,
 ) -> HintedStrResult<Array> {
     context.introspect()?;
@@ -174,7 +185,7 @@ impl Introspect for QueryIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query(&self.0)
     }
@@ -201,7 +212,7 @@ impl Introspect for QueryFirstIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_first(&self.0)
     }
@@ -226,7 +237,7 @@ impl Introspect for QueryUniqueIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_unique(&self.0)
     }
@@ -251,7 +262,7 @@ impl Introspect for QueryLabelIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
         introspector.query_label(self.0).cloned()
     }

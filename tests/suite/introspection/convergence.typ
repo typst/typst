@@ -234,8 +234,8 @@
 #switch(n => calc.min(n, 4) * [= Heading <a>])
 
 // Error: 10-55 failed to determine link anchor
-// Warning: 10-55 HTML element ID assigned to the destination heading did not stabilize
-// Hint: 10-55 the following IDs were observed:\n- run 1: (no ID)\n- run 2: (no ID)\n- run 3: (no ID)\n- run 4: (no ID)\n- run 5: (no ID)\n- final: a-1
+// Warning: 10-55 link anchor assigned to the destination heading did not stabilize
+// Hint: 10-55 the following anchors were observed:\n- run 1: (no anchor)\n- run 2: (no anchor)\n- run 3: (no anchor)\n- run 4: (no anchor)\n- run 5: (no anchor)\n- final: a-1
 #context link(query(heading).last().location())[Hello]
 
 --- convergence-state-converged-but-not-query paged empty ---

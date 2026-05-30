@@ -391,7 +391,8 @@ fn element_kind(tag: &TagKind) -> ElementKind {
         | TagKind::Link(_)
         | TagKind::Annot(_)
         | TagKind::Figure(_)
-        | TagKind::Formula(_) => ElementKind::Inline,
+        | TagKind::Formula(_)
+        | TagKind::Form(_) => ElementKind::Inline,
         // Mapped to `Span`.
         TagKind::Datetime(_) => ElementKind::Inline,
         // Mapped to `Part`.
@@ -544,6 +545,7 @@ fn tag_name(tag: &TagKind) -> &'static str {
         TagKind::Annot(_) => "annotation (Annot)",
         TagKind::Figure(_) => "figure (Figure)",
         TagKind::Formula(_) => "equation (Formula)",
+        TagKind::Form(_) => "form field (Form)",
         TagKind::NonStruct(_) => "non structural element (NonStruct)",
         TagKind::Datetime(_) => "date time (Span)",
         TagKind::Terms(_) => "terms (P)",

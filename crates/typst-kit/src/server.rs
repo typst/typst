@@ -10,11 +10,15 @@ use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use tiny_http::{Header, Request, Response, StatusCode};
 use typst_library::diag::{StrResult, bail};
+use typst_library::foundations::Bytes;
+
+type Router = Box<dyn Fn(&str) -> Option<HttpBody> + Send + Sync>;
+type RouterBucket = Bucket<Router>;
 
 /// Serves HTML with live reload.
 pub struct HttpServer {
     addr: SocketAddr,
-    bucket: Arc<Bucket<String>>,
+    bucket: Arc<RouterBucket>,
 }
 
 impl HttpServer {
@@ -23,7 +27,7 @@ impl HttpServer {
         let (addr, server) = start_server(port)?;
 
         let placeholder = PLACEHOLDER_HTML.replace("{INPUT}", title);
-        let bucket = Arc::new(Bucket::new(placeholder));
+        let bucket = Arc::new(Bucket::new(html_single_fs(placeholder)));
         let bucket2 = bucket.clone();
 
         std::thread::spawn(move || {
@@ -40,11 +44,61 @@ impl HttpServer {
         self.addr
     }
 
-    /// Updates the HTML served on `/`, triggering a reload in all connected
-    /// browsers.
+    /// Updates the served contents to a page of HTML served on `/`, triggering
+    /// a reload in all connected browsers.
     pub fn set_html(&self, html: String) {
-        self.bucket.put(html);
+        self.bucket.put(html_single_fs(html));
     }
+
+    /// Updates the served contents to a bundle.
+    #[cfg(feature = "bundle")]
+    pub fn set_bundle(&self, bundle: typst_bundle::Bundle, fs: typst_bundle::VirtualFs) {
+        self.set_router(move |route| {
+            let path = typst_syntax::VirtualPath::new(route).ok()?;
+            let with_index = path.join("index.html").unwrap();
+            for path in [path, with_index] {
+                let Some(data) = fs.get(&path) else { continue };
+                let body = if matches!(
+                    bundle.files.get(&path),
+                    Some(typst_bundle::BundleFile::Document(
+                        typst_bundle::BundleDocument::Html(_)
+                    ))
+                ) && let Ok(string) = data.as_str()
+                {
+                    HttpBody::Html(string.to_owned())
+                } else {
+                    HttpBody::Raw(data.clone())
+                };
+                return Some(body);
+            }
+
+            None
+        });
+    }
+
+    /// Updates the content handler, triggering a reload in all connected browsers.
+    pub fn set_router<R>(&self, router: R)
+    where
+        R: Fn(&str) -> Option<HttpBody> + Send + Sync + 'static,
+    {
+        self.bucket.put(Box::new(router));
+    }
+}
+
+/// Creates a handler that serves just one HTML page at `/`.
+fn html_single_fs(html: String) -> Router {
+    Box::new(move |route| (route == "/").then(|| HttpBody::Html(html.clone())))
+}
+
+/// Something that can be served by the [`HttpServer`].
+pub enum HttpBody {
+    /// An HTML page.
+    ///
+    /// The string must contain valid HTML. If live reload is enabled, a script
+    /// will be injected into the HTML.
+    Html(String),
+    /// A raw body that does not support live reload.
+    Raw(Bytes),
 }
 
 /// Starts a local HTTP server.
@@ -86,32 +140,47 @@ fn start_server(port: Option<u16>) -> StrResult<(SocketAddr, tiny_http::Server)>
 }
 
 /// Handles a request.
-fn handle(req: Request, reload: bool, bucket: &Arc<Bucket<String>>) -> io::Result<()> {
-    let path = req.url();
-    match path {
-        "/" => handle_root(req, reload, bucket),
-        "/events" => handle_events(req, bucket.clone()),
-        _ => req.respond(Response::new_empty(StatusCode(404))),
+fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<()> {
+    let base = url::Url::parse("http://localhost").unwrap();
+    let Ok(url) = base.join(req.url()) else {
+        return req.respond(Response::empty(StatusCode(400)));
+    };
+
+    let path = url.path();
+    if path == "/__events" {
+        return handle_events(req, bucket.clone());
     }
+
+    let fs = bucket.get();
+    let Some(body) = fs(path) else {
+        return req.respond(Response::empty(StatusCode(404)));
+    };
+
+    handle_body(req, reload, body)
 }
 
 /// Handles for the `/` route. Serves the compiled HTML.
-fn handle_root(req: Request, reload: bool, bucket: &Bucket<String>) -> io::Result<()> {
-    let mut html = bucket.get().clone();
-    if reload {
-        inject_live_reload_script(&mut html);
+fn handle_body(req: Request, reload: bool, mut body: HttpBody) -> io::Result<()> {
+    let (data, mime) = match &mut body {
+        HttpBody::Html(html) => {
+            if reload {
+                inject_live_reload_script(html);
+            }
+            (html.as_bytes(), Some("text/html"))
+        }
+        HttpBody::Raw(data) => (data.as_slice(), select_mime_type(req.url(), data)),
+    };
+
+    let mut headers = Vec::new();
+    if let Some(mime) = mime {
+        headers.push(Header::from_bytes("Content-Type", mime).unwrap());
     }
-    req.respond(Response::new(
-        StatusCode(200),
-        vec![Header::from_bytes("Content-Type", "text/html").unwrap()],
-        html.as_bytes(),
-        Some(html.len()),
-        None,
-    ))
+
+    req.respond(Response::new(StatusCode(200), headers, data, Some(data.len()), None))
 }
 
-/// Handler for the `/events` route.
-fn handle_events(req: Request, bucket: Arc<Bucket<String>>) -> io::Result<()> {
+/// Handler for the `/__events` route.
+fn handle_events(req: Request, bucket: Arc<RouterBucket>) -> io::Result<()> {
     std::thread::spawn(move || {
         // When this returns an error, the client is disconnected and we can
         // terminate the thread.
@@ -121,7 +190,7 @@ fn handle_events(req: Request, bucket: Arc<Bucket<String>>) -> io::Result<()> {
 }
 
 /// Event stream for the `/events` route.
-fn handle_events_blocking(req: Request, bucket: &Bucket<String>) -> io::Result<()> {
+fn handle_events_blocking(req: Request, bucket: &RouterBucket) -> io::Result<()> {
     let mut writer = req.into_writer();
     let writer: &mut dyn Write = &mut *writer;
 
@@ -149,6 +218,19 @@ fn handle_events_blocking(req: Request, bucket: &Bucket<String>) -> io::Result<(
 fn inject_live_reload_script(html: &mut String) {
     let pos = html.rfind("</body>").unwrap_or(html.len());
     html.insert_str(pos, LIVE_RELOAD_SCRIPT);
+}
+
+/// Selects a MIME type for a request based on path and data.
+fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
+    match path.rsplit_once('.').map(|(_, r)| r) {
+        Some("html") => Some("text/html"),
+        Some("pdf") => Some("application/pdf"),
+        Some("png") => Some("image/png"),
+        Some("svg") => Some("image/svg+xml"),
+        Some("css") => Some("text/css"),
+        Some("js") => Some("text/javascript"),
+        _ => infer::get(buf).map(|ty| ty.mime_type()),
+    }
 }
 
 /// Holds data and notifies consumers when it's updated.
@@ -214,10 +296,10 @@ const PLACEHOLDER_HTML: &str = "\
 ";
 
 /// Reloads the page whenever it receives a "reload" server-sent event
-/// on the `/events` route.
+/// on the `/__events` route.
 const LIVE_RELOAD_SCRIPT: &str = "\
 <script>\
-  new EventSource(\"/events\")\
+  new EventSource(\"/__events\")\
     .addEventListener(\"reload\", () => location.reload())\
 </script>\
 ";

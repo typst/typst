@@ -15,7 +15,7 @@ use crate::visualize::{Color, Gradient, Paint, Tiling};
 /// _cap,_ a line _join,_ a _miter limit,_ and a _dash_ pattern. All of these
 /// values are optional and have sensible defaults.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set line(length: 100%)
 /// #stack(
@@ -27,7 +27,7 @@ use crate::visualize::{Color, Gradient, Paint, Tiling};
 /// )
 /// ```
 ///
-/// # Simple strokes
+/// = Simple strokes <simple-strokes>
 /// You can create a simple solid stroke from a color, a thickness, or a
 /// combination of the two. Specifically, wherever a stroke is expected you can
 /// pass any of the following values:
@@ -39,11 +39,12 @@ use crate::visualize::{Color, Gradient, Paint, Tiling};
 /// - A stroke combined from color and thickness using the `+` operator as in
 ///   `{2pt + red}`.
 ///
-/// For full control, you can also provide a [dictionary] or a `{stroke}` object
-/// to any function that expects a stroke. The dictionary's keys may include any
-/// of the parameters for the constructor function, shown below.
+/// For full control, you can also provide a @dictionary[dictionary] or a
+/// `{stroke}` object to any function that expects a stroke. The dictionary's
+/// keys may include any of the parameters for the constructor function, shown
+/// below.
 ///
-/// # Fields
+/// = Fields <fields>
 /// On a stroke object, you can access any of the fields listed in the
 /// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
@@ -113,13 +114,15 @@ impl Stroke {
 
         /// How the ends of the stroke are rendered.
         ///
-        /// If set to `{auto}`, the value is inherited, defaulting to `{"butt"}`.
+        /// If set to `{auto}`, the value is inherited, defaulting to
+        /// `{"butt"}`.
         #[external]
         cap: Smart<LineCap>,
 
         /// How sharp turns are rendered.
         ///
-        /// If set to `{auto}`, the value is inherited, defaulting to `{"miter"}`.
+        /// If set to `{auto}`, the value is inherited, defaulting to
+        /// `{"miter"}`.
         #[external]
         join: Smart<LineJoin>,
 
@@ -136,66 +139,75 @@ impl Stroke {
         ///   - `{"dash-dotted"}`
         ///   - `{"densely-dash-dotted"}`
         ///   - `{"loosely-dash-dotted"}`
-        /// - An [array] with alternating lengths for dashes and gaps. You can
-        ///   also use the string `{"dot"}` for a length equal to the line
+        /// - An @array[array] with alternating lengths for dashes and gaps. You
+        ///   can also use the string `{"dot"}` for a length equal to the line
         ///   thickness.
-        /// - A [dictionary] with the keys `array` (same as the array above),
-        ///   and `phase` (of type [length]), which defines where in the pattern
-        ///   to start drawing.
+        /// - A @dictionary[dictionary] with the keys `array` (same as the array
+        ///   above), and `phase` (of type @length[length]), which defines where
+        ///   in the pattern to start drawing.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{none}`.
         ///
-        /// ```example:"Usage"
-        /// #set line(length: 100%, stroke: 2pt)
-        /// #stack(
-        ///   spacing: 1em,
-        ///   line(stroke: (dash: "dashed")),
-        ///   line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
-        ///   line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
-        /// )
-        /// ```
-        ///
-        /// ```example:"Inspect a predefined pattern"
-        /// #stroke(dash: "loosely-dashed").dash
-        /// ```
-        ///
-        /// ```preview:"Predefined patterns"
-        /// #set page(width: auto, height: auto)
-        ///
-        /// #let patterns = (
-        ///   ("dotted", "dashed", "dash-dotted").map(d => (
-        ///     "loosely-" + d,
-        ///     d,
-        ///     "densely-" + d,
-        ///   ))
-        /// ).flatten()
-        ///
-        ///
-        /// #let display(dash) = {
-        ///   set par(spacing: 0.3em)
-        ///
-        ///   show "loosely": set text(eastern.darken(17%))
-        ///   show "densely": set text(purple)
-        ///
-        ///   let derived = dash.starts-with("loosely-") or dash.starts-with("densely-")
-        ///   if derived { dash } else { strong(dash) }
-        ///
-        ///   rect(
-        ///     line(stroke: (dash: dash), length: 100%),
-        ///     stroke: none,
-        ///     fill: yellow.transparentize(80%),
+        /// #example(
+        ///   title: "Usage",
+        ///   ```
+        ///   #set line(length: 100%, stroke: 2pt)
+        ///   #stack(
+        ///     spacing: 1em,
+        ///     line(stroke: (dash: "dashed")),
+        ///     line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
+        ///     line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
         ///   )
-        /// }
-        ///
-        /// #table(
-        ///   columns: 3,
-        ///   stroke: none,
-        ///   align: (left, center, left),
-        ///
-        ///   table.cell(colspan: 3, align: center, display("solid")),
-        ///   ..patterns.map(display),
+        ///   ```
         /// )
-        /// ```
+        ///
+        /// #example(
+        ///   title: "Inspect a predefined pattern",
+        ///   ```
+        ///   #stroke(dash: "loosely-dashed").dash
+        ///   ```
+        /// )
+        ///
+        /// #example(
+        ///   title: "Predefined patterns",
+        ///   ```
+        ///   #set page(width: auto, height: auto)
+        ///
+        ///   #let patterns = (
+        ///     ("dotted", "dashed", "dash-dotted").map(d => (
+        ///       "loosely-" + d,
+        ///       d,
+        ///       "densely-" + d,
+        ///     ))
+        ///   ).flatten()
+        ///
+        ///
+        ///   #let display(dash) = {
+        ///     set par(spacing: 0.3em)
+        ///
+        ///     show "loosely": set text(eastern.darken(17%))
+        ///     show "densely": set text(purple)
+        ///
+        ///     let derived = dash.starts-with("loosely-") or dash.starts-with("densely-")
+        ///     if derived { dash } else { strong(dash) }
+        ///
+        ///     rect(
+        ///       line(stroke: (dash: dash), length: 100%),
+        ///       stroke: none,
+        ///       fill: yellow.transparentize(80%),
+        ///     )
+        ///   }
+        ///
+        ///   #table(
+        ///     columns: 3,
+        ///     stroke: none,
+        ///     align: (left, center, left),
+        ///
+        ///     table.cell(colspan: 3, align: center, display("solid")),
+        ///     ..patterns.map(display),
+        ///   )
+        ///   ```
+        /// )
         #[external]
         dash: Smart<Option<DashPattern>>,
 

@@ -4,22 +4,22 @@ use typst_syntax::Spanned;
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Str, Value, func, scope};
-use crate::loading::{DataSource, Load, Readable};
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a YAML file.
 ///
 /// The file must contain a valid YAML object or array. The YAML values will be
 /// converted into corresponding Typst values as listed in the
-/// [table below](#conversion).
+/// @yaml:conversion[table below].
 ///
 /// The function returns a dictionary, an array or, depending on the YAML file,
 /// another YAML data type.
 ///
-/// The YAML files in the example contain objects with authors as keys,
-/// each with a sequence of their own submapping with the keys
-/// "title" and "published".
+/// The YAML files in the example contain objects with authors as keys, each
+/// with a sequence of their own submapping with the keys "title" and
+/// "published".
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let bookshelf(contents) = {
 ///   for (author, works) in contents {
@@ -35,38 +35,62 @@ use crate::loading::{DataSource, Load, Readable};
 /// )
 /// ```
 ///
-/// # Conversion details { #conversion }
+/// = #short-or-long[Conversion][Conversion details] <conversion>
+/// #docs-table(
+///   table.header[YAML value][Converted into Typst],
 ///
-/// | YAML value                             | Converted into Typst |
-/// | -------------------------------------- | -------------------- |
-/// | null-values (`null`, `~` or empty ` `) | `{none}`             |
-/// | boolean                                | [`bool`]             |
-/// | number                                 | [`float`] or [`int`] |
-/// | string                                 | [`str`]              |
-/// | sequence                               | [`array`]            |
-/// | mapping                                | [`dictionary`]       |
+///   [null-values (`null`, `~` or empty ` `)],
+///   [`{none}`],
 ///
-/// | Typst value                           | Converted into YAML              |
-/// | ------------------------------------- | -------------------------------- |
-/// | types that can be converted from YAML | corresponding YAML value         |
-/// | [`bytes`]                             | string via [`repr`]              |
-/// | [`symbol`]                            | string                           |
-/// | [`content`]                           | a mapping describing the content |
-/// | other types ([`length`], etc.)        | string via [`repr`]              |
+///   [boolean],
+///   [@bool],
 ///
-/// ## Notes
+///   [number],
+///   [@float or @int],
+///
+///   [string],
+///   [@str],
+///
+///   [sequence],
+///   [@array],
+///
+///   [mapping],
+///   [@dictionary],
+/// )
+///
+/// #docs-table(
+///   table.header[Typst value][Converted into YAML],
+///
+///   [types that can be converted from YAML],
+///   [corresponding YAML value],
+///
+///   [@bytes],
+///   [string via @repr],
+///
+///   [@symbol],
+///   [string],
+///
+///   [@content],
+///   [a mapping describing the content],
+///
+///   [other types (@length, etc.)],
+///   [string via @repr],
+/// )
+///
+/// == Notes <notes>
 /// - In most cases, YAML numbers will be converted to floats or integers
 ///   depending on whether they are whole numbers. However, be aware that
-///   integers larger than 2<sup>63</sup>-1 or smaller than -2<sup>63</sup> will
-///   be converted to floating-point numbers, which may result in an
-///   approximative value.
+///   integers larger than 2#super[63]-1 or smaller than -2#super[63] will be
+///   converted to floating-point numbers, which may result in an approximative
+///   value.
 ///
-/// - Custom YAML tags are ignored, though the loaded value will still be present.
+/// - Custom YAML tags are ignored, though the loaded value will still be
+///   present.
 ///
 /// - Bytes are not encoded as YAML sequences for performance and readability
-///   reasons. Consider using [`cbor.encode`] for binary data.
+///   reasons. Consider using @cbor.encode for binary data.
 ///
-/// - The `repr` function is [for debugging purposes only]($repr/#debugging-only),
+/// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
 #[func(scope, title = "YAML")]
 pub fn yaml(
@@ -82,20 +106,6 @@ pub fn yaml(
 
 #[scope]
 impl yaml {
-    /// Reads structured data from a YAML string/bytes.
-    #[func(title = "Decode YAML")]
-    #[deprecated(
-        message = "`yaml.decode` is deprecated, directly pass bytes to `yaml` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// YAML data.
-        data: Spanned<Readable>,
-    ) -> SourceResult<Value> {
-        yaml(engine, data.map(Readable::into_source))
-    }
-
     /// Encode structured data into a YAML string.
     #[func(title = "Encode YAML")]
     pub fn encode(

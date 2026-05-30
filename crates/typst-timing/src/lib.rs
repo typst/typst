@@ -96,6 +96,8 @@ pub fn clear() {
 /// The `source` function is called for each span to get the source code
 /// location of the span. The first element of the tuple is the file path and
 /// the second element is the line number.
+///
+/// Will also internally clear the recorded events.
 pub fn export_json<W: Write>(
     writer: W,
     mut source: impl FnMut(NonZeroU64) -> (String, u32),
@@ -117,8 +119,9 @@ pub fn export_json<W: Write>(
         line: u32,
     }
 
-    let lock = EVENTS.lock();
-    let events = lock.as_slice();
+    // We take out the events to avoid a potential deadlock if `source` happens
+    // to invoke the timed things.
+    let events = std::mem::take(&mut *EVENTS.lock());
 
     let mut serializer = serde_json::Serializer::new(writer);
     let mut seq = serializer

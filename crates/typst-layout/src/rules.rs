@@ -17,8 +17,8 @@ use typst_library::layout::{
 use typst_library::math::EquationElem;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
+    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
+    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
     OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
 };
@@ -48,6 +48,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, LINK_MARKER_RULE);
     rules.register(Paged, LINK_RULE);
     rules.register(Paged, DIRECT_LINK_RULE);
+    rules.register(Paged, DIVIDER_RULE);
     rules.register(Paged, TITLE_RULE);
     rules.register(Paged, HEADING_RULE);
     rules.register(Paged, FIGURE_RULE);
@@ -221,7 +222,7 @@ const LINK_MARKER_RULE: ShowFn<LinkMarker> = |elem, _, _| Ok(elem.body.clone());
 const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let span = elem.span();
     let body = elem.body.clone();
-    let dest = elem.dest.resolve(engine, span)?;
+    let dest = elem.dest.resolve_early(engine, span)?;
     let alt = dest.alt_text(engine, styles, span)?;
     // Manually construct link marker that spans the whole link elem, not just
     // the body.
@@ -236,11 +237,11 @@ const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
     Ok(elem.body.clone().linked(dest, elem.alt.clone()))
 };
 
-const TITLE_RULE: ShowFn<TitleElem> = |elem, _, styles| {
-    Ok(BlockElem::new()
-        .with_body(Some(BlockBody::Content(elem.resolve_body(styles).at(elem.span())?)))
-        .pack())
-};
+const DIVIDER_RULE: ShowFn<DividerElem> =
+    |elem, _, _| Ok(LineElem::new().pack().spanned(elem.span()));
+
+const TITLE_RULE: ShowFn<TitleElem> =
+    |elem, _, styles| Ok(BlockElem::packed(elem.resolve_body(styles).at(elem.span())?));
 
 const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     const SPACING_TO_NUMBERING: Em = Em::new(0.3);
@@ -272,7 +273,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
             let link = LocatorLink::measure(location, span);
-            let size = (engine.routines.layout_frame)(
+            let size = (engine.library.routines.layout_frame)(
                 engine,
                 &numbering_and_spacing,
                 Locator::link(&link),
@@ -287,18 +288,17 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         realized = numbering_and_spacing + realized;
     }
 
-    let block = if indent != Abs::zero() {
+    Ok(if indent != Abs::zero() {
         let body = HElem::new((-indent).into()).pack() + realized;
         let inset = Sides::default()
             .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
         BlockElem::new()
-            .with_body(Some(BlockBody::Content(body)))
             .with_inset(inset)
+            .with_body(Some(BlockBody::Content(body)))
+            .pack()
     } else {
-        BlockElem::new().with_body(Some(BlockBody::Content(realized)))
-    };
-
-    Ok(block.pack())
+        BlockElem::packed(realized)
+    })
 };
 
 const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
@@ -325,10 +325,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     realized += ParbreakElem::shared().clone().spanned(span);
 
     // Wrap the contents in a block.
-    realized = BlockElem::new()
-        .with_body(Some(BlockBody::Content(realized)))
-        .pack()
-        .spanned(span);
+    realized = BlockElem::packed(realized).spanned(span);
 
     // Wrap in a float.
     if let Some(align) = elem.placement.get(styles) {
@@ -349,11 +346,8 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
-    Ok(BlockElem::new()
-        .with_body(Some(BlockBody::Content(elem.realize(engine, styles)?)))
-        .pack())
-};
+const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> =
+    |elem, engine, styles| Ok(BlockElem::packed(elem.realize(engine, styles)?));
 
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     let span = elem.span();
@@ -371,20 +365,15 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     let attribution = elem.attribution.get_ref(styles);
 
     if block {
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(span);
+        realized = BlockElem::packed(realized).spanned(span);
 
         if let Some(attribution) = attribution.as_ref() {
             // Bring the attribution a bit closer to the quote.
             let gap = Spacing::Rel(Em::new(0.9).into());
             let v = VElem::new(gap).with_weak(true).pack();
             realized += v;
-            realized += BlockElem::new()
-                .with_body(Some(BlockBody::Content(attribution.realize(span))))
-                .pack()
-                .aligned(Alignment::END);
+            realized +=
+                BlockElem::packed(attribution.realize(span)).aligned(Alignment::END);
         }
 
         realized = PadElem::new(realized).pack();
@@ -450,10 +439,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
     let block = if elem.element.is::<EquationElem>() {
         // Equation has no body and no levels, so indenting makes no sense.
         let body = prefix.unwrap_or_default() + inner;
-        BlockElem::new()
-            .with_body(Some(BlockBody::Content(body)))
-            .pack()
-            .spanned(span)
+        BlockElem::packed(body).spanned(span)
     } else {
         elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
     };
@@ -517,13 +503,14 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
                 let inset = Sides::default()
                     .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
                 BlockElem::new()
-                    .with_body(Some(BlockBody::Content(body)))
                     .with_inset(inset)
+                    .with_body(Some(BlockBody::Content(body)))
+                    .pack()
             } else {
-                BlockElem::new().with_body(Some(BlockBody::Content(realized)))
+                BlockElem::packed(realized)
             };
 
-            body.push(block.pack().spanned(span));
+            body.push(block.spanned(span));
         }
         seq.push(PdfMarkerTag::Bibliography(false, Content::sequence(body)));
     }
@@ -674,10 +661,7 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
     if elem.block.get(styles) {
         // Align the text before inserting it into the block.
         realized = realized.aligned(elem.align.get(styles).into());
-        realized = BlockElem::new()
-            .with_body(Some(BlockBody::Content(realized)))
-            .pack()
-            .spanned(elem.span());
+        realized = BlockElem::packed(realized).spanned(elem.span());
     }
 
     Ok(realized)

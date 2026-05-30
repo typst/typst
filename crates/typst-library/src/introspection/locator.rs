@@ -216,7 +216,7 @@ impl<'a> Locator<'a> {
                 Resolved::Hash(outer) => {
                     Resolved::Hash(typst_utils::hash128(&(self.local, outer)))
                 }
-                Resolved::Measure(anchor, span) => Resolved::Measure(anchor, span),
+                Resolved::Measure(base, span) => Resolved::Measure(base, span),
             },
         }
     }
@@ -233,7 +233,7 @@ impl Debug for Locator<'_> {
 enum Resolved {
     /// The full hash, incorporating the local and all outer information.
     Hash(u128),
-    /// Indicates that the locator is in measurement mode, with the given anchor
+    /// Indicates that the locator is in measurement mode, with the given base
     /// location.
     Measure(Location, Span),
 }
@@ -290,14 +290,14 @@ impl<'a> SplitLocator<'a> {
     ) -> Location {
         match self.next_inner(key).resolve() {
             Resolved::Hash(hash) => Location::new(hash),
-            Resolved::Measure(anchor, measure_span) => {
+            Resolved::Measure(base, measure_span) => {
                 let introspection =
-                    MeasureIntrospection { key, anchor, elem_span, measure_span };
+                    MeasureIntrospection { key, base, elem_span, measure_span };
 
                 // If we aren't able to find a matching element in the document,
-                // default to the anchor, so that it's at least remotely in
-                // the right area (so that counters can be resolved).
-                engine.introspect(introspection).unwrap_or(anchor)
+                // default to the base location, so that it's at least remotely
+                // in the right area (so that counters can be resolved).
+                engine.introspect(introspection).unwrap_or(base)
             }
         }
     }
@@ -308,7 +308,7 @@ impl<'a> SplitLocator<'a> {
 #[derive(Debug, Clone, PartialEq, Hash)]
 struct MeasureIntrospection {
     key: u128,
-    anchor: Location,
+    base: Location,
     measure_span: Span,
     elem_span: Span,
 }
@@ -319,9 +319,9 @@ impl Introspect for MeasureIntrospection {
     fn introspect(
         &self,
         _: &mut Engine,
-        introspector: Tracked<Introspector>,
+        introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.locator(self.key, self.anchor)
+        introspector.locator(self.key, self.base)
     }
 
     fn diagnose(&self, _: &History<Self::Output>) -> SourceDiagnostic {
@@ -375,9 +375,9 @@ impl<'a> LocatorLink<'a> {
     ///
     /// Read the "Dealing with measurement" section of the [`Locator`] docs for
     /// more details.
-    pub fn measure(anchor: Location, span: Span) -> Self {
+    pub fn measure(base: Location, span: Span) -> Self {
         LocatorLink {
-            kind: LinkKind::Measure(anchor, span),
+            kind: LinkKind::Measure(base, span),
             resolved: OnceLock::new(),
         }
     }
@@ -389,7 +389,7 @@ impl<'a> LocatorLink<'a> {
     fn resolve(&self) -> Resolved {
         *self.resolved.get_or_init(|| match self.kind {
             LinkKind::Outer(outer) => outer.resolve(),
-            LinkKind::Measure(anchor, span) => Resolved::Measure(anchor, span),
+            LinkKind::Measure(base, span) => Resolved::Measure(base, span),
         })
     }
 }

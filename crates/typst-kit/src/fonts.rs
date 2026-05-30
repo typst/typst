@@ -143,7 +143,7 @@ pub fn embedded() -> impl Iterator<Item = (Font, FontInfo)> {
 
 /// Discovers system fonts.
 ///
-/// This searches in operating-system dependant standard font locations.
+/// This searches in operating-system dependent standard font locations.
 #[cfg(feature = "scan-fonts")]
 pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");

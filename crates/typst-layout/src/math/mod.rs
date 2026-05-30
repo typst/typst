@@ -16,13 +16,14 @@ use typst_library::World;
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
-use typst_library::introspection::{Counter, Locator, SplitLocator};
+use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
     OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
 };
 use typst_library::math::ir::{
-    BoxItem, ExternalItem, MathItem, MathKind, MathProperties, resolve_equation,
+    BoxItem, ExternalItem, MathComponent, MathItem, MathKind, MathProperties, MathmlItem,
+    resolve_equation,
 };
 use typst_library::math::{EquationElem, families};
 use typst_library::model::ParElem;
@@ -38,10 +39,10 @@ use self::fraction::{layout_fraction, layout_skewed_fraction};
 use self::fragment::{FrameFragment, MathFragment};
 use self::line::layout_line;
 use self::radical::layout_radical;
-use self::run::{MathFragmentsExt, MathRunFrameBuilder};
+use self::run::{MathFragmentsExt, MathRun, MathRunFrameBuilder, layout_multiline};
 use self::scripts::{layout_primes, layout_scripts};
 use self::table::layout_table;
-use self::text::{layout_glyph, layout_text};
+use self::text::{layout_glyph, layout_number, layout_text};
 
 /// Layout an inline equation (in a paragraph).
 #[typst_macros::time(span = elem.span())]
@@ -61,12 +62,10 @@ pub fn layout_equation_inline(
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
     let arenas = Arenas::default();
-    let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
+    let item = resolve_equation(elem, engine, locator, &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, region, font.clone());
+    let mut ctx = MathContext::new(engine, region, font.clone());
     let mut items = if !item.is_multiline() {
         ctx.layout_into_fragments(&item, styles)?.into_par_items()
     } else {
@@ -118,15 +117,20 @@ pub fn layout_equation_block(
     let scale_style = style_for_script_scale(&font);
     let styles = styles.chain(&scale_style);
 
-    let mut locator = locator.split();
-
     let arenas = Arenas::default();
-    let item = resolve_equation(elem, engine, &mut locator, &arenas, styles)?;
+    let item = resolve_equation(elem, engine, locator.relayout(), &arenas, styles)?;
 
-    let mut ctx = MathContext::new(engine, &mut locator, regions.base(), font.clone());
-    let full_equation_builder = ctx
-        .layout_into_fragments(&item, styles)?
-        .multiline_frame_builder(styles);
+    let mut ctx = MathContext::new(engine, regions.base(), font.clone());
+    let full_equation_builder = if let MathItem::Component(MathComponent {
+        kind: MathKind::Multiline(multi),
+        styles,
+        ..
+    }) = item
+    {
+        layout_multiline(&multi, &mut ctx, styles)?
+    } else {
+        ctx.layout_into_fragments(&item, styles)?.into_frame().into()
+    };
     let width = full_equation_builder.size.x;
 
     let equation_builders = if styles.get(BlockElem::breakable) {
@@ -135,10 +139,9 @@ pub fn layout_equation_block(
         let mut last_first_pos = Point::zero();
         let mut regions = regions;
 
-        loop {
-            // Keep track of the position of the first row in this region,
-            // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
+        // Keep track of the position of the first row in this region,
+        // so that the offset can be reverted later.
+        while let Some(&(_, first_pos)) = rows.peek() {
             last_first_pos = first_pos;
 
             let mut frames = vec![];
@@ -199,7 +202,7 @@ pub fn layout_equation_block(
     let Some(numbering) = elem.numbering.get_ref(styles) else {
         let frames = equation_builders
             .into_iter()
-            .map(MathRunFrameBuilder::build)
+            .map(MathRunFrameBuilder::build_aligned)
             .collect();
         return Ok(Fragment::frames(frames));
     };
@@ -208,6 +211,7 @@ pub fn layout_equation_block(
     let counter = Counter::of(EquationElem::ELEM)
         .display_at(engine, elem.location().unwrap(), styles, numbering, span)?
         .spanned(span);
+    let mut locator = locator.split();
     let number = crate::layout_frame(engine, &counter, locator.next(&()), styles, pod)?;
 
     static NUMBER_GUTTER: Em = Em::new(0.5);
@@ -226,7 +230,7 @@ pub fn layout_equation_block(
         .map(|builder| {
             if builder.frames.is_empty() && region_count > 1 {
                 // Don't number empty regions, but do number empty equations.
-                return builder.build();
+                return builder.build_aligned();
             }
             add_equation_number(
                 builder,
@@ -261,7 +265,7 @@ fn add_equation_number(
             |(frame, pos)| (frame.size(), *pos, frame.baseline()),
         );
     let line_count = equation_builder.frames.len();
-    let mut equation = equation_builder.build();
+    let mut equation = equation_builder.build_aligned();
 
     let width = if region_size_x.is_finite() {
         region_size_x
@@ -355,27 +359,20 @@ fn resize_equation(
 }
 
 /// The context for math layout.
-struct MathContext<'a, 'v, 'e> {
+struct MathContext<'v, 'e> {
     // External.
     engine: &'v mut Engine<'e>,
-    locator: &'v mut SplitLocator<'a>,
     region: Region,
     // Mutable.
     fonts_stack: Vec<Font>,
-    fragments: Vec<MathFragment>,
+    fragments: MathRun,
 }
 
-impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
+impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
-    fn new(
-        engine: &'v mut Engine<'e>,
-        locator: &'v mut SplitLocator<'a>,
-        base: Size,
-        font: Font,
-    ) -> Self {
+    fn new(engine: &'v mut Engine<'e>, base: Size, font: Font) -> Self {
         Self {
             engine,
-            locator,
             region: Region::new(base, Axes::splat(false)),
             fonts_stack: vec![font],
             fragments: vec![],
@@ -404,7 +401,7 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
         &mut self,
         item: &MathItem,
         styles: StyleChain,
-    ) -> SourceResult<Vec<MathFragment>> {
+    ) -> SourceResult<MathRun> {
         let start = self.fragments.len();
         self.layout_into_self(item, styles)?;
         Ok(self.fragments.drain(start..).collect())
@@ -429,8 +426,8 @@ impl<'a, 'v, 'e> MathContext<'a, 'v, 'e> {
             .all(|e| e.is_text_like());
 
         let styles = item.styles().unwrap_or(styles);
-        let props = MathProperties::default(styles);
-        let frame = fragments.into_frame(styles);
+        let props = MathProperties::default(styles, Span::detached());
+        let frame = fragments.into_frame();
         Ok(FrameFragment::new(&props, styles, frame)
             .with_text_like(text_like)
             .into())
@@ -471,39 +468,38 @@ fn layout_realized(
     styles: StyleChain,
 ) -> SourceResult<()> {
     // Handle non-component items first.
-    let MathItem::Component(comp) = item else {
-        match item {
-            MathItem::Spacing(amount, _) => ctx.push(MathFragment::Space(*amount)),
-            MathItem::Space => ctx
-                .push(MathFragment::Space(ctx.font().math().space_width.resolve(styles))),
-            MathItem::Linebreak => ctx.push(MathFragment::Linebreak),
-            MathItem::Align => ctx.push(MathFragment::Align),
-            MathItem::Tag(tag) => ctx.push(MathFragment::Tag(tag.clone())),
-            _ => unreachable!(),
+    let comp = match item {
+        MathItem::Component(comp) => comp,
+        MathItem::Spacing(amount, font_size, _) => {
+            ctx.push(MathFragment::Space(amount.at(*font_size)));
+            return Ok(());
         }
-        return Ok(());
+        MathItem::Space => {
+            ctx.push(MathFragment::Space(ctx.font().math().space_width.resolve(styles)));
+            return Ok(());
+        }
+        MathItem::Tag(tag) => {
+            ctx.push(MathFragment::Tag(tag.clone()));
+            return Ok(());
+        }
     };
 
     let props = &comp.props;
 
-    // Insert left spacing.
-    if let Some(lspace) = props.lspace {
+    // Insert left spacing. Items with an alignment form get their spacing
+    // handled by the multiline layout instead.
+    if let Some(lspace) = props.lspace
+        && !props.align_form_infix
+        && !lspace.is_zero()
+    {
         let width = lspace.at(styles.resolve(TextElem::size));
-        let frag = MathFragment::Space(width);
-        if let Some(i) = ctx.fragments.iter().rposition(|f| !f.is_ignorant())
-            && matches!(ctx.fragments[i], MathFragment::Align)
-        {
-            // Skip a single alignment point (if one exists) when placing
-            // spacing on the left.
-            ctx.fragments.insert(i, frag);
-        } else {
-            ctx.push(frag);
-        }
+        ctx.push(MathFragment::Space(width));
     }
 
     // Dispatch based on item kind to the appropriate layout function.
     match &comp.kind {
         MathKind::Box(item) => layout_box(item, ctx, styles, props)?,
+        MathKind::Mathml(item) => layout_mathml(item, ctx, styles, props)?,
         MathKind::External(item) => layout_external(item, ctx, styles, props)?,
         MathKind::Glyph(item) => layout_glyph(item, ctx, styles, props)?,
         MathKind::Cancel(item) => layout_cancel(item, ctx, styles, props)?,
@@ -518,7 +514,17 @@ fn layout_realized(
             layout_skewed_fraction(item, ctx, styles, props)?
         }
         MathKind::Text(item) => layout_text(item, ctx, styles, props)?,
+        MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
         MathKind::Fenced(item) => layout_fenced(item, ctx, styles, props)?,
+        MathKind::Multiline(item) => {
+            // Don't set the baseline by default, unless the item is centered.
+            let mut frame = layout_multiline(item, ctx, styles)?.build_unaligned();
+            if item.centered {
+                let axis = ctx.font().math().axis_height.resolve(styles);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
+            ctx.push(FrameFragment::new(props, styles, frame));
+        }
         MathKind::Group(_) => {
             let fragment = ctx.layout_into_fragment(item, styles)?;
             let italics = fragment.italics_correction();
@@ -532,11 +538,27 @@ fn layout_realized(
     }
 
     // Insert right spacing.
-    if let Some(rspace) = props.rspace {
+    if let Some(rspace) = props.rspace
+        && !rspace.is_zero()
+    {
         let width = rspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }
 
+    Ok(())
+}
+
+/// Ignore a MathML HTML element during paged export.
+fn layout_mathml(
+    item: &MathmlItem,
+    ctx: &mut MathContext,
+    _styles: StyleChain,
+    _props: &MathProperties,
+) -> SourceResult<()> {
+    ctx.engine.sink.warn(warning!(
+        item.elem.span(),
+        "MathML element was ignored during paged export",
+    ));
     Ok(())
 }
 
@@ -550,7 +572,7 @@ fn layout_box(
     let frame = crate::inline::layout_box(
         item.elem,
         ctx.engine,
-        ctx.locator.next(&item.elem.span()),
+        item.locator.relayout(),
         styles,
         ctx.region.size,
     )?;
@@ -568,7 +590,7 @@ fn layout_external(
     let mut frame = crate::layout_frame(
         ctx.engine,
         item.content,
-        ctx.locator.next(&item.content.span()),
+        item.locator.relayout(),
         styles,
         ctx.region,
     )?;

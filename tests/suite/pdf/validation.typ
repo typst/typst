@@ -17,3 +17,10 @@
   </svg>
   ```.text
 ), alt: "Geʽez letter")
+
+--- pdf-validation-bundle bundle pdfstandard(ua-1) ---
+#document(
+  "hi.pdf",
+  // Error: 13-28 PDF/UA-1 error: cannot combine underline, overline, or strike
+  underline(overline[Hello]),
+)

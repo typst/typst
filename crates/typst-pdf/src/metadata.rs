@@ -1,6 +1,7 @@
 use krilla::metadata::{Metadata, TextDirection};
 use typst_library::foundations::{Datetime, Smart};
 use typst_library::layout::Dir;
+use typst_library::model::Document;
 use typst_library::text::Locale;
 
 use crate::convert::GlobalContext;
@@ -20,15 +21,15 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
 
     let mut metadata = Metadata::new()
         .creator(creator)
-        .keywords(gc.document.info.keywords.iter().map(Into::into).collect())
-        .authors(gc.document.info.author.iter().map(Into::into).collect())
+        .keywords(gc.document.info().keywords.iter().map(Into::into).collect())
+        .authors(gc.document.info().author.iter().map(Into::into).collect())
         .language(lang.rfc_3066().to_string());
 
-    if let Some(title) = &gc.document.info.title {
+    if let Some(title) = &gc.document.info().title {
         metadata = metadata.title(title.to_string());
     }
 
-    if let Some(description) = &gc.document.info.description {
+    if let Some(description) = &gc.document.info().description {
         metadata = metadata.description(description.to_string());
     }
 
@@ -50,7 +51,7 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
 ///     date from the options.
 /// (3) Otherwise, we don't write date metadata.
 pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
-    let (datetime, tz) = match (gc.document.info.date, gc.options.timestamp) {
+    let (datetime, tz) = match (gc.document.info().date, gc.options.timestamp) {
         (Smart::Custom(Some(date)), _) => (date, None),
         (Smart::Auto, Some(timestamp)) => (timestamp.datetime, Some(timestamp.timezone)),
         _ => return None,
@@ -92,7 +93,7 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
 }
 
 /// A timestamp with timezone information.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Hash)]
 pub struct Timestamp {
     /// The datetime of the timestamp.
     pub(crate) datetime: Datetime,
@@ -127,7 +128,7 @@ impl Timestamp {
 }
 
 /// A timezone.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Timezone {
     /// The UTC timezone.
     UTC,

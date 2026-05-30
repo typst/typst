@@ -19,7 +19,9 @@ doc = false
 
 [dependencies]
 typst = { workspace = true }
+typst-bundle = { workspace = true }
 typst-eval = { workspace = true }
+typst-layout = { workspace = true }
 typst-html = { workspace = true }
 typst-macros = { workspace = true }
 typst-pdf = { workspace = true }
@@ -56,13 +58,16 @@ zip = { workspace = true, optional = true }
 [dependencies.typst-kit]
 workspace = true
 features = [
+    "bundle",
     "embedded-fonts",
     "scan-fonts",
     "system-packages",
     "universe-packages",
+    "datetime",
     "emit-diagnostics",
     "system-downloader",
     "watcher",
+    "timer",
 ]
 
 [dev-dependencies]

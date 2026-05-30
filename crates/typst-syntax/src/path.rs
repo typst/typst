@@ -241,6 +241,11 @@ impl VirtualPath {
         out
     }
 
+    /// Extracts the path with a leading slash.
+    pub fn into_with_slash(self) -> EcoString {
+        self.0.into_with_slash()
+    }
+
     /// Returns the path with a leading slash.
     pub fn get_with_slash(&self) -> &str {
         self.0.get_with_slash()
@@ -249,6 +254,11 @@ impl VirtualPath {
     /// Returns the path without a leading slash.
     pub fn get_without_slash(&self) -> &str {
         self.0.get_without_slash()
+    }
+
+    /// Whether this is the path `/`.
+    pub fn is_root(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Returns the file name portion of the path.
@@ -309,8 +319,8 @@ impl VirtualPath {
         Ok(Self(segments))
     }
 
-    /// Tries to express this path as a relative path from the given base path.
-    pub fn relative_from(&self, base: &Self) -> Option<EcoString> {
+    /// Expresses this path as a relative path from the given base path.
+    pub fn relative_from(&self, base: &Self) -> EcoString {
         // Adapted from rustc's `path_relative_from` function (MIT).
         // Copyright 2012-2015 The Rust Project Developers.
         // See NOTICE for full attribution.
@@ -335,8 +345,7 @@ impl VirtualPath {
                 }
             }
         }
-
-        Some(buf.join("/").into())
+        buf.join("/").into()
     }
 }
 
@@ -474,6 +483,10 @@ impl Segments {
 
     fn is_empty(&self) -> bool {
         self.0.len() == 1
+    }
+
+    fn into_with_slash(self) -> EcoString {
+        self.0
     }
 
     fn get_with_slash(&self) -> &str {
@@ -705,14 +718,14 @@ mod tests {
     #[test]
     fn test_relative_from() {
         let p1 = path("src/text/main.typ");
-        assert_eq!(p1.relative_from(&path("/src/text")), Some("main.typ".into()));
-        assert_eq!(p1.relative_from(&path("/src/data")), Some("../text/main.typ".into()));
-        assert_eq!(p1.relative_from(&path("src/")), Some("text/main.typ".into()));
-        assert_eq!(p1.relative_from(&path("/")), Some("src/text/main.typ".into()));
+        assert_eq!(p1.relative_from(&path("/src/text")), "main.typ");
+        assert_eq!(p1.relative_from(&path("/src/data")), "../text/main.typ");
+        assert_eq!(p1.relative_from(&path("src/")), "text/main.typ");
+        assert_eq!(p1.relative_from(&path("/")), "src/text/main.typ");
 
         let p2 = path("src");
-        assert_eq!(p2.relative_from(&path("src")), Some("".into()));
-        assert_eq!(p2.relative_from(&path("src/data")), Some("..".into()));
+        assert_eq!(p2.relative_from(&path("src")), "");
+        assert_eq!(p2.relative_from(&path("src/data")), "..");
     }
 
     #[test]

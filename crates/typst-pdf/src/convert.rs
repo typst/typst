@@ -1,4 +1,5 @@
-use ecow::{EcoVec, eco_format};
+use comemo::Tracked;
+use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
 use krilla::configure::{Configuration, ValidationError, Validator};
 use krilla::destination::NamedDestination;
@@ -12,15 +13,14 @@ use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
+use typst_layout::PagedDocument;
 use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
 use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::{Location, Tag};
-use typst_library::layout::{
-    Frame, FrameItem, GroupItem, PagedDocument, Size, Transform,
-};
-use typst_library::model::HeadingElem;
+use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
+use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
+use typst_library::model::{HeadingElem, LateLinkResolver};
 use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
@@ -41,6 +41,8 @@ use crate::util::{AbsExt, TransformExt, convert_path, display_font};
 pub fn convert(
     typst_document: &PagedDocument,
     options: &PdfOptions,
+    anchors: &[(Location, EcoString)],
+    link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
         compress_content_streams: true,
@@ -55,13 +57,19 @@ pub fn convert(
 
     let mut document = Document::new_with(settings);
     let page_index_converter = PageIndexConverter::new(typst_document, options);
-    let named_destinations =
-        collect_named_destinations(typst_document, &page_index_converter);
+    let named_destinations = collect_named_destinations(
+        &mut document,
+        typst_document,
+        anchors,
+        &page_index_converter,
+    );
+
     let tags = tags::init(typst_document, options)?;
 
     let mut gc = GlobalContext::new(
         typst_document,
         options,
+        link_resolver,
         named_destinations,
         page_index_converter,
         tags,
@@ -79,7 +87,7 @@ pub fn convert(
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
-    for (i, typst_page) in gc.document.pages.iter().enumerate() {
+    for (i, typst_page) in gc.document.pages().iter().enumerate() {
         if gc.page_index_converter.pdf_page_index(i).is_none() {
             // Don't export this page.
             continue;
@@ -252,6 +260,8 @@ pub(crate) struct GlobalContext<'a> {
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
     pub(crate) options: &'a PdfOptions<'a>,
+    /// Used to resolve cross-document links in bundle export.
+    pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.
     pub(crate) loc_to_names: FxHashMap<Location, NamedDestination>,
     pub(crate) page_index_converter: PageIndexConverter,
@@ -263,6 +273,7 @@ impl<'a> GlobalContext<'a> {
     pub(crate) fn new(
         document: &'a PagedDocument,
         options: &'a PdfOptions,
+        link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
         loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
         tags: Tags,
@@ -272,6 +283,7 @@ impl<'a> GlobalContext<'a> {
             fonts_backward: FxHashMap::default(),
             document,
             options,
+            link_resolver,
             loc_to_names,
             image_to_spans: FxHashMap::default(),
             image_spans: FxHashSet::default(),
@@ -506,6 +518,9 @@ fn convert_error(
             "{prefix} the PDF is missing a CMYK profile";
             hint: "CMYK colors are not yet supported in this export mode";
         ),
+        ValidationError::InconsistentSeparationFallback(_) => {
+            unreachable!("separation color spaces are not currently used")
+        }
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
             "{prefix} the text `{}` could not be displayed with {}",
@@ -687,29 +702,37 @@ pub(crate) fn to_span(loc: Option<krilla::surface::Location>) -> Span {
 }
 
 fn collect_named_destinations(
-    document: &PagedDocument,
+    document: &mut Document,
+    typst_document: &PagedDocument,
+    anchors: &[(Location, EcoString)],
     pic: &PageIndexConverter,
 ) -> FxHashMap<Location, NamedDestination> {
     let mut locs_to_names = FxHashMap::default();
 
     // Find all headings that have a label and are the first among other
     // headings with the same label.
-    let matches: Vec<_> = {
-        let mut seen = FxHashSet::default();
-        document
-            .introspector
-            .query(&HeadingElem::ELEM.select())
-            .iter()
-            .filter_map(|elem| elem.location().zip(elem.label()))
-            .filter(|&(_, label)| seen.insert(label))
-            .collect()
-    };
+    let mut seen = FxHashSet::default();
+    let headings = typst_document.introspector().query(&HeadingElem::ELEM.select());
+    let matches = anchors
+        .iter()
+        .map(|(loc, anchor)| (*loc, anchor.to_string()))
+        .chain(
+            headings
+                .iter()
+                .filter_map(|elem| elem.location().zip(elem.label()))
+                .map(|(loc, label)| (loc, label.resolve().to_string())),
+        )
+        .filter(|(_, name)| seen.insert(name.clone()));
 
-    for (loc, label) in matches {
+    for (loc, name) in matches {
         // Only add named destination if page belonging to the position is exported.
-        let pos = document.introspector.position(loc);
+        let pos = typst_document
+            .introspector()
+            .position(loc)
+            .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
-            let named = NamedDestination::new(label.resolve().to_string(), dest);
+            let named = NamedDestination::new(name, dest);
+            document.register_named_destination(named.clone());
             locs_to_names.insert(loc, named);
         }
     }
@@ -727,7 +750,7 @@ impl PageIndexConverter {
         let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
-        for i in 0..document.pages.len() {
+        for i in 0..document.pages().len() {
             if options
                 .page_ranges
                 .as_ref()

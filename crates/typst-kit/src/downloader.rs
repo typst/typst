@@ -309,8 +309,7 @@ impl Display for Progress {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let len = self.samples.len();
         let sum: usize = self.samples.iter().sum();
-        let bytes_per_period =
-            if len > 0 { sum / len } else { self.content_len.unwrap_or(0) };
+        let bytes_per_period = sum.checked_div(len).or(self.content_len).unwrap_or(0);
 
         let frequency: usize = Duration::from_secs(1)
             .as_nanos()

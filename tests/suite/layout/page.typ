@@ -233,8 +233,8 @@ Z
 --- page-numbering-hint paged ---
 = Heading <intro>
 
-// Error: 1:21-1:47 cannot reference without page numbering
-// Hint: 1:21-1:47 you can enable page numbering with `#set page(numbering: "1")`
+// Error: 21-47 cannot reference without page numbering
+// Hint: 21-47 you can enable page numbering with `#set page(numbering: "1")`
 Can not be used as #ref(<intro>, form: "page")
 
 --- page-suppress-headers-and-footers paged ---

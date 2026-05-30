@@ -40,71 +40,71 @@
 #symbol()
 
 --- symbol-constructor-invalid-modifier eval ---
-// Error: 2:3-2:24 invalid symbol modifier: " id!"
 #symbol(
+// Error: 3-24 invalid symbol modifier: " id!"
   ("invalid. id!", "x")
 )
 
 --- symbol-constructor-duplicate-modifier eval ---
-// Error: 2:3-2:31 duplicate modifier within variant: "duplicate"
-// Hint: 2:3-2:31 modifiers are not ordered, so each one may appear only once
 #symbol(
+  // Error: 3-31 duplicate modifier within variant: "duplicate"
+  // Hint: 3-31 modifiers are not ordered, so each one may appear only once
   ("duplicate.duplicate", "x"),
 )
 
 --- symbol-constructor-duplicate-default-variant eval ---
-// Error: 3:3-3:6 duplicate default variant
 #symbol(
   "x",
+  // Error: 3-6 duplicate default variant
   "y",
 )
 
 --- symbol-constructor-duplicate-empty-variant eval ---
-// Error: 3:3-3:12 duplicate default variant
 #symbol(
   ("", "x"),
+  // Error: 3-12 duplicate default variant
   ("", "y"),
 )
 
 --- symbol-constructor-default-and-empty-variants eval ---
-// Error: 3:3-3:12 duplicate default variant
 #symbol(
   "x",
+  // Error: 3-12 duplicate default variant
   ("", "y"),
 )
 
 --- symbol-constructor-duplicate-variant eval ---
-// Error: 3:3-3:29 duplicate variant: "duplicate.variant"
 #symbol(
   ("duplicate.variant", "x"),
+  // Error: 3-29 duplicate variant: "duplicate.variant"
   ("duplicate.variant", "y"),
 )
 
 --- symbol-constructor-duplicate-variant-different-order eval ---
-// Error: 3:3-3:29 duplicate variant: "variant.duplicate"
-// Hint: 3:3-3:29 variants with the same modifiers are identical, regardless of their order
 #symbol(
   ("duplicate.variant", "x"),
+  // Error: 3-29 duplicate variant: "variant.duplicate"
+  // Hint: 3-29 variants with the same modifiers are identical, regardless of their order
   ("variant.duplicate", "y"),
 )
 
 --- symbol-constructor-empty-variant-value eval ---
-// Error: 2:3-2:5 invalid variant value: ""
-// Hint: 2:3-2:5 variant value must be exactly one grapheme cluster
-// Error: 3:3-3:16 invalid variant value: ""
-// Hint: 3:3-3:16 variant value must be exactly one grapheme cluster
 #symbol(
+  // Error: 3-5 invalid variant value: ""
+  // Hint: 3-5 variant value must be exactly one grapheme cluster
   "",
+  // Error: 3-16 invalid variant value: ""
+  // Hint: 3-16 variant value must be exactly one grapheme cluster
   ("empty", "")
 )
 
 --- symbol-constructor-multi-cluster-variant-value eval ---
-// Error: 2:3-2:7 invalid variant value: "aa"
-// Hint: 2:3-2:7 variant value must be exactly one grapheme cluster
-// Error: 3:3-3:14 invalid variant value: "bb"
-// Hint: 3:3-3:14 variant value must be exactly one grapheme cluster
 #symbol(
+  // Error: 3-7 invalid variant value: "aa"
+  // Hint: 3-7 variant value must be exactly one grapheme cluster
   "aa",
+  // Error: 3-14 invalid variant value: "bb"
+  // Hint: 3-14 variant value must be exactly one grapheme cluster
   ("b", "bb")
 )
 
@@ -177,15 +177,15 @@
 )
 
 --- symbol-sect-deprecated paged ---
-// Warning: 5-9 `sect` is deprecated, use `inter` instead
-$ A sect B = A inter B $
+// Warning: 3-7 `join` is deprecated, use `bowtie.big` instead
+$ join_x x = bowtie.big_x x $
 
 --- symbol-modifier-deprecated paged ---
-// Warning: 7-12 `ast.small` is deprecated (CJK compatibility character), use ﹡ or `\u{fe61}` instead
-$ ast.small $
+// Warning: 6-9 `gt.tri` is deprecated, use `gt.closed` instead
+$ gt.tri $
 
-// Warning: 14-20 `bracket.double` is deprecated, use `bracket.stroked` instead
-#sym.bracket.double.r
+// Warning: 12-15 `gt.tri.eq` is deprecated, use `gt.closed.eq` instead
+#sym.gt.eq.tri.not
 
 --- issue-5930-symbol-label paged ---
 #emoji.face<lab>

@@ -6,9 +6,9 @@ mod shape;
 mod text;
 
 use tiny_skia as sk;
+use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
-    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Page, PagedDocument, Point, Size,
-    Transform,
+    Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Size, Transform,
 };
 use typst_library::visualize::{Color, Geometry, Paint};
 
@@ -48,8 +48,11 @@ pub fn render_merged(
     gap: Abs,
     fill: Option<Color>,
 ) -> sk::Pixmap {
-    let pixmaps: Vec<_> =
-        document.pages.iter().map(|page| render(page, pixel_per_pt)).collect();
+    let pixmaps: Vec<_> = document
+        .pages()
+        .iter()
+        .map(|page| render(page, pixel_per_pt))
+        .collect();
 
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();

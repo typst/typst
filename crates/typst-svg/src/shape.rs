@@ -1,12 +1,12 @@
+use crate::path::SvgPathBuilder;
+use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
+use crate::{SVGRenderer, State};
 use ecow::EcoString;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
-
-use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
-use crate::{SVGRenderer, State};
+use typst_utils::Numeric;
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -24,7 +24,7 @@ impl SVGRenderer<'_> {
                 paint,
                 shape.fill_rule,
                 self.shape_fill_size(state, paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, paint, shape),
+                self.shape_paint_transform(state, paint, shape, false),
             );
         } else {
             svg.attr("fill", "none");
@@ -35,7 +35,7 @@ impl SVGRenderer<'_> {
                 svg,
                 stroke,
                 self.shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, &stroke.paint, shape),
+                self.shape_paint_transform(state, &stroke.paint, shape, true),
             );
         }
 
@@ -53,23 +53,39 @@ impl SVGRenderer<'_> {
         state: &State,
         paint: &Paint,
         shape: &Shape,
+        include_stroke_in_bbox: bool,
     ) -> Transform {
-        let mut shape_size = shape.geometry.bbox_size();
-        // Edge cases for strokes.
-        if shape_size.x.to_pt() == 0.0 {
-            shape_size.x = Abs::pt(1.0);
+        let (mut offset, mut size) = {
+            let bbox = shape.bbox(include_stroke_in_bbox);
+            (bbox.min, bbox.size())
+        };
+
+        // Special handling for rectangles (mirrors gradients for negative sizes)
+        if let Geometry::Rect(rect) = shape.geometry {
+            if rect.x.signum() < 1.0 {
+                offset.x += size.x;
+                size.x *= -1.0;
+            }
+            if rect.y.signum() < 1.0 {
+                offset.y += size.y;
+                size.y *= -1.0;
+            }
         }
 
-        if shape_size.y.to_pt() == 0.0 {
-            shape_size.y = Abs::pt(1.0);
+        if size.x.is_zero() {
+            size.x = Abs::pt(1.0);
+        }
+        if size.y.is_zero() {
+            size.y = Abs::pt(1.0);
         }
 
         if let Paint::Gradient(gradient) = paint {
             match gradient.unwrap_relative(false) {
                 RelativeTo::Self_ => Transform::scale(
-                    Ratio::new(shape_size.x.to_pt()),
-                    Ratio::new(shape_size.y.to_pt()),
-                ),
+                    Ratio::new(size.x.to_pt()),
+                    Ratio::new(size.y.to_pt()),
+                )
+                .post_concat(Transform::translate(offset.x, offset.y)),
                 RelativeTo::Parent => Transform::scale(
                     Ratio::new(state.size.x.to_pt()),
                     Ratio::new(state.size.y.to_pt()),
@@ -88,13 +104,13 @@ impl SVGRenderer<'_> {
 
     /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
-        let mut shape_size = shape.geometry.bbox_size();
+        let mut shape_size = shape.bbox(true).size();
         // Edge cases for strokes.
-        if shape_size.x.to_pt() == 0.0 {
+        if shape_size.x.is_zero() {
             shape_size.x = Abs::pt(1.0);
         }
 
-        if shape_size.y.to_pt() == 0.0 {
+        if shape_size.y.is_zero() {
             shape_size.y = Abs::pt(1.0);
         }
 

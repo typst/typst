@@ -5,7 +5,6 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Numeric};
 
-use crate::World;
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Content, Repr, Smart, StyleChain, func, scope, ty};
@@ -21,8 +20,7 @@ use crate::visualize::RelativeTo;
 /// the content of each cell. You can also add horizontal or vertical spacing
 /// between the cells of the tiling.
 ///
-/// # Examples
-///
+/// = Examples <examples>
 /// ```example
 /// #let pat = tiling(size: (30pt, 30pt))[
 ///   #place(line(start: (0%, 0%), end: (100%, 100%)))
@@ -33,10 +31,10 @@ use crate::visualize::RelativeTo;
 /// ```
 ///
 /// Tilings are also supported on text, but only when setting the
-/// [relativeness]($tiling.relative) to either `{auto}` (the default value) or
-/// `{"parent"}`. To create word-by-word or glyph-by-glyph tilings, you can
-/// wrap the words or characters of your text in [boxes]($box) manually or
-/// through a [show rule]($styling/#show-rules).
+/// @tiling.constructor.relative[relativeness] to either `{auto}` (the default
+/// value) or `{"parent"}`. To create word-by-word or glyph-by-glyph tilings,
+/// you can wrap the words or characters of your text in @box[boxes] manually or
+/// through a @reference:styling:show-rules[show rule].
 ///
 /// ```example
 /// #let pat = tiling(
@@ -54,10 +52,10 @@ use crate::visualize::RelativeTo;
 /// ```
 ///
 /// You can also space the elements further or closer apart using the
-/// [`spacing`]($tiling.spacing) feature of the tiling. If the spacing
-/// is lower than the size of the tiling, the tiling will overlap.
-/// If it is higher, the tiling will have gaps of the same color as the
-/// background of the tiling.
+/// @tiling.constructor.spacing[`spacing`] feature of the tiling. If the spacing
+/// is lower than the size of the tiling, the tiling will overlap. If it is
+/// higher, the tiling will have gaps of the same color as the background of the
+/// tiling.
 ///
 /// ```example
 /// #let pat = tiling(
@@ -78,24 +76,24 @@ use crate::visualize::RelativeTo;
 /// )
 /// ```
 ///
-/// # Relativeness
+/// = Relativeness <relativeness>
 /// The location of the starting point of the tiling is dependent on the
 /// dimensions of a container. This container can either be the shape that it is
 /// being painted on, or the closest surrounding container. This is controlled
-/// by the `relative` argument of a tiling constructor. By default, tilings
-/// are relative to the shape they are being painted on, unless the tiling is
+/// by the `relative` argument of a tiling constructor. By default, tilings are
+/// relative to the shape they are being painted on, unless the tiling is
 /// applied on text, in which case they are relative to the closest ancestor
 /// container.
 ///
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
+/// - For other shapes, the ancestor is the innermost @block or @box that
 ///   contains the shape. This includes the boxes and blocks that are implicitly
-///   created by show rules and elements. For example, a [`rotate`] will not
-///   affect the parent of a gradient, but a [`grid`] will.
+///   created by show rules and elements. For example, a @rotate will not affect
+///   the parent of a gradient, but a @grid will.
 ///
-/// # Compatibility
+/// = Compatibility <compatibility>
 /// This type used to be called `pattern`. The name remains as an alias, but is
 /// deprecated since Typst 0.13.
 #[ty(scope, cast, keywords = ["pattern"])]
@@ -147,7 +145,7 @@ impl Tiling {
         #[named]
         #[default(Spanned::detached(Axes::splat(Length::zero())))]
         spacing: Spanned<Axes<Length>>,
-        /// The [relative placement](#relativeness) of the tiling.
+        /// The @tiling:relativeness[relative placement] of the tiling.
         ///
         /// For an element placed at the root/top level of the document, the
         /// parent is the page itself. For other elements, the parent is the
@@ -191,13 +189,11 @@ impl Tiling {
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
 
         // Layout the tiling.
-        let world = engine.world;
-        let library = world.library();
         let locator = Locator::root();
-        let styles = StyleChain::new(&library.styles);
+        let styles = StyleChain::new(&engine.library.styles);
         let pod = Region::new(region, Axes::splat(false));
         let mut frame =
-            (engine.routines.layout_frame)(engine, &body, locator, styles, pod)?;
+            (engine.library.routines.layout_frame)(engine, &body, locator, styles, pod)?;
 
         // Set the size of the frame if the size is enforced.
         if let Smart::Custom(size) = size {

@@ -408,3 +408,14 @@ C
     Hello #footnote[Footnote 1]
   ]
 })
+
+--- footnote-bundle bundle ---
+// These two documents have a shared footnote counter.
+#document("a.html", footnote[A])
+#document("b.pdf", footnote[B])
+
+// From now on, each document has its own.
+#show document: it => counter(footnote).update(()) + it
+#document("standalone/c.html")[#footnote[C1], #footnote[C2]]
+#document("standalone/d.html")[#footnote[D1], #footnote[D2]]
+#document("standalone/e.pdf" )[#footnote[E1], #footnote[E2]]

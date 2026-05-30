@@ -264,17 +264,17 @@
 )
 
 --- table-header-in-grid eval ---
-// Error: 2:3-2:20 cannot use `table.header` as a grid header
-// Hint: 2:3-2:20 use `grid.header` instead
 #grid(
+  // Error: 3-20 cannot use `table.header` as a grid header
+  // Hint: 3-20 use `grid.header` instead
   table.header([a]),
   [a],
 )
 
 --- grid-header-in-table eval ---
-// Error: 2:3-2:19 cannot use `grid.header` as a table header
-// Hint: 2:3-2:19 use `table.header` instead
 #table(
+  // Error: 3-19 cannot use `grid.header` as a table header
+  // Hint: 3-19 use `table.header` instead
   grid.header([a]),
   [a],
 )

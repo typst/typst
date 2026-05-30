@@ -5,7 +5,8 @@ use std::{mem, ptr};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_vec};
-use rustc_hash::FxHashMap;
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 use typst_syntax::Span;
 use typst_utils::LazyHash;
@@ -108,15 +109,6 @@ impl Styles {
             }
         }
         self
-    }
-
-    /// Whether there is a style for the given field of the given element.
-    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
-        let elem = E::ELEM;
-        self.0
-            .iter()
-            .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == I)
     }
 
     /// Determines the styles used for content that it at the root, outside of
@@ -641,6 +633,14 @@ impl<'a> StyleChain<'a> {
         self.get_cloned(field).resolve(self)
     }
 
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
+        self.entries()
+            .filter_map(|style| style.property())
+            .any(|property| property.is_of(elem) && property.id == I)
+    }
+
     /// Retrieves a reference to a field, also taking into account the
     /// instance's value if any.
     fn get_unfolded<T: 'static>(self, func: Element, id: u8) -> Option<&'a T> {
@@ -983,8 +983,9 @@ fn block_wrong_type(func: Element, id: u8, value: &Block) -> ! {
 }
 
 /// Holds native show rules.
+#[derive(Debug, Clone)]
 pub struct NativeRuleMap {
-    rules: FxHashMap<(Element, Target), NativeShowRule>,
+    rules: IndexMap<(Element, Target), NativeShowRule, FxBuildHasher>,
 }
 
 /// The signature of a native show rule.
@@ -1002,45 +1003,60 @@ impl NativeRuleMap {
     ///
     /// Contains built-in rules for a few special elements.
     pub fn new() -> Self {
-        let mut rules = Self { rules: FxHashMap::default() };
+        fn empty<T: NativeElement>() -> ShowFn<T> {
+            |_, _, _| Ok(Content::empty())
+        }
 
-        // ContextElem is as special as SequenceElem and StyledElem and could,
-        // in theory, also be special cased in realization.
-        rules.register_builtin(crate::foundations::CONTEXT_RULE);
+        let mut rules = Self { rules: IndexMap::default() };
 
-        // CounterDisplayElem only exists because the compiler can't currently
-        // express the equivalent of `context counter(..).display(..)` in native
-        // code (no native closures).
-        rules.register_builtin(crate::introspection::COUNTER_DISPLAY_RULE);
+        for target in [Target::Paged, Target::Html, Target::Bundle] {
+            // ContextElem is as special as SequenceElem and StyledElem and
+            // could, in theory, also be special cased in realization.
+            rules.register(target, crate::foundations::CONTEXT_RULE);
 
-        // These are all only for introspection and empty on all targets.
-        rules.register_empty::<crate::introspection::CounterUpdateElem>();
-        rules.register_empty::<crate::introspection::StateUpdateElem>();
-        rules.register_empty::<crate::introspection::MetadataElem>();
-        rules.register_empty::<crate::model::PrefixInfo>();
+            // CounterDisplayElem only exists because the compiler can't
+            // currently express the equivalent of `context
+            // counter(..).display(..)` in native code (no native closures).
+            rules.register(target, crate::introspection::COUNTER_DISPLAY_RULE);
+
+            // These are all only for introspection and empty on all targets.
+            rules.register(target, empty::<crate::introspection::CounterUpdateElem>());
+            rules.register(target, empty::<crate::introspection::StateUpdateElem>());
+            rules.register(target, empty::<crate::introspection::MetadataElem>());
+            rules.register(target, empty::<crate::model::PrefixInfo>());
+        }
+
+        for target in [Target::Paged, Target::Html] {
+            rules.register(target, crate::model::ASSET_UNSUPPORTED_RULE);
+            rules.register(target, crate::model::DOCUMENT_UNSUPPORTED_RULE);
+        }
 
         rules
-    }
-
-    /// Registers a rule for all targets.
-    fn register_empty<T: NativeElement>(&mut self) {
-        self.register_builtin::<T>(|_, _, _| Ok(Content::empty()));
-    }
-
-    /// Registers a rule for all targets.
-    fn register_builtin<T: NativeElement>(&mut self, f: ShowFn<T>) {
-        self.register(Target::Paged, f);
-        self.register(Target::Html, f);
     }
 
     /// Registers a rule for a target.
     ///
     /// Panics if a rule already exists for this target-element combination.
+    #[track_caller]
     pub fn register<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
         let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
         if res.is_some() {
             panic!(
                 "duplicate native show rule for `{}` on {target:?} target",
+                T::ELEM.name()
+            )
+        }
+    }
+
+    /// Replaces a rule for a target.
+    ///
+    /// Panics if no rule exists for this target-element combination.
+    #[track_caller]
+    pub fn replace<T: NativeElement>(&mut self, target: Target, f: ShowFn<T>) {
+        let res = self.rules.insert((T::ELEM, target), NativeShowRule::new(f));
+        if res.is_none() {
+            panic!(
+                "no existing native show rule for `{}` on {target:?} target",
                 T::ELEM.name()
             )
         }
@@ -1059,13 +1075,22 @@ impl Default for NativeRuleMap {
     }
 }
 
+impl Hash for NativeRuleMap {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.rules.len());
+        for item in &self.rules {
+            item.hash(state);
+        }
+    }
+}
+
 pub use rule::NativeShowRule;
 
 mod rule {
     use super::*;
 
     /// The show rule for a native element.
-    #[derive(Copy, Clone)]
+    #[derive(Copy, Clone, Hash)]
     pub struct NativeShowRule {
         /// The element to which this rule applies.
         elem: Element,
@@ -1104,6 +1129,12 @@ mod rule {
 
             // Safety: We just checked that the element is of the correct type.
             unsafe { (self.f)(content, engine, styles) }
+        }
+    }
+
+    impl Debug for NativeShowRule {
+        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            f.pad("NativeShowRule(..)")
         }
     }
 }

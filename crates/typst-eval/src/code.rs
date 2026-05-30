@@ -6,6 +6,7 @@ use typst_library::foundations::{
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::singleton;
 
@@ -79,7 +80,7 @@ impl Eval for ast::Expr<'_> {
             error!(span, "{} is only allowed directly in code and content blocks", name)
         };
 
-        let v = match self {
+        let value = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
@@ -101,8 +102,10 @@ impl Eval for ast::Expr<'_> {
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
+            Self::MathFieldAccess(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
+            Self::MathCall(v) => v.eval(vm),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathPrimes(v) => v.eval(vm).map(Value::Content),
@@ -142,11 +145,11 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.inspected == Some(span) {
-            vm.trace(v.clone());
-        }
+        // This satisfies the obligation to call `Vm::trace` for almost all
+        // value-producing expressions!
+        vm.trace_at(span, &value);
 
-        Ok(v)
+        Ok(value)
     }
 }
 
@@ -224,15 +227,47 @@ impl Eval for ast::Array<'_> {
     type Output = Array;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let items = self.items();
+        let mut items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
-        for item in items {
+
+        // We raise an error when one of the array items is the spread of a
+        // dictionary. If _all_ of the array items are spreads of dictionaries,
+        // the user probably wanted to write `(: ..dict_a, ..dict_b)` instead
+        // to create a dictionary, not an array.
+        let mut all_dict_spreads = true;
+
+        while let Some(item) = items.next() {
             match item {
-                ast::ArrayItem::Pos(expr) => vec.push(expr.eval(vm)?),
+                ast::ArrayItem::Pos(expr) => {
+                    all_dict_spreads = false;
+                    vec.push(expr.eval(vm)?)
+                }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Array(array) => vec.extend(array.into_iter()),
+                    Value::Array(array) => {
+                        all_dict_spreads = false;
+                        vec.extend(array);
+                    }
+                    v @ Value::Dict(_)
+                        if all_dict_spreads
+                        // Lookahead to see whether remaining items are spreads
+                        // of dicts
+                        && items.all(|item| matches!(
+                            item,
+                            ast::ArrayItem::Spread(spread) if matches!(
+                                spread.expr().eval(vm),
+                                Ok(Value::Dict(_)),
+                            ),
+                        )) =>
+                    {
+                        let fixed =
+                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        bail!(
+                            spread.span(), "cannot spread {} into array", v.ty();
+                            hint: "add a colon to create a dictionary instead: `{fixed}`";
+                        )
+                    }
                     v => bail!(spread.span(), "cannot spread {} into array", v.ty()),
                 },
             }
@@ -266,7 +301,7 @@ impl Eval for ast::Dict<'_> {
                 }
                 ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Dict(dict) => map.extend(dict.into_iter()),
+                    Value::Dict(dict) => map.extend(dict),
                     v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
@@ -314,31 +349,39 @@ impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.target().eval(vm)?;
+        let target = self.target().eval(vm)?;
         let field = self.field();
-        let field_span = field.span();
-
-        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
-            Err(err) => err,
-        };
-
-        // Check whether this is a get rule field access.
-        if let Value::Func(func) = &value
-            && let Some(element) = func.to_element()
-            && let Some(id) = element.field_id(&field)
-            && let styles = vm.context.styles().at(field.span())
-            && let Ok(value) = element
-                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
-        {
-            // Only validate the context once we know that this is indeed
-            // a field from the style chain.
-            let _ = styles?;
-            return Ok(value);
-        }
-
-        Err(err)
+        access_field(vm, target, field.as_str(), field.span())
     }
+}
+
+/// Access a field on a target value.
+pub(crate) fn access_field(
+    vm: &mut Vm,
+    target: Value,
+    field: &str,
+    field_span: Span,
+) -> SourceResult<Value> {
+    let err = match target.field(field, (&mut vm.engine, field_span)).at(field_span) {
+        Ok(value) => return Ok(value),
+        Err(err) => err,
+    };
+
+    // Check whether this is a get rule field access.
+    if let Value::Func(func) = &target
+        && let Some(element) = func.to_element()
+        && let Some(id) = element.field_id(field)
+        && let styles = vm.context.styles().at(field_span)
+        && let Ok(value) =
+            element.field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+    {
+        // Only validate the contextual styles once we know that this is indeed
+        // a field from the style chain.
+        let _ = styles?;
+        return Ok(value);
+    }
+
+    Err(err)
 }
 
 impl Eval for ast::Contextual<'_> {

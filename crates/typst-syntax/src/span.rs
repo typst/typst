@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::num::{NonZeroU16, NonZeroU64};
 use std::ops::Range;
@@ -204,12 +205,72 @@ impl<T: Debug> Debug for Spanned<T> {
     }
 }
 
+/// Remaps ranges.
+///
+/// Useful in combination with
+/// [`SyntaxNode::synthesize_mapped`](super::SyntaxNode::synthesize_mapped) to
+/// have accurate error spans for source text that is non-consecutive in its
+/// source file (for instance, Typst code in a doc comment with start-of-line
+/// slashes).
+#[derive(Hash)]
+pub struct RangeMapper(Vec<(usize, Range<usize>)>);
+
+impl RangeMapper {
+    /// Creates a new range mapper.
+    ///
+    /// The iterator should returns ranges in the original text that will be
+    /// consecutively concatenated to produce the derived text.
+    ///
+    /// Segments should be in order. (The start of a later range must not
+    /// precede the end of an earlier range.)
+    pub fn new(segments: impl IntoIterator<Item = Range<usize>>) -> Self {
+        let mut cursor = 0;
+        Self(
+            segments
+                .into_iter()
+                .map(|segment| {
+                    let pair = (cursor, segment.clone());
+                    cursor += segment.len();
+                    pair
+                })
+                .collect(),
+        )
+    }
+
+    /// Maps a range in the derived text back to a range in the original text.
+    /// If the range spans over multiple segments, the gap between the two
+    /// segments will be included in the resulting range.
+    pub fn map(&self, range: Range<usize>) -> Option<Range<usize>> {
+        let start = self.map_offset(range.start)?;
+        let end = self.map_offset(range.end)?;
+        Some(start..end)
+    }
+
+    fn map_offset(&self, offset: usize) -> Option<usize> {
+        let idx = self
+            .0
+            .binary_search_by(|(at, segment)| {
+                if offset < *at {
+                    Ordering::Greater
+                } else if offset <= at + segment.len() {
+                    Ordering::Equal
+                } else {
+                    Ordering::Less
+                }
+            })
+            .ok()?;
+        let (at, segment) = &self.0[idx];
+        Some(segment.start + (offset - at))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZeroU16;
     use std::ops::Range;
 
-    use crate::{FileId, Span};
+    use super::{RangeMapper, Span};
+    use crate::FileId;
 
     #[test]
     fn test_span_detached() {
@@ -241,5 +302,21 @@ mod tests {
         roundtrip(177..233);
         roundtrip(0..8388607);
         roundtrip(8388606..8388607);
+    }
+
+    #[test]
+    fn test_range_mapper() {
+        let base = "-- Hello\n-- world\n";
+        let ranges = [(3..9), (12..18)];
+        let mapped = ranges.iter().map(|r| &base[r.clone()]).collect::<String>();
+        let m = RangeMapper::new(ranges);
+
+        assert_eq!(mapped, "Hello\nworld\n");
+        assert_eq!(m.map(2..3), Some(5..6));
+        // FIXME: End range should prefer earlier segment.
+        // assert_eq!(m.map(4..6), Some(7..9));
+        assert_eq!(m.map(6..8), Some(12..14));
+        assert_eq!(m.map(8..11), Some(14..17));
+        assert_eq!(m.map(2..12), Some(5..18));
     }
 }

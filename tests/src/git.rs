@@ -19,7 +19,7 @@ pub fn read_file(revision: &str, ref_path: &Path) -> Option<Vec<u8>> {
     git().args(["show", &rev_file]).run().ok()
 }
 
-/// Runs git blame on the file path and returns a list of of git revision,
+/// Runs git blame on the file path and returns a list of git revision,
 /// timestamp, and line-text tuples.
 pub fn blame_file(
     revision: Option<&str>,

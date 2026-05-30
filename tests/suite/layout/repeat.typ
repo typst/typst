@@ -39,8 +39,8 @@ A#box(width: 1fr, repeat(rect(width: 6em, height: 0.7em)))B
 ريجين#box(width: 1fr, repeat(rect(width: 4em, height: 0.7em)))سون
 
 --- repeat-unrestricted paged ---
-// Error: 2:2-2:13 repeat with no size restrictions
 #set page(width: auto)
+// Error: 2-13 repeat with no size restrictions
 #repeat(".")
 
 --- repeat-gap paged ---

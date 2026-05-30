@@ -4,11 +4,11 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use ecow::{EcoString, EcoVec, eco_format};
+use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
 use palette::encoding::{self, Linear};
 use palette::{
     Alpha, Darken, Desaturate, FromColor, Lighten, OklabHue, RgbHue, Saturate, ShiftHue,
 };
-use qcms::Profile;
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{At, SourceResult, StrResult, bail};
@@ -33,71 +33,105 @@ pub type Luma = palette::luma::Lumaa<encoding::Srgb, f32>;
 /// to convert from CMYK to RGB. It is based on the CGATS TR 001-1995
 /// specification. See
 /// <https://github.com/saucecontrol/Compact-ICC-Profiles#cmyk>.
-static CMYK_TO_XYZ: LazyLock<Box<Profile>> = LazyLock::new(|| {
-    Profile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ, false).unwrap()
+static CMYK_TO_XYZ: LazyLock<ColorProfile> = LazyLock::new(|| {
+    ColorProfile::new_from_slice(typst_assets::icc::CMYK_TO_XYZ).unwrap()
 });
 
 /// The target sRGB profile.
-static SRGB_PROFILE: LazyLock<Box<Profile>> = LazyLock::new(|| {
-    let mut out = Profile::new_sRGB();
-    out.precache_output_transform();
-    out
-});
+static SRGB_PROFILE: LazyLock<ColorProfile> = LazyLock::new(ColorProfile::new_srgb);
 
-static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
-    qcms::Transform::new_to(
-        &CMYK_TO_XYZ,
-        &SRGB_PROFILE,
-        qcms::DataType::CMYK,
-        qcms::DataType::RGB8,
-        // Our input profile only supports perceptual intent.
-        qcms::Intent::Perceptual,
-    )
-    .unwrap()
+static TO_SRGB: LazyLock<Box<moxcms::Transform8BitExecutor>> = LazyLock::new(|| {
+    CMYK_TO_XYZ
+        .create_transform_8bit(
+            Layout::Rgba,
+            &SRGB_PROFILE,
+            Layout::Rgb,
+            TransformOptions {
+                // Our input profile only supports perceptual intent.
+                rendering_intent: RenderingIntent::Perceptual,
+                ..TransformOptions::default()
+            },
+        )
+        .unwrap()
 });
 
 /// A color in a specific color space.
 ///
 /// Typst supports:
-/// - sRGB through the [`rgb` function]($color.rgb)
-/// - Device CMYK through the [`cmyk` function]($color.cmyk)
-/// - D65 Gray through the [`luma` function]($color.luma)
-/// - Oklab through the [`oklab` function]($color.oklab)
-/// - Oklch through the [`oklch` function]($color.oklch)
-/// - Linear RGB through the [`color.linear-rgb` function]($color.linear-rgb)
-/// - HSL through the [`color.hsl` function]($color.hsl)
-/// - HSV through the [`color.hsv` function]($color.hsv)
+/// - sRGB through the @color.rgb[`rgb` function]
+/// - Device CMYK through the @color.cmyk[`cmyk` function]
+/// - D65 Gray through the @color.luma[`luma` function]
+/// - Oklab through the @color.oklab[`oklab` function]
+/// - Oklch through the @color.oklch[`oklch` function]
+/// - Linear RGB through the @color.linear-rgb[`color.linear-rgb` function]
+/// - HSL through the @color.hsl[`color.hsl` function]
+/// - HSV through the @color.hsv[`color.hsv` function]
 ///
-///
-/// # Example
-///
+/// = Example <example>
 /// ```example
 /// #rect(fill: aqua)
 /// ```
 ///
-/// # Predefined colors
+/// = Predefined colors <predefined-colors>
 /// Typst defines the following built-in colors:
 ///
-/// | Color     | Definition         |
-/// |-----------|:-------------------|
-/// | `black`   | `{luma(0)}`        |
-/// | `gray`    | `{luma(170)}`      |
-/// | `silver`  | `{luma(221)}`      |
-/// | `white`   | `{luma(255)}`      |
-/// | `navy`    | `{rgb("#001f3f")}` |
-/// | `blue`    | `{rgb("#0074d9")}` |
-/// | `aqua`    | `{rgb("#7fdbff")}` |
-/// | `teal`    | `{rgb("#39cccc")}` |
-/// | `eastern` | `{rgb("#239dad")}` |
-/// | `purple`  | `{rgb("#b10dc9")}` |
-/// | `fuchsia` | `{rgb("#f012be")}` |
-/// | `maroon`  | `{rgb("#85144b")}` |
-/// | `red`     | `{rgb("#ff4136")}` |
-/// | `orange`  | `{rgb("#ff851b")}` |
-/// | `yellow`  | `{rgb("#ffdc00")}` |
-/// | `olive`   | `{rgb("#3d9970")}` |
-/// | `green`   | `{rgb("#2ecc40")}` |
-/// | `lime`    | `{rgb("#01ff70")}` |
+/// #docs-table(
+///   table.header[Color][Definition],
+///
+///   [`black`],
+///   [`{luma(0)}`],
+///
+///   [`gray`],
+///   [`{luma(170)}`],
+///
+///   [`silver`],
+///   [`{luma(221)}`],
+///
+///   [`white`],
+///   [`{luma(255)}`],
+///
+///   [`navy`],
+///   [`{rgb("#001f3f")}`],
+///
+///   [`blue`],
+///   [`{rgb("#0074d9")}`],
+///
+///   [`aqua`],
+///   [`{rgb("#7fdbff")}`],
+///
+///   [`teal`],
+///   [`{rgb("#39cccc")}`],
+///
+///   [`eastern`],
+///   [`{rgb("#239dad")}`],
+///
+///   [`purple`],
+///   [`{rgb("#b10dc9")}`],
+///
+///   [`fuchsia`],
+///   [`{rgb("#f012be")}`],
+///
+///   [`maroon`],
+///   [`{rgb("#85144b")}`],
+///
+///   [`red`],
+///   [`{rgb("#ff4136")}`],
+///
+///   [`orange`],
+///   [`{rgb("#ff851b")}`],
+///
+///   [`yellow`],
+///   [`{rgb("#ffdc00")}`],
+///
+///   [`olive`],
+///   [`{rgb("#3d9970")}`],
+///
+///   [`green`],
+///   [`{rgb("#2ecc40")}`],
+///
+///   [`lime`],
+///   [`{rgb("#01ff70")}`],
+/// )
 ///
 /// The predefined colors and the most important color constructors are
 /// available globally and also in the color type's scope, so you can write
@@ -128,36 +162,81 @@ static TO_SRGB: LazyLock<qcms::Transform> = LazyLock::new(|| {
 /// )
 /// ```
 ///
-/// # Predefined color maps
+/// = Predefined color maps <predefined-color-maps>
 /// Typst also includes a number of preset color maps that can be used for
-/// [gradients]($gradient/#stops). These are simply arrays of colors defined in
-/// the module `color.map`.
+/// @gradient:stops[gradients]. These are simply arrays of colors defined in the
+/// module `color.map`.
 ///
 /// ```example
 /// #circle(fill: gradient.linear(..color.map.crest))
 /// ```
 ///
-/// | Map        | Details                                                     |
-/// |------------|:------------------------------------------------------------|
-/// | `turbo`    | A perceptually uniform rainbow-like color map. Read [this blog post](https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html) for more details. |
-/// | `cividis`  | A blue to gray to yellow color map. See [this blog post](https://bids.github.io/colormap/) for more details. |
-/// | `rainbow`  | Cycles through the full color spectrum. This color map is best used by setting the interpolation color space to [HSL]($color.hsl). The rainbow gradient is **not suitable** for data visualization because it is not perceptually uniform, so the differences between values become unclear to your readers. It should only be used for decorative purposes. |
-/// | `spectral` | Red to yellow to blue color map.                            |
-/// | `viridis`  | A purple to teal to yellow color map.                       |
-/// | `inferno`  | A black to red to yellow color map.                         |
-/// | `magma`    | A black to purple to yellow color map.                      |
-/// | `plasma`   | A purple to pink to yellow color map.                       |
-/// | `rocket`   | A black to red to white color map.                          |
-/// | `mako`     | A black to teal to white color map.                         |
-/// | `coolwarm` | A blue to white to red color map with smooth transitions.   |
-/// | `vlag`     | A light blue to white to red color map.                     |
-/// | `icefire`  | A light teal to black to orange color map.                  |
-/// | `flare`    | A orange to purple color map that is perceptually uniform.  |
-/// | `crest`    | A light green to blue color map.                            |
+/// #docs-table(
+///   table.header[Map][Details],
+///
+///   [`turbo`],
+///   [
+///     A perceptually uniform rainbow-like color map. Read
+///     #link("https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html")[this blog post]
+///     for more details.
+///   ],
+///
+///   [`cividis`],
+///   [
+///     A blue to gray to yellow color map. See
+///     #link("https://bids.github.io/colormap/")[this blog post] for more
+///     details.
+///   ],
+///
+///   [`rainbow`],
+///   [
+///     Cycles through the full color spectrum. This color map is best used by
+///     setting the interpolation color space to @color.hsl[HSL]. The rainbow
+///     gradient is *not suitable* for data visualization because it is not
+///     perceptually uniform, so the differences between values become unclear
+///     to your readers. It should only be used for decorative purposes.
+///   ],
+///
+///   [`spectral`],
+///   [Red to yellow to blue color map.],
+///
+///   [`viridis`],
+///   [A purple to teal to yellow color map.],
+///
+///   [`inferno`],
+///   [A black to red to yellow color map.],
+///
+///   [`magma`],
+///   [A black to purple to yellow color map.],
+///
+///   [`plasma`],
+///   [A purple to pink to yellow color map.],
+///
+///   [`rocket`],
+///   [A black to red to white color map.],
+///
+///   [`mako`],
+///   [A black to teal to white color map.],
+///
+///   [`coolwarm`],
+///   [A blue to white to red color map with smooth transitions.],
+///
+///   [`vlag`],
+///   [A light blue to white to red color map.],
+///
+///   [`icefire`],
+///   [A light teal to black to orange color map.],
+///
+///   [`flare`],
+///   [A orange to purple color map that is perceptually uniform.],
+///
+///   [`crest`],
+///   [A light green to blue color map.],
+/// )
 ///
 /// Some popular presets are not included because they are not available under a
 /// free licence. Others, like
-/// [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/),
+/// #link("https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/")[Jet],
 /// are not included because they are not color blind friendly. Feel free to use
 /// or create a package with other presets that are useful to you!
 ///
@@ -240,7 +319,7 @@ impl Color {
     /// component.
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #for x in range(250, step: 50) {
@@ -273,7 +352,8 @@ impl Color {
         })
     }
 
-    /// Create an [Oklab](https://bottosson.github.io/posts/oklab/) color.
+    /// Create an #link("https://bottosson.github.io/posts/oklab/")[Oklab]
+    /// color.
     ///
     /// This color space is well suited for the following use cases:
     /// - Color manipulation such as saturating while keeping perceived hue
@@ -282,15 +362,15 @@ impl Color {
     ///
     /// A linear Oklab color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`])
-    /// - a ([`float`] or [`ratio`].
-    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - b ([`float`] or [`ratio`].
-    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - alpha ([`ratio`])
+    /// - lightness (@ratio)
+    /// - a (@float or @ratio. Ratios are relative to `{0.4}`; meaning `{50%}`
+    ///   is equal to `{0.2}`)
+    /// - b (@float or @ratio. Ratios are relative to `{0.4}`; meaning `{50%}`
+    ///   is equal to `{0.2}`)
+    /// - alpha (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(
@@ -330,7 +410,8 @@ impl Color {
         })
     }
 
-    /// Create an [Oklch](https://bottosson.github.io/posts/oklab/) color.
+    /// Create an #link("https://bottosson.github.io/posts/oklab/")[Oklch]
+    /// color.
     ///
     /// This color space is well suited for the following use cases:
     /// - Color manipulation involving lightness, chroma, and hue
@@ -339,14 +420,14 @@ impl Color {
     ///
     /// A linear Oklch color is represented internally by an array of four
     /// components:
-    /// - lightness ([`ratio`])
-    /// - chroma ([`float`] or [`ratio`].
-    ///   Ratios are relative to `{0.4}`; meaning `{50%}` is equal to `{0.2}`)
-    /// - hue ([`angle`])
-    /// - alpha ([`ratio`])
+    /// - lightness (@ratio)
+    /// - chroma (@float or @ratio. Ratios are relative to `{0.4}`; meaning
+    ///   `{50%}` is equal to `{0.2}`)
+    /// - hue (@angle)
+    /// - alpha (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(
@@ -396,17 +477,17 @@ impl Color {
     /// This color space is similar to sRGB, but with the distinction that the
     /// color component are not gamma corrected. This makes it easier to perform
     /// color operations such as blending and interpolation. Although, you
-    /// should prefer to use the [`oklab` function]($color.oklab) for these.
+    /// should prefer to use the @color.oklab[`oklab` function] for these.
     ///
     /// A linear RGB(A) color is represented internally by an array of four
     /// components:
-    /// - red ([`ratio`])
-    /// - green ([`ratio`])
-    /// - blue ([`ratio`])
-    /// - alpha ([`ratio`])
+    /// - red (@ratio)
+    /// - green (@ratio)
+    /// - blue (@ratio)
+    /// - alpha (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(fill: color.linear-rgb(
@@ -454,14 +535,15 @@ impl Color {
     ///
     /// The color is specified in the sRGB color space.
     ///
-    /// An RGB(A) color is represented internally by an array of four components:
-    /// - red ([`ratio`])
-    /// - green ([`ratio`])
-    /// - blue ([`ratio`])
-    /// - alpha ([`ratio`])
+    /// An RGB(A) color is represented internally by an array of four
+    /// components:
+    /// - red (@ratio)
+    /// - green (@ratio)
+    /// - blue (@ratio)
+    /// - alpha (@ratio)
     ///
-    /// These components are also available using the [`components`]($color.components)
-    /// method.
+    /// These components are also available using the
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(fill: rgb("#b1f2eb"))
@@ -528,13 +610,13 @@ impl Color {
     /// the color.
     ///
     /// A CMYK color is represented internally by an array of four components:
-    /// - cyan ([`ratio`])
-    /// - magenta ([`ratio`])
-    /// - yellow ([`ratio`])
-    /// - key ([`ratio`])
+    /// - cyan (@ratio)
+    /// - magenta (@ratio)
+    /// - yellow (@ratio)
+    /// - key (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// Note that CMYK colors are not currently supported when PDF/A output is
     /// enabled.
@@ -588,13 +670,13 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSL color is represented internally by an array of four components:
-    /// - hue ([`angle`])
-    /// - saturation ([`ratio`])
-    /// - lightness ([`ratio`])
-    /// - alpha ([`ratio`])
+    /// - hue (@angle)
+    /// - saturation (@ratio)
+    /// - lightness (@ratio)
+    /// - alpha (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(
@@ -645,13 +727,13 @@ impl Color {
     /// while keeping perceived hue.
     ///
     /// An HSV color is represented internally by an array of four components:
-    /// - hue ([`angle`])
-    /// - saturation ([`ratio`])
-    /// - value ([`ratio`])
-    /// - alpha ([`ratio`])
+    /// - hue (@angle)
+    /// - saturation (@ratio)
+    /// - value (@ratio)
+    /// - alpha (@ratio)
     ///
     /// These components are also available using the
-    /// [`components`]($color.components) method.
+    /// @color.components[`components`] method.
     ///
     /// ```example
     /// #square(
@@ -698,19 +780,60 @@ impl Color {
     /// Extracts the components of this color.
     ///
     /// The size and values of this array depends on the color space. You can
-    /// obtain the color space using [`space`]($color.space). Below is a table
-    /// of the color spaces and their components:
+    /// obtain the color space using @color.space[`space`]. Below is a table of
+    /// the color spaces and their components:
     ///
-    /// |       Color space       |     C1    |     C2     |     C3    |   C4   |
-    /// |-------------------------|-----------|------------|-----------|--------|
-    /// | [`luma`]($color.luma)   | Lightness |            |           |        |
-    /// | [`oklab`]($color.oklab) | Lightness |    `a`     |    `b`    |  Alpha |
-    /// | [`oklch`]($color.oklch) | Lightness |   Chroma   |    Hue    |  Alpha |
-    /// | [`linear-rgb`]($color.linear-rgb) | Red  |   Green |    Blue |  Alpha |
-    /// | [`rgb`]($color.rgb)     |    Red    |   Green    |    Blue   |  Alpha |
-    /// | [`cmyk`]($color.cmyk)   |    Cyan   |   Magenta  |   Yellow  |  Key   |
-    /// | [`hsl`]($color.hsl)     |     Hue   | Saturation | Lightness |  Alpha |
-    /// | [`hsv`]($color.hsv)     |     Hue   | Saturation |   Value   |  Alpha |
+    /// #docs-table(
+    ///   table.header[Color space][C1][C2][C3][C4],
+    ///
+    ///   [@color.luma[`luma`]],
+    ///   [Lightness],
+    ///   [],
+    ///   [],
+    ///   [],
+    ///
+    ///   [@color.oklab[`oklab`]],
+    ///   [Lightness],
+    ///   [`a`],
+    ///   [`b`],
+    ///   [Alpha],
+    ///
+    ///   [@color.oklch[`oklch`]],
+    ///   [Lightness],
+    ///   [Chroma],
+    ///   [Hue],
+    ///   [Alpha],
+    ///
+    ///   [@color.linear-rgb[`linear-rgb`]],
+    ///   [Red],
+    ///   [Green],
+    ///   [Blue],
+    ///   [Alpha],
+    ///
+    ///   [@color.rgb[`rgb`]],
+    ///   [Red],
+    ///   [Green],
+    ///   [Blue],
+    ///   [Alpha],
+    ///
+    ///   [@color.cmyk[`cmyk`]],
+    ///   [Cyan],
+    ///   [Magenta],
+    ///   [Yellow],
+    ///   [Key],
+    ///
+    ///   [@color.hsl[`hsl`]],
+    ///   [Hue],
+    ///   [Saturation],
+    ///   [Lightness],
+    ///   [Alpha],
+    ///
+    ///   [@color.hsv[`hsv`]],
+    ///   [Hue],
+    ///   [Saturation],
+    ///   [Value],
+    ///   [Alpha],
+    /// )
     ///
     /// For the meaning and type of each individual value, see the documentation
     /// of the corresponding color space. The alpha component is optional and
@@ -801,14 +924,14 @@ impl Color {
     /// Returns the constructor function for this color's space.
     ///
     /// Returns one of:
-    /// - [`luma`]($color.luma)
-    /// - [`oklab`]($color.oklab)
-    /// - [`oklch`]($color.oklch)
-    /// - [`linear-rgb`]($color.linear-rgb)
-    /// - [`rgb`]($color.rgb)
-    /// - [`cmyk`]($color.cmyk)
-    /// - [`hsl`]($color.hsl)
-    /// - [`hsv`]($color.hsv)
+    /// - @color.luma[`luma`]
+    /// - @color.oklab[`oklab`]
+    /// - @color.oklch[`oklch`]
+    /// - @color.linear-rgb[`linear-rgb`]
+    /// - @color.rgb[`rgb`]
+    /// - @color.cmyk[`cmyk`]
+    /// - @color.hsl[`hsl`]
+    /// - @color.hsv[`hsv`]
     ///
     /// ```example
     /// #let color = cmyk(1%, 2%, 3%, 4%)
@@ -933,8 +1056,8 @@ impl Color {
         })
     }
 
-    /// Produces the complementary color using a provided color space.
-    /// You can think of it as the opposite side on a color wheel.
+    /// Produces the complementary color using a provided color space. You can
+    /// think of it as the opposite side on a color wheel.
     ///
     /// ```example
     /// #square(fill: yellow)
@@ -944,7 +1067,8 @@ impl Color {
     #[func]
     pub fn negate(
         self,
-        /// The color space used for the transformation. By default, a perceptual color space is used.
+        /// The color space used for the transformation. By default, a
+        /// perceptual color space is used.
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
@@ -991,8 +1115,8 @@ impl Color {
         span: Span,
         /// The angle to rotate the hue by.
         angle: Angle,
-        /// The color space used to rotate. By default, this happens in a perceptual
-        /// color space ([`oklch`]($color.oklch)).
+        /// The color space used to rotate. By default, this happens in a
+        /// perceptual color space (@color.oklch[`oklch`]).
         #[named]
         #[default(ColorSpace::Oklch)]
         space: ColorSpace,
@@ -1040,7 +1164,7 @@ impl Color {
         #[variadic]
         colors: Vec<WeightedColor>,
         /// The color space to mix in. By default, this happens in a perceptual
-        /// color space ([`oklab`]($color.oklab)).
+        /// color space (@color.oklab[`oklab`]).
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
@@ -1050,9 +1174,9 @@ impl Color {
 
     /// Makes a color more transparent by a given factor.
     ///
-    /// This method is relative to the existing alpha value.
-    /// If the scale is positive, calculates `alpha - alpha * scale`.
-    /// Negative scales behave like `color.opacify(-scale)`.
+    /// This method is relative to the existing alpha value. If the scale is
+    /// positive, calculates `alpha - alpha * scale`. Negative scales behave
+    /// like `color.opacify(-scale)`.
     ///
     /// ```example
     /// #block(fill: red)[opaque]
@@ -1070,9 +1194,9 @@ impl Color {
 
     /// Makes a color more opaque by a given scale.
     ///
-    /// This method is relative to the existing alpha value.
-    /// If the scale is positive, calculates `alpha + scale - alpha * scale`.
-    /// Negative scales behave like `color.transparentize(-scale)`.
+    /// This method is relative to the existing alpha value. If the scale is
+    /// positive, calculates `alpha + scale - alpha * scale`. Negative scales
+    /// behave like `color.transparentize(-scale)`.
     ///
     /// ```example
     /// #let half-red = red.transparentize(50%)
@@ -1705,8 +1829,8 @@ impl Cmyk {
         Cmyk::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
-    // This still uses naive conversion, because qcms does not support
-    // converting to CMYK yet.
+    // This still uses naive conversion, because the profile doesn't
+    // support converting _to_ CMYK.
     fn from_rgba(rgba: Rgb) -> Self {
         let r = rgba.red;
         let g = rgba.green;
@@ -1726,15 +1850,17 @@ impl Cmyk {
 
     fn to_rgba(self) -> Rgb {
         let mut dest: [u8; 3] = [0; 3];
-        TO_SRGB.convert(
-            &[
-                (self.c * 255.0).round() as u8,
-                (self.m * 255.0).round() as u8,
-                (self.y * 255.0).round() as u8,
-                (self.k * 255.0).round() as u8,
-            ],
-            &mut dest,
-        );
+        TO_SRGB
+            .transform(
+                &[
+                    (self.c * 255.0).round() as u8,
+                    (self.m * 255.0).round() as u8,
+                    (self.y * 255.0).round() as u8,
+                    (self.k * 255.0).round() as u8,
+                ],
+                &mut dest,
+            )
+            .unwrap();
 
         Rgb::new(
             f32::from(dest[0]) / 255.0,

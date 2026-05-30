@@ -1,24 +1,24 @@
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, AutoValue, Construct, Content, NativeElement, Packed, Smart, StyleChain, Value,
-    cast, elem,
+    Args, AutoValue, Construct, Content, Dict, Fold, FromValue, IntoValue, NativeElement,
+    Packed, Smart, StyleChain, Value, cast, elem,
 };
 use crate::introspection::Locator;
 use crate::layout::{
     Abs, Corners, Em, Fr, Fragment, Frame, Length, Region, Regions, Rel, Sides, Size,
-    Spacing,
+    Spacing, VAlignment,
 };
 use crate::visualize::{Paint, Stroke};
 
 /// An inline-level container that sizes content.
 ///
 /// All elements except inline math, text, and boxes are block-level and cannot
-/// occur inside of a [paragraph]($par). The box function can be used to
-/// integrate such elements into a paragraph. Boxes take the size of their
-/// contents by default but can also be sized explicitly.
+/// occur inside of a @par[paragraph]. The box function can be used to integrate
+/// such elements into a paragraph. Boxes take the size of their contents by
+/// default but can also be sized explicitly.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Refer to the docs
 /// #box(
@@ -31,12 +31,12 @@ use crate::visualize::{Paint, Stroke};
 pub struct BoxElem {
     /// The width of the box.
     ///
-    /// Boxes can have [fractional]($fraction) widths, as the example below
+    /// Boxes can have @fraction[fractional] widths, as the example below
     /// demonstrates.
     ///
-    /// _Note:_ Currently, only boxes and only their widths might be fractionally
-    /// sized within paragraphs. Support for fractionally sized images, shapes,
-    /// and more might be added in the future.
+    /// _Note:_ Currently, only boxes and only their widths might be
+    /// fractionally sized within paragraphs. Support for fractionally sized
+    /// images, shapes, and more might be added in the future.
     ///
     /// ```example
     /// Line in #box(width: 1fr, line(length: 100%)) between.
@@ -46,44 +46,65 @@ pub struct BoxElem {
     /// The height of the box.
     pub height: Smart<Rel<Length>>,
 
-    /// An amount to shift the box's baseline by.
+    /// The vertical position of the box's baseline. This is used to align the
+    /// box with the text surrounding it in a paragraph, as the baseline is
+    /// meant to go right below text by default.
+    ///
+    /// By default, the box's baseline will match the baseline of its contents
+    /// (for example, of the text or equation inside it) - this is the `{auto}`
+    /// option. However, the baseline can be adjusted in two ways. The first one
+    /// is to simply pick a vertical @alignment[alignment], such as `{top}`,
+    /// `{horizon}` or `{bottom}`, to place the baseline at that position,
+    /// relative to the total height of the box (including inset).
+    ///
+    /// The other way to adjust it is to shift the default baseline vertically
+    /// by some amount, specified as a @relative[relative length]. For example,
+    /// a value of `{2pt}` will move it up by that exact length (causing the
+    /// contents to go _down_, as the alignment point moves _up_), whereas
+    /// `{-40%}` will shift the baseline _down_ by 40% of the box's total
+    /// height, including inset (thus causing the contents to move _up_).
+    ///
+    /// Both options can be specified at the same time through a dictionary with
+    /// the keys `at` and `shift`, respectively. For example, when specifying
+    /// `{(at: bottom, shift: 10pt)}`, the box's baseline will be set to the
+    /// height exactly `{10pt}` above the bottom of its contents.
     ///
     /// ```example
     /// Image: #box(baseline: 40%, image("tiger.jpg", width: 2cm)).
     /// ```
-    pub baseline: Rel<Length>,
+    pub baseline: BaselinePos,
 
     /// The box's background color. See the
-    /// [rectangle's documentation]($rect.fill) for more details.
+    /// @rect.fill[rectangle's documentation] for more details.
     pub fill: Option<Paint>,
 
-    /// The box's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// The box's border color. See the @rect.stroke[rectangle's documentation]
+    /// for more details.
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the box's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// @rect.radius[rectangle's documentation] for more details.
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the box's content.
     ///
-    /// This can be a single length for all sides or a dictionary of lengths
-    /// for individual sides. When passing a dictionary, it can contain the
+    /// This can be a single length for all sides or a dictionary of lengths for
+    /// individual sides. When passing a dictionary, it can contain the
     /// following keys in order of precedence: `top`, `right`, `bottom`, `left`
     /// (controlling the respective cell sides), `x`, `y` (controlling vertical
     /// and horizontal insets), and `rest` (covers all insets not styled by
     /// other dictionary entries). All keys are optional; omitted keys will use
     /// their previously set value, or the default value if never set.
     ///
-    /// [Relative lengths]($relative) for this parameter are relative to the box
-    /// size excluding [outset]($box.outset). Note that relative insets and
-    /// outsets are different from relative [widths]($box.width) and
-    /// [heights]($box.height), which are relative to the container.
+    /// @relative[Relative lengths] for this parameter are relative to the box
+    /// size excluding @box.outset[outset]. Note that relative insets and
+    /// outsets are different from relative @box.width[widths] and
+    /// @box.height[heights], which are relative to the container.
     ///
     /// _Note:_ When the box contains text, its exact size depends on the
-    /// current [text edges]($text.top-edge).
+    /// current @text.top-edge[text edges].
     ///
     /// ```example
     /// #rect(inset: 0pt)[Tight]
@@ -94,13 +115,13 @@ pub struct BoxElem {
     /// How much to expand the box's size without affecting the layout.
     ///
     /// This can be a single length for all sides or a dictionary of lengths for
-    /// individual sides. [Relative lengths]($relative) for this parameter are
+    /// individual sides. @relative[Relative lengths] for this parameter are
     /// relative to the box size excluding outset. See the documentation for
-    /// [inset]($box.inset) above for further details.
+    /// @box.inset[inset] above for further details.
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
-    /// [raw text's block parameter]($raw.block).
+    /// @raw.block[raw text's block parameter].
     ///
     /// ```example
     /// An inline
@@ -139,8 +160,8 @@ pub struct BoxElem {
 /// across lines.
 #[elem(Construct)]
 pub struct InlineElem {
-    /// A callback that is invoked with the regions to produce arbitrary
-    /// inline items.
+    /// A callback that is invoked with the regions to produce arbitrary inline
+    /// items.
     #[required]
     #[internal]
     body: callbacks::InlineCallback,
@@ -197,12 +218,13 @@ pub enum InlineItem {
 /// background or border.
 ///
 /// Blocks are also the primary way to control whether text becomes part of a
-/// paragraph or not. See [the paragraph documentation]($par/#what-becomes-a-paragraph)
-/// for more details.
+/// paragraph or not. See
+/// @par:what-becomes-a-paragraph[the paragraph documentation] for more details.
 ///
-/// # Examples
+/// = Examples <examples>
 /// With a block, you can give a background to content while still allowing it
 /// to break across multiple pages.
+///
 /// ```example
 /// #set page(height: 100pt)
 /// #block(
@@ -215,6 +237,7 @@ pub enum InlineItem {
 ///
 /// Blocks are also useful to force elements that would otherwise be inline to
 /// become block-level, especially when writing show rules.
+///
 /// ```example
 /// #show heading: it => it.body
 /// = Blockless
@@ -240,8 +263,8 @@ pub struct BlockElem {
     pub width: Smart<Rel<Length>>,
 
     /// The block's height. When the height is larger than the remaining space
-    /// on a page and [`breakable`]($block.breakable) is `{true}`, the
-    /// block will continue on the next page with the remaining height.
+    /// on a page and @block.breakable[`breakable`] is `{true}`, the block will
+    /// continue on the next page with the remaining height.
     ///
     /// ```example
     /// #set page(height: 80pt)
@@ -269,40 +292,40 @@ pub struct BlockElem {
     pub breakable: bool,
 
     /// The block's background color. See the
-    /// [rectangle's documentation]($rect.fill) for more details.
+    /// @rect.fill[rectangle's documentation] for more details.
     pub fill: Option<Paint>,
 
     /// The block's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// @rect.stroke[rectangle's documentation] for more details.
     #[fold]
     pub stroke: Sides<Option<Option<Stroke>>>,
 
     /// How much to round the block's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// @rect.radius[rectangle's documentation] for more details.
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the block's content. See the
-    /// [box's documentation]($box.inset) for more details.
+    /// @box.inset[box's documentation] for more details.
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
-    /// the [box's documentation]($box.outset) for more details.
+    /// the @box.outset[box's documentation] for more details.
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
     /// The spacing around the block. When `{auto}`, inherits the paragraph
-    /// [`spacing`]($par.spacing).
+    /// @par.spacing[`spacing`].
     ///
-    /// For two adjacent blocks, the larger of the first block's `above` and the
-    /// second block's `below` spacing wins. Moreover, block spacing takes
-    /// precedence over paragraph [`spacing`]($par.spacing).
+    /// For two adjacent blocks, the larger of the first block's `below` and the
+    /// second block's `above` spacing wins. Moreover, block spacing takes
+    /// precedence over paragraph @par.spacing[`spacing`].
     ///
     /// Note that this is only a shorthand to set `above` and `below` to the
     /// same value. Since the values for `above` and `below` might differ, a
-    /// [context] block only provides access to `{block.above}` and
-    /// `{block.below}`, not to `{block.spacing}` directly.
+    /// @reference:context[context] block only provides access to
+    /// `{block.above}` and `{block.below}`, not to `{block.spacing}` directly.
     ///
     /// This property can be used in combination with a show rule to adjust the
     /// spacing around arbitrary block-level elements.
@@ -332,8 +355,8 @@ pub struct BlockElem {
 
     /// Whether to clip the content inside the block.
     ///
-    /// Clipping is useful when the block's content is larger than the block itself,
-    /// as any content that exceeds the block's bounds will be hidden.
+    /// Clipping is useful when the block's content is larger than the block
+    /// itself, as any content that exceeds the block's bounds will be hidden.
     ///
     /// ```example
     /// #block(
@@ -370,6 +393,12 @@ pub struct BlockElem {
 }
 
 impl BlockElem {
+    /// Creates a new block element with a normal content body and directly
+    /// packs it into type-erased content.
+    pub fn packed(body: Content) -> Content {
+        Self::new().with_body(Some(BlockBody::Content(body))).pack()
+    }
+
     /// Create a block with a custom single-region layouter.
     ///
     /// Such a block must have `breakable: false` (which is set by this
@@ -489,6 +518,81 @@ cast! {
     _: AutoValue => Self::Auto,
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
+}
+
+/// Configuration for a box's baseline.
+///
+/// Here `None` means unspecified and fields set to it are inherited.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+pub struct BaselinePos {
+    /// Baseline's reference position relative to the height of the box's
+    /// contents.
+    at: Option<Smart<VAlignment>>,
+    /// Amount to shift the baseline by.
+    shift: Option<Rel<Length>>,
+}
+
+cast! {
+    BaselinePos,
+    self => Value::Dict(self.into()),
+    at: Smart<VAlignment> => Self { at: Some(at), shift: None, },
+    shift: Rel<Length> => Self { at: None, shift: Some(shift) },
+    mut dict: Dict => {
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
+        }
+
+        let at = take(&mut dict, "at")?;
+        let shift = take(&mut dict, "shift")?;
+        dict.finish(&["at", "shift"])?;
+        Self { at, shift }
+    },
+}
+
+impl From<BaselinePos> for Dict {
+    fn from(baseline: BaselinePos) -> Self {
+        let mut dict = Dict::new();
+        if let Some(at) = baseline.at {
+            dict.insert("at".into(), at.into_value());
+        }
+        if let Some(shift) = baseline.shift {
+            dict.insert("shift".into(), shift.into_value());
+        }
+        dict
+    }
+}
+
+impl BaselinePos {
+    /// Baseline position relative to frame height, or `auto` to align with the
+    /// inner baseline.
+    pub fn at(&self) -> Smart<VAlignment> {
+        self.at.unwrap_or_default()
+    }
+
+    /// Amount to shift by, with default resolved.
+    pub fn shift(&self) -> Rel<Length> {
+        self.shift.unwrap_or_default()
+    }
+}
+
+impl Default for BaselinePos {
+    fn default() -> Self {
+        Self {
+            at: Some(Default::default()),
+            shift: Some(Default::default()),
+        }
+    }
+}
+
+impl Fold for BaselinePos {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            at: self.at.or(outer.at),
+            shift: self.shift.or(outer.shift),
+        }
+    }
 }
 
 /// Manual closure implementations for layout callbacks.

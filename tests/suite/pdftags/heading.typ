@@ -8,9 +8,9 @@
 == Level 2
 
 --- heading-tags-non-consecutive-levels pdftags pdfstandard(ua-1) ---
-// Error: 2:1-2:12 PDF/UA-1 error: skipped from heading level 1 to 3
-// Hint: 2:1-2:12 heading levels must be consecutive
 = Level 1
+// Error: 1-12 PDF/UA-1 error: skipped from heading level 1 to 3
+// Hint: 1-12 heading levels must be consecutive
 === Level 3
 
 --- heading-tags-complex pdftags pdfstandard(ua-1) ---
