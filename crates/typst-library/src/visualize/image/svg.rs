@@ -358,7 +358,11 @@ impl<'a> ImageResolver<'a> {
     }
 
     /// Load a linked image or return an error message string.
-    fn load_or_error(&mut self, href: &str, opts: &usvg::Options) -> StrResult<usvg::ImageKind> {
+    fn load_or_error(
+        &mut self,
+        href: &str,
+        opts: &usvg::Options,
+    ) -> StrResult<usvg::ImageKind> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
         let href = href.strip_prefix("file://").unwrap_or(href);
 
