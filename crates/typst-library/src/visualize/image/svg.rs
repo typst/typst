@@ -77,8 +77,8 @@ impl SvgImage {
                 },
                 image_href_resolver: usvg::ImageHrefResolver {
                     resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
-                    resolve_string: Box::new(|href, _opts| {
-                        image_resolver.lock().unwrap().load(href)
+                    resolve_string: Box::new(|href, opts| {
+                        image_resolver.lock().unwrap().load(href, opts)
                     }),
                 },
                 ..base_options()
@@ -340,11 +340,11 @@ impl<'a> ImageResolver<'a> {
     /// Load a linked image or return None if a previous image caused an error,
     /// or if the linked image failed to load.
     /// Only the first error message is retained.
-    fn load(&mut self, href: &str) -> Option<usvg::ImageKind> {
+    fn load(&mut self, href: &str, opts: &usvg::Options) -> Option<usvg::ImageKind> {
         if self.error.is_some() {
             return None;
         }
-        match self.load_or_error(href) {
+        match self.load_or_error(href, opts) {
             Ok(image) => Some(image),
             Err(err) => {
                 self.error = Some(LoadError::text(
@@ -358,7 +358,7 @@ impl<'a> ImageResolver<'a> {
     }
 
     /// Load a linked image or return an error message string.
-    fn load_or_error(&mut self, href: &str) -> StrResult<usvg::ImageKind> {
+    fn load_or_error(&mut self, href: &str, opts: &usvg::Options) -> StrResult<usvg::ImageKind> {
         // If the href starts with "file://", strip this prefix to construct an ordinary path.
         let href = href.strip_prefix("file://").unwrap_or(href);
 
@@ -396,7 +396,9 @@ impl<'a> ImageResolver<'a> {
                 match format {
                     Some(ImageFormat::Vector(vector_format)) => match vector_format {
                         VectorFormat::Svg => {
-                            Err("SVG images are not supported yet".into())
+                            let tree = usvg::Tree::from_data_nested(&arc_data, opts)
+                                .map_err(|_| "failed to parse SVG")?;
+                            Ok(usvg::ImageKind::SVG(tree))
                         }
                         VectorFormat::Pdf => {
                             Err("PDF documents are not supported".into())
