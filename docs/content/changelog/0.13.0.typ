@@ -210,7 +210,7 @@
 = Deprecations <deprecations>
 - The `path` function in favor of the @curve function
 - The name `pattern` for tiling patterns in favor of the new name @tiling
-- @image.decode, @cbor.decode, @csv.decode, @json.decode, @toml.decode, @xml.decode, @yaml.decode in favor of the top-level functions directly accepting both paths and bytes
+- `image.decode`, `cbor.decode`, `csv.decode`, `json.decode`, `toml.decode`, `xml.decode`, `yaml.decode` in favor of the top-level functions directly accepting both paths and bytes
 - The `sect` and its variants in favor of `inter`, and `integral.sect` in favor of `integral.inter`
 - The compatibility behavior of type/str comparisons (e.g. `{int == "integer"}`) which was temporarily introduced in Typst 0.8 now emits warnings. It will be removed in Typst 0.14.
 

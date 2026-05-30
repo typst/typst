@@ -188,7 +188,7 @@ This is one of many numbered pages.
 
 Go to the @numbering.numbering[`{numbering}` function reference] to learn more about the arguments you can pass here.
 
-In case you need to right- or left-align the page number, use the @page.number-align[`number-align`] argument of the @page[`{page}`] set rule. Alternating alignment between even and odd pages is not currently supported using this property. To do this, you'll need to specify a custom footer with your footnote and query the page counter as described in the section on conditionally omitting headers and footers.
+In case you need to right- or left-align the page number, use the @page.number-align[`number-align`] argument of the @page[`{page}`] set rule. Alternating alignment between even and odd pages is not currently supported using this property. To do this, you'll need to specify a custom footer and query the page counter as described in the section on conditionally omitting headers and footers.
 
 == Custom footer with page numbers <custom-footer-with-page-numbers>
 Sometimes, you need to add other content than a page number to your footer. However, once a footer is specified, the @page.numbering[`numbering`] argument of the @page[`{page}`] set rule is ignored. This section shows you how to add a custom footer with page numbers and more.
@@ -284,6 +284,10 @@ Very commonly, scientific papers have a single-column title and abstract, while 
   single: true,
   ```
   >>> #set page(height: 180pt)
+  >>> #show heading.where(level: 1): set text(size: 0.9em)
+  #set document(
+    title: [Impacts of Odobenidae],
+  )
   #set page(columns: 2)
   #set par(justify: true)
 
@@ -291,12 +295,10 @@ Very commonly, scientific papers have a single-column title and abstract, while 
     top + center,
     float: true,
     scope: "parent",
-    text(1.4em, weight: "bold")[
-      Impacts of Odobenidae
-    ],
+    title(),
   )
 
-  == About seals in the wild
+  = About seals in the wild
   #lorem(80)
   ```
 )

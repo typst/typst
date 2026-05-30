@@ -14,7 +14,7 @@ use typst_library::text::{
 use typst_syntax::Span;
 use typst_utils::SliceExt;
 
-use crate::fragment::{html_block_fragment, html_inline_fragment};
+use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{
     FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
 };
@@ -208,6 +208,15 @@ fn handle_html_elem(
             // create inline-level content next to block-level content
             // without a paragraph automatically appearing.
             *converter.quoter = SmartQuoter::new();
+        } else if tag::mathml::is_mathml(elem.tag) {
+            children = html_math_fragment(
+                converter.engine,
+                body,
+                converter.locator,
+                converter.quoter,
+                styles,
+                whitespace,
+            )?;
         } else {
             children = html_inline_fragment(
                 converter.engine,
@@ -363,12 +372,22 @@ fn handle_box(
 ///
 /// Paragraphs only allow "Phrasing content". The default display properties
 /// that exists for valid phrasing content are `none`, `inline`, `inline-block`,
-/// `contents`, and `ruby`. These can all be left as-is.
+/// `contents`, `ruby`, and `inline math`. These can all be left as-is.
 ///
 /// If, however, the `display` property was set to something like `block`
-/// through a Typst `block` element, we need to unset it.
+/// through a Typst `block` element, we need to unset it. Further, if a math
+/// element has its `display` attribute set to `block`, then we need to
+/// override it.
 fn make_inline_level(node: &mut HtmlNode) {
-    set_display(node, None);
+    let mode = if let HtmlNode::Element(element) = node
+        && element.tag == tag::mathml::math
+        && element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")
+    {
+        Some(property::Display::InlineMath)
+    } else {
+        None
+    };
+    set_display(node, mode);
 }
 
 /// Processes a block element.
@@ -424,6 +443,17 @@ fn handle_block(
 /// frame).
 fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
     let default = match node {
+        // A math element's default display property depends on its `display`
+        // attribute.
+        HtmlNode::Element(element)
+            if element.tag == tag::mathml::math
+                && element
+                    .attrs
+                    .get(attr::mathml::display)
+                    .is_some_and(|v| v == "block") =>
+        {
+            Some(property::Display::BlockMath)
+        }
         HtmlNode::Element(element) => property::Display::default_for(element.tag),
         HtmlNode::Frame(_) => Some(property::Display::Inline),
         _ => return Err(Unblockable),
@@ -437,13 +467,15 @@ fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
             | property::Display::Block
             | property::Display::Table
             | property::Display::ListItem
-            | property::Display::Contents,
+            | property::Display::Contents
+            | property::Display::BlockMath,
         ) => None,
 
         // These must be promoted to `block`.
         None | Some(property::Display::Inline | property::Display::InlineBlock) => {
             Some(property::Display::Block)
         }
+        Some(property::Display::InlineMath) => Some(property::Display::BlockMath),
 
         // These can't be promoted. They are instead wrapped in a `<div>`.
         _ => return Err(Unblockable),

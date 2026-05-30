@@ -3,7 +3,7 @@ use typst_library::foundations::{Resolve, StyleChain};
 use typst_library::layout::{
     Abs, AlignElem, Em, FixedAlignment, Frame, InlineItem, Point, Size,
 };
-use typst_library::math::ir::MultilineItem;
+use typst_library::math::ir::{AlignedRow, MathItem, MultilineItem};
 use typst_library::math::{EquationElem, LeftRightAlternator, MathSize};
 use typst_library::model::ParElem;
 use unicode_math_class::MathClass;
@@ -39,11 +39,9 @@ pub fn layout_multiline(
     let mut col_widths = vec![Abs::zero(); ncols];
     let mut rows: Vec<Vec<MathRun>> = Vec::with_capacity(nrows);
     for row in item.rows.iter() {
-        let mut cells = Vec::with_capacity(ncols);
-        for (c, cell) in row.iter().enumerate() {
-            let frags = ctx.layout_into_fragments(cell, styles)?;
-            col_widths[c].set_max(frags.iter().map(|f| f.width()).sum());
-            cells.push(frags);
+        let cells = layout_aligned_row(row, ctx, styles)?;
+        for (c, cell) in cells.iter().enumerate() {
+            col_widths[c].set_max(cell.iter().map(|f| f.width()).sum());
         }
         rows.push(cells);
     }
@@ -68,6 +66,31 @@ pub fn layout_multiline(
         leading,
         Abs::zero(),
     ))
+}
+
+/// Layout an [`AlignedRow`].
+pub fn layout_aligned_row(
+    row: &AlignedRow,
+    ctx: &mut MathContext,
+    styles: StyleChain,
+) -> SourceResult<Vec<MathRun>> {
+    let mut cells = Vec::with_capacity(row.len());
+    for (c, item) in row.iter().enumerate() {
+        let mut frags = ctx.layout_into_fragments(item, styles)?;
+
+        // For a (right-aligned, left-aligned) pair, move the lspace of the item
+        // in the left-aligned column to the right-aligned column.
+        if c.is_multiple_of(2)
+            && let Some(next_item) = row.get(c + 1)
+            && let Some(spacing) = alignment_lspace(next_item)
+        {
+            frags.push(MathFragment::Space(spacing));
+        }
+
+        cells.push(frags);
+    }
+
+    Ok(cells)
 }
 
 /// A single row to be laid out in multiline math.
@@ -333,4 +356,18 @@ fn cumulative_alignment_points(widths: &[Abs]) -> (Vec<Abs>, Abs) {
         points.push(cumulative);
     }
     (points, cumulative)
+}
+
+/// Returns the resolved alignment lspace of the first non-tag item in a cell,
+/// if it has `align_form_infix` set.
+fn alignment_lspace(cell: &MathItem) -> Option<Abs> {
+    cell.as_slice()
+        .iter()
+        .find(|item| !matches!(item, MathItem::Tag(_)))
+        .and_then(|item| match item {
+            MathItem::Component(comp) if comp.props.align_form_infix => {
+                comp.props.lspace.map(|lspace| lspace.resolve(comp.styles))
+            }
+            _ => None,
+        })
 }

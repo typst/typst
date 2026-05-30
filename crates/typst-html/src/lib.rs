@@ -13,6 +13,7 @@ mod encode;
 mod fragment;
 mod introspect;
 mod link;
+mod mathml;
 mod rules;
 mod typed;
 
@@ -21,7 +22,7 @@ pub use self::dom::*;
 pub use self::encode::{html, html_in_bundle};
 pub use self::introspect::HtmlIntrospector;
 pub use self::link::create_link_anchors;
-pub use self::rules::{html_span_filled, register};
+pub use self::rules::{html_mathml_body, html_span_filled, register};
 
 use ecow::EcoString;
 use typst_library::Category;
