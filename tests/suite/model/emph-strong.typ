@@ -61,6 +61,12 @@ Normal
 #set strong(delta: 150)
 *Medium* and *#[*Bold*]*
 
+--- strong-delta-overflow paged ---
+// Nesting strong with extreme deltas must not overflow when the deltas are
+// summed during folding.
+#set strong(delta: 9223372036854775807)
+*#[*Bold*]*
+
 --- strong-empty-hint paged empty ---
 // Warning: 1-3 no text within stars
 // Hint: 1-3 using multiple consecutive stars (e.g. **) has no additional effect

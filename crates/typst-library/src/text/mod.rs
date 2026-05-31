@@ -1445,7 +1445,7 @@ pub struct WeightDelta(pub i64);
 
 impl Fold for WeightDelta {
     fn fold(self, outer: Self) -> Self {
-        Self(outer.0 + self.0)
+        Self(outer.0.saturating_add(self.0))
     }
 }
 
