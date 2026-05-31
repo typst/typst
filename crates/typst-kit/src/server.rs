@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
+use percent_encoding::percent_decode_str;
 use tiny_http::{Header, Request, Response, StatusCode};
 use typst_library::diag::{StrResult, bail};
 use typst_library::foundations::Bytes;
@@ -147,12 +148,16 @@ fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<
     };
 
     let path = url.path();
+    let Ok(path) = percent_decode_str(path).decode_utf8() else {
+        return req.respond(Response::empty(StatusCode(400)));
+    };
+
     if path == "/__events" {
         return handle_events(req, bucket.clone());
     }
 
     let fs = bucket.get();
-    let Some(body) = fs(path) else {
+    let Some(body) = fs(path.as_ref()) else {
         return req.respond(Response::empty(StatusCode(404)));
     };
 

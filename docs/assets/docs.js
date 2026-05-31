@@ -467,7 +467,9 @@ function setUpSymbolFlyout(symbolGrid) {
     ".info .sym-deprecation .text",
   );
   /** @type {HTMLElement | null} */
-  const foName = flyout.querySelector(".sym-name code");
+  const foName = flyout.querySelector(".info .sym-name");
+  /** @type {HTMLElement | null} */
+  const foNameCode = flyout.querySelector(".info .sym-name code");
   /** @type {HTMLElement | null} */
   const foUnicName = flyout.querySelector(".info .unic-name");
   /** @type {HTMLElement | null} */
@@ -482,8 +484,6 @@ function setUpSymbolFlyout(symbolGrid) {
   const foCodepoint = flyout.querySelector(".info .codepoint .value");
   /** @type {HTMLElement | null} */
   const foAccent = flyout.querySelector(".info .accent");
-  /** @type {HTMLImageElement | null} */
-  const foAccentIcon = flyout.querySelector(".info .accent img");
   /** @type {HTMLElement | null} */
   const foVariantsBox = flyout.querySelector(".variants-box");
   /** @type {HTMLElement | null} */
@@ -535,8 +535,8 @@ function setUpSymbolFlyout(symbolGrid) {
     item.ariaHasPopup = "true";
     flyoutOpenId = item.id;
     flyout.style.display = "block";
-    const name = item.id.replace(/^symbol-/, "");
     const deprecation = item.dataset.deprecation;
+    const codexName = item.dataset.codexName;
     const unicName = item.dataset.unicName;
     const latexName = item.dataset.latexName;
     const codepoint = item.dataset.value?.charCodeAt(0) ?? 0;
@@ -565,12 +565,15 @@ function setUpSymbolFlyout(symbolGrid) {
       foDeprecationText.textContent = deprecation.replaceAll("`", "");
     }
 
-    foName.textContent = name;
+    if (codexName) {
+      foName.style.display = "block";
+      foNameCode.textContent = codexName;
+    } else {
+      foName.style.display = "none";
+    }
     foUnicName.textContent = unicName ?? "";
     foCodepoint.textContent = codepointText;
-    foAccent.style.display = accent ? "block" : "none";
-    foAccentIcon.src = accent ? checkIconSrc : closeIconSrc;
-    foAccentIcon.setAttribute("alt", accent ? "Yes" : "No");
+    foAccent.style.display = accent ? null : "none";
     foShorthand.style.display =
       shorthand && shorthand.length > 0 ? "block" : "none";
     foShorthandCode.textContent = shorthand ?? "";
@@ -589,7 +592,7 @@ function setUpSymbolFlyout(symbolGrid) {
       foMathClass.style.display = "none";
     }
 
-    const nameListener = () => copyText(name);
+    const nameListener = () => copyText(codexName);
     foCopySymNameBtn.addEventListener("click", nameListener);
     listeners.push({ target: foCopySymNameBtn, listener: nameListener });
 
@@ -728,7 +731,13 @@ async function setUpGlobalSearch() {
     const items = matches.map((hit) => {
       const item = index.items[hit];
       let url = item.route;
-      if (item.kind == "Symbols") {
+      if (
+        item.kind == "Symbols" &&
+        !"symbols".startsWith(query.toLowerCase()) &&
+        !"emojis".startsWith(query.toLowerCase())
+      ) {
+        // Prefill the symbol list search box unless the user searched for
+        // something like "symbols", "sym", or "emoji".
         url += "?query=" + query;
       }
       const li = document.createElement("li");
@@ -986,10 +995,11 @@ function searchSymbols(symbols, query) {
   for (const element of symbols) {
     let hit = false;
     for (const s of [
-      element.id.replace(/^symbol-/, ""),
+      element.dataset.codexName,
       element.dataset.unicName,
       element.dataset.latexName,
       element.dataset.value,
+      element.dataset.keywords,
       element.dataset.shorthand,
       element.dataset.mathShorthand,
     ]) {

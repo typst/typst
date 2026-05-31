@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{EcoString, eco_format};
-use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
+use hayro::hayro_interpret::InterpreterSettings;
+use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+use hayro_svg::{RenderCache, SvgRenderSettings};
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
@@ -167,8 +169,16 @@ fn pdf_to_svg(pdf: &PdfImage) -> String {
             FontQuery::Standard(s) => select_standard_font(*s),
             FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
+        cmap_resolver: Arc::new(|_| None),
         warning_sink: Arc::new(|_| {}),
+        render_annotations: false,
     };
 
-    hayro_svg::convert(pdf.page(), &interpreter_settings)
+    let cache = RenderCache::new();
+    hayro_svg::convert(
+        pdf.page(),
+        &cache,
+        &interpreter_settings,
+        &SvgRenderSettings { bg_color: [0, 0, 0, 0] },
+    )
 }

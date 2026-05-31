@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 
-use krilla::tagging::{ArtifactType, Identifier, ListNumbering, TagKind};
+use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
@@ -228,7 +228,7 @@ impl Groups {
 pub enum BreakOpportunity {
     /// The group is unbreakable.
     Never,
-    /// The group can only be broken, when
+    /// The group can only be broken when PDF/UA isn't targeted.
     NoPdfUa(BreakPriority),
     /// The group can always be broken.
     Always(BreakPriority),
@@ -499,9 +499,9 @@ impl GroupKind {
         matches!(self, Self::Link(..))
     }
 
-    pub fn as_artifact(&self) -> Option<ArtifactType> {
+    pub fn as_artifact(&self) -> Option<Artifact> {
         match *self {
-            GroupKind::Artifact(ty) => Some(ty),
+            GroupKind::Artifact(ty) => Some(Artifact::with_kind(ty)),
             _ => None,
         }
     }

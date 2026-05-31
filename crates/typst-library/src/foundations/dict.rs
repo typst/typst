@@ -219,7 +219,7 @@ impl Dict {
     /// Inserts a new pair into the dictionary. If the dictionary already
     /// contains this key, the value is updated.
     ///
-    /// To insert multiple pairs at once, you can just alternatively another
+    /// To insert multiple pairs at once, you can alternatively add another
     /// dictionary with the `+=` operator.
     #[func]
     pub fn insert(

@@ -67,7 +67,9 @@ pub fn layout_primes(
     styles: StyleChain,
     props: &MathProperties,
 ) -> SourceResult<()> {
-    let Some(prime) = GlyphFragment::new_char(ctx, styles, PRIME_CHAR, props.span) else {
+    let Some(prime) =
+        GlyphFragment::synthetic(ctx.engine, styles, PRIME_CHAR, props.span)
+    else {
         return Ok(());
     };
     let prime = MathFragment::from(prime).into_frame();

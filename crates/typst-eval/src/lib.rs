@@ -24,7 +24,7 @@ use self::binding::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
@@ -120,7 +120,9 @@ pub fn eval_string(
     match spans {
         SpanMode::Uniform(span) if span.is_detached() => {}
         SpanMode::Uniform(span) => root.synthesize(span),
-        SpanMode::Mapped { id, mapper } => root.synthesize_mapped(id, mapper),
+        SpanMode::Mapped { id, mapper, mapper_error_span } => {
+            root.synthesize_mapped(id, mapper).at(mapper_error_span)?;
+        }
     }
 
     // Check for errors or warnings in the syntax tree before evaluating it.

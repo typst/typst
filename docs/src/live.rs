@@ -1,15 +1,19 @@
 //! Cooperates with `docs/components/live.typ`.
 
+use proc_macro2::Span;
 use std::ops::Range;
-
 use syn::spanned::Spanned as _;
 use typst::diag::bail;
 use typst::foundations::{Array, Dict, IntoValue, Str, array, cast, func};
 
 /// Takes a string of Rust source code and provides all doc comments in it that
-/// belong to native definitions, keyed by the definitions def site key.
+/// belong to native definitions, keyed by the definitions def site key. Also
+/// returns the position of each native definition.
 ///
-/// Returns a dictionary from items keys to pairs of (strings, ranges).
+/// Returns a dictionary from items keys to triplets of:
+/// - The line number where the item is defined within the file;
+/// - A single string containing the full documentation source;
+/// - The corresponding ranges in the source file.
 ///
 /// The item keys are per-file unique string that identify specific items. The
 /// key structure is agreed upon between this function and the `key` file of
@@ -20,8 +24,8 @@ use typst::foundations::{Array, Dict, IntoValue, Str, array, cast, func};
 /// The ranges are represented as arrays of (start, end) pairs. They plug right
 /// into `eval_mapped`'s `ranges` parameter.
 #[func]
-pub fn docs_in_source(source: Str) -> Dict {
-    let mut v = DocsVisitor { items: Dict::new() };
+pub fn live_item_data(source: Str) -> Dict {
+    let mut v = LiveVisitor { items: Dict::new() };
     let file = syn::parse_file(&source);
     if let Ok(file) = &file {
         for item in &file.items {
@@ -31,35 +35,37 @@ pub fn docs_in_source(source: Str) -> Dict {
     v.items
 }
 
-/// Processes a Rust file and collects doc comments for items. Internally this
-/// accumulates the collected documentation for all recognized items.
-struct DocsVisitor {
-    /// See `docs_in_source` for more information on the structure of this.
+/// Processes a Rust file and collects positions and doc comments of items.
+/// Internally, this accumulates the collected documentation for all recognized
+/// items.
+struct LiveVisitor {
+    /// See [`live_item_data`][live_item_data()] for more information on the
+    /// structure of this.
     items: Dict,
 }
 
-impl DocsVisitor {
+impl LiveVisitor {
     fn visit_item(&mut self, item: &syn::Item) {
         match item {
             syn::Item::Struct(s) if has_attr(&s.attrs, "ty") => {
                 let key = s.ident.to_string();
-                self.save_docs(key, &s.attrs);
+                self.save_docs(key, s.span(), &s.attrs);
             }
             syn::Item::Struct(s) if has_attr(&s.attrs, "elem") => {
                 let key = s.ident.to_string();
                 for field in &s.fields {
                     let Some(ident) = &field.ident else { continue };
                     let key = format!("{key}::{ident}");
-                    self.save_docs(key, &field.attrs);
+                    self.save_docs(key, field.span(), &field.attrs);
                 }
-                self.save_docs(key, &s.attrs);
+                self.save_docs(key, s.span(), &s.attrs);
             }
             syn::Item::Enum(e) if has_attr(&e.attrs, "ty") => {
                 let key = e.ident.to_string();
-                self.save_docs(key, &e.attrs);
+                self.save_docs(key, e.span(), &e.attrs);
             }
             syn::Item::Fn(f) if has_attr(&f.attrs, "func") => {
-                self.visit_func(&f.attrs, &f.sig, None);
+                self.visit_func(f.span(), &f.attrs, &f.sig, None);
             }
             syn::Item::Impl(i) => {
                 if let syn::Type::Path(path) = &*i.self_ty
@@ -69,7 +75,12 @@ impl DocsVisitor {
                         if let syn::ImplItem::Fn(item) = item
                             && has_attr(&item.attrs, "func")
                         {
-                            self.visit_func(&item.attrs, &item.sig, Some(parent));
+                            self.visit_func(
+                                item.span(),
+                                &item.attrs,
+                                &item.sig,
+                                Some(parent),
+                            );
                         }
                     }
                 }
@@ -79,7 +90,7 @@ impl DocsVisitor {
                     && has_attr(&t.attrs, "ty")
                 {
                     let key = t.ident.to_string();
-                    self.save_docs(key, &t.attrs);
+                    self.save_docs(key, s.span(), &t.attrs);
                 }
             }
             _ => {}
@@ -88,6 +99,7 @@ impl DocsVisitor {
 
     fn visit_func(
         &mut self,
+        span: Span,
         attrs: &[syn::Attribute],
         sig: &syn::Signature,
         parent: Option<&syn::Ident>,
@@ -103,14 +115,15 @@ impl DocsVisitor {
                 && let syn::Pat::Ident(pat) = &*pat_type.pat
             {
                 let key = format!("{key}::{}", pat.ident);
-                self.save_docs(key, &pat_type.attrs);
+                self.save_docs(key, pat_type.span(), &pat_type.attrs);
             }
         }
 
-        self.save_docs(key, attrs);
+        self.save_docs(key, span, attrs);
     }
 
-    fn save_docs(&mut self, key: String, attrs: &[syn::Attribute]) {
+    fn save_docs(&mut self, key: String, item_span: Span, attrs: &[syn::Attribute]) {
+        let line = item_span.start().line;
         let mut docs = String::new();
         let mut ranges = Vec::new();
 
@@ -132,7 +145,7 @@ impl DocsVisitor {
             }
         }
 
-        self.items.insert(key.into(), array![docs, ranges].into_value());
+        self.items.insert(key.into(), array![line, docs, ranges].into_value());
     }
 }
 

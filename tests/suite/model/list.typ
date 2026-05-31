@@ -175,6 +175,95 @@ Not in list
 // Error: 19-21 array must contain at least one marker
 #set list(marker: ())
 
+--- list-marker-align-horizontal paged ---
+#set list(marker: {
+  counter("list").update(n => calc.max(n * 10, 1))
+  context counter("list").display()
+})
+
+- Item
+- Item
+- Item
+
+#set list(marker-align: start)
+#counter("list").update(0)
+
+- Item
+- Item
+- Item
+
+--- list-marker-align-vertical paged ---
+- #box(fill: teal, inset: 10pt)[a]
+
+#set list(marker-align: top)
+- #box(fill: teal, inset: 10pt)[b]
+
+#set list(marker-align: horizon)
+- #box(fill: teal, inset: 10pt)[c]
+
+#set list(marker-align: bottom)
+- #box(fill: teal, inset: 10pt)[d]
+
+--- list-marker-align-unfolded paged ---
+// Marker align option should not be affected by the context.
+#[
+  #set align(top)
+  #set list(marker-align: horizon)
+
+  - #box(fill: teal, inset: 10pt )[]
+]
+
+#[
+  #set align(horizon)
+  - #box(fill: teal, inset: 10pt)[]
+]
+
+--- list-marker-align-unfolded-mixed paged ---
+// Verify whether overriding vertical alignment causes horizontal alignment to
+// be inherited from the context.
+#set align(center)
+#set list(
+  marker-align: top,
+  marker: {
+    // Artificially cause markers to have a different width.
+    counter("b").step()
+    context {
+      "1" * counter("b").get().first()
+    }
+  }
+)
+
+- abc
+- abc
+- abc
+
+--- list-marker-align-big-marker paged ---
+#set list(
+  marker: rect(fill: red, width: 10pt, height: 4em),
+  marker-align: bottom,
+)
+
+
+#list[]
+
+- abc
+
+- A\ B\ C\ D\ E\ F
+
+--- list-marker-align-values paged empty ---
+// Test valid marker align values (horizontal and vertical)
+#set enum(number-align: start)
+#set enum(number-align: end)
+#set enum(number-align: left)
+#set enum(number-align: center)
+#set enum(number-align: right)
+#set enum(number-align: top)
+#set enum(number-align: horizon)
+#set enum(number-align: bottom)
+#set enum(number-align: start + top)
+#set enum(number-align: left + horizon)
+#set enum(number-align: center + bottom)
+
 --- list-attached paged ---
 // Test basic attached list.
 Attached to:
@@ -238,6 +327,116 @@ World
 #text(red)[- World]
 #text(green)[- What up?]
 
+--- list-multi-page paged ---
+// Markers should only appear on the first page of each item, and further pages
+// should be indented.
+#set page(width: auto, height: 4em)
+
+- Abc
+  def
+
+  ghi
+  jkl
+
+  mno
+  pqr
+- Other
+  other
+
+  other
+  other
+
+--- list-colbreak paged ---
+- Abc
+  def
+  #colbreak()
+  ghi
+  jkl
+  #colbreak()
+  mno
+  pqr
+
+--- list-baseline-table paged ---
+- #table(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+- #table(
+    inset: 10pt,
+    columns: 2,
+    stroke: none,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-grid paged ---
+- #grid(
+    inset: 10pt,
+    columns: 2,
+    [a], [b],
+    [c], [d]
+  )
+
+--- list-baseline-curve paged ---
+#let dy = 15pt
+- #curve(
+    stroke: 5pt,
+    curve.move((0pt,  30pt + dy)),
+    curve.line((30pt, 30pt + dy)),
+    curve.line((15pt, dy)),
+    curve.close()
+  )
+
+--- list-baseline-pars paged ---
+
+- #lorem(8)
+
+  #lorem(8)
+
+--- list-baseline-transform paged ---
+#set rotate(reflow: true)
+#set scale(reflow: true)
+#set skew(reflow: true)
+
+- Abc
+- #rotate(90deg)[Abc]
+- #rotate(180deg)[Abc]
+- #scale(30%)[Abc]
+- #skew(ax: 30deg)[Abc]
+- #skew(ay: 30deg)[Abc]
+
+--- list-baseline-text-with-math paged ---
+#set page(width: auto, height: auto)
+- Text
+  - Text $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+  - $ "O1" = (7 "O1" + 3 (display((sum_(i = 1)^4 L_i)/4)))/10 $
+
+--- list-baseline-math-fraction paged ---
+- $ (7 "O1" + 3 (display((sum_(i = 5)^8 L_i)/4)))/10 $
+
+--- list-baseline-multiline-math paged ---
+- $
+    sum_(i = 1)^n (x_i)^5 &= 0 \
+    y_1 + y_2 &= 10 \
+    (a b c)/x^2 &= 5
+  $
+
+
+--- list-baseline-big-marker paged ---
+#set list(
+  marker: rect(fill: red, width: 10pt, height: 4em),
+)
+
+
+#list[]
+
+- abc
+
+- A\ B\ C\ D\ E\ F
+
 --- list-par paged html ---
 // Check whether the contents of list items become paragraphs.
 #show par: it => if target() != "html" { highlight(it) } else { it }
@@ -264,6 +463,103 @@ World
 
   - World // Paragraph because it's a wide list.
 ]
+
+--- list-expand-block paged ---
+// Lists should shrink to fit their own items inside `auto`-width blocks,
+// or expand to the full width of fixed-width containers (/page).
+#block[
+  - #align(center)[a]
+  - bbbb
+  - #rect(width: 4em, height: 1em, fill: red)
+]
+
+#block(width: 6em)[
+  - #align(center)[a]
+  - bbbb
+  - #rect(width: 4em, height: 1em, fill: red)
+]
+
+- #align(center)[a]
+- bbbb
+- #rect(width: 4em, height: 1em, fill: red)
+
+--- list-expand-auto paged ---
+// Lists should shrink to fit their own contents inside auto-width pages.
+#set page(width: auto)
+- #align(center)[a]
+- #rect(width: 4em, height: 1em, fill: red)
+
+longlonglonglonglonglonglong
+
+--- list-big-marker-full-width paged ---
+#set page(width: 200pt)
+#[
+  #set list(indent: 100pt)
+  - #lorem(12)
+]
+#[
+  #set list(marker: [AAAAAAAAAAAAAAAAAAAAA])
+  - #lorem(12)
+]
+
+--- list-big-marker-block paged ---
+#set page(width: 200pt)
+#block[
+  #set list(indent: 100pt)
+  - #lorem(12)
+]
+#block[
+  #set list(marker: [AAAAAAAAAAAAAAAAAAAAA])
+  - #lorem(12)
+]
+
+--- list-negative-indent-full-width paged ---
+#set page(width: 200pt)
+#[
+  #set list(indent: -50pt)
+  - #lorem(12)
+]
+#[
+  #set list(marker: box(width: 100%, height: 1em, fill: red))
+  - abc
+  #set list(indent: -50pt)
+  - abc
+]
+
+--- list-negative-indent-block paged ---
+#set page(width: 200pt)
+#block[
+  #set list(indent: -50pt)
+  - #lorem(12)
+]
+#block[
+  #set list(marker: box(width: 100%, height: 1em, fill: red))
+  - abc
+  #set list(indent: -50pt)
+  - abc
+]
+
+--- list-negative-indent-auto paged ---
+#set page(width: auto)
+#[
+  #set list(indent: -50pt)
+  - #lorem(20)
+]
+
+--- list-vertical-alignment-in-item paged ---
+#set page(height: auto)
+- a
+- #align(bottom)[b]
+- c
+
+d
+
+#set page(height: 10em)
+- a
+- #align(bottom)[b]
+- c
+
+d
 
 --- issue-2530-list-item-panic paged ---
 // List item (pre-emptive)
@@ -312,3 +608,18 @@ World
   - B
   - C
 - C
+
+--- issue-529-list-center-alignment paged ---
+#set page(width: 2cm)
+- A
+- #align(center)[B]
+- $ C $
+
+--- issue-1204-list-baseline-alignment paged ---
+- A
+- $ sum_(i = 1)^n overbrace(x^6, y) $
+- #box(baseline: 1cm)[C]
+- #v(1cm) D
+- #text(48pt)[E]
+- #block(inset: 10pt, stroke: red)[Hello world!]
+- #rect[Hello world!]

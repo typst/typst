@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use ecow::{EcoString, EcoVec, eco_format};
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
@@ -40,7 +40,7 @@ static CMYK_TO_XYZ: LazyLock<ColorProfile> = LazyLock::new(|| {
 /// The target sRGB profile.
 static SRGB_PROFILE: LazyLock<ColorProfile> = LazyLock::new(ColorProfile::new_srgb);
 
-static TO_SRGB: LazyLock<Box<moxcms::Transform8BitExecutor>> = LazyLock::new(|| {
+static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| {
     CMYK_TO_XYZ
         .create_transform_8bit(
             Layout::Rgba,

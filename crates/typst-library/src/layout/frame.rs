@@ -33,7 +33,7 @@ pub struct Frame {
 impl Frame {
     /// Create a new, empty frame.
     ///
-    /// Panics the size is not finite.
+    /// Panics if the size is not finite.
     #[track_caller]
     pub fn new(size: Size, kind: FrameKind) -> Self {
         assert!(size.is_finite());

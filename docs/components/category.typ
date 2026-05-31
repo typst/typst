@@ -1,11 +1,12 @@
 #import "system.typ": colors
 #import "base.typ": (
   classnames, deprecation, folding-details, heading-offset, labelled, oneliner,
-  paged-heading-offset, short-or-long, small, title-case, to-func, with-tooltip,
+  paged-heading-offset, short-or-long, small, use-icon, title-case, to-func,
+  with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
-#import "live.typ": live-docs
+#import "live.typ": live-docs, item-source-link
 #import "pill.typ": ty-pill
 #import "reflect.typ": cast-strings, flat-types, std-path-of
 #import "search.typ": register-index-item
@@ -152,7 +153,7 @@
 
   {
     show heading: it => {
-      // The expression `figure.caption` is ambigious. It's both an element and
+      // The expression `figure.caption` is ambiguous. It's both an element and
       // a contextual parameter access. This is really a language-level problem
       // but reflects in linking ambiguity in the docs. To avoid a linking
       // error, we simply prefer the element always.
@@ -233,6 +234,20 @@
   }
 }
 
+// Displays a link to the sources for an item.
+//
+// Requires context.
+#let sources-link(info) = {
+  if target() == "html" and info.def-site != none {
+    let url = item-source-link(info.def-site)
+    html.a(
+      href: url,
+      class: "sources-link",
+      use-icon(16, "code", "Go to source"),
+    )
+  }
+}
+
 // Displays additional details about a function.
 #let func-subtitle(info, deprecation-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
@@ -252,6 +267,13 @@
   }
   gap
   deprecation(deprecation-info)
+  sources-link(info)
+}
+
+// Displays additional details about a type.
+#let ty-subtitle(ty-info, deprecation-info) = context {
+  deprecation(deprecation-info)
+  sources-link(ty-info)
 }
 
 // Renders documentation for a function as part of a large documentation
@@ -448,7 +470,7 @@
     route: base-route + "/" + name,
     title: ty-info.title,
     title-fmt: ty-pill(ty, linked: false),
-    subtitle: deprecation(deprecation-info),
+    subtitle: ty-subtitle(ty-info, deprecation-info),
     has-summary: true,
     kind: "Type",
     keywords: ty-info.keywords,

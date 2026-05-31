@@ -139,6 +139,15 @@ h3 small svg {
   }
 }
 
+a.sources-link {
+  margin-inline-start: auto;
+}
+
+a.sources-link > svg {
+  display: block;
+  color: var(--text-primary);
+}
+
 li p + ul,
 li p + ol {
   margin-block-start: -0.5rem;
@@ -175,6 +184,11 @@ dt,
 dd {
   margin-block-end: 16px;
   margin-inline: 0px;
+}
+
+math {
+  font-family: "NewComputerModernMath", math;
+  font-size: 1.1em;
 }
 
 main table {
@@ -1471,18 +1485,20 @@ p + .symbol-grid {
 }
 
 .symbol-flyout button.copy {
-  top: 1px;
-  margin-inline-start: 2px;
-}
-
-.symbol-flyout button.copy {
-  padding: 2px;
+  top: 0.2em;
+  margin-inline-start: 0.15em;
+  padding: 0px;
   background: none;
   border: 0px;
   width: unset;
   box-shadow: none;
   display: inline-block;
   position: relative;
+  cursor: pointer;
+}
+
+.symbol-flyout button.copy > img {
+  display: block;
 }
 
 .symbol-flyout .info {
@@ -1490,10 +1506,9 @@ p + .symbol-grid {
   gap: 16px;
 }
 
-.symbol-flyout .info .accent {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.symbol-flyout .info .accent > img {
+  top: 0.15em;
+  position: relative;
 }
 
 .symbol-flyout button + .remark {

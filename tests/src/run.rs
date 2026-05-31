@@ -786,13 +786,9 @@ impl<'a> Runner<'a> {
                 continue;
             }
 
-            let emitted_hint = Note::emitted(
-                NoteKind::Hint,
-                stage,
-                hint,
-                span.or(diag.span),
-                &self.world,
-            );
+            let hint_span = span.or(diag.span);
+            let emitted_hint =
+                Note::emitted(NoteKind::Hint, stage, hint, hint_span, &self.world);
             self.test.body.mark_seen_or_update(emitted_hint);
         }
     }

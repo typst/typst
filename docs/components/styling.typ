@@ -55,6 +55,9 @@
   // Here, we cancel the compiler default.
   show raw: set text(size: 1em / 0.8, font: (fonts.mono, ..fonts.fallback))
 
+  // A bit larger font size make this a better pairing with HK Grotesk.
+  show math.equation: set text(font: fonts.math, size: sizes.math)
+
   // Outline entries pick the short versions of content which makes use of
   // the `short-or-long` component.
   show outline: with-short-versions

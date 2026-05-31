@@ -77,8 +77,10 @@ pub(crate) fn handle_link(
     let rect = bounding_box(fc, size);
 
     if tags::disabled(gc) {
-        if gc.tags.in_tiling && gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator().as_str();
+        if gc.tags.in_tiling
+            && let Some(accessibility) = gc.options.accessibility_validator()
+        {
+            let validator = accessibility.as_str();
             bail!(
                 Span::detached(),
                 "{validator} error: PDF artifacts may not contain links";
@@ -107,8 +109,8 @@ pub(crate) fn handle_link(
     let alt = link.alt.as_ref().map(Into::into);
 
     if gc.tags.tree.parent_artifact().is_some() {
-        if gc.options.is_pdf_ua() {
-            let validator = gc.options.standards.config.validator().as_str();
+        if let Some(accessibility) = gc.options.accessibility_validator() {
+            let validator = accessibility.as_str();
             bail!(
                 link.span(),
                 "{validator} error: PDF artifacts may not contain links";
@@ -140,7 +142,7 @@ pub(crate) fn handle_link(
     // typst/typst and then ends on another line.
     // ```
     // The bounding box would span the entire paragraph, which is undesirable.
-    let join_annotations = gc.options.is_pdf_ua();
+    let join_annotations = gc.options.accessibility_validator().is_some();
     match fc.get_link_annotation(group_id) {
         Some(annotation) if join_annotations => annotation.rects.push(rect),
         _ => {

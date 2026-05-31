@@ -61,7 +61,7 @@ dbe6c87ce3f9f79373ddff2a67f20c23 html-space-protection-br
 c3be983a199a95106caffe0572463a58 html-style
 568cbc99dba4312ba440431d779ec70a html-style-str
 f9671e4e56820cd2f5fbd767d04eabc0 html-textarea-starting-with-newline
-ef0240dc3bcbfe913b36392d52c60577 html-typed
+9a0437e6bfcead63fe7f55125d1df400 html-typed
 58895c458693621c61d4d498ab0f8b64 html-untyped-style-content
 f7eaf53ac8ae30b69426912e83ff1b43 image-blocky-html
 59e349bb0bd41fb1a37a6d575c12b41e image-jpg-html-base64
@@ -110,6 +110,7 @@ d5ad5460a6107753c02485bf87579d6f math-accent-dotless
 afb57fc7b560376fd2f3bbcaab024075 math-accent-dotless-greedy
 c784e3dfbe0db183e493de0011df483f math-accent-dotless-set-rule
 cc95c9432914c4a24cf981b20c01e275 math-accent-flattened
+a06f293a2ddeda92a129b59bbe419847 math-accent-flattened-fallback
 1e6f86051d1c7af399ce9c87b8cee459 math-accent-func
 75e19dd5fa8e6ac1a28de00dcda5122b math-accent-high-base
 d923bb402963d891de40e8aa7220ed91 math-accent-nested
@@ -175,6 +176,7 @@ e82902ff68a2be3bd055709b4c7d82df math-cases-linebreaks
 77c2ffc684f94a533207a76132765b54 math-class-exceptions
 2a29ee3a3cedaca4859b7fdf5dfa01a5 math-class-limits
 766bf4baa8c6c3fbee5216a29fd1a223 math-class-nested
+81a8382c4d901a49b3b7bcf37c32a56b math-class-not-recursive
 a47c1172eb41e54f2caf7898579ccd9d math-common-symbols
 0af60c585acf38434002a4ac8af41c35 math-consecutive
 5309d0fc34a332d9f51b5c3bab1181b1 math-delim-show-rule-1
@@ -327,6 +329,7 @@ bf9547773150f62e2e3824c6d4f0c33d math-spacing-weak
 f0dd9b4b15d95e50d15b71f13b31c9ba math-stretch-attach-nested-equation
 88ec267f8dc14cccab55aa35b9b0710c math-stretch-basic
 c6f4f1caf46009fe16fc2746ab283b52 math-stretch-complex
+33c9ee459f9b6de39ba073fba20efe43 math-stretch-explicit-mixed
 132ea149920a76e79961b39b9901f268 math-stretch-horizontal
 572fdb0e7106f0aec447a1b4ede2abba math-stretch-horizontal-attach
 311b2e558fb4fffadafac7594f03eea1 math-stretch-lr-nested-horizontal

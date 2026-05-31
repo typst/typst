@@ -16,6 +16,7 @@ use crate::tags::resolve::accumulator::Accumulator;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
+use crate::util::ValidatorsExt;
 
 mod accumulator;
 
@@ -191,7 +192,7 @@ fn resolve_group_node(
         }
     }
 
-    if rs.options.is_pdf_ua() {
+    if rs.options.accessibility_validator().is_some() {
         validate_children(rs, &tag, &nodes);
     }
 
@@ -325,9 +326,11 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     if let TagKind::Hn(tag) = &tag {
         let prev_level = rs.last_heading_level.map_or(0, |l| l.get());
         let next_level = tag.level();
-        if rs.options.is_pdf_ua() && next_level.get().saturating_sub(prev_level) > 1 {
+        if let Some(accessibility) = rs.options.accessibility_validator()
+            && next_level.get().saturating_sub(prev_level) > 1
+        {
             let span = to_span(tag.as_any().location);
-            let validator = rs.options.standards.config.validator().as_str();
+            let validator = accessibility.as_str();
             if rs.last_heading_level.is_none() {
                 rs.errors.push(error!(
                     span,
@@ -464,7 +467,7 @@ fn validate_children_groups(
         };
 
         if !is_valid(&child.tag) {
-            let validator = rs.options.standards.config.validator().as_str();
+            let validator = rs.options.standards.config.validators().to_comma_list();
             let span = to_span(child.tag.location()).or(parent_span);
             let parent = tag_name(parent);
             let child = tag_name(&child.tag);
@@ -480,7 +483,7 @@ fn validate_children_groups(
     }
 
     if caption_spans.len() > 1 {
-        let validator = rs.options.standards.config.validator().as_str();
+        let validator = rs.options.standards.config.validators().to_comma_list();
         let parent = tag_name(parent);
         let child = tag_name(&Tag::Caption.into());
 
@@ -500,7 +503,7 @@ fn validate_children_groups(
     }
 
     if contains_leaf_nodes {
-        let validator = rs.options.standards.config.validator().as_str();
+        let validator = rs.options.standards.config.validators().to_comma_list();
         let parent = tag_name(parent);
         rs.errors.push(error!(
             parent_span,

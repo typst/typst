@@ -3,7 +3,6 @@ use std::num::NonZeroUsize;
 use codex::styling::MathVariant;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
-use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
@@ -147,11 +146,6 @@ pub struct EquationElem {
     #[internal]
     #[ghost]
     pub italic: Option<bool>,
-
-    /// A forced class to use for all fragment.
-    #[internal]
-    #[ghost]
-    pub class: Option<MathClass>,
 
     /// Values of `scriptPercentScaleDown` and `scriptScriptPercentScaleDown`
     /// respectively in the current font's MathConstants table.

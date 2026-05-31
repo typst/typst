@@ -746,7 +746,7 @@ fn handle_glyph(
     // Prime and factorial characters have math class Normal but are
     // semantically postfix operators, so emit `mo`. But only do this when the
     // math class hasn't been explicitly set by the user to something else.
-    if props.class == MathClass::Normal && (is_prime(text) || text == "!") {
+    if props.class() == MathClass::Normal && (is_prime(text) || text == "!") {
         return Ok(make_mo(
             text,
             props.span,
@@ -766,7 +766,7 @@ fn handle_glyph(
     let mut fence = false;
     let mut separator = false;
     let mut largeop = false;
-    match props.class {
+    match props.class() {
         MathClass::Normal
         | MathClass::Alphabetic
         | MathClass::Special
@@ -975,7 +975,7 @@ fn handle_text(
     position: NodePosition,
     styles: StyleChain,
 ) -> SourceResult<Content> {
-    Ok(if props.class == MathClass::Large {
+    Ok(if props.class() == MathClass::Large {
         make_mo(
             &item.text,
             props.span,
@@ -1272,14 +1272,14 @@ fn is_embellished_operator(item: &MathItem) -> bool {
     let MathItem::Component(comp) = item else { return false };
     match &comp.kind {
         MathKind::Glyph(_) => !matches!(
-            comp.props.class,
+            comp.props.class(),
             MathClass::Normal
                 | MathClass::Alphabetic
                 | MathClass::Special
                 | MathClass::GlyphPart
                 | MathClass::Space
         ),
-        MathKind::Text(_) => comp.props.class == MathClass::Large,
+        MathKind::Text(_) => comp.props.class() == MathClass::Large,
         MathKind::Scripts(scripts) => is_embellished_operator(&scripts.base),
         MathKind::Accent(accent) => is_embellished_operator(&accent.base),
         MathKind::Fraction(fraction) => is_embellished_operator(&fraction.numerator),
@@ -1303,7 +1303,7 @@ fn is_space_like(item: &MathItem) -> bool {
     match item {
         MathItem::Spacing(..) | MathItem::Space => true,
         MathItem::Component(comp) => match &comp.kind {
-            MathKind::Text(_) => comp.props.class != MathClass::Large,
+            MathKind::Text(_) => comp.props.class() != MathClass::Large,
             MathKind::Group(group) => group
                 .items
                 .iter()

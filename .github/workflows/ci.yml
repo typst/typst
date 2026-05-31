@@ -28,6 +28,7 @@ jobs:
   test-matrix:
     name: Tests
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         bits: [64]
