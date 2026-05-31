@@ -7,5 +7,5 @@ outline = Enhavo
 raw = Listado
 page = Paĝo
 footnote = Piednoto
-# email =
-# telephone =
+email = Retpoŝto
+telephone = Telefono
