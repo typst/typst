@@ -153,8 +153,8 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         }
 
         (Duration(a), Duration(b)) => Duration(a + b),
-        (Datetime(a), Duration(b)) => Datetime(a + b),
-        (Duration(a), Datetime(b)) => Datetime(b + a),
+        (Datetime(a), Duration(b)) => Datetime((a + b)?),
+        (Duration(a), Datetime(b)) => Datetime((b + a)?),
 
         (Dyn(a), Dyn(b)) => {
             // Alignments can be summed.
@@ -208,7 +208,7 @@ pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
         (Duration(a), Duration(b)) => Duration(a - b),
-        (Datetime(a), Duration(b)) => Datetime(a - b),
+        (Datetime(a), Duration(b)) => Datetime((a - b)?),
         (Datetime(a), Datetime(b)) => Duration((a - b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),

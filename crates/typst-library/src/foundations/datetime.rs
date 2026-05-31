@@ -527,41 +527,57 @@ impl PartialOrd for Datetime {
 }
 
 impl Add<Duration> for Datetime {
-    type Output = Self;
+    type Output = StrResult<Self>;
 
     fn add(self, rhs: Duration) -> Self::Output {
         let rhs: time::Duration = rhs.into();
-        match self {
-            Self::Datetime(datetime) => Self::Datetime(datetime + rhs),
+        Ok(match self {
+            Self::Datetime(datetime) => {
+                Self::Datetime(datetime.checked_add(rhs).ok_or_else(out_of_range)?)
+            }
             Self::Date(date) => {
                 use time::Time;
-                match PrimitiveDateTime::new(date, Time::MIDNIGHT) + rhs {
+                let dt = PrimitiveDateTime::new(date, Time::MIDNIGHT)
+                    .checked_add(rhs)
+                    .ok_or_else(out_of_range)?;
+                match dt {
                     dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
                     dt => Self::Datetime(dt),
                 }
             }
             Self::Time(time) => Self::Time(time + rhs),
-        }
+        })
     }
 }
 
 impl Sub<Duration> for Datetime {
-    type Output = Self;
+    type Output = StrResult<Self>;
 
     fn sub(self, rhs: Duration) -> Self::Output {
         let rhs: time::Duration = rhs.into();
-        match self {
-            Self::Datetime(datetime) => Self::Datetime(datetime - rhs),
+        Ok(match self {
+            Self::Datetime(datetime) => {
+                Self::Datetime(datetime.checked_sub(rhs).ok_or_else(out_of_range)?)
+            }
             Self::Date(date) => {
                 use time::Time;
-                match PrimitiveDateTime::new(date, Time::MIDNIGHT) - rhs {
+                let dt = PrimitiveDateTime::new(date, Time::MIDNIGHT)
+                    .checked_sub(rhs)
+                    .ok_or_else(out_of_range)?;
+                match dt {
                     dt if dt.time() == Time::MIDNIGHT => Self::Date(dt.date()),
                     dt => Self::Datetime(dt),
                 }
             }
             Self::Time(time) => Self::Time(time - rhs),
-        }
+        })
     }
+}
+
+/// The error message produced when datetime arithmetic leaves the range of
+/// representable dates.
+fn out_of_range() -> EcoString {
+    "the resulting datetime is outside the representable range".into()
 }
 
 impl Sub for Datetime {
