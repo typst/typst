@@ -3,7 +3,7 @@ use ecow::EcoString;
 use indexmap::IndexMap;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
-use typst_html::HtmlElement;
+use typst_html::{HtmlElement, HtmlOptions};
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
 use typst_library::foundations::Bytes;
@@ -13,7 +13,6 @@ use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
 use typst_svg::SvgOptions;
 use typst_syntax::{Span, VirtualPath};
-use typst_utils::Scalar;
 
 use crate::{Bundle, BundleDocument, BundleFile};
 
@@ -41,12 +40,16 @@ pub fn export(bundle: &Bundle, options: &BundleOptions) -> SourceResult<VirtualF
 }
 
 /// Settings for bundle export.
-#[derive(Debug)]
-pub struct BundleOptions<'a> {
-    /// The number of pixels per point to render at when exporting a PNG.
-    pub pixel_per_pt: f32,
+#[derive(Debug, Default)]
+pub struct BundleOptions {
+    /// Options for exporting HTML documents.
+    pub html: HtmlOptions,
     /// Options for exporting PDF documents.
-    pub pdf: typst_pdf::PdfOptions<'a>,
+    pub pdf: PdfOptions,
+    /// Options for exporting PNG documents.
+    pub png: RenderOptions,
+    /// Options for exporting SVG documents.
+    pub svg: SvgOptions,
 }
 
 /// Exports a single document.
@@ -60,10 +63,14 @@ fn export_document(
             PagedFormat::Pdf => {
                 export_pdf(doc, &options.pdf, &extras.anchors, link_resolver)
             }
-            PagedFormat::Png => export_png(doc, Scalar::new(options.pixel_per_pt as _)),
-            PagedFormat::Svg => export_svg(doc, &extras.anchors, link_resolver),
+            PagedFormat::Png => export_png(doc, &options.png),
+            PagedFormat::Svg => {
+                export_svg(doc, &options.svg, &extras.anchors, link_resolver)
+            }
         },
-        BundleDocument::Html(doc) => export_html(doc.root(), link_resolver),
+        BundleDocument::Html(doc) => {
+            export_html(doc.root(), &options.html, link_resolver)
+        }
     }
 }
 
@@ -82,12 +89,8 @@ fn export_pdf(
 /// Exports a PNG document.
 #[comemo::memoize]
 #[typst_macros::time(name = "export png")]
-fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> {
-    let opts = RenderOptions {
-        pixel_per_pt: pixel_per_pt.get() as f32,
-        render_bleed: false,
-    };
-    typst_render::render(&doc.pages()[0], &opts)
+fn export_png(doc: &PagedDocument, options: &RenderOptions) -> SourceResult<Bytes> {
+    typst_render::render(&doc.pages()[0], options)
         .encode_png()
         .map(Bytes::new)
         .map_err(|_| "failed to encode PNG")
@@ -99,10 +102,10 @@ fn export_png(doc: &PagedDocument, pixel_per_pt: Scalar) -> SourceResult<Bytes> 
 #[typst_macros::time(name = "export svg")]
 fn export_svg(
     doc: &PagedDocument,
+    options: &SvgOptions,
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Bytes> {
-    let options = SvgOptions::default();
     let anchors = anchors
         .iter()
         .filter_map(|(loc, name)| {
@@ -115,7 +118,7 @@ fn export_svg(
         .collect::<Vec<_>>();
     Ok(Bytes::from_string(typst_svg::svg_in_bundle(
         &doc.pages()[0],
-        &options,
+        options,
         &anchors,
         link_resolver,
     )))
@@ -132,7 +135,8 @@ fn export_svg(
 #[typst_macros::time(name = "export html")]
 fn export_html(
     root: &HtmlElement,
+    options: &HtmlOptions,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Bytes> {
-    typst_html::html_in_bundle(root, link_resolver).map(Bytes::from_string)
+    typst_html::html_in_bundle(root, options, link_resolver).map(Bytes::from_string)
 }

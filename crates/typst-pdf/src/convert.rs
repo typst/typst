@@ -50,13 +50,13 @@ pub fn convert(
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
-        ascii_compatible: false,
+        ascii_compatible: options.pretty,
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
-        pretty: false,
+        pretty: options.pretty,
     };
 
     let mut document = Document::new_with(settings);
@@ -280,7 +280,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions<'a>,
+    pub(crate) options: &'a PdfOptions,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.

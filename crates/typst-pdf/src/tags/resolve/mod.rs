@@ -33,7 +33,7 @@ pub enum TagNode {
 }
 
 struct Resolver<'a> {
-    options: &'a PdfOptions<'a>,
+    options: &'a PdfOptions,
     ctx: &'a Ctx,
     groups: &'a IdVec<Group>,
     tags: &'a mut TagStorage,

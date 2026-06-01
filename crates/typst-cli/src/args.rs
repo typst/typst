@@ -319,6 +319,14 @@ pub struct CompileArgs {
     #[clap(flatten)]
     pub world: WorldArgs,
 
+    /// Whether to pretty-print produced output.
+    ///
+    /// This formats the output in a more human-readable, but less
+    /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
+    /// export.
+    #[arg(long = "pretty")]
+    pub pretty: bool,
+
     /// Which pages to export. When unspecified, all pages are exported.
     ///
     /// Pages to export are separated by commas, and can be either simple page
@@ -346,7 +354,7 @@ pub struct CompileArgs {
 
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f32,
+    pub ppi: f64,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
