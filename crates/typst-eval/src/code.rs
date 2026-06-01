@@ -2,8 +2,8 @@ use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{At, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
-    NativeElement, Selector, Str, Value, ops,
+    Array, BindingAccess, Capturer, Closure, ClosureNode, Content, ContextElem, Dict,
+    Func, NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::Span;
@@ -162,7 +162,9 @@ impl Eval for ast::Ident<'_> {
             .scopes
             .get(&self)
             .at(span)?
-            .read_checked((&mut vm.engine, span))
+            .read_checked(vm.engine.sink(span))
+            .what(format_args!("cannot access variable `{}`", self.get()))
+            .at(span)?
             .clone())
     }
 }
@@ -361,7 +363,7 @@ pub(crate) fn access_field(
     field: &str,
     field_span: Span,
 ) -> SourceResult<Value> {
-    let err = match target.field(field, (&mut vm.engine, field_span)).at(field_span) {
+    let err = match target.field(field, vm.engine.sink(field_span)).at(field_span) {
         Ok(value) => return Ok(value),
         Err(err) => err,
     };
