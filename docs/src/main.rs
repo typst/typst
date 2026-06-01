@@ -71,7 +71,7 @@ fn compile(command: &CompileCommand) -> ExitCode {
 fn watch(command: &WatchCommand) -> ! {
     let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut watcher = Watcher::new(None).unwrap();
-    let mut config = Config::new(&command.args, true);
+    let mut config = Config::new(&command.args, !command.no_serve);
     let mut world = DocWorld::new(&config);
 
     loop {
@@ -122,16 +122,16 @@ struct Config {
 
 impl Config {
     /// Preprocess `CompileArgs`, producing a compilation config.
-    fn new(args: &CompileArgs, watching: bool) -> Self {
+    fn new(args: &CompileArgs, serve: bool) -> Self {
         Self {
             input: args.input.clone(),
             output: args.output.clone().or_else(|| match args.format {
                 OutputFormat::Pdf => Some(PDF_PATH.into()),
-                OutputFormat::Website if watching => None,
+                OutputFormat::Website if serve => None,
                 OutputFormat::Website => Some(SITE_PATH.into()),
             }),
             output_format: args.format,
-            server: (watching && args.format == OutputFormat::Website)
+            server: (serve && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),
             open: args.open,
         }
