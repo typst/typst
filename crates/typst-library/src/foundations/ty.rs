@@ -10,7 +10,7 @@ use typst_utils::{DefSite, Static};
 
 use crate::diag::{StrResult, WarningSink, bail};
 use crate::foundations::{
-    AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
+    AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Since, Value, cast, func,
 };
 
 /// Describes a kind of value.
@@ -83,6 +83,11 @@ impl Type {
     /// The type's title case name, for use in documentation (e.g. `String`).
     pub fn title(&self) -> &'static str {
         self.0.title
+    }
+
+    /// The version of Typst this type was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        self.0.since.clone()
     }
 
     /// Documentation for the type (as Markdown).
@@ -209,11 +214,13 @@ pub struct NativeTypeData {
     pub name: &'static str,
     /// The type's long name (e.g. `string`), for error messages.
     pub long_name: &'static str,
-    /// The function's title case name (e.g. `String`).
+    /// The type's title case name (e.g. `String`).
     pub title: &'static str,
+    /// The version of Typst this type was introduced in.
+    pub since: Option<Since>,
     /// The documentation for this type as a string.
     pub docs: &'static str,
-    /// Where the function is defined in the source code.
+    /// Where the type is defined in the source code.
     pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],

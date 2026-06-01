@@ -15,7 +15,7 @@ use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
-    Selector, Type, Value, cast, scope, ty,
+    Selector, Since, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -183,6 +183,17 @@ impl Func {
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
             FuncInner::With(with) => with.0.title(),
+        }
+    }
+
+    /// The version of Typst the function was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        match &self.inner {
+            FuncInner::Native(native) => native.since.clone(),
+            FuncInner::Element(elem) => elem.since(),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.since(),
         }
     }
 
@@ -626,6 +637,8 @@ pub struct NativeFuncData {
     pub name: &'static str,
     /// The function's title case name (e.g. `Align`).
     pub title: &'static str,
+    /// The version of Typst the function was introduced in.
+    pub since: Option<Since>,
     /// The documentation for this function as a string.
     pub docs: &'static str,
     /// Where the function is defined in the source code.

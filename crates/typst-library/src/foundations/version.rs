@@ -214,3 +214,31 @@ cast! {
     v: u32 => Self::Single(v),
     v: Vec<u32> => Self::Multiple(v)
 }
+
+/// When a feature was introduced.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Since {
+    /// The feature was introduced before Typst 0.1.0.
+    Forever,
+    /// The feature was introduced in a version released after Typst 0.1.0.
+    Version([u32; 3]),
+    /// The feature is not present in any official Typst release.
+    Unreleased,
+}
+
+cast! {
+    Since,
+    self => match self {
+        Self::Forever => "forever".into_value(),
+        Self::Version(v) => Version::from_iter(v.into_iter()).into_value(),
+        Self::Unreleased => "unreleased".into_value(),
+    },
+    "forever" => Self::Forever,
+    "unreleased" => Self::Unreleased,
+    v: Version => {
+        let &[major, minor, patch] = v.values() else {
+            bail!("expected a version with exactly three components")
+        };
+        Self::Version([major, minor, patch])
+    },
+}

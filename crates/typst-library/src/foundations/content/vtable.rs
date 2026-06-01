@@ -46,7 +46,7 @@ use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     Args, CastInfo, Construct, Content, LazyElementStore, NativeElement, NativeScope,
-    Packed, Repr, Scope, Set, StyleChain, Styles, Value,
+    Packed, Repr, Scope, Set, Since, StyleChain, Styles, Value,
 };
 use crate::text::{Lang, LocalName, Region};
 
@@ -83,6 +83,8 @@ pub struct ContentVtable<T: 'static = RawContent> {
     pub(super) name: &'static str,
     /// The element's title-cased name.
     pub(super) title: &'static str,
+    /// The version of Typst the element was introduced in.
+    pub(super) since: Option<Since>,
     /// The element's documentation (as Markdown).
     pub(super) docs: &'static str,
     /// Whether the element is defined in the source code.
@@ -144,6 +146,7 @@ impl ContentVtable {
     pub const fn new<E: NativeElement>(
         name: &'static str,
         title: &'static str,
+        since: Option<Since>,
         docs: &'static str,
         def_site: DefSite,
         fields: &'static [FieldVtable<Packed<E>>],
@@ -155,6 +158,7 @@ impl ContentVtable {
         ContentVtable {
             name,
             title,
+            since,
             docs,
             def_site,
             keywords: &[],
