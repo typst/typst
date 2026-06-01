@@ -1506,9 +1506,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cd0ba7aeea683d25d7d991b8e1fa34e8f8e89b51710f8c5a46cb0679e81fe7d"
+checksum = "7d958f40f452cc64e4faeba4ce21cbbdbfeba47eb8085841981429499aa23974"
 dependencies = [
  "base64",
  "bumpalo",
