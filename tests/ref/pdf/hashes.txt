@@ -834,6 +834,7 @@ c538aeef16ca92d3fb2507ec32bf024d issue-80-emoji-linebreak
 48356f3f3fa5243087fe38356bd16b9a issue-8261-string-as-ellipsis
 6848c65a5cae60f0f053340e7efcc1d0 issue-8261-string-as-empty
 d57ced42b58d6ba0eb9e8429890e5cab issue-8261-string-as-non-numeric
+563412592490fc6574affb84b3127420 issue-8383-headers-pdf-ua
 db103d78192568cf347b332b28ed1e16 issue-852-mat-type
 0eb3749200d7c9c78bffb945c49186b7 issue-886-args-sink
 3abcf927fd5fe3122cebb8c188607d23 issue-color-mix-luma

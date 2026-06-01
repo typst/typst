@@ -58,3 +58,6 @@ https://typst.app/
   // Error: 13-28 PDF/UA-1 error: cannot combine underline, overline, or strike
   underline(overline[Hello]),
 )
+
+--- issue-8383-headers-pdf-ua pdf pdfstandard(ua-1) ---
+#set page(header: [A])
