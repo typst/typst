@@ -90,7 +90,12 @@ impl Str {
 
     /// Repeat the string a number of times.
     pub fn repeat(&self, n: usize) -> StrResult<Self> {
-        if self.0.len().checked_mul(n).is_none() {
+        if self
+            .0
+            .len()
+            .checked_mul(n)
+            .is_none_or(|len| len >= isize::MAX as usize)
+        {
             return Err(eco_format!("cannot repeat this string {n} times"));
         }
         Ok(Self(self.0.repeat(n)))

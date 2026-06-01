@@ -141,6 +141,9 @@ impl Array {
         let count = self
             .len()
             .checked_mul(n)
+            .filter(|&count| {
+                count.saturating_mul(std::mem::size_of::<Value>()) < isize::MAX as usize
+            })
             .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())

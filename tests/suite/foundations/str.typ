@@ -95,6 +95,10 @@
 // Error: 2-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
+--- str-repeat-too-large eval ---
+// Error: 3-28 cannot repeat this string 9223372036854775807 times
+#("a" * 9223372036854775807)
+
 --- str-normalize eval ---
 // Test the `normalize` method.
 #test("e\u{0301}".normalize(form: "nfc"), "é")

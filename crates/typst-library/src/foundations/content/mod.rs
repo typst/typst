@@ -333,8 +333,11 @@ impl Content {
     }
 
     /// Repeat this content `count` times.
-    pub fn repeat(&self, count: usize) -> Self {
-        Self::sequence(std::iter::repeat_with(|| self.clone()).take(count))
+    pub fn repeat(&self, count: usize) -> StrResult<Self> {
+        if count.saturating_mul(std::mem::size_of::<Content>()) >= isize::MAX as usize {
+            return Err(eco_format!("cannot repeat this content {count} times"));
+        }
+        Ok(Self::sequence(std::iter::repeat_with(|| self.clone()).take(count)))
     }
 
     /// Sets a style property on the content.

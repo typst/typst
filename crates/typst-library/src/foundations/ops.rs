@@ -273,8 +273,8 @@ pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Int(a), Str(b)) => Str(b.repeat(Value::Int(a).cast()?)?),
         (Array(a), Int(b)) => Array(a.repeat(Value::Int(b).cast()?)?),
         (Int(a), Array(b)) => Array(b.repeat(Value::Int(a).cast()?)?),
-        (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
-        (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
+        (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)?),
+        (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)?),
 
         (Int(a), Duration(b)) => Duration(b * (a as f64)),
         (Float(a), Duration(b)) => Duration(b * a),

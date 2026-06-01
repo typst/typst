@@ -267,6 +267,10 @@
 // Error: 2-24 array index out of bounds (index: -4, len: 3)
 #(1, 2, 3).slice(0, -4)
 
+--- array-repeat-too-large eval ---
+// Error: 3-29 cannot repeat this array 9223372036854775807 times
+#((1,) * 9223372036854775807)
+
 --- array-position eval ---
 // Test the `position` method.
 #test(("Hi", "❤️", "Love").position(s => s == "❤️"), 1)

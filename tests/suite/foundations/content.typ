@@ -134,3 +134,7 @@
 --- content-try-to-access-internal-field eval ---
 // Error: 9-15 hide does not have field "hidden"
 #hide[].hidden
+
+--- content-repeat-too-large eval ---
+// Error: 3-28 cannot repeat this content 9223372036854775807 times
+#([a] * 9223372036854775807)
