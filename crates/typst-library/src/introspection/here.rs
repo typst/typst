@@ -46,7 +46,7 @@ use crate::introspection::Location;
 /// ```
 ///
 /// Refer to the @selector type for more details on before/after selectors.
-#[func(contextual)]
+#[func(contextual, since = "0.11.0")]
 pub fn here(context: Tracked<Context>) -> HintedStrResult<Location> {
     context.location()
 }

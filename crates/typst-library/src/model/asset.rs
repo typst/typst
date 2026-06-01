@@ -49,7 +49,7 @@ use crate::foundations::{BundlePath, Bytes, ShowFn, Str, cast};
 /// ```
 ///
 /// This function may only be used in the @reference:bundle[bundle] target.
-#[elem(Locatable)]
+#[elem(since = "{FUTURE_TYPST_RELEASE}", Locatable)]
 pub struct AssetElem {
     /// The path in the bundle at which the asset will be placed.
     ///

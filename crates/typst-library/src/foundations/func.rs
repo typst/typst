@@ -135,7 +135,7 @@ use crate::foundations::{
 /// The only exception are built-in methods like
 /// @array.push[`array.push(value)`]. These can modify the values they are
 /// called on.
-#[ty(scope, cast, name = "function")]
+#[ty(scope, cast, name = "function", since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
@@ -391,7 +391,7 @@ impl Func {
 #[scope]
 impl Func {
     /// Returns a new function that has the given arguments pre-applied.
-    #[func]
+    #[func(since = "forever")]
     pub fn with(
         self,
         args: &mut Args,
@@ -416,7 +416,7 @@ impl Func {
     /// == Subsection
     /// === Sub-subsection
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn where_(
         self,
         args: &mut Args,
