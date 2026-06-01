@@ -10,7 +10,7 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 
-use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
+use crate::diag::{BindingSink, HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
     Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
     Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
@@ -154,7 +154,7 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<Value> {
+    pub fn field(&self, field: &str, sink: impl BindingSink) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => {
                 symbol.clone().modified(sink, field).map(Self::Symbol)
