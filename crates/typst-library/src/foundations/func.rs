@@ -11,11 +11,11 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
+use crate::diag::{At, BindingContext, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
-    Selector, Since, Type, Value, cast, scope, ty,
+    Args, BindingAccess, Bytes, CastInfo, Content, Context, Element, IntoArgs,
+    PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -291,12 +291,14 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl WarningSink,
+        ctx: impl BindingContext,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(binding) => Ok(binding.read_checked(sink)),
+            Some(binding) => binding
+                .read_checked(ctx)
+                .what(format_args!("cannot access field `{field}`")),
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),
