@@ -11,7 +11,7 @@ use crate::text::{FontFeatures, TextElem};
 /// ```example
 /// $ bold(A) := B^+ $
 /// ```
-#[func(keywords = ["mathbf"])]
+#[func(since = "forever", keywords = ["mathbf"])]
 pub fn bold(
     /// The content to style.
     body: Content,
@@ -24,7 +24,7 @@ pub fn bold(
 /// ```example
 /// $ upright(A) != A $
 /// ```
-#[func(keywords = ["mathup"])]
+#[func(since = "forever", keywords = ["mathup"])]
 pub fn upright(
     /// The content to style.
     body: Content,
@@ -35,7 +35,7 @@ pub fn upright(
 /// Italic font style in math.
 ///
 /// For roman letters and greek lowercase letters, this is already the default.
-#[func(keywords = ["mathit"])]
+#[func(since = "forever", keywords = ["mathit"])]
 pub fn italic(
     /// The content to style.
     body: Content,
@@ -46,7 +46,7 @@ pub fn italic(
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
-#[func(keywords = ["mathrm"])]
+#[func(since = "forever", keywords = ["mathrm"])]
 pub fn serif(
     /// The content to style.
     body: Content,
@@ -59,7 +59,7 @@ pub fn serif(
 /// ```example
 /// $ sans(A B C) $
 /// ```
-#[func(title = "Sans Serif", keywords = ["mathsf"])]
+#[func(title = "Sans Serif", since = "forever", keywords = ["mathsf"])]
 pub fn sans(
     /// The content to style.
     body: Content,
@@ -75,7 +75,7 @@ pub fn sans(
 ///
 /// This is the default calligraphic/script style for most math fonts. See
 /// @math.scr[`scr`] for more on how to get the other style (roundhand).
-#[func(title = "Calligraphic", keywords = ["mathcal", "chancery"])]
+#[func(title = "Calligraphic", since = "forever", keywords = ["mathcal", "chancery"])]
 pub fn cal(
     /// The content to style.
     body: Content,
@@ -110,7 +110,7 @@ pub fn cal(
 ///   We establish $cal(P) != scr(P)$.
 ///   ```
 /// )
-#[func(title = "Script Style", keywords = ["mathscr", "roundhand"])]
+#[func(title = "Script Style", since = "0.14.0", keywords = ["mathscr", "roundhand"])]
 pub fn scr(
     /// The content to style.
     body: Content,
@@ -123,7 +123,7 @@ pub fn scr(
 /// ```example
 /// $ frak(P) $
 /// ```
-#[func(title = "Fraktur", keywords = ["mathfrak"])]
+#[func(title = "Fraktur", since = "forever", keywords = ["mathfrak"])]
 pub fn frak(
     /// The content to style.
     body: Content,
@@ -136,7 +136,7 @@ pub fn frak(
 /// ```example
 /// $ mono(x + y = z) $
 /// ```
-#[func(title = "Monospace", keywords = ["mathtt"])]
+#[func(title = "Monospace", since = "forever", keywords = ["mathtt"])]
 pub fn mono(
     /// The content to style.
     body: Content,
@@ -154,7 +154,7 @@ pub fn mono(
 /// $ bb(N) = NN $
 /// $ f: NN -> RR $
 /// ```
-#[func(title = "Blackboard Bold", keywords = ["mathbb"])]
+#[func(title = "Blackboard Bold", since = "forever", keywords = ["mathbb"])]
 pub fn bb(
     /// The content to style.
     body: Content,
@@ -169,7 +169,7 @@ pub fn bb(
 /// ```example
 /// $sum_i x_i/2 = display(sum_i x_i/2)$
 /// ```
-#[func(title = "Display Size", keywords = ["displaystyle"])]
+#[func(title = "Display Size", since = "0.5.0", keywords = ["displaystyle"])]
 pub fn display(
     /// The content to size.
     body: Content,
@@ -191,7 +191,7 @@ pub fn display(
 /// $ sum_i x_i/2
 ///     = inline(sum_i x_i/2) $
 /// ```
-#[func(title = "Inline Size", keywords = ["textstyle"])]
+#[func(title = "Inline Size", since = "0.5.0", keywords = ["textstyle"])]
 pub fn inline(
     /// The content to size.
     body: Content,
@@ -212,7 +212,7 @@ pub fn inline(
 /// ```example
 /// $sum_i x_i/2 = script(sum_i x_i/2)$
 /// ```
-#[func(title = "Script Size", keywords = ["scriptstyle"])]
+#[func(title = "Script Size", since = "0.5.0", keywords = ["scriptstyle"])]
 pub fn script(
     /// The content to size.
     body: Content,
@@ -234,7 +234,7 @@ pub fn script(
 /// ```example
 /// $sum_i x_i/2 = sscript(sum_i x_i/2)$
 /// ```
-#[func(title = "Script-Script Size", keywords = ["scriptscriptstyle"])]
+#[func(title = "Script-Script Size", since = "0.5.0", keywords = ["scriptscriptstyle"])]
 pub fn sscript(
     /// The content to size.
     body: Content,

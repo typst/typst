@@ -28,7 +28,7 @@ use crate::text::{FontWeight, TextElem, TextSize};
 /// = Introduction
 /// In recent years, ...
 /// ```
-#[elem(Locatable, Tagged, ShowSet)]
+#[elem(since = "0.14.0", Locatable, Tagged, ShowSet)]
 pub struct TitleElem {
     /// The content of the title.
     ///

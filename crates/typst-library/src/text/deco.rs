@@ -10,7 +10,7 @@ use crate::visualize::{Color, FixedStroke, Paint, Stroke};
 /// ```example
 /// This is #underline[important].
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "forever", Locatable, Tagged)]
 pub struct UnderlineElem {
     /// How to @stroke[stroke] the line.
     ///
@@ -78,7 +78,7 @@ pub struct UnderlineElem {
 /// ```example
 /// #overline[A line over text.]
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "forever", Locatable, Tagged)]
 pub struct OverlineElem {
     /// How to @stroke[stroke] the line.
     ///
@@ -152,7 +152,7 @@ pub struct OverlineElem {
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
-#[elem(title = "Strikethrough", Locatable, Tagged)]
+#[elem(title = "Strikethrough", since = "forever", Locatable, Tagged)]
 pub struct StrikeElem {
     /// How to @stroke[stroke] the line.
     ///
@@ -211,7 +211,7 @@ pub struct StrikeElem {
 /// ```example
 /// This is #highlight[important].
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "0.8.0", Locatable, Tagged)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
     ///

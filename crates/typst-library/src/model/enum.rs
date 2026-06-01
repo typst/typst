@@ -67,7 +67,7 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Locatable, Tagged)]
+#[elem(scope, title = "Numbered List", since = "forever", Locatable, Tagged)]
 pub struct EnumElem {
     /// Defines the default @enum.spacing[spacing] of the enumeration. If it is
     /// `{false}`, the items are spaced apart with
@@ -243,7 +243,7 @@ impl EnumElem {
 }
 
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item", Tagged)]
+#[elem(name = "item", title = "Numbered List Item", since = "0.4.0", Tagged)]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

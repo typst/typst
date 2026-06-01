@@ -20,7 +20,7 @@ pub const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 /// While matched delimiters scale by default, this can be used to scale
 /// unmatched delimiters and to control the delimiter scaling more precisely.
-#[elem(title = "Left/Right", Mathy)]
+#[elem(title = "Left/Right", since = "forever", Mathy)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
     #[default(Rel::one())]
@@ -42,7 +42,7 @@ pub struct LrElem {
 /// ```example
 /// $ { x mid(|) sum_(i=1)^n w_i|f_i (x)| < 1 } $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "0.10.0", Mathy)]
 pub struct MidElem {
     /// The content to be scaled.
     #[required]
@@ -54,7 +54,7 @@ pub struct MidElem {
 /// ```example
 /// $ floor(x/2) $
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn floor(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
@@ -72,7 +72,7 @@ pub fn floor(
 /// ```example
 /// $ ceil(x/2) $
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn ceil(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
@@ -90,7 +90,7 @@ pub fn ceil(
 /// ```example
 /// $ round(x/2) $
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn round(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
@@ -108,7 +108,7 @@ pub fn round(
 /// ```example
 /// $ abs(x/2) $
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn abs(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
@@ -126,7 +126,7 @@ pub fn abs(
 /// ```example
 /// $ norm(x/2) $
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn norm(
     /// The size of the brackets, relative to the height of the wrapped content.
     ///

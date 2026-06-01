@@ -57,7 +57,7 @@ use crate::layout::{Length, Ratio, Rel};
 ///   #lorem(40)
 ///   ```
 /// )
-#[elem]
+#[elem(since = "forever")]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -96,7 +96,7 @@ pub struct ColumnsElem {
 /// understanding of the fundamental
 /// laws of nature.
 /// ```
-#[elem(title = "Column Break")]
+#[elem(title = "Column Break", since = "forever")]
 pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.

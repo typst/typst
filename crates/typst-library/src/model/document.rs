@@ -123,7 +123,7 @@ use crate::text::{Locale, TextElem};
 ///   #context document.title
 /// ]
 /// ```
-#[elem(Locatable, ShowSet)]
+#[elem(since = "forever", Locatable, ShowSet)]
 pub struct DocumentElem {
     /// The path in the bundle at which the exported document will be placed.
     ///

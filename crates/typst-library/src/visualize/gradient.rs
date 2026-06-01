@@ -184,7 +184,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// @color.linear-rgb color spaces. This avoids needing to encode these color
 /// spaces in your PDF file, but it does add extra stops to your gradient, which
 /// can increase the file size.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.9.0")]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
@@ -207,7 +207,7 @@ impl Gradient {
     ///   ),
     /// )
     /// ```
-    #[func(title = "Linear Gradient")]
+    #[func(title = "Linear Gradient", since = "0.9.0")]
     pub fn linear(
         args: &mut Args,
         span: Span,
@@ -295,7 +295,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func(title = "Radial Gradient")]
+    #[func(title = "Radial Gradient", since = "0.9.0")]
     fn radial(
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
@@ -410,7 +410,7 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func(title = "Conic Gradient")]
+    #[func(title = "Conic Gradient", since = "0.9.0")]
     pub fn conic(
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
@@ -472,7 +472,7 @@ impl Gradient {
     /// #rect(fill: grad.sharp(5))
     /// #rect(fill: grad.sharp(5, smoothness: 20%))
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn sharp(
         &self,
         /// The number of stops in the gradient.
@@ -567,7 +567,7 @@ impl Gradient {
     ///     .repeat(4),
     /// )
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn repeat(
         &self,
         /// The number of times to repeat the gradient.
@@ -647,7 +647,7 @@ impl Gradient {
     }
 
     /// Returns the kind of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn kind(&self) -> Func {
         match self {
             Self::Linear(_) => Self::linear_data().into(),
@@ -657,7 +657,7 @@ impl Gradient {
     }
 
     /// Returns the stops of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn stops(&self) -> Vec<GradientStop> {
         match self {
             Self::Linear(linear) => linear
@@ -688,7 +688,7 @@ impl Gradient {
     }
 
     /// Returns the mixing space of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn space(&self) -> ColorSpace {
         match self {
             Self::Linear(linear) => linear.space,
@@ -698,7 +698,7 @@ impl Gradient {
     }
 
     /// Returns the relative placement of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn relative(&self) -> Smart<RelativeTo> {
         match self {
             Self::Linear(linear) => linear.relative,
@@ -710,7 +710,7 @@ impl Gradient {
     /// Returns the angle of this gradient.
     ///
     /// Returns `{none}` if the gradient is neither linear nor conic.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn angle(&self) -> Option<Angle> {
         match self {
             Self::Linear(linear) => Some(linear.angle),
@@ -722,7 +722,7 @@ impl Gradient {
     /// Returns the center of this gradient.
     ///
     /// Returns `{none}` if the gradient is neither radial nor conic.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
@@ -734,7 +734,7 @@ impl Gradient {
     /// Returns the radius of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
@@ -746,7 +746,7 @@ impl Gradient {
     /// Returns the focal-center of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn focal_center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
@@ -758,7 +758,7 @@ impl Gradient {
     /// Returns the focal-radius of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn focal_radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
@@ -772,7 +772,7 @@ impl Gradient {
     /// The position is either a position along the gradient (a @ratio[ratio]
     /// between `{0%}` and `{100%}`) or an @angle[angle]. Any value outside of
     /// this range will be clamped.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn sample(
         &self,
         /// The position at which to sample the gradient.
@@ -789,7 +789,7 @@ impl Gradient {
 
     /// Samples the gradient at multiple positions at once and returns the
     /// results as an array.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn samples(
         &self,
         /// The positions at which to sample the gradient.

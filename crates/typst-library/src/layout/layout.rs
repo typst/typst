@@ -62,7 +62,7 @@ use crate::introspection::Locatable;
 ///
 /// Note that the width or height provided by `layout` will be infinite if the
 /// corresponding page dimension is set to `{auto}`.
-#[func]
+#[func(since = "0.2.0")]
 pub fn layout(
     span: Span,
     /// A function to call with the outer container's size. Its return value is

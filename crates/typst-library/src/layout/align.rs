@@ -75,7 +75,7 @@ use crate::text::TextElem;
 /// ```example
 /// Start #h(1fr) End
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct AlignElem {
     /// The @alignment[alignment] along both axes.
     ///
@@ -139,7 +139,7 @@ pub struct AlignElem {
 /// #left.x \
 /// #left.y (none)
 /// ```
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Alignment {
     H(HAlignment),
@@ -193,7 +193,7 @@ impl Alignment {
     /// #left.axis() \
     /// #bottom.axis()
     /// ```
-    #[func]
+    #[func(since = "0.7.0")]
     pub const fn axis(self) -> Option<Axis> {
         match self {
             Self::H(_) => Some(Axis::X),
@@ -210,7 +210,7 @@ impl Alignment {
     /// #center.inv() \
     /// #(left + bottom).inv()
     /// ```
-    #[func(title = "Inverse")]
+    #[func(title = "Inverse", since = "0.7.0")]
     pub const fn inv(self) -> Alignment {
         match self {
             Self::H(h) => Self::H(h.inv()),

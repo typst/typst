@@ -38,7 +38,7 @@ pub const MINUS_SIGN: &str = "\u{2212}";
 ///
 /// #repr(x => x + 1)
 /// ```
-#[func(title = "Representation")]
+#[func(title = "Representation", since = "forever")]
 pub fn repr(
     /// The value whose string representation to produce.
     value: Value,

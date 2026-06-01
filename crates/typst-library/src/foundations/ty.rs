@@ -60,7 +60,7 @@ use crate::foundations::{
 /// Note that `type` will return @content for all document elements. To
 /// programmatically determine which kind of content you are dealing with, see
 /// @content.func.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.8.0")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 
@@ -145,7 +145,7 @@ impl Type {
     /// #type(x => x + 1) \
     /// #type(type)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.8.0")]
     pub fn construct(
         /// The value whose type's to determine.
         value: Value,
