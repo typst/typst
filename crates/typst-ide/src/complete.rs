@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
+use typst::diag::{BindingContext, HintedString, WarningSink};
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
     ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
@@ -161,7 +162,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for all fields on a value.
 fn field_access_completions(
-    ctx: &mut CompletionContext,
+    mut ctx: &mut CompletionContext,
     value: &Value,
     styles: &Option<Styles>,
 ) {
@@ -197,7 +198,9 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field, ()).unwrap());
+        if let Ok(value) = value.field(field, &mut ctx) {
+            ctx.value_completion(field, &value);
+        }
     }
 
     match value {
@@ -1460,6 +1463,20 @@ impl<'a> CompletionContext<'a> {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
         }
+    }
+}
+
+impl BindingContext for CompletionContext<'_> {
+    fn features(&self) -> &typst::Features {
+        &self.world.library().features
+    }
+}
+
+impl WarningSink for CompletionContext<'_> {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings when gathering completions.
+        // TODO: Maybe create a temporary struct that stores deprecations and
+        // passes them to the completion items.
     }
 }
 

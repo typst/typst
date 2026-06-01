@@ -46,16 +46,14 @@ pub use self::table::*;
 pub use self::terms::*;
 pub use self::title::*;
 
+use crate::Feature;
 use crate::foundations::Scope;
-use crate::{Feature, Features};
 
 /// Hook up all `model` definitions.
-pub fn define(global: &mut Scope, features: &Features) {
+pub fn define(global: &mut Scope) {
     global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
-    if features.is_enabled(Feature::Bundle) {
-        global.define_elem::<AssetElem>();
-    }
+    global.define_elem::<AssetElem>().feature(Feature::Bundle);
     global.define_elem::<ParElem>();
     global.define_elem::<ParbreakElem>();
     global.define_elem::<StrongElem>();

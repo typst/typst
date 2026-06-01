@@ -9,7 +9,9 @@ use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
 
-use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::diag::{
+    EngineCtx, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail,
+};
 use crate::foundations::{Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::{Library, World};
@@ -35,7 +37,7 @@ pub struct Engine<'a> {
     pub route: Route<'a>,
 }
 
-impl Engine<'_> {
+impl<'y> Engine<'y> {
     /// Handles a result without immediately terminating execution. Instead, it
     /// produces a delayed error that is only promoted to a fatal one if it
     /// remains by the end of the introspection loop.
@@ -114,6 +116,11 @@ impl Engine<'_> {
         let output = introspection.introspect(self, introspector);
         self.sink.introspection(Introspection::new(introspection));
         output
+    }
+
+    /// Create a struct that implements [`crate::diag::BindingContext`].
+    pub fn binding_ctx<'x>(&'x mut self, span: Span) -> EngineCtx<'x, 'y> {
+        EngineCtx { engine: self, span }
     }
 }
 
