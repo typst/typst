@@ -285,6 +285,8 @@
     set text(0.75em)
     gap
     small[Since: #info.since]
+  } else {
+    panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
   }
   gap
   deprecation(deprecation-info)
@@ -298,6 +300,8 @@
     set text(0.75em)
     gap
     small[Since: #ty-info.since]
+  } else {
+    panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
   }
   deprecation(deprecation-info)
   sources-link(ty-info)
