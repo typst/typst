@@ -56,18 +56,16 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
         };
 
         if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("deprecated")) {
+            let mut deprecation = quote! { #foundations::Deprecation::new() };
             match &attr.meta {
-                syn::Meta::NameValue(pair) if pair.path.is_ident("deprecated") => {
+                syn::Meta::NameValue(pair) => {
                     let message = &pair.value;
-                    def = quote! { #def.deprecated(#message) }
+                    deprecation = quote! { #deprecation.with_message(#message) }
                 }
-                syn::Meta::List(list) if list.path.is_ident("deprecated") => {
+                syn::Meta::List(list) => {
                     let args = list.parse_args_with(
                         Punctuated::<MetaNameValue, Token![,]>::parse_separated_nonempty,
                     )?;
-
-                    let mut deprecation =
-                        quote! { crate::foundations::Deprecation::new() };
 
                     if let Some(message) = args.iter().find_map(|pair| {
                         pair.path.is_ident("message").then_some(&pair.value)
@@ -80,10 +78,20 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                     }) {
                         deprecation = quote! { #deprecation.with_until(#version) }
                     }
-
-                    def = quote! { #def.deprecated(#deprecation) }
                 }
-                _ => {}
+                syn::Meta::Path(_) => bail!(attr, "expected deprecation message"),
+            }
+
+            def = quote! { #def.deprecated(#deprecation) }
+        }
+
+        if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("feature")) {
+            match &attr.meta {
+                syn::Meta::NameValue(pair) => {
+                    let feature = &pair.value;
+                    def = quote! { #def.feature(::typst_library::Feature::#feature) }
+                }
+                _ => bail!(attr, "expected feature name"),
             }
         }
 

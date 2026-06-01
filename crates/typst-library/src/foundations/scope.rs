@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 use ecow::{EcoString, eco_format};
@@ -7,11 +7,11 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink, bail};
+use crate::diag::{BindingContext, HintedStrResult, HintedString, StrResult, bail};
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
-use crate::{Category, Library};
+use crate::{Category, Feature, Library};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -256,6 +256,8 @@ pub struct Binding {
     span: Span,
     /// The category of the binding.
     category: Option<Category>,
+    /// A feature required to access this binding.
+    feature: Option<Feature>,
     /// The deprecation information if this item is deprecated.
     deprecation: Option<Box<Deprecation>>,
 }
@@ -277,6 +279,7 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
+            feature: None,
             deprecation: None,
         }
     }
@@ -284,6 +287,12 @@ impl Binding {
     /// Create a binding without a span.
     pub fn detached(value: impl IntoValue) -> Self {
         Self::new(value, Span::detached())
+    }
+
+    /// Gates this binding behind the given [`Feature`].
+    pub fn feature(&mut self, feature: Feature) -> &mut Self {
+        self.feature = Some(feature);
+        self
     }
 
     /// Marks this binding as deprecated, with the given `message`.
@@ -298,15 +307,19 @@ impl Binding {
     }
 
     /// Read the value, checking for deprecation.
-    ///
-    /// As the `sink`
-    /// - pass `()` to ignore the message.
-    /// - pass `(&mut engine, span)` to emit a warning into the engine.
-    pub fn read_checked(&self, mut sink: impl WarningSink) -> &Value {
-        if let Some(message) = &self.deprecation {
-            sink.emit((**message).into());
+    pub fn read_checked(
+        &self,
+        mut ctx: impl BindingContext,
+    ) -> Result<&Value, FeatureError> {
+        if let Some(feature) = self.feature
+            && !ctx.features().is_enabled(feature)
+        {
+            return Err(FeatureError(feature));
         }
-        &self.value
+        if let Some(message) = &self.deprecation {
+            ctx.emit((**message).into());
+        }
+        Ok(&self.value)
     }
 
     /// Try to write to the value.
@@ -347,6 +360,24 @@ impl Binding {
     /// The category of the value, if any.
     pub fn category(&self) -> Option<Category> {
         self.category
+    }
+}
+
+/// A binding has been accessed but the feature that gates it isn't enabled.
+pub struct FeatureError(Feature);
+
+pub trait BindingAccess<T> {
+    fn what(self, binding: impl Display) -> StrResult<T>;
+}
+
+impl<T> BindingAccess<T> for Result<T, FeatureError> {
+    fn what(self, what: impl Display) -> StrResult<T> {
+        match self {
+            Ok(val) => Ok(val),
+            Err(FeatureError(feature)) => {
+                bail!("{what} because the `{feature}` feature is not enabled")
+            }
+        }
     }
 }
 
