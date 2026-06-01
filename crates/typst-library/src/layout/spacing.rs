@@ -30,7 +30,7 @@ use crate::layout::{Abs, Em, Fr, Length, Ratio, Rel};
 /// In @math[mathematical formulas], you can additionally use these constants to
 /// add spacing between elements: `thin` (1/6 em), `med` (2/9 em), `thick`
 /// (5/18 em), `quad` (1 em), `wide` (2 em).
-#[elem(title = "Spacing (H)")]
+#[elem(title = "Spacing (H)", since = "forever")]
 pub struct HElem {
     /// How much spacing to insert.
     #[required]
@@ -92,7 +92,7 @@ impl HElem {
 ///   [A #v(1fr) B],
 /// )
 /// ```
-#[elem(title = "Spacing (V)")]
+#[elem(title = "Spacing (V)", since = "forever")]
 pub struct VElem {
     /// How much spacing to insert.
     #[required]

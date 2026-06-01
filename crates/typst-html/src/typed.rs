@@ -16,7 +16,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{
     Args, Array, AutoValue, CastInfo, Content, Context, Datetime, Dict, Duration,
     FromValue, IntoValue, NativeFuncData, NativeFuncPtr, NativeParamInfo, NoneValue,
-    PositiveF64, Reflect, Scope, Str, Type, Value,
+    PositiveF64, Reflect, Scope, Since, Str, Type, Value,
 };
 use typst_library::layout::{Axes, Axis, Dir, Length};
 use typst_library::text::TextElem;
@@ -59,7 +59,7 @@ fn create_func_data(
             title[0..1].make_ascii_uppercase();
             title
         },
-        since: None,
+        since: Some(Since::Version([0, 14, 0])),
         docs: element.docs,
         def_site: None,
         keywords: &["typed-html"],

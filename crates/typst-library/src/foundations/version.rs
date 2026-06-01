@@ -22,7 +22,7 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 ///
 /// You can convert a version to an array of explicitly given components using
 /// the @array constructor.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.9.0")]
 #[derive(Debug, Default, Clone, Hash)]
 pub struct Version(EcoVec<u32>);
 
@@ -86,7 +86,7 @@ impl Version {
     ///   #(version(3, 2, 0) > version(4, 1, 0))
     ///   ```
     /// )
-    #[func(constructor)]
+    #[func(constructor, since = "0.9.0")]
     pub fn construct(
         /// The components of the version (array arguments are flattened)
         #[variadic]
@@ -110,7 +110,7 @@ impl Version {
     ///
     /// The returned integer is always non-negative. Returns `0` if the version
     /// isn't specified to the necessary length.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn at(
         &self,
         /// The index at which to retrieve the component. If negative, indexes

@@ -214,7 +214,7 @@ use crate::{Library, World};
 /// The `counter` type is closely related to @state[state] type. Read its
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Counter(CounterKey);
 
@@ -336,7 +336,7 @@ impl Counter {
 #[scope]
 impl Counter {
     /// Create a new counter identified by a key.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The key that identifies this counter globally.
         ///
@@ -361,7 +361,7 @@ impl Counter {
     /// returns an array of integers, even if the counter has just one number.
     ///
     /// This is equivalent to `{counter.at(here())}`.
-    #[func(contextual)]
+    #[func(contextual, since = "0.11.0")]
     pub fn get(
         &self,
         engine: &mut Engine,
@@ -379,7 +379,7 @@ impl Counter {
     /// counted element and the current location, respectively).
     ///
     /// Returns the formatted output.
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn display(
         self,
         engine: &mut Engine,
@@ -452,7 +452,7 @@ impl Counter {
     /// The `selector` must match exactly one element in the document. The most
     /// useful kinds of selectors for this are @label[labels] and
     /// @location[locations].
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn at(
         &self,
         engine: &mut Engine,
@@ -467,7 +467,7 @@ impl Counter {
 
     /// Retrieves the value of the counter at the end of the document. Always
     /// returns an array of integers, even if the counter has just one number.
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn final_(
         &self,
         engine: &mut Engine,
@@ -486,7 +486,7 @@ impl Counter {
     /// write `{let _ = counter(page).step()}`. Counter updates are always
     /// applied in layout order and in that case, Typst wouldn't know when to
     /// step the counter.
-    #[func]
+    #[func(since = "forever")]
     pub fn step(
         self,
         span: Span,
@@ -502,7 +502,7 @@ impl Counter {
     ///
     /// Just like with `step`, the update only occurs if you put the resulting
     /// content into the document.
-    #[func]
+    #[func(since = "forever")]
     pub fn update(
         self,
         span: Span,
