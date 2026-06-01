@@ -83,6 +83,8 @@ pub struct ContentVtable<T: 'static = RawContent> {
     pub(super) name: &'static str,
     /// The element's title-cased name.
     pub(super) title: &'static str,
+    /// The version of Typst the element was introduced in.
+    pub(super) since: Option<&'static str>,
     /// The element's documentation (as Markdown).
     pub(super) docs: &'static str,
     /// Whether the element is defined in the source code.
@@ -140,10 +142,11 @@ pub struct ContentVtable<T: 'static = RawContent> {
 
 impl ContentVtable {
     /// Creates the vtable for an element.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new<E: NativeElement>(
         name: &'static str,
         title: &'static str,
+        since: Option<&'static str>,
         docs: &'static str,
         def_site: DefSite,
         fields: &'static [FieldVtable<Packed<E>>],
@@ -155,6 +158,7 @@ impl ContentVtable {
         ContentVtable {
             name,
             title,
+            since,
             docs,
             def_site,
             keywords: &[],
