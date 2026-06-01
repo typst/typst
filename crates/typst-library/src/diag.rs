@@ -24,7 +24,7 @@ use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
-use crate::{World, WorldExt};
+use crate::{Features, World, WorldExt};
 
 /// Early-return with an error for common result types used in Typst. If you
 /// need to interact with the produced errors more, consider using `error!` or
@@ -409,21 +409,51 @@ impl From<SyntaxDiagnostic> for SourceDiagnostic {
 }
 
 /// Destination for a warning message.
+pub trait BindingSink: WarningSink {
+    /// The features enabled in the current [`crate::Library`].
+    fn features(&self) -> &Features;
+}
+
+impl<T: BindingSink> BindingSink for &mut T {
+    fn features(&self) -> &Features {
+        T::features(self)
+    }
+}
+
+/// Destination for a warning message.
 pub trait WarningSink {
     /// Emits the message as a warning.
     fn emit(&mut self, message: HintedString);
+}
+
+impl<T: WarningSink> WarningSink for &mut T {
+    fn emit(&mut self, message: HintedString) {
+        T::emit(self, message);
+    }
 }
 
 impl WarningSink for () {
     fn emit(&mut self, _: HintedString) {}
 }
 
-impl WarningSink for (&mut Engine<'_>, Span) {
-    fn emit(&mut self, hinted: HintedString) {
-        self.0.sink.warn(
-            SourceDiagnostic::warning(self.1, hinted.message())
-                .with_hints(hinted.hints().iter().cloned()),
+/// A stuct that implements [`BindingSink`].
+pub struct EngineSink<'x, 'y> {
+    pub engine: &'x mut Engine<'y>,
+    pub span: Span,
+}
+
+impl WarningSink for EngineSink<'_, '_> {
+    fn emit(&mut self, message: HintedString) {
+        self.engine.sink.warn(
+            SourceDiagnostic::warning(self.span, message.message())
+                .with_hints(message.hints().iter().cloned()),
         );
+    }
+}
+
+impl BindingSink for EngineSink<'_, '_> {
+    fn features(&self) -> &Features {
+        &self.engine.library.features
     }
 }
 
