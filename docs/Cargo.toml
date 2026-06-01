@@ -27,6 +27,7 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 either = { workspace = true }
 heck = { workspace = true }
+icu_collator = { workspace = true }
 open = { workspace = true }
 proc-macro2 = { workspace = true, features = ["span-locations"] }
 rayon = { workspace = true }

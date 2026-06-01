@@ -67,6 +67,7 @@ hayro-svg = { version = "0.7.0", default-features = false }
 hayro-syntax = "0.7.2"
 heck = "0.5"
 hypher = "0.1.4"
+icu_collator = { git = "https://github.com/unicode-org/icu4x", rev = "f0f2481" }
 icu_properties = { version = "1.4", features = ["serde"] }
 icu_provider = { version = "1.4", features = ["sync"] }
 icu_provider_adapters = "1.4"
