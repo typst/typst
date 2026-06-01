@@ -221,6 +221,7 @@ fn create_lr_func_data(left: char, right: char, bump: &'static Bump) -> NativeFu
         )),
         name: "(..) => ..",
         title,
+        since: None,
         docs,
         def_site: None,
         keywords: &[],

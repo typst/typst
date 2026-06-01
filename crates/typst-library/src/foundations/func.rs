@@ -186,6 +186,17 @@ impl Func {
         }
     }
 
+    /// The version of Typst the function was introduced in.
+    pub fn since(&self) -> Option<&'static str> {
+        match &self.inner {
+            FuncInner::Native(native) => native.since,
+            FuncInner::Element(elem) => elem.since(),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.since(),
+        }
+    }
+
     /// Documentation for the function (as Markdown).
     pub fn docs(&self) -> Option<&'static str> {
         match &self.inner {
@@ -626,6 +637,8 @@ pub struct NativeFuncData {
     pub name: &'static str,
     /// The function's title case name (e.g. `Align`).
     pub title: &'static str,
+    /// The version of Typst the function was introduced in.
+    pub since: Option<&'static str>,
     /// The documentation for this function as a string.
     pub docs: &'static str,
     /// Where the function is defined in the source code.

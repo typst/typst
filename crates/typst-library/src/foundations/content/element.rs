@@ -42,6 +42,11 @@ impl Element {
         self.vtable().title
     }
 
+    /// The version of Typst the element was introduced in.
+    pub fn since(&self) -> Option<&'static str> {
+        self.vtable().since
+    }
+
     /// Documentation for the element (as Markdown).
     pub fn docs(&self) -> &'static str {
         self.vtable().docs

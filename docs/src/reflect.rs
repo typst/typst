@@ -50,6 +50,7 @@ fn describe_func(func: &Func) -> Dict {
     dict! {
         "name" => func.name(),
         "title" => func.title(),
+        "since" => func.since(),
         "docs" => func.docs(),
         "def-site" => func.def_site().map(describe_def_site),
         "element" => func.to_element().is_some(),
@@ -94,6 +95,7 @@ fn describe_ty(ty: &Type) -> Dict {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),
         "title" => ty.title(),
+        "since" => ty.since(),
         "docs" => ty.docs(),
         "def-site" => describe_def_site(ty.def_site()),
         "keywords" => ty.keywords(),

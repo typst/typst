@@ -85,6 +85,11 @@ impl Type {
         self.0.title
     }
 
+    /// th version of Typst this type was introduced in.
+    pub fn since(&self) -> Option<&'static str> {
+        self.0.since
+    }
+
     /// Documentation for the type (as Markdown).
     pub fn docs(&self) -> &'static str {
         self.0.docs
@@ -209,11 +214,13 @@ pub struct NativeTypeData {
     pub name: &'static str,
     /// The type's long name (e.g. `string`), for error messages.
     pub long_name: &'static str,
-    /// The function's title case name (e.g. `String`).
+    /// The type's title case name (e.g. `String`).
     pub title: &'static str,
+    /// The version of Typst this type was introduced in.
+    pub since: Option<&'static str>,
     /// The documentation for this type as a string.
     pub docs: &'static str,
-    /// Where the function is defined in the source code.
+    /// Where the type is defined in the source code.
     pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],

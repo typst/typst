@@ -273,6 +273,7 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
         )),
         name: "(..) => ..",
         title,
+        since: None,
         docs,
         def_site: None,
         keywords: &[],
