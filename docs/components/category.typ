@@ -281,6 +281,11 @@
       Contextual functions can only be used when the context is known.
     ])
   }
+  if info.since != none {
+    set text(0.75em)
+    gap
+    small[Since: #info.since]
+  }
   gap
   deprecation(deprecation-info)
   sources-link(info)
@@ -288,6 +293,12 @@
 
 // Displays additional details about a type.
 #let ty-subtitle(ty-info, deprecation-info) = context {
+  let gap = if target() == "paged" { h(0.5em, weak: true) }
+  if ty-info.since != none {
+    set text(0.75em)
+    gap
+    small[Since: #ty-info.since]
+  }
   deprecation(deprecation-info)
   sources-link(ty-info)
 }
@@ -380,7 +391,7 @@
     with-tooltip[Constructor][
       If a type has a constructor, you can call it like a function to create
       a new value of the type.
-    ],
+    ] + func-subtitle(info, none),
   )
 
   {
