@@ -65,30 +65,30 @@ fi vs. #text(features: (liga: 0))[No fi]
 #set text(features: false)
 
 --- text-features-non-ascii eval ---
-// Error: 21-30 feature tag may contain only printable ASCII characters
+// Error: 21-30 tag may contain only printable ASCII characters
 // Hint: 21-30 found invalid cluster `"ƒ"`
 // Hint: 21-30 occurred in tag at index 0 (`"ƒeat"`)
 #set text(features: ("ƒeat",))
 
 --- text-features-bad-padding eval ---
-// Error: 21-30 spaces may only appear as padding following a feature tag
+// Error: 21-30 spaces may only appear as padding following a tag
 // Hint: 21-30 occurred in tag at index 0 (`" tag"`)
 #set text(features: (" tag",))
 
 --- text-features-empty-array eval ---
-// Error: 21-26 feature tag must be one to four characters in length
+// Error: 21-26 tag must be one to four characters in length
 // Hint: 21-26 found 0 characters
 // Hint: 21-26 occurred in tag at index 0 (`""`)
 #set text(features: ("",))
 
 --- text-features-overlong-dict eval ---
-// Error: 21-41 feature tag must be one to four characters in length
+// Error: 21-41 tag must be one to four characters in length
 // Hint: 21-41 found 15 characters
 // Hint: 21-41 occurred in tag at index 0 (`"verylongfeature"`)
 #set text(features: (verylongfeature: 0))
 
 --- text-features-array-kv eval ---
-// Error: 21-32 feature tag must be one to four characters in length
+// Error: 21-32 tag must be one to four characters in length
 // Hint: 21-32 found 6 characters
 // Hint: 21-32 occurred in tag at index 0 (`"feat=2"`)
 // Hint: 21-32 to set features with custom values, consider supplying a dictionary

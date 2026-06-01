@@ -1,11 +1,10 @@
 use codex::styling::MathVariant;
 use smallvec::smallvec;
-use ttf_parser::Tag;
 use typst_utils::LazyHash;
 
 use crate::foundations::{Cast, Content, Style, StyleChain, func};
 use crate::math::EquationElem;
-use crate::text::{FontFeatures, TextElem};
+use crate::text::{FontFeatures, Tag, TextElem};
 
 /// Bold font style in math.
 ///

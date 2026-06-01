@@ -6,6 +6,7 @@ mod book;
 mod exceptions;
 mod info;
 mod metrics;
+mod tag;
 mod variant;
 
 pub use self::book::FontBook;
@@ -14,6 +15,7 @@ pub use self::metrics::{
     FontMetrics, LineMetrics, MathConstants, ScriptMetrics, TextEdgeBounds,
     VerticalFontMetric,
 };
+pub use self::tag::Tag;
 pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
 
 use std::cell::OnceCell;

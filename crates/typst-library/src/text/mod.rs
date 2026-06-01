@@ -37,10 +37,8 @@ use icu_properties::CodePointSetDataBorrowed;
 use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
@@ -1257,51 +1255,10 @@ pub enum NumberWidth {
 pub struct FontFeatures(pub SmallVec<[(Tag, u32); 2]>);
 
 cast! {
-    Tag,
-    v: Str => {
-        // Tags must: https://learn.microsoft.com/en-us/typography/opentype/spec/otff#data-types
-        // - be one to four bytes in length
-        // - be representable as printable ASCII (0x20..=0x7E)
-        // - contain at least one character that isn't padding (0x20, space)
-        // - padding may only appear at the end of a tag
-
-        if let Some(cluster) = v.graphemes(true).find(|v| {
-            !v.as_bytes().iter().all(|v| (0x20..=0x7E).contains(v))
-        }) {
-            bail!(
-                "feature tag may contain only printable ASCII characters";
-                hint: "found invalid cluster `{}`", cluster.repr();
-            )
-        }
-
-        if !(1..=4).contains(&v.len()) {
-            bail!(
-                "feature tag must be one to four characters in length";
-                hint: "found {} characters", v.len();
-            );
-        }
-
-        let mut within_padding = false;
-        for (i, &v) in v.as_bytes().iter().enumerate() {
-            if (within_padding && v != b' ') || (i == 0 && v == b' ') {
-                bail!("spaces may only appear as padding following a feature tag")
-            }
-            within_padding |= b' ' == v;
-        }
-
-        Self::from_bytes_lossy(v.as_bytes())
-    }
-}
-
-cast! {
     FontFeatures,
     self => self.0
         .into_iter()
-        .map(|(tag, num)| {
-            let bytes = tag.to_bytes();
-            let key = std::str::from_utf8(&bytes).unwrap_or_default();
-            (key.into(), num.into_value())
-        })
+        .map(|(tag, num)| (tag.to_str_lossy().into(), num.into_value()))
         .collect::<Dict>()
         .into_value(),
     values: Array => Self(values
@@ -1344,7 +1301,7 @@ impl Fold for FontFeatures {
 pub fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag: &[u8; 4], value: u32| {
-        tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
+        tags.push(Feature::new(ttf_parser::Tag::from_bytes(tag), value, ..));
     };
 
     // Features that are on by default in Harfbuzz are only added if disabled.
@@ -1410,7 +1367,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag, value, ..))
+        tags.push(Feature::new(tag.into(), value, ..))
     }
 
     tags
@@ -1565,7 +1522,7 @@ mod tests {
                 .unwrap()
                 .into_value()
                 .cast::<Tag>()
-                .map_or(None, |v| Some(v.0.to_be_bytes()))
+                .map_or(None, |v| Some(v.to_bytes()))
         };
 
         // Valid tags; standard and padded forms.
