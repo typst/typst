@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontFlags, FontInfo, FontVariant};
-use crate::text::is_default_ignorable;
+use super::{Font, FontInfo, FontVariant};
+use crate::text::{FontFlags, is_default_ignorable};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -113,14 +113,14 @@ impl FontBook {
     }
 
     /// Find the font in the passed iterator that
-    /// - is closest to the font `like` (if any)
+    /// - is closest to the font `like` (if any), and
     /// - is closest to the given `variant`
     ///
-    /// To do that we compute a key for all variants and select the one with the
-    /// minimal key. This key prioritizes:
+    /// To do that we compute a score for all variants and select the one with the
+    /// higher score. This score prioritizes:
     /// - If `like` is some other font:
-    ///   - Are both fonts (not) monospaced?
-    ///   - Do both fonts (not) have serifs?
+    ///   - Are both fonts monospaced?
+    ///   - Do both fonts have serifs?
     ///   - How many words do the families share in their prefix? E.g. "Noto
     ///     Sans" and "Noto Sans Arabic" share two words, whereas "IBM Plex
     ///     Arabic" shares none with "Noto Sans", so prefer "Noto Sans Arabic"
@@ -140,34 +140,57 @@ impl FontBook {
         ids: impl IntoIterator<Item = usize>,
     ) -> Option<usize> {
         let mut best = None;
-        let mut best_key = None;
+        let mut best_score = None;
 
         for id in ids {
             let current = &self.infos[id];
-            let key = (
-                like.map(|like| {
-                    (
-                        current.flags.contains(FontFlags::MONOSPACE)
-                            != like.flags.contains(FontFlags::MONOSPACE),
-                        current.flags.contains(FontFlags::SERIF)
-                            != like.flags.contains(FontFlags::SERIF),
-                        Reverse(shared_prefix_words(&current.family, &like.family)),
-                        current.family.len(),
-                    )
-                }),
-                current.variant.style.distance(variant.style),
-                current.variant.stretch.distance(variant.stretch),
-                current.variant.weight.distance(variant.weight),
+            let score = (
+                like.map(|like| similarity(current, like)),
+                Reverse(distance(current, variant)),
             );
 
-            if best_key.is_none_or(|b| key < b) {
+            if best_score.is_none_or(|b| score > b) {
                 best = Some(id);
-                best_key = Some(key);
+                best_score = Some(score);
             }
         }
 
         best
     }
+}
+
+/// Determines a metric that scores higher if `other` is similar to `self`.
+/// This is used to pick a closely matching face during font fallback.
+fn similarity(left: &FontInfo, right: &FontInfo) -> impl Ord + Copy {
+    (
+        // Most importantly, we want a font of a similar kind (monospace,
+        // serif, etc.).
+        left.flags.contains(FontFlags::MONOSPACE)
+            == right.flags.contains(FontFlags::MONOSPACE),
+        left.flags.contains(FontFlags::SERIF) == right.flags.contains(FontFlags::SERIF),
+        // We prefer fonts that have more words shared in their name. E.g.
+        // "Noto Sans" and "Noto Sans Arabic" share two words, whereas "IBM
+        // Plex Arabic" shares none with "Noto Sans", so prefer "Noto Sans
+        // Arabic" if `like` is "Noto Sans".
+        shared_prefix_words(&left.family, &right.family),
+        // In case there are two equally good matches, we prefer the shorter
+        // one because it is less special (e.g. if `like` is "Noto Sans
+        // Arabic", we prefer "Noto Sans" over "Noto Sans CJK HK".)
+        Reverse(left.family.len()),
+    )
+}
+
+/// Determines a distance metric from the given variant to
+/// - this font's variant (if static)
+/// - this font's closest instance (if variable)
+///
+/// Used to pick the most suitable font in a family.
+fn distance(info: &FontInfo, variant: FontVariant) -> impl Ord + Copy {
+    (
+        info.variant.style.distance(variant.style),
+        info.variant.stretch.distance(variant.stretch),
+        info.variant.weight.distance(variant.weight),
+    )
 }
 
 /// How many words the two strings share in their prefix.
