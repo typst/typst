@@ -826,6 +826,7 @@ d7ce600b8f4ce5b27a9d63c4c738eca5 issue-7292-page-width-auto-margin-zero
 5aaf99a17ad83790c8f2e3fe726ef851 issue-7398-grid-line-end-oob
 118d478170d935dab6f0be9aeb865332 issue-7428-heading-numbering-errors
 0576a39a323f9d834e8a0182dbba42be issue-7437-math-accent-text-presentation
+c5eba3e2230a157595cd253829dca16b issue-7541-justify-with-zero-width-space
 cfcaa73a6732c63adc1e16a2ab7ed0f1 issue-758-link-repeat
 9322ae3ef22272f2db94665c7c743a93 issue-785-cite-locate
 d93f13c417d29282915c9f325b6533db issue-7872-negative-scale

@@ -10,7 +10,7 @@ use icu_segmenter::{LineSegmenter, LineSegmenterBorrowed};
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
-use typst_library::text::TextElem;
+use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
@@ -61,9 +61,6 @@ static CJ_SEGMENTER: LazyLock<LineSegmenter> = LazyLock::new(|| {
 const LINEBREAK_DATA: CodePointMapDataBorrowed<LineBreak> =
     CodePointMapDataBorrowed::new();
 
-// Zero width space.
-const ZWS: char = '\u{200B}';
-
 /// A line break opportunity.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Breakpoint {
@@ -82,14 +79,24 @@ impl Breakpoint {
         match self {
             // Trailing whitespace should be shaped, but the glyphs should have
             // their advance width zeroed. This way, they are available for copy
-            // paste, but don't influence layout. The zero width space already
-            // has zero advance width, so would not need to be trimmed for that
-            // reason, but it can interfere with end-of-line adjustments in CJK
-            // layout, so it is included here. Unfortunately, there isn't
-            // currently a test for this.
+            // paste, but don't influence layout.
+            // Also trim Unicode `Default_Ignorable`s, since they may interfere
+            // with end-of-line adjustments in CJK layout and since they are not
+            // rendered, they will be included in another glyph cluster. If they
+            // aren't trimmed here and they attach to a space glyph that is
+            // covered by a font, the space may be considered relevant for
+            // inline layout, which is undesirable. Unicode `Default_Ignorable`s
+            // include among others:
+            // - `\u{200B}` zero width space
+            // - `\u{202A}` LTR embedding
+            // - `\u{202B}` RTL embedding
+            // - `\u{202C}` POP embedding
+            // - `\u{2066}` LTR isolate
+            // - `\u{2069}` POP isolate
             Self::Normal => {
-                let trimmed =
-                    line.trim_end_matches(|c: char| c.is_whitespace() || c == ZWS);
+                let trimmed = line.trim_end_matches(|c: char| {
+                    c.is_whitespace() || is_default_ignorable(c)
+                });
                 Trim {
                     layout: start + trimmed.len(),
                     shaping: start + line.len(),
