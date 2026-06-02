@@ -106,7 +106,7 @@ impl Font {
     /// The font's math constants.
     #[inline]
     pub fn math(&self) -> &MathConstants {
-        self.0.metrics.math.get_or_init(|| FontMetrics::init_math(self))
+        self.0.metrics.math.get_or_init(|| MathConstants::new(self))
     }
 
     /// The number of font units per one em.
