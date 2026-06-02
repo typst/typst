@@ -415,9 +415,6 @@ impl Array {
         let step = step.get();
         let step_dir = 0.cmp(&step);
 
-        let mut x = start;
-        let mut array = Self::new();
-
         let in_bounds = |x: i64| {
             if inclusive {
                 // `x` must not exceed `end`.
@@ -427,6 +424,17 @@ impl Array {
                 x.cmp(&end) == step_dir
             }
         };
+
+        let size_estimate = if in_bounds(start) {
+            // The addition and ceil account for `start` being inclusive.
+            let breadth = start.abs_diff(end).saturating_add(inclusive.into());
+            breadth.div_ceil(step.unsigned_abs()).try_into().unwrap_or_default()
+        } else {
+            0
+        };
+
+        let mut x = start;
+        let mut array = Self::with_capacity(size_estimate);
 
         while in_bounds(x) {
             array.push(x.into_value());
@@ -438,6 +446,18 @@ impl Array {
                 break;
             }
         }
+
+        // Failing this check in release is sub-optimal, but not a hard error.
+        // Developers should be aware of the issue though!
+        debug_assert!(
+            size_estimate == array.len(),
+            "Range size estimate was off; \
+            we computed: {size_estimate}, but got: {}.\
+            \n\
+            With start: {start}, end: {end}, step: {step}, \
+            inclusive: {inclusive}.",
+            array.len(),
+        );
 
         Ok(array)
     }
