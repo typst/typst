@@ -17,21 +17,20 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// A color gradient.
 ///
 /// Typst supports linear gradients through the
-/// [`gradient.linear` function]($gradient.linear), radial gradients through
-/// the [`gradient.radial` function]($gradient.radial), and conic gradients
-/// through the [`gradient.conic` function]($gradient.conic).
+/// @gradient.linear[`gradient.linear` function], radial gradients through the
+/// @gradient.radial[`gradient.radial` function], and conic gradients through
+/// the @gradient.conic[`gradient.conic` function].
 ///
 /// A gradient can be used for the following purposes:
 /// - As a fill to paint the interior of a shape:
 ///   `{rect(fill: gradient.linear(..))}`
 /// - As a stroke to paint the outline of a shape:
 ///   `{rect(stroke: 1pt + gradient.linear(..))}`
-/// - As the fill of text:
-///   `{set text(fill: gradient.linear(..))}`
-/// - As a color map you can [sample]($gradient.sample) from:
+/// - As the fill of text: `{set text(fill: gradient.linear(..))}`
+/// - As a color map you can @gradient.sample[sample] from:
 ///   `{gradient.linear(..).sample(50%)}`
 ///
-/// # Examples
+/// = Examples <examples>
 /// ```example
 /// >>> #set square(size: 50pt)
 /// #stack(
@@ -44,10 +43,10 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// ```
 ///
 /// Gradients are also supported on text, but only when setting the
-/// [relativeness]($gradient.relative) to either `{auto}` (the default value) or
+/// @gradient.relative[relativeness] to either `{auto}` (the default value) or
 /// `{"parent"}`. To create word-by-word or glyph-by-glyph gradients, you can
-/// wrap the words or characters of your text in [boxes]($box) manually or
-/// through a [show rule]($styling/#show-rules).
+/// wrap the words or characters of your text in @box[boxes] manually or through
+/// a @reference:styling:show-rules[show rule].
 ///
 /// ```example
 /// >>> #set page(width: auto, height: auto, margin: 12pt)
@@ -61,9 +60,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// This is a gradient on text, but with a #rainbow[twist]!
 /// ```
 ///
-/// # Stops
+/// = Stops <stops>
 /// A gradient is composed of a series of stops. Each of these stops has a color
-/// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}` or
+/// and an offset. The offset is a @ratio[ratio] between `{0%}` and `{100%}` or
 /// an angle between `{0deg}` and `{360deg}`. The offset is a relative position
 /// that determines how far along the gradient the stop is located. The stop's
 /// color is the color of the gradient at that position. You can choose to omit
@@ -71,12 +70,12 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// stops evenly.
 ///
 /// Typst predefines color maps that you can use as stops. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
+/// @color:predefined-color-maps[`color`] documentation for more details.
 ///
-/// # Relativeness
-/// The location of the `{0%}` and `{100%}` stops depends on the dimensions
-/// of a container. This container can either be the shape that it is being
-/// painted on, or the closest surrounding container. This is controlled by the
+/// = Relativeness <relativeness>
+/// The location of the `{0%}` and `{100%}` stops depends on the dimensions of a
+/// container. This container can either be the shape that it is being painted
+/// on, or the closest surrounding container. This is controlled by the
 /// `relative` argument of a gradient constructor. By default, gradients are
 /// relative to the shape they are being painted on, unless the gradient is
 /// applied on text, in which case they are relative to the closest ancestor
@@ -85,15 +84,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
-///   contains the shape. This includes the boxes and blocks that are implicitly
-///   created by show rules and elements. For example, a [`rotate`] will not
-///   affect the parent of a gradient, but a [`grid`] will.
+/// - For other shapes, the ancestor is the innermost @block or @box that
+///   contains the shape.
 ///
-/// # Color spaces and interpolation
+/// = Color spaces and interpolation <color-spaces-and-interpolation>
 /// Gradients can be interpolated in any color space. By default, gradients are
-/// interpolated in the [Oklab]($color.oklab) color space, which is a
-/// [perceptually uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
+/// interpolated in the @color.oklab[Oklab] color space, which is a
+/// #link("https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html")[perceptually uniform]
 /// color space. This means that the gradient will be perceived as having a
 /// smooth progression of colors. This is particularly useful for data
 /// visualization.
@@ -103,16 +100,33 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// perceptually interpolating between colors. Consult the table below when
 /// choosing an interpolation space.
 ///
-/// |           Color space           | Perceptually uniform? |
-/// | ------------------------------- |-----------------------|
-/// | [Oklab]($color.oklab)           | *Yes*                 |
-/// | [Oklch]($color.oklch)           | *Yes*                 |
-/// | [sRGB]($color.rgb)              | *No*                  |
-/// | [linear-RGB]($color.linear-rgb) | *Yes*                 |
-/// | [CMYK]($color.cmyk)             | *No*                  |
-/// | [Grayscale]($color.luma)        | *Yes*                 |
-/// | [HSL]($color.hsl)               | *No*                  |
-/// | [HSV]($color.hsv)               | *No*                  |
+/// #docs-table(
+///   table.header[Color space][Perceptually uniform?],
+///
+///   [@color.oklab[Oklab]],
+///   [_Yes_],
+///
+///   [@color.oklch[Oklch]],
+///   [_Yes_],
+///
+///   [@color.rgb[sRGB]],
+///   [_No_],
+///
+///   [@color.linear-rgb[linear-RGB]],
+///   [_Yes_],
+///
+///   [@color.cmyk[CMYK]],
+///   [_No_],
+///
+///   [@color.luma[Grayscale]],
+///   [_Yes_],
+///
+///   [@color.hsl[HSL]],
+///   [_No_],
+///
+///   [@color.hsv[HSV]],
+///   [_No_],
+/// )
 ///
 /// ```preview
 /// >>> #set text(fill: white, font: "IBM Plex Sans", 8pt)
@@ -142,7 +156,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// }
 /// ```
 ///
-/// # Direction
+/// = Direction <direction>
 /// Some gradients are sensitive to direction. For example, a linear gradient
 /// has an angle that determines its direction. Typst uses a clockwise angle,
 /// with 0° being from left to right, 90° from top to bottom, 180° from right to
@@ -160,19 +174,16 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// )
 /// ```
 ///
-/// # Note on file sizes
-///
+/// = Note on file sizes <note-on-file-sizes>
 /// Gradients can be quite large, especially if they have many stops. This is
-/// because gradients are stored as a list of colors and offsets, which can
-/// take up a lot of space. If you are concerned about file sizes, you should
-/// consider the following:
-/// - SVG gradients are currently inefficiently encoded. This will be improved
-///   in the future.
-/// - PDF gradients in the [`color.oklab`], [`color.hsv`], [`color.hsl`], and
-///   [`color.oklch`] color spaces are stored as a list of [`color.rgb`] colors
-///   with extra stops in between. This avoids needing to encode these color
-///   spaces in your PDF file, but it does add extra stops to your gradient,
-///   which can increase the file size.
+/// because gradients are stored as a list of colors and offsets, which can take
+/// up a lot of space. In SVG export, gradients are stored as a list of
+/// @color.rgb colors replicating the original color space with an optimized
+/// number of extra stops in between. In PDF export, the same applies to
+/// gradients in the @color.oklab, @color.oklch, @color.hsv, @color.hsl, and
+/// @color.linear-rgb color spaces. This avoids needing to encode these color
+/// spaces in your PDF file, but it does add extra stops to your gradient, which
+/// can increase the file size.
 #[ty(scope, cast)]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
@@ -200,22 +211,20 @@ impl Gradient {
     pub fn linear(
         args: &mut Args,
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost block, box, column, grid, or stack that contains the
-        /// element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -289,28 +298,27 @@ impl Gradient {
     #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block,
-        /// box, column, grid, or stack that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
         /// The center of the end circle of the gradient.
         ///
-        /// A value of `{(50%, 50%)}` means that the end circle is
-        /// centered inside of its container.
+        /// A value of `{(50%, 50%)}` means that the end circle is centered
+        /// inside of its container.
         #[named]
         #[default(Axes::splat(Ratio::new(0.5)))]
         center: Axes<Ratio>,
@@ -325,8 +333,8 @@ impl Gradient {
         ///
         /// The focal center must be inside of the end circle.
         ///
-        /// A value of `{(50%, 50%)}` means that the focal circle is
-        /// centered inside of its container.
+        /// A value of `{(50%, 50%)}` means that the focal circle is centered
+        /// inside of its container.
         ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
@@ -337,7 +345,7 @@ impl Gradient {
         /// The focal center must be inside of the end circle.
         ///
         /// By default, it is set to `{0%}`. The focal radius must be smaller
-        /// than the ending radius`.
+        /// than the ending radius.
         #[named]
         #[default(Spanned::detached(Ratio::new(0.0)))]
         focal_radius: Spanned<Ratio>,
@@ -405,7 +413,7 @@ impl Gradient {
     #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
@@ -415,15 +423,14 @@ impl Gradient {
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
         #[default(ColorSpace::Oklab)]
         space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block,
-        /// box, column, grid, or stack that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -454,9 +461,9 @@ impl Gradient {
 
     /// Creates a sharp version of this gradient.
     ///
-    /// Sharp gradients have discrete jumps between colors, instead of a
-    /// smooth transition. They are particularly useful for creating color
-    /// lists for a preset gradient.
+    /// Sharp gradients have discrete jumps between colors, instead of a smooth
+    /// transition. They are particularly useful for creating color lists for a
+    /// preset gradient.
     ///
     /// ```example
     /// #set rect(width: 100%, height: 20pt)
@@ -565,8 +572,8 @@ impl Gradient {
         &self,
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-        /// Whether to mirror the gradient at every second repetition, i.e.,
-        /// the first instance (and all odd ones) stays unchanged.
+        /// Whether to mirror the gradient at every second repetition, i.e., the
+        /// first instance (and all odd ones) stays unchanged.
         ///
         /// ```example
         /// #circle(
@@ -762,9 +769,9 @@ impl Gradient {
 
     /// Sample the gradient at a given position.
     ///
-    /// The position is either a position along the gradient (a [ratio] between
-    /// `{0%}` and `{100%}`) or an [angle]. Any value outside of this range will
-    /// be clamped.
+    /// The position is either a position along the gradient (a @ratio[ratio]
+    /// between `{0%}` and `{100%}`) or an @angle[angle]. Any value outside of
+    /// this range will be clamped.
     #[func]
     pub fn sample(
         &self,
@@ -846,11 +853,11 @@ impl Gradient {
                     let exact = self.sample(RatioOrAngle::Ratio(mid));
                     let approx = Color::mix_iter(
                         [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
-                        ColorSpace::LinearRgb,
+                        ColorSpace::Srgb,
                     )
                     .unwrap();
-                    let exact_color = exact.to_linear_rgb().premultiply().color;
-                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let exact_color = exact.to_rgb().premultiply().color;
+                    let approx_color = approx.to_rgb().premultiply().color;
                     let delta = (exact_color - approx_color).into_components();
                     (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
                 };
@@ -1351,7 +1358,7 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
         while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
             j += 1;
         }
-        return stops[j].0;
+        return stops[j].0.to_space(mixing_space);
     }
 
     let (col_0, pos_0) = stops[j - 1];

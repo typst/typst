@@ -8,13 +8,21 @@ use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, tag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, property,
+    tag,
 };
 
+/// Settings for HTML export.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct HtmlOptions {
+    /// Whether to format the HTML in a human-readable way.
+    pub pretty: bool,
+}
+
 /// Encodes an HTML document into a string.
-pub fn html(document: &HtmlDocument) -> SourceResult<String> {
+pub fn html(document: &HtmlDocument, options: &HtmlOptions) -> SourceResult<String> {
     let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
-    let w = Writer::new(link_resolver.track(), true);
+    let w = Writer::new(link_resolver.track(), options.pretty);
     html_impl(w, document.root())
 }
 
@@ -24,9 +32,10 @@ pub fn html(document: &HtmlDocument) -> SourceResult<String> {
 /// root element instead of the document.
 pub fn html_in_bundle(
     root: &HtmlElement,
+    options: &HtmlOptions,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<String> {
-    let w = Writer::new(link_resolver, true);
+    let w = Writer::new(link_resolver, options.pretty);
     html_impl(w, root)
 }
 
@@ -124,9 +133,13 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         }
     }
 
+    if tag::is_foreign_self_closing(element.tag) {
+        w.buf.push('/');
+    }
+
     w.buf.push('>');
 
-    if tag::is_void(element.tag) {
+    if tag::is_void(element.tag) || tag::is_foreign_self_closing(element.tag) {
         if !element.children.is_empty() {
             bail!(element.span, "HTML void elements must not have children");
         }
@@ -158,7 +171,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     let pretty = w.pretty;
     let pretty_inside = allows_pretty_inside(element.tag)
         && element.children.iter().any(|node| match node {
-            HtmlNode::Element(child) => wants_pretty_around(child.tag),
+            HtmlNode::Element(child) => wants_pretty_around(child),
             HtmlNode::Frame(_) => true,
             _ => false,
         });
@@ -170,7 +183,7 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
     for c in &element.children {
         let pretty_around = match c {
             HtmlNode::Tag(_) => continue,
-            HtmlNode::Element(child) => w.pretty && wants_pretty_around(child.tag),
+            HtmlNode::Element(child) => w.pretty && wants_pretty_around(child),
             HtmlNode::Text(..) | HtmlNode::Frame(_) => false,
         };
 
@@ -324,9 +337,14 @@ impl RawMode {
 /// rules to `<p>` can make it sensitive to whitespace. For this reason, we
 /// should also respect the `style` tag in the future.
 fn allows_pretty_inside(tag: HtmlTag) -> bool {
-    (tag::is_block_by_default(tag) && tag != tag::pre)
-        || tag::is_tabular_by_default(tag)
-        || tag == tag::li
+    if tag::mathml::is_mathml(tag) && !tag::mathml::is_token(tag) {
+        return true;
+    }
+    let Some(display) = property::Display::default_for(tag) else { return false };
+    (display == property::Display::Block && tag != tag::pre)
+        || display.is_tabular()
+        || display == property::Display::ListItem
+        || tag == tag::head
 }
 
 /// Whether newlines should be added before and after the element if the parent
@@ -334,8 +352,16 @@ fn allows_pretty_inside(tag: HtmlTag) -> bool {
 ///
 /// In contrast to `allows_pretty_inside`, which is purely spec-driven, this is
 /// more subjective and depends on preference.
-fn wants_pretty_around(tag: HtmlTag) -> bool {
-    allows_pretty_inside(tag) || tag::is_metadata_content(tag) || tag == tag::pre
+fn wants_pretty_around(element: &HtmlElement) -> bool {
+    match element.tag {
+        tag::mathml::math => {
+            element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")
+        }
+        t if tag::mathml::is_mathml(t) => true,
+        tag::pre => true,
+        t if tag::is_metadata_content(t) => true,
+        t => allows_pretty_inside(t),
+    }
 }
 
 /// Escape a character.
@@ -366,7 +392,9 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
     let svg = typst_svg::svg_in_html(
         &frame.inner,
         frame.text_size,
+        w.pretty,
         frame.id.as_deref(),
+        &eco_format!("{}", frame.css.to_inline()),
         &frame.anchors,
         w.link_resolver,
     );

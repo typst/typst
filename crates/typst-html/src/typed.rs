@@ -1,7 +1,7 @@
 //! The typed HTML element API (e.g. `html.div`).
 //!
 //! The typed API is backed by generated data derived from the HTML
-//! specification. See [generated] and `tools/codegen`.
+//! specification.
 
 use std::fmt::Write;
 use std::num::{NonZeroI64, NonZeroU64};
@@ -24,7 +24,8 @@ use typst_library::visualize::Color;
 use typst_macros::cast;
 use typst_syntax::Spanned;
 
-use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, css, tag};
+use crate::css::ToCss;
+use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, tag};
 
 /// Hook up all typed HTML definitions.
 pub(super) fn define(html: &mut Scope) {
@@ -59,6 +60,7 @@ fn create_func_data(
             title
         },
         docs: element.docs,
+        def_site: None,
         keywords: &["typed-html"],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
@@ -74,6 +76,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
         params.push(NativeParamInfo {
             name: attr.name,
             docs: attr.docs,
+            def_site: None,
             input: AttrType::convert(attr.ty).input(),
             default: None,
             positional: false,
@@ -93,6 +96,7 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
             } else {
                 "The contents of the HTML element."
             },
+            def_site: None,
             input: CastInfo::Type(if raw {
                 Type::of::<Str>()
             } else {
@@ -544,7 +548,8 @@ impl IntoAttr for PositiveF64 {
 
 impl IntoAttr for Color {
     fn into_attr(self) -> EcoString {
-        eco_format!("{}", css::color(self))
+        // TODO: Warnings are currently ignored.
+        self.to_css(())
     }
 }
 
@@ -711,7 +716,7 @@ cast! {
             .cast::<Length>()
             .hint("CSS lengths that are not expressible as Typst lengths are not yet supported")
             .hint("you can use `html.elem` to create a raw attribute")?;
-        Self(eco_format!("({condition}) {}", css::length(size)))
+        Self(eco_format!("({condition}) {}", size.to_css(())))
     },
 }
 

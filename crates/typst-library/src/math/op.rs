@@ -1,20 +1,21 @@
 use ecow::EcoString;
+use unicode_math_class::MathClass;
 
 use crate::foundations::{Content, NativeElement, Scope, SymbolElem, elem};
 use crate::layout::HElem;
-use crate::math::{Mathy, THIN, upright};
+use crate::math::{ClassElem, Mathy, THIN, upright};
 use crate::text::TextElem;
 
 /// A text operator in an equation.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// $ tan x = (sin x)/(cos x) $
 /// $ op("custom",
 ///      limits: #true)_(n->oo) n $
 /// ```
 ///
-/// # Predefined Operators { #predefined }
+/// = #short-or-long[Predefined][Predefined Operators] <predefined>
 /// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
 /// `cosh`, `cot`, `coth`, `csc`, `csch`, `ctg`, `deg`, `det`, `dim`, `exp`,
 /// `gcd`, `lcm`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`,
@@ -47,7 +48,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + upright(SymbolElem::packed(d))
+                    + ClassElem::new(MathClass::Unary, upright(SymbolElem::packed(d))).pack()
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

@@ -1,11 +1,14 @@
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
-use krilla::configure::{Configuration, ValidationError, Validator};
+use krilla::configure::validate::VersionedFeature;
+use krilla::configure::{
+    Configuration, PdfVersion, ValidationError, Validator, Validators,
+};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
-use krilla::error::KrillaError;
-use krilla::geom::PathBuilder;
+use krilla::error::{KrillaError, LimitError};
+use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
@@ -19,7 +22,7 @@ use typst_library::diag::{
 };
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
-use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
 use typst_library::text::Font;
 use typst_library::visualize::{Geometry, Paint};
@@ -35,7 +38,7 @@ use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
-use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::util::{AbsExt, TransformExt, ValidatorsExt, convert_path, display_font};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -47,12 +50,13 @@ pub fn convert(
     let settings = SerializeSettings {
         compress_content_streams: true,
         no_device_cs: true,
-        ascii_compatible: false,
+        ascii_compatible: options.pretty,
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
+        pretty: options.pretty,
     };
 
     let mut document = Document::new_with(settings);
@@ -97,11 +101,24 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         // PDF 2.0 doesn't define an explicit limit, but krilla and probably
         // some viewers won't handle pages that have zero sized pages.
         let mut settings = PageSettings::from_wh(
-            typst_page.frame.width().to_f32().max(3.0),
-            typst_page.frame.height().to_f32().max(3.0),
+            (typst_page.frame.width() + typst_page.bleed.left + typst_page.bleed.right)
+                .to_f32()
+                .max(3.0),
+            (typst_page.frame.height() + typst_page.bleed.top + typst_page.bleed.bottom)
+                .to_f32()
+                .max(3.0),
         )
         .expect_internal("invalid page size")
         .at(Span::detached())?;
+
+        if !typst_page.bleed.is_zero() {
+            settings = settings.with_trim_box(Rect::from_ltrb(
+                typst_page.bleed.left.to_f32(),
+                typst_page.bleed.top.to_f32(),
+                (typst_page.bleed.left + typst_page.frame.width()).to_f32(),
+                (typst_page.bleed.top + typst_page.frame.height()).to_f32(),
+            ));
+        }
 
         if let Some(label) = typst_page
             .numbering
@@ -126,12 +143,16 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
         let page_idx = gc.page_index_converter.pdf_page_index(i);
-        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+        let mut fc = FrameContext::new(
+            page_idx,
+            typst_page.frame.size() + typst_page.bleed.sum_by_axis(),
+        );
 
         tags::page(gc, &mut surface, |gc, surface| {
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
+                typst_page.bleed,
                 typst_page.fill_or_transparent(),
                 surface,
                 gc,
@@ -259,7 +280,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions<'a>,
+    pub(crate) options: &'a PdfOptions,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.
@@ -297,6 +318,7 @@ impl<'a> GlobalContext<'a> {
 pub(crate) fn handle_frame(
     fc: &mut FrameContext,
     frame: &Frame,
+    padding: Sides<Abs>,
     fill: Option<Paint>,
     surface: &mut Surface,
     gc: &mut GlobalContext,
@@ -308,9 +330,13 @@ pub(crate) fn handle_frame(
     }
 
     if let Some(fill) = fill {
-        let shape = Geometry::Rect(frame.size()).filled(fill);
+        let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
         handle_shape(fc, &shape, surface, gc, Span::detached())?;
     }
+
+    fc.push();
+    fc.state_mut()
+        .pre_concat(Transform::translate(padding.left, padding.top));
 
     for (point, item) in frame.items() {
         fc.push();
@@ -340,6 +366,7 @@ pub(crate) fn handle_frame(
     }
 
     fc.pop();
+    fc.pop();
 
     Ok(())
 }
@@ -368,7 +395,8 @@ pub(crate) fn handle_group(
             surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
         }
 
-        let res = handle_frame(fc, &group.frame, None, surface, gc);
+        let res =
+            handle_frame(fc, &group.frame, Sides::splat(Abs::zero()), None, surface, gc);
 
         if clip_path.is_some() {
             surface.pop();
@@ -389,8 +417,6 @@ fn finish(
     gc: GlobalContext,
     configuration: Configuration,
 ) -> SourceResult<Vec<u8>> {
-    let validator = configuration.validator();
-
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -406,7 +432,9 @@ fn finish(
             KrillaError::Validation(ve) => {
                 let errors = ve
                     .iter()
-                    .map(|e| convert_error(&gc, validator, e))
+                    .map(|(e, validators)| {
+                        convert_error(&gc, *validators, e, configuration.version())
+                    })
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
@@ -458,6 +486,29 @@ fn finish(
                     hint: "please report this as a bug";
                 );
             }
+            KrillaError::DuplicateNamedDestination(_) => {
+                bail!(Span::detached(),
+                    "duplicate named destination";
+                    hint: "please report this as a bug";
+                );
+            }
+            KrillaError::Limit(LimitError::TooLongArray) => bail!(
+                Span::detached(),
+                "a PDF array is longer than 8191 elements";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "this can happen if you have a very long text in a single line";
+            ),
+            KrillaError::Limit(LimitError::TooLongDictionary) => bail!(
+                Span::detached(),
+                "a PDF dictionary has more than 4095 entries";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "alternatively, try reducing the complexity of your document";
+            ),
+            KrillaError::Limit(LimitError::TooLargeFloat) => bail!(
+                Span::detached(),
+                "a PDF floating point number is larger than the allowed limit";
+                hint: "set the PDF version to PDF 1.5 or later";
+            ),
         },
     }
 }
@@ -465,10 +516,11 @@ fn finish(
 /// Converts a krilla error into a Typst error.
 fn convert_error(
     gc: &GlobalContext,
-    validator: Validator,
+    failing_validators: Validators,
     error: &ValidationError,
+    pdf_version: PdfVersion,
 ) -> SourceDiagnostic {
-    let prefix = eco_format!("{} error:", validator.as_str());
+    let prefix = eco_format!("{} error:", failing_validators.to_comma_list());
     match error {
         ValidationError::TooLongString => error!(
             Span::detached(),
@@ -570,7 +622,7 @@ fn convert_error(
                    metadata";
             hint: "restrictive font licenses are prohibited by {} because they limit \
                    the suitability for archival",
-            validator.as_str();
+            failing_validators.to_and_list();
         ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
@@ -693,6 +745,71 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        ValidationError::RequiresNewerPdfVersion(feature, loc) => {
+            let span = to_span(*loc);
+            let message = match feature {
+                VersionedFeature::StructureOrderTabbing => {
+                    eco_format!(
+                        "{prefix} links and other annotations cannot be navigated accessibly in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::HeaderFooterArtifactSubtypes => {
+                    eco_format!(
+                        "{prefix} headers and footers cannot be made accessible in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::TableHeaderScope => {
+                    eco_format!(
+                        "{prefix} table header cell cannot be accessibly tagged in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+            };
+
+            let diagnostic = SourceDiagnostic::error(span, message);
+
+            let min_version = feature.minimum_pdf_version();
+
+            let mut most_restrictive: Option<(Validator, PdfVersion)> = None;
+            for validator in gc.options.standards.config.validators() {
+                let max = validator.max();
+                if most_restrictive.is_none_or(|(_, prev_max)| prev_max > max) {
+                    most_restrictive = Some((validator, max));
+                }
+            }
+
+            let Some((restrictive_validator, max_version)) = most_restrictive else {
+                // Does not happen in practice: A validator is required to raise
+                // this error and they always have a maximum version.
+                return diagnostic;
+            };
+
+            if min_version < max_version {
+                diagnostic.with_hint(eco_format!(
+                    "select a version between {} and {}",
+                    min_version.as_str(),
+                    max_version.as_str(),
+                ))
+            } else if min_version == max_version {
+                diagnostic
+                    .with_hint(eco_format!("set the version to {}", min_version.as_str()))
+            } else {
+                diagnostic
+                    .with_hint(eco_format!(
+                        "PDF version must be at least {} to satisfy {}",
+                        min_version.as_str(),
+                        failing_validators.to_and_list(),
+                    ))
+                    .with_hint(eco_format!(
+                        "remove or replace the {} standard, \
+                         as it prevents PDF versions beyond {}",
+                        restrictive_validator.as_str(),
+                        max_version.as_str(),
+                    ))
+            }
+        }
     }
 }
 
@@ -732,7 +849,10 @@ fn collect_named_destinations(
             .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
             let named = NamedDestination::new(name, dest);
-            document.register_named_destination(named.clone());
+            // The option is `None` if the destination is a duplicate which
+            // should not happen because we filtered them on a set insert above,
+            // hence the unwrap.
+            document.register_named_destination(named.clone()).unwrap();
             locs_to_names.insert(loc, named);
         }
     }

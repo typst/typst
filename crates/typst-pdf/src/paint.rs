@@ -10,7 +10,7 @@ use krilla::paint::{
 };
 use krilla::surface::Surface;
 use typst_library::diag::SourceResult;
-use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Angle, Point, Quadrant, Ratio, Sides, Size, Transform};
 use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
     RelativeTo, Shape, Tiling, WeightedColor,
@@ -145,13 +145,21 @@ fn convert_pattern(
     surface: &mut Surface,
     state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
-    let transform = correct_transform(state, pattern.unwrap_relative(on_text));
+    let transform = correct_transform(state, pattern.unwrap_relative(on_text))
+        .pre_concat(Transform::translate(pattern.offset().x, pattern.offset().y));
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
     tags::tiling(gc, &mut surface, |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
-        handle_frame(&mut fc, pattern.frame(), None, surface, gc)
+        handle_frame(
+            &mut fc,
+            pattern.frame(),
+            Sides::splat(Abs::zero()),
+            None,
+            surface,
+            gc,
+        )
     })?;
     surface.finish();
     let stream = stream_builder.finish();
@@ -271,16 +279,8 @@ fn convert_gradient(
 fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
     let mut stops = vec![];
 
-    let use_cmyk = gradient.stops().iter().all(|s| s.color.space() == ColorSpace::Cmyk);
-
     let mut add_single = |color: &Color, offset: Ratio| {
-        let (color, opacity) = if use_cmyk {
-            (convert_cmyk(color).into(), 255)
-        } else {
-            let (c, a) = convert_rgb(color);
-            (c.into(), a)
-        };
-
+        let (color, opacity) = convert_solid(&color.to_space(gradient.space()));
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
         let offset = NormalizedF32::new(offset.get() as f32).unwrap();
         let stop = Stop { offset, color, opacity };
@@ -305,7 +305,8 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
                 // issues with native color spaces.
                 if second.offset.unwrap() > first.offset.unwrap()
                     && (gradient.space().hue_index().is_some()
-                        || gradient.space() == ColorSpace::Oklab)
+                        || gradient.space() == ColorSpace::Oklab
+                        || gradient.space() == ColorSpace::LinearRgb)
                 {
                     gradient
                         .generate_intermediate_stops_for_rgb_interpolation(first, second)

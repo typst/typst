@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 use parking_lot::{Condvar, Mutex, MutexGuard};
+use percent_encoding::percent_decode_str;
 use tiny_http::{Header, Request, Response, StatusCode};
 use typst_library::diag::{StrResult, bail};
 use typst_library::foundations::Bytes;
@@ -48,6 +49,32 @@ impl HttpServer {
     /// a reload in all connected browsers.
     pub fn set_html(&self, html: String) {
         self.bucket.put(html_single_fs(html));
+    }
+
+    /// Updates the served contents to a bundle.
+    #[cfg(feature = "bundle")]
+    pub fn set_bundle(&self, bundle: typst_bundle::Bundle, fs: typst_bundle::VirtualFs) {
+        self.set_router(move |route| {
+            let path = typst_syntax::VirtualPath::new(route).ok()?;
+            let with_index = path.join("index.html").unwrap();
+            for path in [path, with_index] {
+                let Some(data) = fs.get(&path) else { continue };
+                let body = if matches!(
+                    bundle.files.get(&path),
+                    Some(typst_bundle::BundleFile::Document(
+                        typst_bundle::BundleDocument::Html(_)
+                    ))
+                ) && let Ok(string) = data.as_str()
+                {
+                    HttpBody::Html(string.to_owned())
+                } else {
+                    HttpBody::Raw(data.clone())
+                };
+                return Some(body);
+            }
+
+            None
+        });
     }
 
     /// Updates the content handler, triggering a reload in all connected browsers.
@@ -121,12 +148,16 @@ fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<
     };
 
     let path = url.path();
+    let Ok(path) = percent_decode_str(path).decode_utf8() else {
+        return req.respond(Response::empty(StatusCode(400)));
+    };
+
     if path == "/__events" {
         return handle_events(req, bucket.clone());
     }
 
     let fs = bucket.get();
-    let Some(body) = fs(path) else {
+    let Some(body) = fs(path.as_ref()) else {
         return req.respond(Response::empty(StatusCode(404)));
     };
 

@@ -16,6 +16,7 @@ use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHin
 use clap_complete::Shell;
 use semver::Version;
 use serde::Serialize;
+use typst_utils::display_possible_values;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -118,7 +119,7 @@ pub struct CompileCommand {
     pub args: CompileArgs,
 }
 
-/// Compiles an input file into a supported output format.
+/// Watches an input file and recompiles on changes.
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Arguments for compilation.
@@ -318,6 +319,14 @@ pub struct CompileArgs {
     #[clap(flatten)]
     pub world: WorldArgs,
 
+    /// Whether to pretty-print produced output.
+    ///
+    /// This formats the output in a more human-readable, but less
+    /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
+    /// export.
+    #[arg(long = "pretty")]
+    pub pretty: bool,
+
     /// Which pages to export. When unspecified, all pages are exported.
     ///
     /// Pages to export are separated by commas, and can be either simple page
@@ -345,7 +354,7 @@ pub struct CompileArgs {
 
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f32,
+    pub ppi: f64,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
@@ -381,7 +390,7 @@ pub struct CompileArgs {
     /// https://ui.perfetto.dev. It does not contain any sensitive information
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
-    pub timings: Option<Option<PathBuf>>,
+    pub timings: Option<PathBuf>,
 }
 
 /// Arguments for the construction of a world. Shared by compile, watch, eval, and
@@ -498,19 +507,6 @@ pub struct ServerArgs {
     /// Defaults to the first free port in the range 3000-3005.
     #[clap(long)]
     pub port: Option<u16>,
-}
-
-macro_rules! display_possible_values {
-    ($ty:ty) => {
-        impl Display for $ty {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.to_possible_value()
-                    .expect("no values are skipped")
-                    .get_name()
-                    .fmt(f)
-            }
-        }
-    };
 }
 
 /// An input that is either stdin or a real path.

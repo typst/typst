@@ -22,7 +22,7 @@ pub use self::shape::*;
 pub use self::stroke::*;
 pub use self::tiling::*;
 
-use crate::foundations::{Deprecation, Scope, Type};
+use crate::foundations::Scope;
 
 /// Hook up all visualize definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -39,10 +39,5 @@ pub(super) fn define(global: &mut Scope) {
     global.define_elem::<CircleElem>();
     global.define_elem::<PolygonElem>();
     global.define_elem::<CurveElem>();
-    global.define("pattern", Type::of::<Tiling>()).deprecated(
-        Deprecation::new()
-            .with_message("the name `pattern` is deprecated, use `tiling` instead")
-            .with_until("0.15.0"),
-    );
     global.reset_category();
 }

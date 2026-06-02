@@ -20,11 +20,6 @@
 // Error: "/assets/data/bad.yaml" 2:1 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/assets/data/bad.yaml")
 
---- yaml-decode-deprecated eval ---
-// Warning: 15-21 `yaml.decode` is deprecated, directly pass bytes to `yaml` instead
-// Hint: 15-21 it will be removed in Typst 0.15.0
-#let _ = yaml.decode
-
 --- yaml-decode-number eval ---
 #import "edge-case.typ": large-integer, representable-integer
 

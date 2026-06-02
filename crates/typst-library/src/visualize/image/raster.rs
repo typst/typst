@@ -287,11 +287,11 @@ impl TryFrom<image::ImageFormat> for ExchangeFormat {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct PixelFormat {
     /// The channel encoding.
-    encoding: PixelEncoding,
+    pub encoding: PixelEncoding,
     /// The pixel width.
-    width: u32,
+    pub width: u32,
     /// The pixel height.
-    height: u32,
+    pub height: u32,
 }
 
 /// Determines the channel encoding of raw pixel data.
@@ -421,22 +421,22 @@ fn jpeg_dpi(data: &[u8]) -> Option<f64> {
 /// Tries to extract the DPI from raw PNG data.
 fn png_dpi(mut data: &[u8]) -> Option<f64> {
     let mut decoder = png::StreamingDecoder::new();
-    let dims = loop {
-        let (consumed, event) = decoder.update(data, &mut Vec::new()).ok()?;
+    loop {
+        let (consumed, event) = decoder.update(data, None).ok()?;
         match event {
-            png::Decoded::PixelDimensions(dims) => break dims,
             // Bail as soon as there is anything data-like.
             png::Decoded::ChunkBegin(_, png::chunk::IDAT)
             | png::Decoded::ImageData
-            | png::Decoded::ImageEnd => return None,
+            | png::Decoded::ImageDataFlushed => break,
             _ => {}
         }
         data = data.get(consumed..)?;
         if consumed == 0 {
-            return None;
+            break;
         }
-    };
+    }
 
+    let dims = decoder.info().and_then(|i| i.pixel_dims)?;
     let dpu = dims.xppu.max(dims.yppu) as f64;
     match dims.unit {
         png::Unit::Meter => Some(dpu * 0.0254), // meter -> inches

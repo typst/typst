@@ -2,16 +2,16 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use comemo::Tracked;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Context, Datetime, Duration, IntoValue, LocatableSelector, NoneValue,
-    Repr, Selector, Smart, Value, func,
+    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, NativeElement,
+    NoneValue, Packed, Repr, Smart, StyleChain, Value, elem, func,
 };
-use typst::layout::{Abs, Margin, PageElem};
+use typst::introspection::Locator;
+use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
 use typst::model::{Numbering, NumberingPattern};
 use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
@@ -20,6 +20,7 @@ use typst::visualize::Color;
 use typst::{Features, Library, LibraryExt, World};
 use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
+use typst_layout::layout_fragment;
 use typst_syntax::package::PackageSpec;
 use typst_syntax::{RootedPath, VirtualPath, VirtualRoot};
 use unscanny::Scanner;
@@ -177,7 +178,7 @@ fn library() -> Library {
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
     lib.global.scope_mut().define_func::<lines>();
-    lib.global.scope_mut().define_func::<selector_within>();
+    lib.global.scope_mut().define_func::<bounds>();
     lib.global
         .scope_mut()
         .define("conifer", Color::from_u8(0x9f, 0xEB, 0x52, 0xFF));
@@ -188,8 +189,10 @@ fn library() -> Library {
     // Hook up default styles.
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
     lib.styles.set(PageElem::height, Smart::Auto);
-    lib.styles
-        .set(PageElem::margin, Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into()))));
+    lib.styles.set(
+        PageElem::margin,
+        Smart::Custom(Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into())))),
+    );
     lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
 
     lib
@@ -242,12 +245,31 @@ fn lines(
         .at(span)
 }
 
-/// This exists just to test `within` selectors (which are already used
-/// internally) while they are not yet publicly exposed.
+/// Display boundaries and the baseline around some content's frames.
 #[func]
-fn selector_within(selector: LocatableSelector, ancestor: LocatableSelector) -> Selector {
-    Selector::Within {
-        selector: Arc::new(selector.0),
-        ancestor: Arc::new(ancestor.0),
+fn bounds(content: Content) -> SourceResult<Content> {
+    Ok(BlockElem::multi_layouter(Packed::new(BoundsElem::new(content)), layout_bounds)
+        .pack())
+}
+
+#[elem]
+struct BoundsElem {
+    #[positional]
+    #[required]
+    body: Content,
+}
+
+fn layout_bounds(
+    elem: &Packed<BoundsElem>,
+    engine: &mut Engine,
+    locator: Locator,
+    styles: StyleChain,
+    regions: Regions,
+) -> SourceResult<Fragment> {
+    let mut fragment = layout_fragment(engine, &elem.body, locator, styles, regions)?;
+    for frame in &mut fragment {
+        frame.mark_box_in_place();
     }
+
+    Ok(fragment)
 }

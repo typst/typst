@@ -6,7 +6,7 @@ use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
 use ecow::EcoVec;
 use krilla::surface::Surface;
-use krilla::tagging::{ArtifactType, ContentTag, Tag};
+use krilla::tagging::{Artifact, ContentTag, Tag};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
@@ -64,7 +64,7 @@ impl Tree {
     }
 
     /// Find the highest artifact ancestor in the tree.
-    pub fn parent_artifact(&self) -> Option<ArtifactType> {
+    pub fn parent_artifact(&self) -> Option<Artifact> {
         let (_, ty) = self.state.current_artifact?;
         Some(ty)
     }
@@ -133,7 +133,7 @@ impl std::ops::DerefMut for TraversalStates {
 /// this is updated on each step.
 struct TraversalState {
     /// The highest artifact ancestor in the tree.
-    current_artifact: Option<(GroupId, ArtifactType)>,
+    current_artifact: Option<(GroupId, Artifact)>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
     bbox_stack: Vec<BBoxId>,
     /// The stack of text attributes.

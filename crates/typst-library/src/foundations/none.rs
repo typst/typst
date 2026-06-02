@@ -14,9 +14,10 @@ use crate::foundations::{
 ///
 /// When inserted into the document, it is not visible. This is also the value
 /// that is produced by empty code blocks. It can be
-/// [joined]($scripting/#blocks) with any value, yielding the other value.
+/// @reference:scripting:blocks[joined] with any value, yielding the other
+/// value.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Not visible: #none
 /// ```

@@ -140,6 +140,43 @@ $
 // Error: 2-43 cannot mutate a temporary value
 #numbers.map(v => v / 2).sorted().map(str).remove(4)
 
+--- field-call-mut-str-accessor eval ---
+// Some methods return new values rather than mutable references, so they can't
+// be used as assignment targets.
+#{
+  let s = "string"
+  // Error: 3-12 cannot mutate a temporary value
+  s.first() = "S"
+}
+
+--- field-call-mut-bytes-accessor eval ---
+#{
+  let b = bytes("ab")
+  // Error: 3-10 cannot mutate a temporary value
+  b.at(0) = 5
+}
+
+--- field-call-mut-version-accessor eval ---
+#{
+  let v = version(1, 2, 3)
+  // Error: 3-10 cannot mutate a temporary value
+  v.at(0) = 5
+}
+
+--- field-call-mut-content-accessor eval ---
+#{
+  let c = [hi]
+  // Error: 3-15 cannot mutate a temporary value
+  c.at("body") = [bye]
+}
+
+--- field-call-mut-args-accessor eval ---
+#{
+  let a = arguments(1, 2)
+  // Error: 3-10 cannot mutate a temporary value
+  a.at(0) = 5
+}
+
 --- field-call-mut-constant eval ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)

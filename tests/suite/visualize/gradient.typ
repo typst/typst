@@ -11,38 +11,57 @@
   ))
 )
 
+--- gradient-linear-spaces paged ---
+// CMYK is excluded here and tested separately below because it's currently not
+// 100% reproducible for SVG with the colors used in this test. (The color value
+// is off by one on macOS. This might be due to different SIMD instruction sets
+// being used by CMYK conversion in moxcms. We should investigate whether we can
+// somehow fix this in the future.)
+#set page(height: auto, margin: 0pt)
+#set block(spacing: 0pt)
+#let spaces = (
+  ("HSV", color.hsv),
+  ("HSL", color.hsl),
+  ("Oklch", color.oklch),
+  ("Oklab", color.oklab),
+  ("sRGB", color.rgb),
+  ("linear-RGB", color.linear-rgb),
+  ("Luma", color.luma),
+)
+#for (name, space) in spaces {
+  block(
+    width: 100%,
+    inset: 4pt,
+    fill: gradient.linear(yellow, blue, space: space),
+    name,
+  )
+}
 
---- gradient-linear-oklab paged ---
-// The tests below test whether hue rotation works correctly.
-// Here we test in Oklab space for reference.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklab)
+--- gradient-linear-cmyk paged ---
+// Test that CMYK works on gradients
+#set page(margin: 0pt, width: 100pt, height: auto)
+
+#let violet = cmyk(75%, 80%, 0%, 0%)
+#let blue = cmyk(75%, 30%, 0%, 0%)
+
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(violet, blue)
 )
 
---- gradient-linear-oklch paged ---
-// Test in OkLCH space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: oklch)
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(rgb(violet), rgb(blue))
 )
 
---- gradient-linear-hsv paged ---
-// Test in HSV space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsv)
-)
-
---- gradient-linear-hsl paged ---
-// Test in HSL space.
-#set page(
-  width: 100pt,
-  height: 30pt,
-  fill: gradient.linear(red, purple, space: color.hsl)
+// In PDF format, this gradient can look different from the others.
+// This is because PDF readers do weird things with CMYK.
+#rect(
+  width: 100%,
+  height: 10pt,
+  fill: gradient.linear(violet, blue, space: cmyk)
 )
 
 --- gradient-linear-relative-parent paged ---
@@ -674,33 +693,6 @@ $ A = mat(
 #block(fill: gradient.linear(red, purple, space: oklab))
 #block(fill: gradient.linear(..color.map.rainbow, space: oklab))
 #block(fill: gradient.linear(..color.map.plasma, space: oklab))
-
---- issue-gradient-cmyk-encode paged ---
-// Test that CMYK works on gradients
-#set page(margin: 0pt, width: 100pt, height: auto)
-
-#let violet = cmyk(75%, 80%, 0%, 0%)
-#let blue = cmyk(75%, 30%, 0%, 0%)
-
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(violet, blue)
-)
-
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(rgb(violet), rgb(blue))
-)
-
-// In PDF format, this gradient can look different from the others.
-// This is because PDF readers do weird things with CMYK.
-#rect(
-  width: 100%,
-  height: 10pt,
-  fill: gradient.linear(violet, blue, space: cmyk)
-)
 
 --- issue-5819-gradient-repeat eval ---
 // Ensure the gradient constructor generates monotonic stops which can be fed

@@ -183,9 +183,13 @@
 
 --- converge-bibliography-1 paged ---
 // Warning: document did not converge within five attempts
-// Hint: see 1 additional warning for more details
+// Hint: see 2 additional warnings for more details
 // Hint: see https://typst.app/help/convergence for help
 #import "switch.typ": switch
+// Warning: 26-63 citations and bibliographies did not stabilize
+// Error: 26-63 bibliography could not be located
+// Hint: 26-63 this bibliography is not stably present in the document
+// Hint: 26-63 this can be caused by measurement or introspection
 #switch(n => if n >= 5 { bibliography("/assets/bib/works.bib") })
 
 // Error: 1-8 label `<netwok>` does not exist in the document
@@ -199,14 +203,13 @@
 // Hint: see https://typst.app/help/convergence for help
 #import "switch.typ": switch
 
-// Warning: 26-63 citation grouping did not stabilize
-// Hint: 26-63 this can happen if the citations and bibliographies in the document did not stabilize by the end of the third layout iteration
+// Warning: 26-63 citations and bibliographies did not stabilize
 #switch(n => if n >= 4 { bibliography("/assets/bib/works.bib") })
 
-// Error: 1-8 cannot format citation in isolation
-// Hint: 1-8 check whether this citation is measured without being inserted into the document
-// Warning: 1-8 citation grouping did not stabilize
-// Hint: 1-8 this can happen if the citations and bibliographies in the document did not stabilize by the end of the third layout iteration
+// Error: 1-8 citation could not be located
+// Hint: 1-8 this citation is not stably present in the document
+// Warning: 1-8 citations and bibliographies did not stabilize
+// Hint: 1-8 this can be caused by measurement or introspection
 @netwok
 
 --- convergence-measure paged empty ---

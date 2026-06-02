@@ -9,7 +9,8 @@ use typst_syntax::FileId;
 
 use crate::World;
 use crate::diag::{
-    FileError, LoadError, LoadResult, ReportPos, StrResult, bail, format_xml_like_error,
+    FileError, LoadError, LoadResult, ReportTextPos, StrResult, bail,
+    format_xml_like_error,
 };
 use crate::foundations::{Bytes, PathOrStr};
 use crate::layout::Axes;
@@ -164,7 +165,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
         usvg::Error::InvalidSize => "width, height, or viewbox is invalid",
         usvg::Error::ParsingFailed(error) => return format_xml_like_error("SVG", error),
     };
-    LoadError::new(ReportPos::None, "failed to parse SVG", error)
+    LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
 }
 
 /// Provides Typst's fonts to usvg.
@@ -346,9 +347,9 @@ impl<'a> ImageResolver<'a> {
         match self.load_or_error(href) {
             Ok(image) => Some(image),
             Err(err) => {
-                self.error = Some(LoadError::new(
-                    ReportPos::None,
-                    eco_format!("failed to load linked image {} in SVG", href),
+                self.error = Some(LoadError::text(
+                    ReportTextPos::None,
+                    eco_format!("failed to load linked image {href} in SVG"),
                     err,
                 ));
                 None
@@ -430,7 +431,7 @@ impl<'a> ImageResolver<'a> {
                 FileError::IsDirectory => "is a directory".into(),
                 FileError::Other(Some(msg)) => msg,
                 FileError::Other(None) => "unspecified error".into(),
-                _ => eco_format!("unexpected error: {}", err),
+                _ => eco_format!("unexpected error: {err}"),
             }),
         }
     }

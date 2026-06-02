@@ -169,7 +169,9 @@ fn test() {
 
     if ARGS.update {
         run::update_hash_refs::<output::Pdf>(&hashes);
+        run::update_hash_refs::<output::Pdftags>(&hashes);
         run::update_hash_refs::<output::Svg>(&hashes);
+        run::update_hash_refs::<output::Html>(&hashes);
     }
 
     if let Err(err) = logger.into_inner().finish() {

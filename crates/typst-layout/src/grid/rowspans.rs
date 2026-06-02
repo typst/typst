@@ -174,7 +174,7 @@ impl GridLayouter<'_> {
         for ((i, (finished, header_dy)), frame) in self
             .finished
             .iter_mut()
-            .chain(current_region.into_iter())
+            .chain(current_region)
             .zip(finished_header_rows)
             .skip(first_region)
             .enumerate()
