@@ -1254,7 +1254,7 @@ pub enum NumberWidth {
 
 /// OpenType font features settings.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct FontFeatures(pub Vec<(Tag, u32)>);
+pub struct FontFeatures(pub SmallVec<[(Tag, u32); 2]>);
 
 cast! {
     Tag,

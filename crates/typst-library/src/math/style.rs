@@ -1,4 +1,5 @@
 use codex::styling::MathVariant;
+use smallvec::smallvec;
 use ttf_parser::Tag;
 use typst_utils::LazyHash;
 
@@ -284,14 +285,14 @@ pub enum MathSize {
 /// Sets flac OpenType feature.
 pub fn style_flac() -> LazyHash<Style> {
     TextElem::features
-        .set(FontFeatures(vec![(Tag::from_bytes(b"flac"), 1)]))
+        .set(FontFeatures(smallvec![(Tag::from_bytes(b"flac"), 1)]))
         .wrap()
 }
 
 /// Sets dtls OpenType feature.
 pub fn style_dtls() -> LazyHash<Style> {
     TextElem::features
-        .set(FontFeatures(vec![(Tag::from_bytes(b"dtls"), 1)]))
+        .set(FontFeatures(smallvec![(Tag::from_bytes(b"dtls"), 1)]))
         .wrap()
 }
 
