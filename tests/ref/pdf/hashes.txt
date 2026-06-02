@@ -1302,6 +1302,7 @@ e59997145effaf8ed480c80fce67be7d math-stretch-explicit-mixed
 78a526a92f82b34e90c4c189c5bd7bf1 math-stretch-fallback-explicit
 0321378b783573d752b400db14b2ab81 math-stretch-horizontal
 5429a6ad3c8fb747ede6fa7f1b2d7171 math-stretch-horizontal-attach
+e4d99583fed0884aee6a0c5a3cef1b8f math-stretch-horizontal-attach-constants
 bf4d73b61fec58823aa72e796b28d614 math-stretch-lr-nested-horizontal
 235efdbd5fdaa17f807176bf1613c799 math-stretch-lr-nested-horizontal-attach
 6a17f4daa45daba15045c9ee9d75263d math-stretch-lr-nested-vertical
