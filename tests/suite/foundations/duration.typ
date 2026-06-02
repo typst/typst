@@ -116,3 +116,23 @@
 #test(duration(minutes: 20) < duration(minutes: 10), false)
 #test(duration(minutes: 20) <= duration(minutes: 10), false)
 #test(duration(minutes: 20) == duration(minutes: 10), false)
+
+--- duration-negate-too-large eval ---
+// Error: 3-50 value is too large
+#(-duration(seconds: int("-9223372036854775808")))
+
+--- duration-add-too-large eval ---
+// Error: 3-66 value is too large
+#(duration(weeks: 9000000000000) + duration(weeks: 9000000000000))
+
+--- duration-subtract-too-large eval ---
+// Error: 3-67 value is too large
+#(duration(weeks: 9000000000000) - duration(weeks: -9000000000000))
+
+--- duration-multiply-too-large eval ---
+// Error: 3-45 value is too large
+#(duration(weeks: 9000000000000) * 1000000.0)
+
+--- duration-divide-too-large eval ---
+// Error: 3-45 value is too large
+#(duration(weeks: 9000000000000) / 0.0000001)

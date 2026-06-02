@@ -17,6 +17,33 @@ impl Duration {
         self.0.is_zero()
     }
 
+    /// Adds two durations, returning `None` on overflow.
+    pub fn checked_add(self, rhs: Self) -> Option<Self> {
+        self.0.checked_add(rhs.0).map(Self)
+    }
+
+    /// Subtracts two durations, returning `None` on overflow.
+    pub fn checked_sub(self, rhs: Self) -> Option<Self> {
+        self.0.checked_sub(rhs.0).map(Self)
+    }
+
+    /// Negates the duration, returning `None` on overflow.
+    pub fn checked_neg(self) -> Option<Self> {
+        self.0.checked_neg().map(Self)
+    }
+
+    /// Scales the duration by a factor, returning `None` if the result
+    /// overflows or the factor is not a number.
+    pub fn checked_mul(self, factor: f64) -> Option<Self> {
+        time::Duration::checked_seconds_f64(self.0.as_seconds_f64() * factor).map(Self)
+    }
+
+    /// Divides the duration by a divisor, returning `None` if the result
+    /// overflows or the divisor is not a number.
+    pub fn checked_div(self, divisor: f64) -> Option<Self> {
+        time::Duration::checked_seconds_f64(self.0.as_seconds_f64() / divisor).map(Self)
+    }
+
     /// Decomposes the time into whole weeks, days, hours, minutes, and seconds.
     pub fn decompose(&self) -> [i64; 5] {
         let mut tmp = self.0;

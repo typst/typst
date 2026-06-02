@@ -81,7 +81,7 @@ pub fn neg(value: Value) -> HintedStrResult<Value> {
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
-        Duration(v) => Duration(-v),
+        Duration(v) => Duration(v.checked_neg().ok_or_else(too_large)?),
         Datetime(_) => mismatch!("cannot apply unary '-' to {}", value),
         v => mismatch!("cannot apply '-' to {}", v),
     })
@@ -152,7 +152,7 @@ pub fn add(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
             Stroke::from_pair(tiling, thickness).into_value()
         }
 
-        (Duration(a), Duration(b)) => Duration(a + b),
+        (Duration(a), Duration(b)) => Duration(a.checked_add(b).ok_or_else(too_large)?),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),
 
@@ -207,7 +207,7 @@ pub fn sub(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
-        (Duration(a), Duration(b)) => Duration(a - b),
+        (Duration(a), Duration(b)) => Duration(a.checked_sub(b).ok_or_else(too_large)?),
         (Datetime(a), Duration(b)) => Datetime(a - b),
         (Datetime(a), Datetime(b)) => Duration((a - b)?),
 
@@ -276,10 +276,10 @@ pub fn mul(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
-        (Int(a), Duration(b)) => Duration(b * (a as f64)),
-        (Float(a), Duration(b)) => Duration(b * a),
-        (Duration(a), Int(b)) => Duration(a * (b as f64)),
-        (Duration(a), Float(b)) => Duration(a * b),
+        (Int(a), Duration(b)) => Duration(b.checked_mul(a as f64).ok_or_else(too_large)?),
+        (Float(a), Duration(b)) => Duration(b.checked_mul(a).ok_or_else(too_large)?),
+        (Duration(a), Int(b)) => Duration(a.checked_mul(b as f64).ok_or_else(too_large)?),
+        (Duration(a), Float(b)) => Duration(a.checked_mul(b).ok_or_else(too_large)?),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
@@ -333,8 +333,8 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
-        (Duration(a), Int(b)) => Duration(a / (b as f64)),
-        (Duration(a), Float(b)) => Duration(a / b),
+        (Duration(a), Int(b)) => Duration(a.checked_div(b as f64).ok_or_else(too_large)?),
+        (Duration(a), Float(b)) => Duration(a.checked_div(b).ok_or_else(too_large)?),
         (Duration(a), Duration(b)) => Float(a / b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
