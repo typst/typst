@@ -12,6 +12,7 @@ use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
+use krilla::tagging::ArtifactType;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
@@ -331,7 +332,14 @@ pub(crate) fn handle_frame(
 
     if let Some(fill) = fill {
         let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
-        handle_shape(fc, &shape, surface, gc, Span::detached())?;
+        handle_shape(
+            fc,
+            &shape,
+            surface,
+            gc,
+            Span::detached(),
+            ArtifactType::Background,
+        )?;
     }
 
     fc.push();
@@ -345,7 +353,9 @@ pub(crate) fn handle_frame(
         match item {
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
-            FrameItem::Shape(s, span) => handle_shape(fc, s, surface, gc, *span)?,
+            FrameItem::Shape(s, span) => {
+                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?
+            }
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }

@@ -255,6 +255,7 @@ pub fn shape<'a, 'b>(
     fc: &FrameContext,
     surface: &'b mut Surface<'a>,
     shape: &Shape,
+    artifact_type: ArtifactType,
 ) -> TagHandle<'a, 'b> {
     if disabled(gc) {
         return TagHandle { surface, started: false };
@@ -266,7 +267,7 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Layout)));
+    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(artifact_type)));
 
     TagHandle { surface, started: true }
 }
