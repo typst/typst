@@ -343,7 +343,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let kind = artifact.kind.val();
         push_artifact(tree, elem, kind.to_krilla())
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_artifact(tree, elem, ArtifactType::Other)
+        push_artifact(tree, elem, ArtifactType::Layout)
 
     // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
@@ -424,7 +424,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         let kind = if cell.is_repeated.val() {
-            GroupKind::Artifact(ArtifactType::Other)
+            GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
             GroupKind::TableCell(cell.clone(), tag, None)
@@ -447,7 +447,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             // times. Mark duplicate headers as artifacts, since they have no
             // semantic meaning in the tag tree, which doesn't use page breaks
             // for it's semantic structure.
-            GroupKind::Artifact(ArtifactType::Other)
+            GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
             GroupKind::GridCell(cell.clone(), None)
         };

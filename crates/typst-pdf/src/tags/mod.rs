@@ -108,8 +108,9 @@ pub fn tiling<T>(
     gc.tags.in_tiling = true;
     let mark_artifact = gc.tags.tree.parent_artifact().is_none();
     if mark_artifact {
-        surface
-            .start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
+        surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+            ArtifactType::Background,
+        )));
     }
 
     let res = f(gc, surface);
@@ -248,7 +249,7 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
+    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Layout)));
 
     TagHandle { surface, started: true }
 }

@@ -54,11 +54,35 @@ pub enum ArtifactKind {
     Header,
     /// Repeats at the bottom of each page.
     Footer,
+    /// Text or graphics in the back- or foreground of all pages.
+    Watermark,
+    /// Page numbers. Note that if your page numbers are contained in a footer
+    /// or header instead, the whole header or footer should an artifact of the
+    /// appropriate type.
+    PageNumber,
+    /// Line or paragraph numbers.
+    LineNumber,
+    /// Placeholders for areas in which there was content in another rendition
+    /// of the document which has since been removed.
+    Redaction,
+    /// Bates numbering. Note that if your Bates numbering is contained in a
+    /// footer or header instead, the whole header or footer should an artifact
+    /// of the appropriate type.
+    Bates,
     /// Not part of the document, but rather the page it is printed on. An
     /// example would be cut marks or color bars.
     Page,
-    /// Other artifacts, including purely cosmetic content, backgrounds,
-    /// watermarks, and repeated content.
+    /// Artifacts arising from paginating the document not covered by other
+    /// artifact types. This category generally applies if this artifact would
+    /// not appear in your document if it was a website instead. If your
+    /// artifact is covered by other categories, prefer them over this.
+    PaginationOther,
+    /// Purely cosmetric content or typographical flourishes not contributing to
+    /// the document's content.
+    Layout,
+    /// Background of a page or a graphical element.
+    Background,
+    /// Other artifacts.
     #[default]
     Other,
 }
