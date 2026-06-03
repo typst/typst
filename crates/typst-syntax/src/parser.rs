@@ -1986,6 +1986,7 @@ impl Parser<'_> {
             self.trim_errors();
             self.eat_and_get().expected(kind.name());
         } else if kind == SyntaxKind::Comma
+            && !self.had_newline()
             && let Some(number) = self.check_unit_spacing()
         {
             let hint = eco_format!(
@@ -1993,17 +1994,15 @@ impl Parser<'_> {
                 self.current_text(),
             );
             self.token.node = SyntaxNode::error(
-                SyntaxError::new("expected comma, but found numeric suffix"),
+                "expected comma, but found numeric suffix",
                 self.current_text(),
             );
             self.token.node.hint(hint);
             // Match `expected`'s handling of errors, but also eat the following
             // comma to suppress a spurious `unexpected comma` error.
-            if self.token.kind.is_error() {
-                self.trim_errors();
-                self.eat();
-                self.eat_if(SyntaxKind::Comma);
-            }
+            self.trim_errors();
+            self.eat();
+            self.eat_if(SyntaxKind::Comma);
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
