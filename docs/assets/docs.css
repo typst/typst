@@ -1506,6 +1506,22 @@ p + .symbol-grid {
   gap: 16px;
 }
 
+.symbol-flyout .info .props {
+  min-width: 0;
+}
+
+.symbol-flyout .info .escape {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+
+.symbol-flyout .info .escape > code {
+  margin-inline-start: 0.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .symbol-flyout .info .accent > img {
   top: 0.15em;
   position: relative;
