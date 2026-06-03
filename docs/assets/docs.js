@@ -481,7 +481,7 @@ function setUpSymbolFlyout(symbolGrid) {
   /** @type {HTMLElement | null} */
   const foMathClassSpan = flyout.querySelector(".info .math-class .value");
   /** @type {HTMLElement | null} */
-  const foCodepoint = flyout.querySelector(".info .codepoint .value");
+  const foEscape = flyout.querySelector(".info .escape .value");
   /** @type {HTMLElement | null} */
   const foAccent = flyout.querySelector(".info .accent");
   /** @type {HTMLElement | null} */
@@ -499,7 +499,7 @@ function setUpSymbolFlyout(symbolGrid) {
   /** @type {HTMLElement | null} */
   const foCopyShorthandBtn = flyout.querySelector(".shorthand .copy");
   /** @type {HTMLElement | null} */
-  const foCopyEscapeBtn = flyout.querySelector(".codepoint .copy");
+  const foCopyEscapeBtn = flyout.querySelector(".escape .copy");
 
   const listeners = [];
 
@@ -539,7 +539,7 @@ function setUpSymbolFlyout(symbolGrid) {
     const codexName = item.dataset.codexName;
     const unicName = item.dataset.unicName;
     const latexName = item.dataset.latexName;
-    const codepoint = item.dataset.value?.charCodeAt(0) ?? 0;
+    const value = item.dataset.value;
     const accent = item.dataset.accent != null;
     const alternates = item.dataset.alternates
       ? item.dataset.alternates.split(" ")
@@ -552,10 +552,12 @@ function setUpSymbolFlyout(symbolGrid) {
     const override = item.dataset.override;
     copyText(actualChar);
 
-    let codepointText = codepoint.toString(16).toUpperCase();
-    if (codepointText.length < 4) {
-      codepointText = "0".repeat(4 - codepointText.length) + codepointText;
+    const escapeTextParts = [];
+    for (const c of value) {
+      const codepoint = c.codePointAt(0);
+      escapeTextParts.push(`\\u{${codepoint.toString(16)}}`)
     }
+    const escapeText = escapeTextParts.join("");
 
     flyout.classList.toggle("override", override != null);
     foSymbol.textContent = override ?? actualChar;
@@ -572,7 +574,7 @@ function setUpSymbolFlyout(symbolGrid) {
       foName.style.display = "none";
     }
     foUnicName.textContent = unicName ?? "";
-    foCodepoint.textContent = codepointText;
+    foEscape.textContent = escapeText;
     foAccent.style.display = accent ? null : "none";
     foShorthand.style.display =
       shorthand && shorthand.length > 0 ? "block" : "none";
@@ -617,9 +619,7 @@ function setUpSymbolFlyout(symbolGrid) {
       }
     }
 
-    const codepointListener = () => {
-      copyText("\\u{" + codepointText + "}");
-    };
+    const codepointListener = () => copyText(escapeText);
 
     foCopyEscapeBtn.addEventListener("click", codepointListener);
     listeners.push({ target: foCopyEscapeBtn, listener: codepointListener });

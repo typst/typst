@@ -90,11 +90,11 @@
           copy-button()
           html.span(class: "remark")
         })
-        html.p(class: "codepoint", {
+        html.p(class: "escape", {
           [Escape: ]
           html.code(
             class: "typ-escape",
-            "\\u{" + html.span(class: "value") + "}",
+            html.span(class: "value"),
           )
           copy-button()
         })
