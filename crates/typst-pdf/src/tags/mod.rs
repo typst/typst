@@ -1,3 +1,4 @@
+use krilla::configure::PdfVersion;
 use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
@@ -98,6 +99,7 @@ pub fn page<T>(
 pub fn tiling<T>(
     gc: &mut GlobalContext,
     surface: &mut Surface,
+    tiling_size: Size,
     f: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) {
@@ -108,8 +110,23 @@ pub fn tiling<T>(
     gc.tags.in_tiling = true;
     let mark_artifact = gc.tags.tree.parent_artifact().is_none();
     if mark_artifact {
-        surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
-            ArtifactType::Background,
+        let bbox = kg::Rect::from_ltrb(
+            0.0,
+            0.0,
+            tiling_size.x.to_pt() as f32,
+            tiling_size.y.to_pt() as f32,
+        );
+        surface.start_tagged(ContentTag::Artifact(Artifact::new(
+            if gc.options.standards.config.version() == PdfVersion::Pdf17
+                && bbox.is_none()
+            {
+                // PDF 1.7 cannot tolerate empty bounding boxes for background
+                // artifacts.
+                ArtifactType::Other
+            } else {
+                ArtifactType::Background
+            },
+            bbox,
         )));
     }
 
