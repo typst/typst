@@ -18,6 +18,9 @@
 
   // Additional content that is appended to the end of the main docs content.
   extra-chapters: none,
+
+  // Dictionary of insertions that the chapters can use if present.
+  insertions: (:),
 ) = {
   assert(content-base.starts-with("/") and content-base.ends-with("/"))
   assert(asset-base.starts-with("/") and asset-base.ends-with("/"))
@@ -27,6 +30,7 @@
   set stdx.config(
     content-base: content-base,
     asset-base: asset-base,
+    insertions: insertions,
   )
 
   show: components.styling

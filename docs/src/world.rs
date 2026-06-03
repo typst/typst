@@ -238,6 +238,7 @@ fn stdx_module() -> Module {
 pub struct ConfigElem {
     pub content_base: EcoString,
     pub asset_base: EcoString,
+    pub insertions: Dict,
 }
 
 /// Returns the virtual path part of a path as a string.
