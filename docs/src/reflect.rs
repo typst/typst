@@ -172,10 +172,44 @@ pub fn is_accent(s: Str) -> bool {
     typst::math::Accent::combining(&s).is_some()
 }
 
-/// Returns the full title-cased name of the given character in Unicode.
+/// Returns the name of a symbol in Unicode.
+///
+/// For a single codepoint, that is the full title-cased Unicode name.
+///
+/// For sequences, this is the CLDR short name if it is listed in
+/// [emoji-zwj-sequences.txt](https://www.unicode.org/Public/17.0.0/emoji/emoji-zwj-sequences.txt),
+/// or the Unicode name of the first codepoint otherwise.
 #[func]
-pub fn unicode_name(c: Cluster) -> Option<String> {
-    unicode_names2::name(c.primary).map(|n| n.to_string().to_title_case())
+pub fn unicode_name(s: EcoString) -> Option<EcoString> {
+    static MAP: LazyLock<FxHashMap<EcoString, EcoString>> = LazyLock::new(|| {
+        let data = str::from_utf8(
+            typst_dev_assets::get_by_name("emoji-zwj-sequences.txt").unwrap(),
+        )
+        .unwrap();
+        let mut map = FxHashMap::default();
+        for line in data.lines() {
+            let line = line.split_once('#').map(|(l, _)| l).unwrap_or(line);
+            if line.trim().is_empty() {
+                continue;
+            }
+            let parts = line.split(';').collect::<Vec<_>>();
+            let [code, _, name] = parts[..] else { panic!("malformed data file") };
+            let value = code
+                .split_whitespace()
+                .map(|cp| char::from_u32(u32::from_str_radix(cp, 16).unwrap()).unwrap())
+                .collect();
+            map.insert(value, name.to_title_case().into());
+        }
+        map
+    });
+    MAP.get(&s).cloned().or_else(|| {
+        Some(
+            unicode_names2::name(s.chars().next().unwrap())?
+                .to_string()
+                .to_title_case()
+                .into(),
+        )
+    })
 }
 
 /// Returns the name of a character in LaTeX.
