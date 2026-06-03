@@ -8,7 +8,7 @@ use unicode_script::{Script, UnicodeScript};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use crate::{SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast};
+use crate::{SyntaxKind, SyntaxMode, SyntaxNode, ast};
 
 /// An iterator over a source code string which returns tokens.
 #[derive(Clone)]
