@@ -18,7 +18,9 @@ use crate::visualize::{
 /// `glyph_frame`.
 pub fn should_outline(font: &Font, glyph_id: GlyphId) -> bool {
     let ttf = font.ttf();
-    (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
+    (ttf.tables().glyf.is_some()
+        || ttf.tables().cff.is_some()
+        || ttf.tables().cff2.is_some())
         && !ttf
             .glyph_raster_image(glyph_id, u16::MAX)
             .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
