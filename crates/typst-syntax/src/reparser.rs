@@ -265,8 +265,8 @@ fn expand(node: &SyntaxNode) -> bool {
     kind.is_trivia()
         || kind.is_error()
         || kind == SyntaxKind::Semicolon
-        || node.text() == "/"
-        || node.text() == ":"
+        || node.leaf_text() == "/"
+        || node.leaf_text() == ":"
 }
 
 /// Whether `at_start` would still be true after this node given the
@@ -275,7 +275,7 @@ fn next_at_start(node: &SyntaxNode, at_start: &mut bool) {
     let kind = node.kind();
     if kind.is_trivia() {
         *at_start |= kind == SyntaxKind::Parbreak
-            || (kind == SyntaxKind::Space && node.text().chars().any(is_newline));
+            || (kind == SyntaxKind::Space && node.leaf_text().chars().any(is_newline));
     } else {
         *at_start = false;
     }
@@ -284,7 +284,7 @@ fn next_at_start(node: &SyntaxNode, at_start: &mut bool) {
 /// Update `nesting` based on the node.
 fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
     if node.kind() == SyntaxKind::Text {
-        match node.text().as_str() {
+        match node.leaf_text().as_str() {
             "[" => *nesting += 1,
             "]" if *nesting > 0 => *nesting -= 1,
             _ => {}

@@ -261,8 +261,7 @@ impl Eval for ast::Array<'_> {
                             ),
                         )) =>
                     {
-                        let fixed =
-                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        let fixed = self.to_untyped().full_text().replacen("(", "(: ", 1);
                         bail!(
                             spread.span(), "cannot spread {} into array", v.ty();
                             hint: "add a colon to create a dictionary instead: `{fixed}`";

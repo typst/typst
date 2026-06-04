@@ -186,8 +186,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 /// Tooltip for a hovered reference or label.
 fn label_tooltip(output: impl AsOutput, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
-        SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
-        SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
+        SyntaxKind::RefMarker => leaf.leaf_text().trim_start_matches('@'),
+        SyntaxKind::Label => {
+            leaf.leaf_text().trim_start_matches('<').trim_end_matches('>')
+        }
         _ => return None,
     };
 

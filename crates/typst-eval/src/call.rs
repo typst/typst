@@ -129,7 +129,7 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
                     span,
                     "cannot call mutating methods in math";
                     hint: "try using code mode to call the method: `#{}`",
-                        math_call.to_untyped().clone().into_text();
+                        math_call.to_untyped().full_text();
                 );
             }
             eval_field_callee(
@@ -263,7 +263,6 @@ fn eval_field_callee<'a, 'b>(
         target.field(field, sink).at(field_span)?
     } else {
         // Otherwise we cannot call this field and produce an error.
-        let full_text = || access.clone().into_text();
         match target.field(field, sink) {
             // The field does exist.
             Ok(callee_value) => {
@@ -299,7 +298,7 @@ fn eval_field_callee<'a, 'b>(
                             in parentheses: `{}({})(..)`",
                         if in_math { "use code mode and " } else { "" },
                         if in_math { "#" } else { "" },
-                        full_text()
+                        access.full_text(),
                     ));
                 } else if in_math {
                     err.hint("try adding a space before the parentheses");
@@ -307,7 +306,7 @@ fn eval_field_callee<'a, 'b>(
                     err.hint(eco_format!(
                         "to access the `{field}` {}, remove the function arguments: `{}`",
                         if is_dict { "key" } else { "field" },
-                        full_text(),
+                        access.full_text(),
                     ));
                 }
                 if is_dict {
@@ -513,9 +512,8 @@ fn unparse_math_args(
                 body.push(expr.eval(vm)?.display().spanned(expr.span()));
             }
             ast::MathArgItem::Arg(ast::Arg::Named(named)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    named.to_untyped().clone().into_text().replacen(":", "\\:", 1);
+                let name = callee.to_untyped().full_text();
+                let fixed = named.to_untyped().full_text().replacen(":", "\\:", 1);
                 errors.push(error!(
                     named.span(), "named-argument syntax can only be used with functions";
                     hint[callee.span()]: "`{name}` is not a function";
@@ -523,9 +521,8 @@ fn unparse_math_args(
                 ));
             }
             ast::MathArgItem::Arg(ast::Arg::Spread(spread)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    spread.to_untyped().clone().into_text().replacen("..", ".. ", 1);
+                let name = callee.to_untyped().full_text();
+                let fixed = spread.to_untyped().full_text().replacen("..", ".. ", 1);
                 errors.push(error!(
                     spread.span(), "spread-argument syntax can only be used with functions";
                     hint[callee.span()]: "`{name}` is not a function";

@@ -115,7 +115,9 @@ pub enum CompletionKind {
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     let (after_dot, textual_dot) = match ctx.leaf.kind() {
         SyntaxKind::Dot => (true, false),
-        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.text() == "." => (true, true),
+        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.leaf_text() == "." => {
+            (true, true)
+        }
         _ => (false, false),
     };
 
@@ -240,7 +242,7 @@ fn field_access_completions(
 /// Complete half-finished labels.
 fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
-    if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
+    if ctx.leaf.kind().is_error() && ctx.leaf.leaf_text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
         return true;
