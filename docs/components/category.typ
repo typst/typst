@@ -78,8 +78,21 @@
   }
 }
 
+// Displays parameter modifiers.
+#let modifier-list(..modifiers) = {
+  let modifiers = modifiers.pos()
+  context if target() == "paged" {
+    let gap = h(1em)
+    text(style: "italic", modifiers.map(small).join(gap))
+  } else {
+    modifiers.map(modifier => html.small(modifier, class: "mod")).join()
+  }
+}
+
 // Displays the contents of a parameter heading, including the pills, parameter
 // attributes (named / variadic / ...), and default value.
+//
+// When this is changed, `docs/content/reference/index.typ` needs to be updated
 #let param-headline(param, input-types) = {
   let pills = input-types.map(ty-pill)
   let modifiers = ()
@@ -124,7 +137,7 @@
     gap
     pills.join[ #small[or] ]
     gap
-    text(style: "italic", modifiers.map(small).join(gap))
+    modifier-list(..modifiers)
     if default != none {
       // The following four lines ensure that there the default has a minimum
       // distances to the modifiers, while being flush-right even if it is alone
@@ -138,7 +151,7 @@
   } else {
     html.div(class: "additional-info", {
       html.div(pills.join[ #small[or] ])
-      modifiers.map(small).join()
+      modifier-list(..modifiers)
     })
     if default != none {
       html.small(class: "default", default)
@@ -249,6 +262,9 @@
 }
 
 // Displays additional details about a function.
+//
+// When the labels are changed here, `docs/content/reference/index.typ` needs to
+// change, too.
 #let func-subtitle(info, deprecation-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if info.element {

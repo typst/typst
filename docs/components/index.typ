@@ -1,6 +1,6 @@
 #import "system.typ": *
 #import "base.typ": *
-#import "category.typ": docs-category
+#import "category.typ": docs-category, modifier-list
 #import "example.typ": example
 #import "figure.typ": docs-figure, side-by-side
 #import "linking.typ": def-dest

@@ -96,11 +96,18 @@ h4 code {
 }
 
 h1 small,
+h2 small,
+h3 small,
+h4 small,
+.reference-index .mod {
+  color: #565565;
+  font-style: italic;
+}
+
+h1 small,
 h2 small {
   display: inline-flex;
   gap: 8px;
-  color: #565565;
-  font-style: italic;
   font-size: 14px !important;
 }
 
@@ -116,13 +123,16 @@ h3 small,
 h4 small {
   display: inline-flex;
   gap: 4px;
-  color: #565565;
-  font-style: italic;
   font-size: 12px;
 }
 
 h3 small svg {
   margin-bottom: -1px;
+}
+
+.reference-index .mod {
+  font-size: inherit;
+  font-weight: 700;
 }
 
 @media screen and (max-width: 695px) {
@@ -184,6 +194,18 @@ dt,
 dd {
   margin-block-end: 16px;
   margin-inline: 0px;
+}
+
+.reference-index dl {
+  padding-inline-start: 0px;
+}
+
+.reference-index dt {
+  margin-block-end: 8px;
+}
+
+.reference-index dd {
+  padding-inline-start: 16px;
 }
 
 math {
