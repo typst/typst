@@ -449,6 +449,8 @@ a.chain img {
   position: absolute;
   top: 7px;
   left: 8px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .search input {
