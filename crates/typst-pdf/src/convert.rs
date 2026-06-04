@@ -48,7 +48,7 @@ pub fn convert(
     link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
-        compress_content_streams: true,
+        compress_content_streams: !options.pretty,
         no_device_cs: true,
         ascii_compatible: options.pretty,
         xmp_metadata: true,
