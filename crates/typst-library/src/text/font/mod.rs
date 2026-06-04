@@ -45,17 +45,15 @@ struct FontInner {
     info: FontInfo,
     /// The font's metrics.
     metrics: FontMetrics,
-    /// The underlying ttf-parser face.
-    ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
-    // NOTE: `ttf` and `rusty` reference `data`, so it's important for `data`
-    // to be dropped after them or they will be left dangling while they're
+    // NOTE: `rusty` references `data`, so it's important for `data` to be
+    // dropped after `rusty` or `rusty` will be left dangling while the data is
     // dropped. Fields are dropped in declaration order, so `data` needs to be
-    // declared after `ttf` and `rusty`.
+    // declared after `rusty`.
     /// The raw font data, possibly shared with other fonts from the same
-    /// collection. The vector's allocation must not move, because `ttf` points
-    /// into it using unsafe code.
+    /// collection. The vector's allocation must not move, because `rusty`
+    /// points into it using unsafe code.
     data: Bytes,
 }
 
@@ -71,12 +69,11 @@ impl Font {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let ttf = ttf_parser::Face::parse(slice, index).ok()?;
         let rusty = rustybuzz::Face::from_slice(slice, index)?;
-        let metrics = FontMetrics::from_ttf(&ttf);
-        let info = FontInfo::from_ttf(&ttf)?;
+        let metrics = FontMetrics::from_ttf(&rusty);
+        let info = FontInfo::from_ttf(&rusty)?;
 
-        Some(Self(Arc::new(FontInner { data, index, info, metrics, ttf, rusty })))
+        Some(Self(Arc::new(FontInner { index, info, metrics, rusty, data })))
     }
 
     /// Parse all fonts in the given data.
@@ -124,7 +121,7 @@ impl Font {
     /// Look up the horizontal advance width of a glyph.
     pub fn x_advance(&self, glyph: u16) -> Option<Em> {
         self.0
-            .ttf
+            .rusty
             .glyph_hor_advance(GlyphId(glyph))
             .map(|units| self.to_em(units))
     }
@@ -132,21 +129,21 @@ impl Font {
     /// Look up the vertical advance width of a glyph.
     pub fn y_advance(&self, glyph: u16) -> Option<Em> {
         self.0
-            .ttf
+            .rusty
             .glyph_ver_advance(GlyphId(glyph))
             .map(|units| self.to_em(units))
     }
 
     /// Determine the font's PostScript name.
     pub fn post_script_name(&self) -> Option<String> {
-        find_name(&self.0.ttf, name_id::POST_SCRIPT_NAME)
+        find_name(&self.0.rusty, name_id::POST_SCRIPT_NAME)
     }
 
     /// A reference to the underlying `ttf-parser` face.
     pub fn ttf(&self) -> &ttf_parser::Face<'_> {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
-        &self.0.ttf
+        &self.0.rusty
     }
 
     /// A reference to the underlying `rustybuzz` face.
