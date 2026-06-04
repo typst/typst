@@ -153,6 +153,7 @@ The `url()` routes are replaced to include the docs base paths.
   --action-secondary-hover: rgba(228, 229, 234, 1);
   --brand: #239dad;
   --text-primary: rgba(25, 24, 31, 1);
+  --text-disabled: rgba(25, 24, 31, 0.5);
   --text-c-comment: #74747c;
   --text-c-monospace: #6b6b6f;
   --text-c-math-delim: #198810;
