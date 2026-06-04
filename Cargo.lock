@@ -3555,6 +3555,7 @@ dependencies = [
  "rustc-hash",
  "semver",
  "siphasher",
+ "smallvec",
  "thin-vec",
  "unicode-math-class",
 ]
