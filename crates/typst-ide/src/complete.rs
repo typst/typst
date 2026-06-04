@@ -1303,7 +1303,12 @@ impl<'a> CompletionContext<'a> {
             && !self.after.starts_with(['(', '['])
         {
             if let Value::Func(func) = value {
-                apply = Some(match BracketMode::of(func) {
+                let bracket_mode = if self.leaf.mode_after() == Some(SyntaxMode::Math) {
+                    BracketMode::RoundWithin
+                } else {
+                    BracketMode::of(func)
+                };
+                apply = Some(match bracket_mode {
                     BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
                     BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
                     BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
@@ -1821,6 +1826,7 @@ mod tests {
         test("#", 1).at("table").must_apply_as("table(\n  ${}\n)");
         test("#()", 1).at("list").must_apply_as(None);
         test("#[]", 1).at("strong").must_apply_as(None);
+        test("$$", 1).at("overline").must_apply_as("overline(${})");
     }
 
     /// Test that we only complete positional parameters if they aren't
