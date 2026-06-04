@@ -78,6 +78,7 @@
   }
 }
 
+// Displays parameter modifiers.
 #let modifier-list(..modifiers) = {
   let modifiers = modifiers.pos()
   context if target() == "paged" {

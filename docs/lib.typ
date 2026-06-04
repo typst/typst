@@ -19,7 +19,7 @@
   // Additional content that is appended to the end of the main docs content.
   extra-chapters: none,
 
-  // Dictionary of insertions that the chapters can use if present.
+  // Dictionary of external insertions that the chapters can use if present.
   insertions: (:),
 ) = {
   assert(content-base.starts-with("/") and content-base.ends-with("/"))

@@ -315,8 +315,5 @@
 // Use an insertion from the insertions parameter of the docs function, with a
 // possible fallback.
 #let insertion(name, fallback: none) = context {
-  stdx.config.insertions.at(
-    name,
-    default: fallback,
-  )
+  stdx.config.insertions.at(name, default: fallback)
 }
