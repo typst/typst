@@ -632,6 +632,7 @@ d7e747618f807797dfc14a5b8e095722 image-png
 880e2b48a30e037426b72371cf870de1 image-svg-linked-many-formats
 a7fcb9c3a7ddf593089f2332c5b5e403 image-svg-text
 96b635d64fd8f2244226bf2cc68b037d image-svg-text-font
+53b7d3c57f978e2d64343f6da575c16c image-svg-variable-font
 8c38329bd483947a13abf17f663a1289 import-basic
 9aa0fda56ffa5c43894e9fd6df85c562 import-from-function-scope
 2dc34f872e27bd7eeed1c76026faa848 import-source-field-access
@@ -1824,6 +1825,17 @@ f8459e3a88487b40bddf398e749fab14 text-font-covers-repeat
 7df25e00b63ad6416d10e9433e2ae33b text-font-covers-riffle
 4f9d7579087b7f59afaca812459e909a text-font-just-a-space
 7a2dbc441b21f3b52f99a3c3810dbff3 text-font-properties
+0525de54b5f1e245997c21e3efb9cae2 text-font-variable-and-static
+ec711c2dfff59bfc647f3f21eef711bb text-font-variable-custom-grad
+a8f3b61da5fd4d46cceede0caef68a57 text-font-variable-custom-soft
+30034bdaa68190dacfead41901142b0f text-font-variable-custom-wonk
+ef2aff6696a13d59b8ef863f34908b10 text-font-variable-ital
+b526697a56eaa17db721c63cad4b0ee2 text-font-variable-multiple
+9d8ed76798c7d9bb372085245df629cd text-font-variable-opsz
+3dcb3d6fc20c3e87c21bb7eb5c5804e5 text-font-variable-slnt
+3e9d84880873ea7582d95b682b546f6a text-font-variable-wdth
+39cd40a4448d0714242c148cfed7e44a text-font-variable-wght
+95a1e539de0dee36d9f1059d595a8416 text-font-variations-win
 df37bda6cbd5dbbaeab3ec91266caca9 text-kerning
 e46ac0a0574a1d81a312ade1395a5be1 text-lang
 71ddc9e61b06bb4a04fe26df068c6853 text-lang-hyphenate

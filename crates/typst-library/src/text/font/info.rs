@@ -1,20 +1,26 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{PlatformId, Tag, name_id};
+use ttf_parser::{PlatformId, name_id};
 
-use super::{FontStretch, FontStyle, FontVariant, FontWeight, find_exception};
+use super::find_exception;
+use crate::text::{
+    AxisValue, FontAxis, FontStretch, FontStyle, FontVariant, FontWeight, Tag,
+};
 
 /// Properties of a single font.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
 pub struct FontInfo {
     /// The typographic font family this font is part of.
     pub family: String,
     /// Properties that distinguish this font from other fonts in the same
-    /// family.
+    /// family. For a variable font, this designates the default instance.
     pub variant: FontVariant,
     /// Properties of the font.
     pub flags: FontFlags,
+    /// Variation axes this font supports.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub axes: Vec<FontAxis>,
     /// The unicode coverage of the font.
     pub coverage: Coverage,
 }
@@ -124,16 +130,28 @@ impl FontInfo {
         // Determine whether this is a serif or sans-serif font.
         if let Some(panose) = ttf
             .raw_face()
-            .table(Tag::from_bytes(b"OS/2"))
+            .table(ttf_parser::Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32..45))
             && matches!(panose, [2, 2..=10, ..])
         {
             flags.insert(FontFlags::SERIF);
         }
 
+        let axes = ttf
+            .variation_axes()
+            .into_iter()
+            .map(|axis| FontAxis {
+                tag: Tag::from_bytes(&axis.tag.to_bytes()),
+                min: AxisValue(axis.min_value),
+                max: AxisValue(axis.max_value),
+                default: AxisValue(axis.def_value),
+            })
+            .collect();
+
         Some(FontInfo {
             family,
             variant,
+            axes,
             flags,
             coverage: Coverage::from_vec(codepoints),
         })

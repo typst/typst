@@ -110,6 +110,12 @@ pub struct TextElem {
     /// below, the font `Inria Serif` is preferred, but since it does not
     /// contain Arabic glyphs, the arabic text uses `Noto Sans Arabic` instead.
     ///
+    /// Between fonts from the same family, Typst picks the one that is the
+    /// closest match to the configured text @text.style[`style`],
+    /// @text.weight[`weight`], and @text.stretch[`stretch`]. If both a static
+    /// and a variable font support a specific configuration, the variable font
+    /// is preferred.
+    ///
     /// The collection of available fonts differs by platform:
     ///
     /// - In the web app, you can see the list of available fonts by clicking on
@@ -195,7 +201,11 @@ pub struct TextElem {
     /// available either in an italic or oblique style, the difference between
     /// italic and oblique style is rarely observable.
     ///
-    /// If you want to emphasize your text, you should do so using the
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `ital` (for an italic style) or `slnt` (for an oblique
+    /// style) @text.variations[font variation] based on this property.
+    ///
+    /// _Note:_ If you want to emphasize your text, you should do so using the
     /// @emph[emph] function instead. This makes it easy to adapt the style
     /// later if you change your mind about how to signify the emphasis.
     ///
@@ -211,9 +221,14 @@ pub struct TextElem {
     /// desired weight is not available, Typst selects the font from the family
     /// that is closest in weight.
     ///
-    /// If you want to strongly emphasize your text, you should do so using the
-    /// @strong[strong] function instead. This makes it easy to adapt the style
-    /// later if you change your mind about how to signify the strong emphasis.
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `wght` @text.variations[font variation] based on this
+    /// property.
+    ///
+    /// _Note:_ If you want to strongly emphasize your text, you should do so
+    /// using the @strong[strong] function instead. This makes it easy to adapt
+    /// the style later if you change your mind about how to signify the strong
+    /// emphasis.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Sans")
@@ -232,6 +247,10 @@ pub struct TextElem {
     /// font from the family that is closest in stretch. This will only stretch
     /// the text if a condensed or expanded version of the font is available.
     ///
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `wdth` @text.variations[font variation] based on this
+    /// property.
+    ///
     /// If you want to adjust the amount of space between characters instead of
     /// stretching the glyphs itself, use the @text.tracking[`tracking`]
     /// property instead.
@@ -249,6 +268,10 @@ pub struct TextElem {
     ///
     /// You can also give the font size itself in `em` units. Then, it is
     /// relative to the previous font size.
+    ///
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `opsz` (optical size) @text.variations[font variation]
+    /// based on this property, optimizing legibility for the specific size.
     ///
     /// ```example
     /// #set text(size: 20pt)
@@ -753,6 +776,68 @@ pub struct TextElem {
     #[fold]
     #[ghost]
     pub features: FontFeatures,
+
+    /// Raw OpenType font variations to apply.
+    ///
+    /// While classic static fonts require a separate font file for each style
+    /// combination, variable fonts have _variation axes_ from which many
+    /// different styles can be instanced. Variation axes are identified by
+    /// case-sensitive four-letter strings.
+    ///
+    /// There are a few well-known variation axes, for which Typst will
+    /// automatically set suitable values based on the text
+    /// @text.weight[`weight`], @text.stretch[`stretch`], @text.style[`style`],
+    /// and @text.size[`size`]. This includes:
+    /// - `wght`: Weight (e.g., 400 for regular, 700 for bold)
+    /// - `wdth`: Width (percentage, e.g., 100 for normal)
+    /// - `slnt`: Slant (degrees, negative for right-leaning)
+    /// - `ital`: Italic (0 for upright, 1 for italic)
+    /// - `opsz`: Optical size (in points)
+    ///
+    /// Fonts can also define custom variation axes to realize arbitrary visual
+    /// effects. For example, a font's appearance could become more whimsical
+    /// the higher a particular axis value is set.
+    ///
+    /// With the `variations` parameter, you can directly set values for the
+    /// axes supported by the active font. It only has an effect when used with
+    /// a suitable variable font that supports the specified axes. You can use
+    /// the parameter both to override automatically set values for the
+    /// well-known axes and to set values for custom axes.
+    ///
+    /// The value should be a dictionary mapping axis tags (four-character
+    /// @str[strings]) to their values (@float[floating-point numbers]).
+    ///
+    /// #example(
+    ///   title: "Setting values for custom axes",
+    ///   ```
+    ///   >>> #set page(width: 500pt, margin: 40pt)
+    ///   #set text(font: "Fraunces", size: 60pt)
+    ///
+    ///   #text(variations: (SOFT: 0))[Soft? No.] \
+    ///   #text(variations: (SOFT: 100))[Soft? Yes.]
+    ///   ```
+    /// )
+    ///
+    /// #example(
+    ///   title: "Overriding automatically set values",
+    ///   ```
+    ///   #set text(
+    ///     font: "Roboto Flex",
+    ///     weight: 900,
+    ///     stretch: 150%,
+    ///   )
+    ///
+    ///   Wide and Heavy
+    ///
+    ///   #text(variations: (wght: 400))[
+    ///     Forced back to normal,
+    ///     but still wide.
+    ///   ]
+    ///   ```
+    /// )
+    #[fold]
+    #[ghost]
+    pub variations: FontVariations,
 
     /// Content in which all text is styled according to the other arguments.
     #[external]
@@ -1482,26 +1567,12 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        match book.select_family(family.as_str()).next() {
-            Some(index) => {
-                if book
-                    .info(index)
-                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
-                {
-                    engine.sink.warn(warning!(
-                        list.span,
-                        "variable fonts are not currently supported and may render \
-                         incorrectly";
-                        hint: "try installing a static version of \"{}\" instead",
-                            family.as_str();
-                    ))
-                }
-            }
-            None => engine.sink.warn(warning!(
+        if book.select_family(family.as_str()).next().is_none() {
+            engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            )),
+            ));
         }
     }
 }

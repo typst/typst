@@ -208,3 +208,131 @@ Hello
 --- empty-text-font-array eval ---
 // Error: 17-19 font fallback list must not be empty
 #set text(font: ())
+
+--- text-font-variable-ital paged ---
+#set text(font: "Mona Sans VF")
+Hello _Hello_
+
+#text(variations: (ital: 0))[Hello]
+#text(variations: (ital: 1))[Hello]
+
+--- text-font-variable-slnt paged ---
+#set page(width: auto)
+#set text(font: "Roboto Flex")
+
+Hello, _Hello_
+
+#text(style: "italic")[Hello],
+#text(style: "oblique")[Hello]
+
+#for slnt in range(0, -10, step: -2, inclusive: true) [
+  #text(variations: (slnt: slnt))[Hello.]
+]
+
+--- text-font-variable-wght paged ---
+#set page(width: auto)
+#for (font, tech) in (("Fraunces", "TTF"), ("Cantarell", "CFF2")) [
+  #set text(font: "Fraunces")
+  = #tech
+
+  Hello, *Hello*
+
+  #for weight in range(200, 900, step: 100, inclusive: true) [
+    #text(weight: weight)[Hello.]
+  ]
+
+  #for weight in range(200, 900, step: 100, inclusive: true) [
+    #text(variations: (wght: weight))[Hello.]
+  ]
+]
+
+--- text-font-variable-wdth paged ---
+#set page(width: auto)
+#set text(font: "Roboto Flex")
+
+Hello
+
+#for stretch in range(50, 150, step: 10) [
+  #text(stretch: stretch * 1%)[Hello.]
+]
+
+#for stretch in range(50, 150, step: 10) [
+  #text(variations: (wdth: stretch))[Hello.]
+]
+
+--- text-font-variable-opsz paged ---
+#set page(width: auto)
+#set text(font: "Fraunces")
+
+#for base in (10pt, 20pt) {
+  for s in range(1, 5, inclusive: true) [
+    #let scaled = s * base
+    #scale(100% / s, reflow: true, text(size: scaled)[Hello])
+  ]
+}
+
+--- text-font-variable-custom-wonk paged ---
+#set page(width: auto)
+#set text(font: "Fraunces", size: 25pt)
+
+// WONK only kicks in at point sizes > 18pt.
+#text(variations: (WONK: 0))[minimum] \
+minimum \
+#text(variations: (WONK: 1))[minimum]
+
+--- text-font-variable-custom-grad paged ---
+#set page(width: auto)
+#set text(font: "Roboto Flex")
+
+#text(variations: (GRAD: -200))[Grade] axis \
+Grade axis \
+#text(variations: (GRAD: 150))[Grade] axis
+
+--- text-font-variable-custom-soft paged ---
+// Soft axis becomes more visible at large font size, so we increase it and then
+// scale down to avoid a huge test image.
+#set text(font: "Fraunces", size: 100pt)
+#scale(20%, reflow: true)[
+  #set text(variations: (SOFT: 0))
+  Soft?
+  #set text(variations: (SOFT: 100))
+  Soft!
+]
+
+--- text-font-variable-and-static paged ---
+#set text(font: "Source Serif 4")
+Hello _nope._
+
+#set text(font: "Source Serif 4 Variable")
+Hello _world_ *with* *_Source Serif._*
+
+--- text-font-variable-multiple paged ---
+// Multiple fonts with multiple different axis combinations in one test.
+#text(font: "Roboto Flex")[
+  Roboto _Flex_
+  #text(variations: (GRAD: 150))[
+    with #text(stretch: 150%)[*Grade* axis] enabled
+  ]
+] \
+#text(font: "Source Serif 4 Variable")[
+  Source _Serif_ 4 *Variable*
+]
+
+--- text-font-variations-win paged ---
+// Test that custom variations win over built-in settings.
+#set text(font: "Mona Sans VF")
+#text(style: "italic")[
+  Italic \
+  #text(variations: (ital: 0))[Not italic]
+]
+
+--- text-font-variations-fold paged empty ---
+#set text(variations: (ital: 1, GRAD: 10))
+#set text(variations: (GRAD: 15))
+#context test(text.variations, (ital: 1, GRAD: 15))
+
+--- text-font-variations-invalid eval ---
+// Error: 23-34 tag must be one to four characters in length
+// Hint: 23-34 found 5 characters
+// Hint: 23-34 occurred in tag at index 0 (`"grade"`)
+#set text(variations: (grade: 10))

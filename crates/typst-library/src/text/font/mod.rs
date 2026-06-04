@@ -8,6 +8,7 @@ mod info;
 mod metrics;
 mod tag;
 mod variant;
+mod variations;
 
 pub use self::book::FontBook;
 pub use self::info::{Coverage, FontFlags, FontInfo};
@@ -17,6 +18,7 @@ pub use self::metrics::{
 };
 pub use self::tag::Tag;
 pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
+pub use self::variations::{AxisValue, FontAxis, FontVariations, StandardAxes};
 
 use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
@@ -100,10 +102,25 @@ impl Font {
         find_name(&self.0.ttf, name_id::POST_SCRIPT_NAME)
     }
 
+    /// Instantiates the font with specific text properties. The resulting
+    /// type allows access to methods that depend on coordinates.
+    #[comemo::memoize]
+    pub fn instantiate(
+        self,
+        variant: FontVariant,
+        size: Abs,
+        custom: &FontVariations,
+    ) -> FontInstance {
+        let axes = &self.info().axes;
+        let automatic = FontVariations::resolve(axes, variant, size);
+        let full = automatic.chain(custom).normalized();
+        self.instantiate_impl(full)
+    }
+
     /// Instantiates the font with specific variation coordinates. The resulting
     /// type allows access to methods that depend on coordinates.
     #[comemo::memoize]
-    pub fn instantiate(self) -> FontInstance {
+    fn instantiate_impl(self, variations: FontVariations) -> FontInstance {
         let data = self.data();
         let index = self.index();
 
@@ -111,10 +128,19 @@ impl Font {
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let rusty = rustybuzz::Face::from_slice(slice, index).unwrap();
+        let mut rusty = rustybuzz::Face::from_slice(slice, index).unwrap();
+        for &(tag, value) in &variations.0 {
+            rusty.set_variation(tag.into(), value.0);
+        }
+
         let metrics = FontMetrics::from_ttf(&rusty);
 
-        FontInstance(Arc::new(FontInstanceInner { metrics, rusty, font: self }))
+        FontInstance(Arc::new(FontInstanceInner {
+            metrics,
+            rusty,
+            variations,
+            font: self,
+        }))
     }
 }
 
@@ -155,6 +181,8 @@ struct FontInstanceInner {
     // declared after `rusty`.
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
+    // The instance's variation coordinates.
+    variations: FontVariations,
     /// The underlying font.
     font: Font,
 }
@@ -163,6 +191,11 @@ impl FontInstance {
     /// The instance's underlying font.
     pub fn font(&self) -> &Font {
         &self.0.font
+    }
+
+    /// The instance's variation coordinates.
+    pub fn variations(&self) -> &FontVariations {
+        &self.0.variations
     }
 
     /// The font's metrics.
@@ -269,16 +302,17 @@ impl Deref for FontInstance {
 
 impl Debug for FontInstance {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "FontInstance({:?})", self.0.font)
+        f.debug_struct("FontInstance")
+            .field("font", self.font())
+            .field("variations", self.variations())
+            .finish()
     }
 }
 
 impl Hash for FontInstance {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.font.hash(state);
-        // To already make the hashes match with the ones that will be produced
-        // once font variations are in place.
-        state.write_usize(0);
+        self.0.variations.hash(state);
     }
 }
 
@@ -286,6 +320,6 @@ impl Eq for FontInstance {}
 
 impl PartialEq for FontInstance {
     fn eq(&self, other: &Self) -> bool {
-        self.0.font == other.0.font
+        self.0.font == other.0.font && self.0.variations == other.0.variations
     }
 }

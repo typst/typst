@@ -14,9 +14,9 @@ use typst_library::foundations::{Regex, Smart, StyleChain};
 use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
-    FontFamily, FontInstance, FontVariant, Glyph, Lang, Region, ShiftSettings,
-    TextEdgeBounds, TextElem, TextItem, families, features, is_default_ignorable,
-    language, variant,
+    FontFamily, FontInstance, FontVariant, FontVariations, Glyph, Lang, Region,
+    ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
+    is_default_ignorable, language, variant,
 };
 use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -489,12 +489,13 @@ impl<'a> ShapedText<'a> {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             let world = engine.world;
+            let variations = self.styles.get_cloned(TextElem::variations);
             if let Some(font) = families(self.styles).find_map(|family| {
                 world
                     .book()
                     .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
-                    .map(|font| font.instantiate())
+                    .map(|font| font.instantiate(self.variant, size, &variations))
             }) {
                 expand(&font, TextEdgeBounds::Zero);
             }
@@ -600,11 +601,14 @@ impl<'a> ShapedText<'a> {
             .flatten();
 
         chain.find_map(|id| {
-            let font = world.font(id).map(|font| font.instantiate())?;
+            let size = base.styles.resolve(TextElem::size);
+            let variations = base.styles.get_cloned(TextElem::variations);
+            let font = world
+                .font(id)
+                .map(|font| font.instantiate(base.variant, size, &variations))?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let size = base.styles.resolve(TextElem::size);
             let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
 
             Some(ShapedText {
@@ -798,6 +802,7 @@ fn shape<'a>(
         styles,
         variant: variant(styles),
         features: features(styles),
+        variations: styles.get_cloned(TextElem::variations),
         fallback: styles.get(TextElem::fallback),
         dir,
         shift_settings,
@@ -836,6 +841,7 @@ struct ShapingContext<'a> {
     size: Abs,
     variant: FontVariant,
     features: Vec<rustybuzz::Feature>,
+    variations: FontVariations,
     fallback: bool,
     dir: Dir,
     shift_settings: Option<ShiftSettings>,
@@ -855,6 +861,12 @@ pub trait SharedShapingContext<'a> {
     fn variant(&self) -> FontVariant;
 
     fn fallback(&self) -> bool;
+
+    /// The text size (for optical size axis in variable fonts).
+    fn size(&self) -> Abs;
+
+    /// Custom font variations from the style chain.
+    fn variations(&self) -> &FontVariations;
 }
 
 impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
@@ -877,6 +889,14 @@ impl<'a> SharedShapingContext<'a> for ShapingContext<'a> {
     fn fallback(&self) -> bool {
         self.fallback
     }
+
+    fn size(&self) -> Abs {
+        self.size
+    }
+
+    fn variations(&self) -> &FontVariations {
+        &self.variations
+    }
 }
 
 pub fn get_font_and_covers<'a, C, F>(
@@ -898,7 +918,7 @@ where
         selection = book
             .select(family.as_str(), ctx.variant())
             .and_then(|id| world.font(id))
-            .map(|font| font.instantiate())
+            .map(|font| font.instantiate(ctx.variant(), ctx.size(), ctx.variations()))
             .filter(|font| !ctx.used().contains(font));
         if selection.is_some() {
             covers = family.covers();
@@ -912,7 +932,7 @@ where
         selection = book
             .select_fallback(first, ctx.variant(), text)
             .and_then(|id| world.font(id))
-            .map(|font| font.instantiate())
+            .map(|font| font.instantiate(ctx.variant(), ctx.size(), ctx.variations()))
             .filter(|font| !ctx.used().contains(font));
     }
 

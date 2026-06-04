@@ -3,8 +3,10 @@ use std::collections::BTreeMap;
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{Font, FontInfo, FontVariant};
-use crate::text::{FontFlags, is_default_ignorable};
+use crate::text::{
+    Font, FontFlags, FontInfo, FontStretch, FontStyle, FontVariant, FontWeight,
+    StandardAxes, is_default_ignorable,
+};
 
 /// Metadata about a collection of fonts.
 #[derive(Debug, Default, Clone, Hash)]
@@ -133,6 +135,7 @@ impl FontBook {
     ///   normal.
     /// - The absolute distance to the target stretch.
     /// - The absolute distance to the target weight.
+    /// - All else being equal, we prefer variable fonts over static ones.
     fn find_best_variant(
         &self,
         like: Option<&FontInfo>,
@@ -147,6 +150,7 @@ impl FontBook {
             let score = (
                 like.map(|like| similarity(current, like)),
                 Reverse(distance(current, variant)),
+                current.flags.contains(FontFlags::VARIABLE),
             );
 
             if best_score.is_none_or(|b| score > b) {
@@ -186,11 +190,39 @@ fn similarity(left: &FontInfo, right: &FontInfo) -> impl Ord + Copy {
 ///
 /// Used to pick the most suitable font in a family.
 fn distance(info: &FontInfo, variant: FontVariant) -> impl Ord + Copy {
-    (
-        info.variant.style.distance(variant.style),
-        info.variant.stretch.distance(variant.stretch),
-        info.variant.weight.distance(variant.weight),
-    )
+    // TODO: Potentially also consider optical size for the distance
+    // computation. However, this would ideally also apply to non-variable
+    // font and there are different mechanisms with which these advertise
+    // their intended optical size range.
+
+    let axes = StandardAxes::parse(&info.axes);
+
+    let style_distance = {
+        let mut dist = info.variant.style.distance(variant.style);
+        if axes.ital.is_some() {
+            dist = dist.min(FontStyle::Italic.distance(variant.style));
+        }
+        if axes.slnt.is_some() {
+            dist = dist.min(FontStyle::Oblique.distance(variant.style));
+        }
+        dist
+    };
+
+    let stretch_distance = match axes.wdth {
+        Some(axis) => {
+            axis.distance(variant.stretch, FontStretch::from_wdth, FontStretch::distance)
+        }
+        None => info.variant.stretch.distance(variant.stretch),
+    };
+
+    let weight_distance = match axes.wght {
+        Some(axis) => {
+            axis.distance(variant.weight, FontWeight::from_wght, FontWeight::distance)
+        }
+        None => info.variant.weight.distance(variant.weight),
+    };
+
+    (style_distance, stretch_distance, weight_distance)
 }
 
 /// How many words the two strings share in their prefix.
@@ -199,4 +231,92 @@ fn shared_prefix_words(left: &str, right: &str) -> usize {
         .zip(right.unicode_words())
         .take_while(|(l, r)| l == r)
         .count()
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::layout::Ratio;
+    use crate::text::{
+        AxisValue, Coverage, FontAxis, FontBook, FontFlags, FontInfo, FontStretch,
+        FontStyle, FontVariant, FontWeight, Tag,
+    };
+
+    #[test]
+    fn test_find_best_variant() {
+        use FontStyle::*;
+
+        let s = [
+            info("s0", Normal, 400, 100.0, &[]),
+            info("s1", Normal, 500, 100.0, &[]),
+            info("s2", Normal, 800, 100.0, &[]),
+            info("s3", Italic, 400, 100.0, &[]),
+            info("s4", Italic, 800, 100.0, &[]),
+            info("s5", Oblique, 800, 100.0, &[]),
+            info("s6", Normal, 400, 110.0, &[]),
+        ];
+
+        #[rustfmt::skip]
+        let v = [
+           info("v0", Normal, 400, 100.0, &[("wght", 200.0, 700.0), ("ital", 0.0, 1.0)]),
+           info("v1", Normal, 400, 100.0, &[("slnt", -40.0, 40.0), ("wdth", 70.0, 120.0)]),
+        ];
+
+        let book = FontBook::from_infos(s.iter().chain(&v).cloned());
+        let count = s.len() + v.len();
+        let pick = |style, weight, stretch| {
+            let target = variant(style, weight, stretch);
+            let id = book.find_best_variant(None, target, 0..count).unwrap();
+            book.info(id).unwrap()
+        };
+
+        // Variable fonts are preferred ...
+        assert_eq!(pick(Normal, 100, 100.0), &v[0]);
+        assert_eq!(pick(Normal, 200, 100.0), &v[0]);
+        assert_eq!(pick(Normal, 500, 100.0), &v[0]);
+        assert_eq!(pick(Normal, 730, 100.0), &v[0]);
+        assert_eq!(pick(Italic, 400, 100.0), &v[0]);
+        assert_eq!(pick(Oblique, 400, 100.0), &v[1]);
+        assert_eq!(pick(Normal, 400, 120.0), &v[1]);
+        assert_eq!(pick(Normal, 400, 130.0), &v[1]);
+
+        // ... but static variant are still picked if they are closer.
+        assert_eq!(pick(Normal, 760, 100.0), &s[2]);
+        assert_eq!(pick(Normal, 800, 100.0), &s[2]);
+        assert_eq!(pick(Normal, 1000, 100.0), &s[2]);
+        assert_eq!(pick(Italic, 800, 110.0), &s[4]);
+        assert_eq!(pick(Oblique, 800, 100.0), &s[5]);
+        assert_eq!(pick(Oblique, 800, 100.0), &s[5]);
+    }
+
+    fn info(
+        family: &str,
+        style: FontStyle,
+        weight: u16,
+        stretch: f64,
+        axes: &[(&str, f32, f32)],
+    ) -> FontInfo {
+        FontInfo {
+            family: family.into(),
+            variant: variant(style, weight, stretch),
+            flags: if axes.is_empty() { FontFlags::empty() } else { FontFlags::VARIABLE },
+            axes: axes
+                .iter()
+                .map(|&(t, min, max)| FontAxis {
+                    tag: Tag::from_bytes_lossy(t.as_bytes()),
+                    min: AxisValue(min),
+                    max: AxisValue(max),
+                    default: AxisValue((min + max) / 2.0),
+                })
+                .collect(),
+            coverage: Coverage::from_vec(vec![]),
+        }
+    }
+
+    fn variant(style: FontStyle, weight: u16, stretch: f64) -> FontVariant {
+        FontVariant {
+            style,
+            weight: FontWeight::from_number(weight),
+            stretch: FontStretch::from_ratio(Ratio::new(stretch / 100.0)),
+        }
+    }
 }

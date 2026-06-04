@@ -2,7 +2,6 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
@@ -460,19 +459,22 @@ pub fn apply_shift<'a>(
     let mut baseline = styles.resolve(TextElem::baseline);
     let mut compensation = Abs::zero();
     if let Some(scripts) = styles.get_ref(TextElem::shift_settings) {
+        let variant = variant(styles);
+        let size = styles.resolve(TextElem::size);
+        let variations = styles.get_cloned(TextElem::variations);
         let font_metrics = families(styles)
             .find_map(|family| {
                 world
                     .book()
-                    .select(family.as_str(), variant(styles))
+                    .select(family.as_str(), variant)
                     .and_then(|id| world.font(id))
-                    .map(|font| font.instantiate())
+                    .map(|font| font.instantiate(variant, size, &variations))
             })
             .map_or(*scripts.kind.default_metrics(), |f| {
                 *scripts.kind.read_metrics(f.metrics())
             });
-        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
-        compensation += font_metrics.horizontal_offset.resolve(styles);
+        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).at(size);
+        compensation += font_metrics.horizontal_offset.at(size);
     }
     frame.translate(Point::new(compensation, baseline));
 }

@@ -621,6 +621,8 @@ fn get_font(
     span: Span,
 ) -> SourceResult<FontInstance> {
     let variant = variant(styles);
+    let size = styles.resolve(TextElem::size);
+    let variations = styles.get_cloned(TextElem::variations);
     families(styles)
         .find_map(|family| {
             world
@@ -628,7 +630,7 @@ fn get_font(
                 .select(family.as_str(), variant)
                 .and_then(|id| world.font(id))
                 .filter(|_| family.covers().is_none())
-                .map(|font| font.instantiate())
+                .map(|font| font.instantiate(variant, size, &variations))
         })
         .ok_or("no font could be found")
         .at(span)

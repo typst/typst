@@ -6,10 +6,11 @@ use rustybuzz::{
 use ttf_parser::Tag;
 use typst_library::World;
 use typst_library::foundations::StyleChain;
-use typst_library::layout::Em;
+use typst_library::layout::{Abs, Em};
 use typst_library::math::families;
 use typst_library::text::{
-    FontFamily, FontInstance, FontVariant, Glyph, TextElem, language, variant,
+    FontFamily, FontInstance, FontVariant, FontVariations, Glyph, TextElem, language,
+    variant,
 };
 use typst_syntax::Span;
 
@@ -30,10 +31,13 @@ pub fn shape(
         styles.get(TextElem::fallback),
         text,
         families(styles).collect(),
+        styles.resolve(TextElem::size),
+        &styles.get_cloned(TextElem::variations),
     )
 }
 
 /// Internal shaping implementation.
+#[expect(clippy::too_many_arguments)]
 fn shape_impl(
     world: Tracked<dyn World + '_>,
     variant: FontVariant,
@@ -42,6 +46,8 @@ fn shape_impl(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
+    size: Abs,
+    variations: &FontVariations,
 ) -> Option<(FontInstance, Vec<Glyph>)> {
     let mut ctx = ShapingContext {
         world,
@@ -52,6 +58,8 @@ fn shape_impl(
         fallback,
         glyphs: vec![],
         font: None,
+        size,
+        variations,
     };
 
     shape_text(&mut ctx, text, families.into_iter());
@@ -119,10 +127,12 @@ struct ShapingContext<'a, 'b> {
     used: Vec<FontInstance>,
     variant: FontVariant,
     features: &'b [Feature],
+    variations: &'b FontVariations,
     language: Language,
     fallback: bool,
     glyphs: Vec<Glyph>,
     font: Option<FontInstance>,
+    size: Abs,
 }
 
 impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
@@ -144,6 +154,14 @@ impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
 
     fn fallback(&self) -> bool {
         self.fallback
+    }
+
+    fn size(&self) -> Abs {
+        self.size
+    }
+
+    fn variations(&self) -> &FontVariations {
+        self.variations
     }
 }
 

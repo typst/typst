@@ -632,6 +632,7 @@ fc8d48a4503ffb673983f42962c33da5 image-svg-linked-jpg1
 df683f0478e6613b385f921de4eeb76f image-svg-linked-many-formats
 b00b7d9f2ad0b2ea99a1efb652f8b54f image-svg-text
 480f4ca71852450baf779d4ba3cee28f image-svg-text-font
+207d1ee6eaa6e1c0f35e4177fb6ed614 image-svg-variable-font
 22f74b2bfc6fbd2ba5016d2e6475e7f3 import-basic
 154b1b929178a25c479014b6feb1ec6e import-from-function-scope
 6f86af73b2d8ebca2b40b02351775a7e import-source-field-access
@@ -1827,6 +1828,17 @@ de5e4f5091f691d50627dd711407b373 text-cjk-latin-spacing
 30e5553068a3ae292302d67ff3254990 text-font-covers-riffle
 84fc54d09466ea1e8f2f25dfe48c3b86 text-font-just-a-space
 e26f90caa7624620ede1f9d71e9dbc4d text-font-properties
+e8b4783abe488e9e4b67d67d36d6e5a4 text-font-variable-and-static
+1cd2d0bc4a137f5369e0f47251783300 text-font-variable-custom-grad
+61200f8b4d52bfd5088fe79f88b52f6f text-font-variable-custom-soft
+0e7e1ab0e3c0c1853965e499bc657a44 text-font-variable-custom-wonk
+7b0ad38cf7062812fa4e33fe8d180d84 text-font-variable-ital
+d8d61d11940dc192934204ec28a45a84 text-font-variable-multiple
+91138771c78f6e5bacc3017438aa54e9 text-font-variable-opsz
+31f195c13d38858e2ef3c7faef4c20a1 text-font-variable-slnt
+c7d2e3a2b1a015d0ec6721b3f9a23e83 text-font-variable-wdth
+1b144410b90302bc1c49dbfc5b3acf8f text-font-variable-wght
+51bda7f2a220e022c88b9c36e36255f1 text-font-variations-win
 6e24f4a1c7885f50b8786082eb1d8185 text-kerning
 b54f556830bc6919a7b606d780487fd8 text-lang
 1e21dfa24c760fef231e67c254242e36 text-lang-hyphenate
