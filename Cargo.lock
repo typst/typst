@@ -1472,9 +1472,9 @@ dependencies = [
 
 [[package]]
 name = "krilla"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d958f40f452cc64e4faeba4ce21cbbdbfeba47eb8085841981429499aa23974"
+checksum = "27da593198b20eeba65caeb73c2bbeec3e53ab08fa549898312ce81c4fce5e33"
 dependencies = [
  "base64",
  "bumpalo",
@@ -1503,14 +1503,16 @@ dependencies = [
 
 [[package]]
 name = "krilla-svg"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a5f8418129c0dc4b25834d39f753df617597510951d306cdfe1a92973e403bf"
+checksum = "1237d7c37b16ca9fbc2e72dde13a10d321f9a44aceee35c062bc0a43bfc7ce16"
 dependencies = [
  "flate2",
  "fontdb",
  "krilla",
  "resvg",
+ "skrifa",
+ "smallvec",
  "tiny-skia",
  "usvg",
 ]
@@ -2073,9 +2075,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 
 [[package]]
 name = "pixglyph"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c1106193bc18a4b840eb075ff6664c8a0b0270f0531bb12a7e9c803e53b55c5"
+checksum = "47945e80a49d08350e4a007ac4294c6498d23956c18ea5e6ff480dc93d31643c"
 dependencies = [
  "ttf-parser",
 ]
@@ -2722,9 +2724,9 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8178bfc97de4bc56fa2daa1c84bde1182943f3730414b0a362a1fefc72b7db4b"
+checksum = "38803281d1c23166c5ebcb455439a5d2afe711cc909cf88af72448c297756ad6"
 dependencies = [
  "kurbo",
  "rustc-hash",
@@ -3124,7 +3126,7 @@ dependencies = [
 [[package]]
 name = "typst-dev-assets"
 version = "0.14.2"
-source = "git+https://github.com/typst/typst-dev-assets?rev=263883b#263883b3d0e070e82b17b2f7062df7579a7e76fb"
+source = "git+https://github.com/typst/typst-dev-assets?rev=695335b#695335b66f56481d8f8cdc2273f20f3023fe29db"
 
 [[package]]
 name = "typst-docs"
