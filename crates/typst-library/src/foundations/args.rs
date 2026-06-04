@@ -15,9 +15,9 @@ use crate::foundations::{
 
 /// Captured arguments to a function.
 ///
-/// Arguments are either _positional_ or _named_, and can be accessed by the
-/// @arguments.pos[`pos`], @arguments.named[`named`], or @arguments.at[`at`]
-/// methods.
+/// Arguments are either _positional_ or _named,_ and can be accessed through
+/// the @arguments.pos[`pos`], @arguments.named[`named`], and
+/// @arguments.at[`at`] methods.
 ///
 /// Additionally, named arguments can be accessed with @arguments.at[field
 /// syntax] similar to @dictionary[dictionaries].
@@ -347,14 +347,14 @@ impl Args {
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///
-    /// Named arguments can also be accessed with field syntax
-    /// `{arguments(key: 42).key}` if no default is needed. Unlike
-    /// @dictionary[dictionaries], fields on arguments cannot be modified.
-    ///
     /// If the key is an @int[integer], this is equivalent to first calling
     /// @arguments.pos[`pos`] and then @array.at. If it is a @str[string], this
     /// is equivalent to first calling @arguments.named[`named`] and then
     /// @dictionary.at.
+    ///
+    /// Named arguments can also be accessed with field syntax (e.g.
+    /// `{arguments(key: 42).key}`) if no default is needed. Unlike
+    /// @dictionary[dictionaries], fields on arguments cannot be modified.
     #[func]
     pub fn at(
         &self,
