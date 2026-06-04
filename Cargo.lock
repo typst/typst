@@ -3227,6 +3227,7 @@ version = "0.14.2"
 dependencies = [
  "comemo",
  "ecow",
+ "indexmap",
  "once_cell",
  "rustc-hash",
  "serde",
@@ -3236,6 +3237,7 @@ dependencies = [
  "typst-eval",
  "typst-html",
  "typst-layout",
+ "typst-utils",
  "unscanny",
 ]
 
