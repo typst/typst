@@ -279,7 +279,7 @@ mod tests {
              Supports optical sizing. SOFT 0–100. WONK 0–1."
         );
         assert_eq!(
-            summarize("Mona Sans VF"),
+            summarize("Mona Sans"),
             "Variable. Weight 200–900. Stretch 75%–125%. Has italics. \
              Supports optical sizing."
         );
