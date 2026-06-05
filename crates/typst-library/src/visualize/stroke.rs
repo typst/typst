@@ -128,17 +128,8 @@ impl Stroke {
 
         /// The dash pattern to use. This can be:
         ///
-        /// - One of the predefined patterns:
-        ///   - `{"solid"}` or `{none}`
-        ///   - `{"dotted"}`
-        ///   - `{"densely-dotted"}`
-        ///   - `{"loosely-dotted"}`
-        ///   - `{"dashed"}`
-        ///   - `{"densely-dashed"}`
-        ///   - `{"loosely-dashed"}`
-        ///   - `{"dash-dotted"}`
-        ///   - `{"densely-dash-dotted"}`
-        ///   - `{"loosely-dash-dotted"}`
+        /// - One of the predefined patterns listed below.
+        /// - `{none}`, as an equivalent to the predefined pattern `{"solid"}`.
         /// - An @array[array] with alternating lengths for dashes and gaps. You
         ///   can also use the string `{"dot"}` for a length equal to the line
         ///   thickness.
@@ -158,13 +149,6 @@ impl Stroke {
         ///     line(stroke: (dash: (10pt, 5pt, "dot", 5pt))),
         ///     line(stroke: (dash: (array: (10pt, 5pt, "dot", 5pt), phase: 10pt))),
         ///   )
-        ///   ```
-        /// )
-        ///
-        /// #example(
-        ///   title: "Inspect a predefined pattern",
-        ///   ```
-        ///   #stroke(dash: "loosely-dashed").dash
         ///   ```
         /// )
         ///
@@ -553,15 +537,25 @@ cast! {
     DashPattern,
     self => dict! { "array" => self.array, "phase" => self.phase }.into_value(),
 
+    /// `{()}`
     "solid" => Vec::new().into(),
+    /// `{("dot", 2pt)}`
     "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    /// `{("dot", 1pt)}`
     "densely-dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    /// `{("dot", 4pt)}`
     "loosely-dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    /// `{(3pt, 3pt)}`
     "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
+    /// `{(3pt, 2pt)}`
     "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
+    /// `{(3pt, 6pt)}`
     "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
+    /// `{(3pt, 2pt, "dot", 2pt)}`
     "dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    /// `{(3pt, 1pt, "dot", 1pt)}`
     "densely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    /// `{(3pt, 4pt, "dot", 4pt)}`
     "loosely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
 
     array: Vec<DashLength> => Self { array, phase: Length::zero() },
