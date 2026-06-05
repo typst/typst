@@ -37,7 +37,7 @@ $ a"123.4"b quad a "123.4" b $
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
-#show math.equation: set text(features: ("cv01",), fallback: false)
+#show math.equation: set text(features: ("cv02",), fallback: false)
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
