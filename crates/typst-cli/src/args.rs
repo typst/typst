@@ -443,7 +443,7 @@ pub struct ProcessArgs {
     pub features: Vec<Feature>,
 
     /// The format to emit diagnostics in.
-    #[clap(long, default_value_t)]
+    #[clap(long, default_value_t, env = "TYPST_DIAGNOSTIC_FORMAT")]
     pub diagnostic_format: DiagnosticFormat,
 }
 
