@@ -136,3 +136,23 @@ foo #box[foo] foo
 #set text(bottom-edge: "descender")
 
 foo #box[foo] foo
+
+--- issue-8372-stretched-glyphs paged ---
+#set page(width: auto)
+#set text(5em)
+#let b(body) = {
+  box(stroke: red, width: auto, height: 1.5em, {
+    set align(center + horizon)
+    box(stroke: blue, width: auto, height: auto, body)
+  })
+}
+#b({
+  // Warning: 18-70 unknown font family: noto color emoji cbdt subset
+  set text(font: ("Noto Color Emoji CBDT Subset", "Libertinus Serif"), fallback: false)
+  [A#emoji.checkmark.box]
+})
+#b({
+  // Will use a COLR glyph
+  set text(font: ("Noto Color Emoji", "Libertinus Serif"), fallback: false)
+  [A#emoji.checkmark.box]
+})

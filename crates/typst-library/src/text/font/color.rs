@@ -149,21 +149,26 @@ fn draw_raster_glyph(
     let data = Bytes::new(raster_image.data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
+    let scale = upem / raster_image.pixels_per_em as f64;
+    let image_width = scale * image.width();
+    let image_height = scale * image.height();
+    // The height diff of the scaled image compared to the upem square.
+    // Raster image glyphs are drawn from a top left origin, and typst-svg and
+    // render compute a tranform that offsets by the upem height.
+    let height_diff = image_height - upem;
+
+    let x_offset = scale * raster_image.x as f64;
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
     // baseline to make it look good.
     let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
-        20.0
+        scale * 20.0
     } else {
-        -(raster_image.y as f64)
+        height_diff + scale * raster_image.y as f64
     };
 
-    let position = Point::new(
-        upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * y_offset / raster_image.pixels_per_em as f64,
-    );
-    let aspect_ratio = image.width() / image.height();
-    let size = Size::new(upem, upem * aspect_ratio);
+    let position = Point::new(-x_offset, -y_offset);
+    let size = Size::new(image_width, image_height);
     Some(GlyphFrameItem::Image(position, image, size))
 }
 
