@@ -70,16 +70,38 @@
 // Hint: 2-22 you can use a floating point number by appending a dot: `18446744073709551615.`
 #18446744073709551615
 
---- int-bounds-manual-min eval ---
-// Error: 4-23 integer value is too large
-// Hint: 4-23 value does not fit into a signed 64-bit integer
-// Hint: 4-23 a floating point number could approximately represent this value
-// Hint: 4-23 you can use a floating point number by appending a dot: `9223372036854775808.`
+--- int-bounds-manual-min-no-space eval ---
+// Error: 3-23 cannot write minimum integer manually
+// Hint: 3-23 Typst integers are always initially positive
+// Hint: 3-23 2^63 does not fit into a signed 64-bit integer
+// Hint: 3-23 try writing `int.min`
 #(-9223372036854775808)
+
+--- int-bounds-manual-min-space eval ---
+// Error: 3-24 cannot write minimum integer manually
+// Hint: 3-24 Typst integers are always initially positive
+// Hint: 3-24 2^63 does not fit into a signed 64-bit integer
+// Hint: 3-24 try writing `int.min`
+#(- 9223372036854775808)
+
+--- int-bounds-manual-min-newline eval ---
+// Error: 1:3-2:23 cannot write minimum integer manually
+// Hint: 1:3-2:23 Typst integers are always initially positive
+// Hint: 1:3-2:23 2^63 does not fit into a signed 64-bit integer
+// Hint: 1:3-2:23 try writing `int.min`
+#(-
+   9223372036854775808)
 
 --- int-bounds-manual-min-hex eval ---
 // Error: 4-22 invalid hexadecimal number: `0x8000000000000000`
 #(-0x8000000000000000)
+
+--- int-bounds-min-minus-one eval ---
+// Error: 3-23 integer value is too small
+// Hint: 3-23 value does not fit into a signed 64-bit integer
+// Hint: 3-23 a floating point number could approximately represent this value
+// Hint: 3-23 you can use a floating point number by appending a dot: `9223372036854775809.`
+#(-9223372036854775809)
 
 --- int-bounds-invalid-no-syntax-error eval ---
 // Some integer syntax errors happen in the AST, so we won't actually error if

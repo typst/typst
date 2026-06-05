@@ -1360,7 +1360,12 @@ impl Int<'_> {
             | IntErrorKind::Empty        // Handled in the lexer
             | IntErrorKind::InvalidDigit // Handled in the lexer
             | IntErrorKind::Zero         // Not relevant
-            | _ => IntLiteralError::PosOverflow,
+            | _ => IntLiteralError::PosOverflow {
+                max_plus_one: {
+                    let base = base.map_or(10, NonDecimalBase::get);
+                    Ok(i64::MAX as u64 + 1) == u64::from_str_radix(digits, base)
+                },
+            },
         })
     }
 }
@@ -1369,7 +1374,7 @@ impl Int<'_> {
 /// handled in the lexer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum IntLiteralError {
-    PosOverflow,
+    PosOverflow { max_plus_one: bool },
 }
 
 /// Non-decimal bases available for integer syntax: hexademical, octal, or

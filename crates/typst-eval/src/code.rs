@@ -439,7 +439,7 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
 #[cold]
 fn int_literal_error(int: ast::Int, err: ast::IntLiteralError) -> SourceDiagnostic {
     match err {
-        ast::IntLiteralError::PosOverflow => error!(
+        ast::IntLiteralError::PosOverflow { max_plus_one: _ } => error!(
             int.span(),
             "integer value is too large";
             hint: "value does not fit into a signed 64-bit integer";
