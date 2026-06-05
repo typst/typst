@@ -37,8 +37,13 @@ use crate::model::{TableCell, TableElem};
 pub struct ArtifactElem {
     /// The artifact kind.
     ///
-    /// This will govern how the PDF reader treats the artifact during reflow
-    /// and content extraction (e.g. copy and paste).
+    /// You can improve accessibility by using the most specific artifact kind
+    /// available. Your choice will govern how the PDF reader treats the
+    /// artifact during reflow and content extraction (e.g. copy and paste).
+    ///
+    /// Artifact types have been introduced in various different PDF
+    /// specifications. Depending on which PDF version you target, Typst will
+    /// select the most appropriate artifact type using your selection here.
     #[default(ArtifactKind::Other)]
     pub kind: ArtifactKind,
 
@@ -80,7 +85,11 @@ pub enum ArtifactKind {
     /// Purely cosmetric content or typographical flourishes not contributing to
     /// the document's content.
     Layout,
-    /// Background of a page or a graphical element.
+    /// Background of a page or a graphical element. This artifact kind was
+    /// added in PDF 1.7. However, due to requirements in the PDF 1.7
+    /// specification that later specifications lifted, Typst only uses this
+    /// artifact type in PDF 2.0. If you use it in a PDF 1.7 or earlier, Typst
+    /// will use the `{"other"}` type instead.
     Background,
     /// Other artifacts.
     #[default]

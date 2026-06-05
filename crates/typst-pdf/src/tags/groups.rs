@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 
+use krilla::configure::PdfVersion;
 use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
@@ -11,6 +12,7 @@ use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
@@ -492,15 +494,27 @@ impl std::fmt::Debug for GroupKind {
 
 impl GroupKind {
     pub fn is_artifact(&self) -> bool {
-        self.as_artifact().is_some()
+        matches!(*self, GroupKind::Artifact(_))
     }
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
     }
 
-    pub fn as_artifact(&self) -> Option<Artifact> {
+    pub fn as_artifact(&self, options: &PdfOptions) -> Option<Artifact> {
         match *self {
+            GroupKind::Artifact(ArtifactType::Background)
+                if options.standards.config.version() == PdfVersion::Pdf17 =>
+            {
+                // Background artifacts were introduced in PDF 1.7. However,
+                // they require a bounding box there, which is not readily
+                // available throughout Typst. In PDF 2.0, this requirement is
+                // dropped. Hence, to not have to make up a bounding box, we
+                // explicitly override the type as `Other` for PDF 1.7. For PDF
+                // 1.6 and below, Krilla handles the type mapping. For PDF 2.0
+                // and above, we use the correct artifact type.
+                Some(Artifact::with_kind(ArtifactType::Other))
+            }
             GroupKind::Artifact(ty) => Some(Artifact::with_kind(ty)),
             _ => None,
         }

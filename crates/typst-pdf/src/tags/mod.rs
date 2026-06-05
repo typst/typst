@@ -43,7 +43,7 @@ pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface) {
         return;
     }
 
-    tree::step_start_tag(&mut gc.tags.tree, surface);
+    tree::step_start_tag(gc, surface);
 }
 
 pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
@@ -51,7 +51,7 @@ pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
         return;
     }
 
-    tree::step_end_tag(&mut gc.tags.tree, surface);
+    tree::step_end_tag(gc, surface);
 }
 
 pub fn group<T>(
@@ -64,7 +64,7 @@ pub fn group<T>(
         return group_fn(gc, surface);
     }
 
-    tree::enter_logical_child(&mut gc.tags.tree, surface);
+    tree::enter_logical_child(gc, surface);
 
     let res = group_fn(gc, surface);
 
@@ -267,7 +267,15 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(artifact_type)));
+    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+        if gc.options.standards.config.version() == PdfVersion::Pdf17
+            && artifact_type == ArtifactType::Background
+        {
+            ArtifactType::Other
+        } else {
+            artifact_type
+        },
+    )));
 
     TagHandle { surface, started: true }
 }
