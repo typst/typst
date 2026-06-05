@@ -19,7 +19,7 @@ pub struct FontInfo {
     /// Properties of the font.
     pub flags: FontFlags,
     /// Variation axes this font supports.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub axes: Vec<FontAxis>,
     /// The unicode coverage of the font.
     pub coverage: Coverage,
