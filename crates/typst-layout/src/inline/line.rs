@@ -325,7 +325,10 @@ fn collect_range<'a>(
         // Trim end-of-line whitespace glyphs.
         if trim.layout < range.end {
             let shaped = item.text_mut().unwrap();
-            shaped.glyphs.trim(|glyph| trim.layout < glyph.range.end);
+            // Make sure not to trim glyphs that have overlapping ranges, for
+            // example due to zero width spaces included in the cluster.
+            // Otherwise these glyphs would protrude into the margin.
+            shaped.glyphs.trim(|glyph| glyph.range.start >= trim.layout);
         }
 
         items.push(item, idx);
