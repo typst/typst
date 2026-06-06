@@ -417,7 +417,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pdf-basic paged html ---
 #image("/assets/images/star.pdf")
 
---- image-pdf-complex paged ---
+--- image-pdf-complex paged tolerance(2) ---
 #image("/assets/images/matplotlib.pdf")
 
 --- image-pdf-multiple-pages paged ---
