@@ -1987,11 +1987,46 @@ impl Parser<'_> {
         } else if kind == SyntaxKind::Ident && self.token.kind.is_keyword() {
             self.trim_errors();
             self.eat_and_get().expected(kind.name());
+        } else if kind == SyntaxKind::Comma
+            && !self.had_newline()
+            && let Some(number) = self.check_unit_spacing()
+        {
+            let hint = eco_format!(
+                "if you meant to use a unit, try `{number}{}` instead",
+                self.current_text(),
+            );
+            self.token.node = SyntaxNode::error(
+                "expected comma, but found numeric suffix",
+                self.current_text(),
+            );
+            self.token.node.hint(hint);
+            // Match `expected`'s handling of errors, but also eat the following
+            // comma to suppress a spurious `unexpected comma` error.
+            self.trim_errors();
+            self.eat();
+            self.eat_if(SyntaxKind::Comma);
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
         }
         at
+    }
+
+    /// If the current token is a numeric suffix (a unit name like `pt` or `%`)
+    /// directly preceded by a number, return the number's text.
+    fn check_unit_spacing(&self) -> Option<&str> {
+        if self.current_text().parse::<ast::Unit>().is_err() {
+            return None;
+        }
+        let Marker(end) = self.before_trivia();
+        if end == 0 {
+            return None;
+        }
+        let mut node = &self.nodes[end - 1];
+        while !matches!(node.kind(), SyntaxKind::Int | SyntaxKind::Float) {
+            node = node.children().last()?;
+        }
+        Some(node.text().as_str())
     }
 
     /// Consume the given closing delimiter or produce an error for the matching

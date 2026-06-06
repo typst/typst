@@ -1388,18 +1388,7 @@ impl Numeric<'_> {
 
         let split = text.len() - count;
         let value = text[..split].parse().unwrap_or_default();
-        let unit = match &text[split..] {
-            "pt" => Unit::Pt,
-            "mm" => Unit::Mm,
-            "cm" => Unit::Cm,
-            "in" => Unit::In,
-            "deg" => Unit::Deg,
-            "rad" => Unit::Rad,
-            "em" => Unit::Em,
-            "fr" => Unit::Fr,
-            "%" => Unit::Percent,
-            _ => Unit::Percent,
-        };
+        let unit = text[split..].parse().unwrap_or(Unit::Percent);
 
         (value, unit)
     }
@@ -1426,6 +1415,25 @@ pub enum Unit {
     Fr,
     /// Percentage: `%`.
     Percent,
+}
+
+impl FromStr for Unit {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "pt" => Self::Pt,
+            "mm" => Self::Mm,
+            "cm" => Self::Cm,
+            "in" => Self::In,
+            "deg" => Self::Deg,
+            "rad" => Self::Rad,
+            "em" => Self::Em,
+            "fr" => Self::Fr,
+            "%" => Self::Percent,
+            _ => return Err(()),
+        })
+    }
 }
 
 node! {
