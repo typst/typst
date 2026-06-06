@@ -32,8 +32,8 @@
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 
 --- ops-add-too-large eval ---
-// Error: 3-26 value is too large
-#(9223372036854775807 + 1)
+// Error: 3-14 value is too large
+#(int.max + 1)
 
 --- ops-binary-basic eval ---
 // Subtraction.

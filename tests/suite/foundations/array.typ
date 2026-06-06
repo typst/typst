@@ -140,20 +140,17 @@
 #test(range(inclusive: true, 5, 2, step: -1), (5, 4, 3, 2))
 #test(range(inclusive: true, 0, -2, step: -1), (0, -1, -2))
 
-#let i64-max = 9223372036854775807
-#let i64-min = int("-9223372036854775808")
-
 // The user should be able to reach these values.
-#test(range(i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806))
-#test(range(i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807))
-#test(range(inclusive: true, i64-max - 2, i64-max), (9223372036854775805, 9223372036854775806, 9223372036854775807))
-#test(range(inclusive: true, i64-min + 2, i64-min, step: -1), (-9223372036854775806, -9223372036854775807, int("-9223372036854775808")))
+#test(range(int.max - 2, int.max), (int.max - 2, int.max - 1))
+#test(range(int.min + 2, int.min, step: -1), (int.min + 2, -int.max))
+#test(range(inclusive: true, int.max - 2, int.max), (int.max - 2, int.max - 1, int.max))
+#test(range(inclusive: true, int.min + 2, int.min, step: -1), (int.min + 2, -int.max, int.min))
 
 // Stepping would overflow if not caught.
-#test(range(2, 3, step: i64-max), (2,))
-#test(range(-2, -3, step: i64-min), (-2,))
-#test(range(inclusive: true, i64-max - 1, i64-max, step: 2), (9223372036854775806,))
-#test(range(inclusive: true, i64-min + 1, i64-min, step: -2), (-9223372036854775807,))
+#test(range(2, 3, step: int.max), (2,))
+#test(range(-2, -3, step: int.min), (-2,))
+#test(range(inclusive: true, int.max - 1, int.max, step: 2), (int.max - 1,))
+#test(range(inclusive: true, int.min + 1, int.min, step: -2), (-int.max,))
 
 --- array-range-end-missing eval ---
 // Error: 2-9 missing argument: end
