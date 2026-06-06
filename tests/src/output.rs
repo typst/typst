@@ -161,7 +161,7 @@ pub trait FileOutputType: OutputType {
     fn save_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
-    fn matches(old: &[u8], new: &Self::Live) -> bool;
+    fn matches(old: &[u8], new: &Self::Live, tolerance: u8) -> bool;
 }
 
 /// An output type that produces hashed references.
@@ -226,9 +226,9 @@ impl FileOutputType for Render {
         oxipng::optimize_from_memory(&data, &opts).unwrap()
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
+    fn matches(old: &[u8], new: &Self::Live, tolerance: u8) -> bool {
         let old_pixmap = sk::Pixmap::decode_png(old).unwrap();
-        approx_equal(&old_pixmap, new)
+        approx_equal(&old_pixmap, new, tolerance)
     }
 }
 
@@ -531,7 +531,7 @@ impl FileOutputType for Bundle {
         hashed_fs_list(live)
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
+    fn matches(old: &[u8], new: &Self::Live, _: u8) -> bool {
         old == hashed_fs_list(new).as_bytes()
     }
 }
@@ -628,10 +628,13 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
 }
 
 /// Whether two pixel images are approximately equal.
-fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap) -> bool {
+fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap, tolerance: u8) -> bool {
     a.width() == b.width()
         && a.height() == b.height()
-        && a.data().iter().zip(b.data()).all(|(&a, &b)| a.abs_diff(b) <= 1)
+        && a.data()
+            .iter()
+            .zip(b.data())
+            .all(|(&a, &b)| a.abs_diff(b) <= tolerance)
 }
 
 /// Convert a Typst transform to a tiny-skia transform.

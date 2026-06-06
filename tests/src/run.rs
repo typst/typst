@@ -568,7 +568,8 @@ impl<'a> Runner<'a> {
         };
 
         // Happy path: output is ok and doesn't need to be updated.
-        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
+        let tolerance = self.test.attrs.tolerance.unwrap_or(1);
+        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live, tolerance)) {
             return;
         }
 

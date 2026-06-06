@@ -96,6 +96,11 @@ pub struct Attrs {
     pub large: bool,
     pub empty: bool,
     pub pdf_standard: Vec<PdfStandard>,
+    /// Tolerance for image comparisons. Render tests are not 100% reproducible.
+    /// By default, we allow a byte difference of 1, but in rare cases, we need
+    /// to increase it. This can for example happen due to cross-platform
+    /// differences in float and SIMD handling.
+    pub tolerance: Option<u8>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
@@ -684,6 +689,8 @@ impl<'a> Parser<'a> {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
         let mut pdf_standard = Vec::new();
+        let mut tolerance = None;
+
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -718,6 +725,16 @@ impl<'a> Parser<'a> {
                                 .ok()
                         })
                         .collect();
+                }
+                "tolerance" => {
+                    let Some(param) = attr_params.take() else {
+                        self.error("expected parameter for `tolerance`");
+                        continue;
+                    };
+                    match param.parse::<u8>() {
+                        Ok(value) => tolerance = Some(value),
+                        _ => self.error("expected integer for `tolerance`"),
+                    }
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
@@ -759,6 +776,7 @@ impl<'a> Parser<'a> {
             empty: flags.contains(AttrFlags::EMPTY),
             pdf_standard,
             stages,
+            tolerance,
         }
     }
 
