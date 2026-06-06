@@ -1,4 +1,5 @@
-use typst_library::diag::{At, HintedStrResult, SourceResult, bail};
+use ecow::eco_format;
+use typst_library::diag::{At, HintedStrResult, SourceResult, bail, error};
 use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 
@@ -101,7 +102,7 @@ fn overflowing_int_negation_error(
 ) -> SourceResult<()> {
     if let ast::Expr::Int(int) = expr
         && unary.op() == ast::UnOp::Neg
-        && let Err(ast::IntLiteralError::PosOverflow { max_plus_one }) = int.get()
+        && let Err(ast::IntLiteralError::PosOverflow { base, max_plus_one }) = int.get()
     {
         if max_plus_one {
             bail!(
@@ -112,14 +113,21 @@ fn overflowing_int_negation_error(
                 hint: "try writing `int.min`";
             );
         } else {
-            bail!(
+            let mut error = error!(
                 unary.span(),
                 "integer value is too small";
                 hint: "value does not fit into a signed 64-bit integer";
-                hint: "a floating point number could approximately represent this value";
-                hint: "you can use a floating point number by appending a dot: `{}.`",
-                    expr.to_untyped().leaf_text();
             );
+            if base.is_none() {
+                error.hint(
+                    "a floating point number could approximately represent this value",
+                );
+                error.hint(eco_format!(
+                    "you can use a floating point number by appending a dot: `{}.`",
+                    expr.to_untyped().leaf_text()
+                ));
+            }
+            bail!(error);
         }
     }
     Ok(())

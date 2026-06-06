@@ -1,4 +1,4 @@
-use ecow::{EcoVec, eco_vec};
+use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -6,8 +6,8 @@ use typst_library::foundations::{
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
-use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::{DiagSpan, Span, SubRange};
 use typst_utils::singleton;
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
@@ -438,14 +438,72 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
 /// Evaluation error for an integer literal.
 #[cold]
 fn int_literal_error(int: ast::Int, err: ast::IntLiteralError) -> SourceDiagnostic {
+    let span = int.span();
     match err {
-        ast::IntLiteralError::PosOverflow { max_plus_one: _ } => error!(
-            int.span(),
-            "integer value is too large";
-            hint: "value does not fit into a signed 64-bit integer";
-            hint: "a floating point number could approximately represent this value";
-            hint: "you can use a floating point number by appending a dot: `{}.`",
-                int.to_untyped().leaf_text();
-        ),
+        ast::IntLiteralError::PosOverflow { base, max_plus_one: _ } => {
+            let mut error = error!(
+                span,
+                "integer value is too large";
+                hint: "value does not fit into a signed 64-bit integer";
+            );
+            if base.is_none() {
+                error.hint(
+                    "a floating point number could approximately represent this value",
+                );
+                error.hint(eco_format!(
+                    "you can use a floating point number by appending a dot: `{}.`",
+                    int.to_untyped().leaf_text()
+                ));
+            }
+            error
+        }
+        ast::IntLiteralError::InvalidDigit(base, digits) => {
+            let (sub_range, bad_digits) = find_bad_digits(base, digits);
+            let hint_span = DiagSpan::from_span(span, Some(sub_range));
+            let plural = bad_digits.len() > 1;
+            error!(
+                span,
+                "integer contains invalid {} digits", base.name();
+                hint[hint_span]: "the digit{} `{bad_digits}` {} invalid",
+                    if plural { "s" } else { "" },
+                    if plural { "are" } else { "is" };
+                hint: "{} numbers only allow digits {}",
+                    base.name(),
+                    match base {
+                        ast::NonDecimalBase::Hex => "0-9, a-f, A-F",
+                        ast::NonDecimalBase::Octal => "0-7",
+                        ast::NonDecimalBase::Binary => "0-1",
+                    };
+            )
+        }
     }
+}
+
+/// Find invalid digits for a non-decimal integer. Returns the sub-range of the
+/// digits and a string separated by commas.
+///
+/// we only check for digits/letters depending on the base since the lexer
+/// allows only ASCII digits for binary/octal, but allows ASCII letters for hex.
+pub fn find_bad_digits(base: ast::NonDecimalBase, digits: &str) -> (SubRange, EcoString) {
+    let ranges: &[_] = match base {
+        ast::NonDecimalBase::Hex => &['g'..='z', 'G'..='Z'],
+        ast::NonDecimalBase::Octal => &['8'..='9'],
+        ast::NonDecimalBase::Binary => &['2'..='9'],
+    };
+    // Yield at most one copy of each digit.
+    let iter = ranges.iter().flat_map(|range| {
+        range.clone().filter_map(|c| digits.find(c).map(|index| (index, c)))
+    });
+    let mut min = digits.len();
+    let mut max = 0;
+    let mut bad_digits = EcoString::new();
+    for (index, digit) in iter {
+        min = min.min(2 + index);
+        max = max.max(2 + index);
+        bad_digits.push(digit);
+        bad_digits.push(',');
+    }
+    let sub_range = SubRange::new(min, max + 1).unwrap();
+    bad_digits.pop();
+    (sub_range, bad_digits)
 }
