@@ -68,6 +68,7 @@ ones:
   - `pdftags`: Produce `pdftags` output.
   - `svg` Produce `svg` output.
 - `html`: Compile the `html` target and produce `html` output.
+- `xhtml`: Compile the `html` target and produce `xhtml` output.
 
 Here's a visual representation of the stage tree:
 
@@ -75,7 +76,8 @@ Here's a visual representation of the stage tree:
                  ╭─> render
       ╭─> paged ─┼─> pdf ───> pdftags
 eval ─┤          ╰─> svg
-      ╰─> html  ───> html
+      ╰─> html  ──┬─> html
+                  ╰─> xhtml
 ```
 
 You can specify multiple stages, separated by commas:
@@ -137,6 +139,7 @@ attributes are currently defined:
 - `eval`: Runs scripting tests that don't generate any output.
 - `paged`: Tests paged output: `render`, `pdf`, `svg`
 - `html`: Tests HTML output against a reference HTML file.
+- `xhtml`: Tests XHTML output against a reference XHTML file.
 - `pdf`: Tests the PDF output specifically. The `pdf` stage is currently the
   only fallible output, due to tagged PDF.
 - `pdftags`: Tests the output of the PDF tag tree.

@@ -446,7 +446,7 @@ fn collect_raw_text(
 
     walk_raw_text(element, |piece, span| {
         if let Some(c) = piece.chars().find(|&c| !valid_char(c)) {
-            return Err(unencodable(c)).at(span);
+            return Err(unencodable(c, options)).at(span);
         }
         text.push_str(piece);
         Ok(())
@@ -566,15 +566,16 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         {
             write!(w.buf, "&#x{:x};", c as u32).unwrap()
         }
-        _ => return Err(unencodable(c)),
+        _ => return Err(unencodable(c, w.options)),
     }
     Ok(())
 }
 
 /// The error message for a character that cannot be encoded.
 #[cold]
-fn unencodable(c: char) -> EcoString {
-    eco_format!("the character `{}` cannot be encoded in (X)HTML", c.repr())
+fn unencodable(c: char, options: &HtmlOptions) -> EcoString {
+    let format = if options.xml_characters { "XHTML" } else { "HTML" };
+    eco_format!("the character `{}` cannot be encoded in {format}", c.repr())
 }
 
 /// Writes an attribute and escapes its value as needed.
