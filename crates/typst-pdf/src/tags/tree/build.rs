@@ -54,7 +54,7 @@ use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 use crate::util::ValidatorsExt;
 
 pub struct TreeBuilder<'a> {
-    options: &'a PdfOptions<'a>,
+    options: &'a PdfOptions,
 
     /// Each [`FrameItem::Tag`] and each [`FrameItem::Group`] with a parent
     /// will append a progression to this tree. This list of progressions is

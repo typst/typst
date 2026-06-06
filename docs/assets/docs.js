@@ -4,6 +4,7 @@
 const assetBase = "/assets/";
 const closeIconSrc = assetBase + "icons/16-close.svg";
 const checkIconSrc = assetBase + "icons/16-check.svg";
+const copyIconSrc = assetBase + "icons/16-copy.svg";
 const searchIndexSrc = assetBase + "search.json";
 
 const hasTransitionEnd = "ontransitionend" in window;
@@ -29,6 +30,7 @@ function main() {
     setUpOnThisPage();
     setUpTooltips();
     setUpPreviewSplits();
+    setUpPreviewCopy();
     setUpSymbolFlyouts();
     setUpGlobalSearch();
     setUpSymbolSearch();
@@ -419,6 +421,27 @@ function setUpPreviewSplits() {
     if (example.clientWidth < example.scrollWidth) {
       example.classList.add("big");
     }
+  }
+}
+
+/**
+ * Sets up the Copy button on example codes.
+ */
+function setUpPreviewCopy() {
+  for (const button of document.querySelectorAll("pre > button.copy")) {
+    const pre = button.parentElement;
+    // Display the Copy button for 30s when the `<pre>` is tapped on touch
+    // screens.
+    let timeoutId;
+    pre.addEventListener("click", () => {
+      pre.classList.add("tapped");
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => pre.classList.remove("tapped"), 30_000);
+    });
+    button.addEventListener("click", () => {
+      copyText(pre.innerText);
+    });
+    button.disabled = false;
   }
 }
 

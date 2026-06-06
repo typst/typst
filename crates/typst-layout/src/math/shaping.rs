@@ -6,10 +6,11 @@ use rustybuzz::{
 use ttf_parser::Tag;
 use typst_library::World;
 use typst_library::foundations::StyleChain;
-use typst_library::layout::Em;
+use typst_library::layout::{Abs, Em};
 use typst_library::math::families;
 use typst_library::text::{
-    Font, FontFamily, FontVariant, Glyph, TextElem, language, variant,
+    FontFamily, FontInstance, FontVariant, FontVariations, Glyph, TextElem, language,
+    variant,
 };
 use typst_syntax::Span;
 
@@ -21,7 +22,7 @@ pub fn shape(
     styles: StyleChain,
     features: &[Feature],
     text: &str,
-) -> Option<(Font, Vec<Glyph>)> {
+) -> Option<(FontInstance, Vec<Glyph>)> {
     shape_impl(
         world,
         variant(styles),
@@ -30,10 +31,13 @@ pub fn shape(
         styles.get(TextElem::fallback),
         text,
         families(styles).collect(),
+        styles.resolve(TextElem::size),
+        &styles.get_cloned(TextElem::variations),
     )
 }
 
 /// Internal shaping implementation.
+#[expect(clippy::too_many_arguments)]
 fn shape_impl(
     world: Tracked<dyn World + '_>,
     variant: FontVariant,
@@ -42,7 +46,9 @@ fn shape_impl(
     fallback: bool,
     text: &str,
     families: Vec<&FontFamily>,
-) -> Option<(Font, Vec<Glyph>)> {
+    size: Abs,
+    variations: &FontVariations,
+) -> Option<(FontInstance, Vec<Glyph>)> {
     let mut ctx = ShapingContext {
         world,
         used: vec![],
@@ -52,6 +58,8 @@ fn shape_impl(
         fallback,
         glyphs: vec![],
         font: None,
+        size,
+        variations,
     };
 
     shape_text(&mut ctx, text, families.into_iter());
@@ -116,13 +124,15 @@ where
 /// Holds shaping results and metadata for shaping some text.
 struct ShapingContext<'a, 'b> {
     world: Tracked<'a, dyn World + 'a>,
-    used: Vec<Font>,
+    used: Vec<FontInstance>,
     variant: FontVariant,
     features: &'b [Feature],
+    variations: &'b FontVariations,
     language: Language,
     fallback: bool,
     glyphs: Vec<Glyph>,
-    font: Option<Font>,
+    font: Option<FontInstance>,
+    size: Abs,
 }
 
 impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
@@ -130,11 +140,11 @@ impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
         self.world
     }
 
-    fn used(&mut self) -> &mut Vec<Font> {
+    fn used(&mut self) -> &mut Vec<FontInstance> {
         &mut self.used
     }
 
-    fn first(&self) -> Option<&Font> {
+    fn first(&self) -> Option<&FontInstance> {
         self.used.first()
     }
 
@@ -145,6 +155,14 @@ impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
     fn fallback(&self) -> bool {
         self.fallback
     }
+
+    fn size(&self) -> Abs {
+        self.size
+    }
+
+    fn variations(&self) -> &FontVariations {
+        self.variations
+    }
 }
 
 /// Shape text with font fallback using the `families` iterator.
@@ -153,22 +171,23 @@ fn shape_text<'a, 'b>(
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {
+    let shape_tofus = |ctx: &mut ShapingContext, text: &str, font: FontInstance| {
+        for _ in text.chars() {
+            ctx.glyphs.push(Glyph {
+                id: 0,
+                x_advance: font.x_advance(0).unwrap_or_default(),
+                x_offset: Em::zero(),
+                y_advance: Em::zero(),
+                y_offset: Em::zero(),
+                range: 0..text.len().saturating_as(),
+                span: (Span::detached(), 0),
+            });
+        }
+        ctx.font = Some(font);
+    };
+
     let Some((font, covers)) =
-        get_font_and_covers(ctx, text, families.by_ref(), |ctx, text, font| {
-            let add_glyph = |_| {
-                ctx.glyphs.push(Glyph {
-                    id: 0,
-                    x_advance: font.x_advance(0).unwrap_or_default(),
-                    x_offset: Em::zero(),
-                    y_advance: Em::zero(),
-                    y_offset: Em::zero(),
-                    range: 0..text.len().saturating_as(),
-                    span: (Span::detached(), 0),
-                })
-            };
-            text.chars().for_each(add_glyph);
-            ctx.font = Some(font);
-        })
+        get_font_and_covers(ctx, text, families.by_ref(), shape_tofus)
     else {
         return;
     };

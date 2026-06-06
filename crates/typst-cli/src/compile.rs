@@ -13,10 +13,13 @@ use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
-use typst_html::HtmlDocument;
+use typst_html::{HtmlDocument, HtmlOptions};
 use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
+use typst_render::RenderOptions;
+use typst_svg::SvgOptions;
+use typst_utils::Scalar;
 
 use crate::args::{
     CompileArgs, CompileCommand, DepsFormat, DiagnosticFormat, Input, Output,
@@ -55,6 +58,8 @@ pub struct CompileConfig {
     pub output: Output,
     /// The format of the output file.
     pub output_format: OutputFormat,
+    /// Whether to make the serialized document pretty.
+    pub pretty: bool,
     /// Which pages to export.
     pub pages: Option<PageRanges>,
     /// The document's creation date formatted as a UNIX timestamp, with UTC suffix.
@@ -73,7 +78,7 @@ pub struct CompileConfig {
     /// The format to use for dependencies.
     pub deps_format: DepsFormat,
     /// The PPI (pixels per inch) to use for PNG export.
-    pub ppi: f32,
+    pub ppi: f64,
     /// The export cache for images, used for caching output files in `typst
     /// watch` sessions with images.
     pub export_cache: ExportCache,
@@ -221,6 +226,7 @@ impl CompileConfig {
             input,
             output,
             output_format,
+            pretty: args.pretty,
             pages,
             pdf_standards,
             tagged,
@@ -335,7 +341,8 @@ fn compile_and_export(
 
 /// Export to HTML.
 fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<()> {
-    let html = typst_html::html(document)?;
+    let options = HtmlOptions { pretty: config.pretty };
+    let html = typst_html::html(document, &options)?;
     let result = config.output.write(html.as_bytes());
 
     #[cfg(feature = "http-server")]
@@ -379,37 +386,13 @@ fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<
     Ok(())
 }
 
-/// Creates options for PDF export.
-fn pdf_options(config: &CompileConfig) -> PdfOptions<'static> {
-    // If the timestamp is provided through the CLI, use UTC suffix,
-    // else, use the current local time and timezone.
-    let timestamp = match config.creation_timestamp {
-        Some(timestamp) => convert_datetime(timestamp).map(Timestamp::new_utc),
-        None => {
-            let local_datetime = chrono::Local::now();
-            convert_datetime(local_datetime).and_then(|datetime| {
-                Timestamp::new_local(
-                    datetime,
-                    local_datetime.offset().local_minus_utc() / 60,
-                )
-            })
-        }
-    };
-
-    PdfOptions {
-        ident: Smart::Auto,
-        timestamp,
-        page_ranges: config.pages.clone(),
-        standards: config.pdf_standards.clone(),
-        tagged: config.tagged,
-    }
-}
-
 /// Export to a bundle, a collection of files in a directory.
 fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Output>> {
     let options = BundleOptions {
-        pixel_per_pt: config.ppi / 72.0,
+        html: html_options(config),
         pdf: pdf_options(config),
+        png: png_options(config),
+        svg: svg_options(config),
     };
 
     let fs = typst_bundle::export(&bundle, &options)?;
@@ -585,11 +568,8 @@ fn export_image_page(
 ) -> StrResult<()> {
     match fmt {
         ImageExportFormat::Png => {
-            let opts = typst_render::RenderOptions {
-                pixel_per_pt: config.ppi / 72.0,
-                render_bleed: false,
-            };
-            let pixmap = typst_render::render(page, &opts);
+            let options = png_options(config);
+            let pixmap = typst_render::render(page, &options);
             let buf = pixmap
                 .encode_png()
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
@@ -598,14 +578,59 @@ fn export_image_page(
                 .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
         }
         ImageExportFormat::Svg => {
-            let opts = typst_svg::SvgOptions { render_bleed: false };
-            let svg = typst_svg::svg(page, &opts);
+            let options = svg_options(config);
+            let svg = typst_svg::svg(page, &options);
             output
                 .write(svg.as_bytes())
                 .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
         }
     }
     Ok(())
+}
+
+/// Creates options for HTML export.
+fn html_options(config: &CompileConfig) -> HtmlOptions {
+    HtmlOptions { pretty: config.pretty }
+}
+
+/// Creates options for PDF export.
+fn pdf_options(config: &CompileConfig) -> PdfOptions {
+    // If the timestamp is provided through the CLI, use UTC suffix,
+    // else, use the current local time and timezone.
+    let timestamp = match config.creation_timestamp {
+        Some(timestamp) => convert_datetime(timestamp).map(Timestamp::new_utc),
+        None => {
+            let local_datetime = chrono::Local::now();
+            convert_datetime(local_datetime).and_then(|datetime| {
+                Timestamp::new_local(
+                    datetime,
+                    local_datetime.offset().local_minus_utc() / 60,
+                )
+            })
+        }
+    };
+
+    PdfOptions {
+        ident: Smart::Auto,
+        timestamp,
+        page_ranges: config.pages.clone(),
+        standards: config.pdf_standards.clone(),
+        tagged: config.tagged,
+        pretty: config.pretty,
+    }
+}
+
+/// Creates options for SVG export.
+fn svg_options(config: &CompileConfig) -> SvgOptions {
+    SvgOptions { render_bleed: false, pretty: config.pretty }
+}
+
+/// Creates options for PNG export.
+fn png_options(config: &CompileConfig) -> RenderOptions {
+    RenderOptions {
+        pixel_per_pt: Scalar::new(config.ppi / 72.0),
+        render_bleed: false,
+    }
 }
 
 /// Caches exported files so that we can avoid re-exporting them if they haven't

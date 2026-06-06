@@ -55,7 +55,7 @@ pub fn pdf_in_bundle(
 
 /// Settings for PDF export.
 #[derive(Debug, Hash)]
-pub struct PdfOptions<'a> {
+pub struct PdfOptions {
     /// If not `Smart::Auto`, shall be a string that uniquely and stably
     /// identifies the document. It should not change between compilations of
     /// the same document.  **If you cannot provide such a stable identifier,
@@ -67,7 +67,7 @@ pub struct PdfOptions<'a> {
     /// document identifier (the identifier itself is not leaked). If `ident` is
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
-    pub ident: Smart<&'a str>,
+    pub ident: Smart<String>,
     /// If not `None`, shall be the creation timestamp of the document. It will
     /// only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Timestamp>,
@@ -81,9 +81,11 @@ pub struct PdfOptions<'a> {
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
     pub tagged: bool,
+    /// Whether to format the PDF in a human-readable way.
+    pub pretty: bool,
 }
 
-impl PdfOptions<'_> {
+impl PdfOptions {
     /// Returns the accessibility validator. Returns `Some` for PDF/UA-1, and in
     /// the future maybe PDF/UA-2.
     pub(crate) fn accessibility_validator(&self) -> Option<Accessibility> {
@@ -91,7 +93,7 @@ impl PdfOptions<'_> {
     }
 }
 
-impl Default for PdfOptions<'_> {
+impl Default for PdfOptions {
     fn default() -> Self {
         Self {
             ident: Smart::Auto,
@@ -99,6 +101,7 @@ impl Default for PdfOptions<'_> {
             page_ranges: None,
             standards: PdfStandards::default(),
             tagged: true,
+            pretty: false,
         }
     }
 }

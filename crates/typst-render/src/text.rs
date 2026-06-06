@@ -5,7 +5,7 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Axes, Point, Size};
 use typst_library::text::color::{glyph_frame, should_outline};
-use typst_library::text::{Font, TextItem};
+use typst_library::text::{FontInstance, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
@@ -104,7 +104,7 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     #[comemo::memoize]
     fn rasterize(
-        font: &Font,
+        font: &FontInstance,
         id: GlyphId,
         x: u32,
         y: u32,

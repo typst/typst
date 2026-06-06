@@ -13,7 +13,7 @@ use typst_library::layout::{
 };
 use typst_library::math::ir::{MathProperties, Stretch};
 use typst_library::math::{EquationElem, MathSize};
-use typst_library::text::{Font, Glyph, TextElem, TextItem, features};
+use typst_library::text::{FontInstance, Glyph, TextElem, TextItem, features};
 use typst_syntax::Span;
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
@@ -162,7 +162,7 @@ impl GlyphFragment {
         text: EcoString,
         class: MathClass,
         math_size: MathSize,
-        shaped: (Font, Vec<Glyph>),
+        shaped: (FontInstance, Vec<Glyph>),
     ) -> GlyphFragment {
         let (font, glyphs) = shaped;
 
@@ -463,13 +463,13 @@ fn resolve_stretch(
     Some((target, short_fall))
 }
 
-fn ascent_descent(font: &Font, id: GlyphId) -> Option<(Em, Em)> {
+fn ascent_descent(font: &FontInstance, id: GlyphId) -> Option<(Em, Em)> {
     let bbox = font.ttf().glyph_bounding_box(id)?;
     Some((font.to_em(bbox.y_max), -font.to_em(bbox.y_min)))
 }
 
 /// Look up the italics correction for a glyph.
-fn italics_correction(font: &Font, id: GlyphId) -> Option<Em> {
+fn italics_correction(font: &FontInstance, id: GlyphId) -> Option<Em> {
     font.ttf()
         .tables()
         .math?
@@ -480,7 +480,7 @@ fn italics_correction(font: &Font, id: GlyphId) -> Option<Em> {
 }
 
 /// Loop up the top accent attachment position for a glyph.
-fn accent_attach(font: &Font, id: GlyphId) -> Option<Em> {
+fn accent_attach(font: &FontInstance, id: GlyphId) -> Option<Em> {
     font.ttf()
         .tables()
         .math?
@@ -491,7 +491,7 @@ fn accent_attach(font: &Font, id: GlyphId) -> Option<Em> {
 }
 
 /// Look up whether a glyph is an extended shape.
-fn is_extended_shape(font: &Font, id: GlyphId) -> bool {
+fn is_extended_shape(font: &FontInstance, id: GlyphId) -> bool {
     font.ttf()
         .tables()
         .math
@@ -503,7 +503,7 @@ fn is_extended_shape(font: &Font, id: GlyphId) -> bool {
 
 /// Look up a kerning value at a specific corner and height.
 pub(super) fn kern_at_height(
-    font: &Font,
+    font: &FontInstance,
     id: GlyphId,
     corner: Corner,
     height: Em,
@@ -524,7 +524,7 @@ pub(super) fn kern_at_height(
     Some(font.to_em(kern.kern(i)?.value))
 }
 
-fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
+fn stretch_axes(font: &FontInstance, id: u16) -> Axes<bool> {
     let id = GlyphId(id);
     let horizontal = font
         .ttf()
@@ -544,7 +544,7 @@ fn stretch_axes(font: &Font, id: u16) -> Axes<bool> {
     Axes::new(horizontal, vertical)
 }
 
-fn min_connector_overlap(font: &Font) -> Option<Em> {
+fn min_connector_overlap(font: &FontInstance) -> Option<Em> {
     font.ttf()
         .tables()
         .math?
@@ -553,7 +553,7 @@ fn min_connector_overlap(font: &Font) -> Option<Em> {
 }
 
 fn glyph_construction(
-    font: &Font,
+    font: &FontInstance,
     id: GlyphId,
     axis: Axis,
 ) -> Option<GlyphConstruction<'_>> {

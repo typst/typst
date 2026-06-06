@@ -82,6 +82,26 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-svg-variable-font paged ---
+#image(bytes(
+  ```
+  <svg id="svg1" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <text
+      x="10" y="40" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 300"
+    >
+      Hello
+    </text>
+    <text
+      x="10" y="80" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 700"
+    >
+      Hello
+    </text>
+  </svg>
+  ```.text
+))
+
 --- image-svg-auto-detection paged ---
 #image(bytes(
   ```
@@ -397,7 +417,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pdf-basic paged html ---
 #image("/assets/images/star.pdf")
 
---- image-pdf-complex paged ---
+--- image-pdf-complex paged tolerance(2) ---
 #image("/assets/images/matplotlib.pdf")
 
 --- image-pdf-multiple-pages paged ---

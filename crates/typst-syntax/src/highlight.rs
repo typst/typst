@@ -406,7 +406,7 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
         html.push_str("\">");
     }
 
-    let text = node.text();
+    let text = node.leaf_text();
     if !text.is_empty() {
         for c in text.chars() {
             match c {

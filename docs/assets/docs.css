@@ -96,11 +96,18 @@ h4 code {
 }
 
 h1 small,
+h2 small,
+h3 small,
+h4 small,
+.reference-index .mod {
+  color: #565565;
+  font-style: italic;
+}
+
+h1 small,
 h2 small {
   display: inline-flex;
   gap: 8px;
-  color: #565565;
-  font-style: italic;
   font-size: 14px !important;
 }
 
@@ -116,13 +123,16 @@ h3 small,
 h4 small {
   display: inline-flex;
   gap: 4px;
-  color: #565565;
-  font-style: italic;
   font-size: 12px;
 }
 
 h3 small svg {
   margin-bottom: -1px;
+}
+
+.reference-index .mod {
+  font-size: inherit;
+  font-weight: 700;
 }
 
 @media screen and (max-width: 695px) {
@@ -184,6 +194,18 @@ dt,
 dd {
   margin-block-end: 16px;
   margin-inline: 0px;
+}
+
+.reference-index dl {
+  padding-inline-start: 0px;
+}
+
+.reference-index dt {
+  margin-block-end: 8px;
+}
+
+.reference-index dd {
+  padding-inline-start: 16px;
 }
 
 math {
@@ -301,6 +323,58 @@ sup[role="doc-noteref"] {
 
 /* Code example components */
 
+pre {
+  position: relative;
+}
+
+pre > button.copy {
+  top: 8px;
+  right: 8px;
+  padding: 8px;
+  background: #fdfdfd;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  position: absolute;
+  float: right;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+pre > button.copy:active,
+pre > button.copy:focus {
+  opacity: 1;
+}
+
+pre > button.copy:hover {
+  background: var(--action-secondary-hover);
+}
+
+pre > button.copy:focus-visible {
+  background: #fdfdfd;
+  transition: opacity 0s;
+}
+
+pre > button.copy:disabled {
+  color: var(--text-disabled);
+}
+
+@media (hover: hover) {
+  pre:hover > button.copy {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  pre.tapped > button.copy {
+    opacity: 1;
+  }
+}
+
+pre > button.copy > svg {
+  display: block;
+}
+
 .code-definition + h4,
 .previewed-code + h4 {
   margin-block-start: 28px;
@@ -375,6 +449,8 @@ a.chain img {
   position: absolute;
   top: 7px;
   left: 8px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .search input {

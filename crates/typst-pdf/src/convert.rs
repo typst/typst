@@ -24,7 +24,7 @@ use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
-use typst_library::text::Font;
+use typst_library::text::FontInstance;
 use typst_library::visualize::{Geometry, Paint};
 use typst_syntax::Span;
 
@@ -48,15 +48,15 @@ pub fn convert(
     link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
-        compress_content_streams: true,
+        compress_content_streams: !options.pretty,
         no_device_cs: true,
-        ascii_compatible: false,
+        ascii_compatible: options.pretty,
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
-        pretty: false,
+        pretty: options.pretty,
     };
 
     let mut document = Document::new_with(settings);
@@ -267,8 +267,8 @@ impl FrameContext {
 /// Globally needed context for converting a Typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,
-    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, Font>,
+    pub(crate) fonts_forward: FxHashMap<FontInstance, krilla::text::Font>,
+    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, FontInstance>,
     /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
@@ -280,7 +280,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions<'a>,
+    pub(crate) options: &'a PdfOptions,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.

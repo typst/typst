@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg, Rem, Sub};
@@ -80,7 +80,13 @@ impl Numeric for Scalar {
 
 impl Debug for Scalar {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        Debug::fmt(&self.0, f)
+    }
+}
+
+impl Display for Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
