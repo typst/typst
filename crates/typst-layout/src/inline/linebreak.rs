@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use az::SaturatingAs;
 use icu_properties::CodePointMapDataBorrowed;
-use icu_properties::props::LineBreak;
+use icu_properties::props::{GeneralCategory, GeneralCategoryGroup, LineBreak};
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::options::LineBreakOptions;
 use icu_segmenter::{LineSegmenter, LineSegmenterBorrowed};
@@ -13,7 +13,6 @@ use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::link_prefix;
 use typst_utils::Scalar;
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 
@@ -765,20 +764,47 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             }
         };
 
-        // Hyphenate between the last and current breakpoint.
-        if hyphenate && last < point {
-            for segment in text[last..point].split_word_bounds() {
-                if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, last, segment, &mut f);
-                }
-                last += segment.len();
-            }
+        // Hyphenate between the last and current breakpoint. Like TeX, we only
+        // hyphenate the first word of the chunk: leading punctuation is skipped,
+        // but anything following the first word (e.g. after an apostrophe in
+        // "doesn't" or a stray comma) is left alone.
+        if hyphenate
+            && last < point
+            && let Some((offset, word)) = first_word(&text[last..point])
+            && word.chars().count() > 1
+        {
+            hyphenations(p, last + offset, word, &mut f);
         }
 
         // Call `f` for the UAX #14 break opportunity.
         f(point, breakpoint);
         last = point;
     }
+}
+
+/// Returns the first hyphenatable word in `text` together with its byte offset,
+/// or `None` if there is none.
+///
+/// A character counts as part of a word if it is a letter or a combining mark;
+/// everything else is a word boundary. Treating combining marks as word
+/// characters keeps Indic viramas and vowel signs attached to their base
+/// letters, just like TeX's category codes determine which characters are
+/// letters. We then hyphenate only this first word, mirroring TeX, which scans
+/// for the first letter run following a space and skips any leading punctuation.
+fn first_word(text: &str) -> Option<(usize, &str)> {
+    let gc = CodePointMapDataBorrowed::<GeneralCategory>::new();
+    let is_word =
+        |c: char| c.is_alphabetic() || GeneralCategoryGroup::Mark.contains(gc.get(c));
+
+    // Skip leading non-word characters, then take the maximal run of word
+    // characters.
+    let start = text.char_indices().find(|&(_, c)| is_word(c))?.0;
+    let end = text[start..]
+        .char_indices()
+        .find(|&(_, c)| !is_word(c))
+        .map_or(text.len(), |(i, _)| start + i);
+
+    Some((start, &text[start..end]))
 }
 
 /// Generate breakpoints for hyphenations within a word.
