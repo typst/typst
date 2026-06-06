@@ -1,4 +1,6 @@
-use ecow::{EcoVec, eco_vec};
+use std::ops::Range;
+
+use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -6,8 +8,8 @@ use typst_library::foundations::{
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
-use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::{DiagSpan, Span, SubRange};
 use typst_utils::singleton;
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
@@ -438,14 +440,92 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
 /// Evaluation error for an integer literal.
 #[cold]
 fn int_literal_error(int: ast::Int, err: ast::IntLiteralError) -> SourceDiagnostic {
+    let span = int.span();
     match err {
-        ast::IntLiteralError::PosOverflow { max_plus_one: _ } => error!(
-            int.span(),
-            "integer value is too large";
-            hint: "value does not fit into a signed 64-bit integer";
-            hint: "a floating point number could approximately represent this value";
-            hint: "you can use a floating point number by appending a dot: `{}.`",
-                int.to_untyped().leaf_text();
-        ),
+        ast::IntLiteralError::PosOverflow { base, max_plus_one: _ } => {
+            let mut error = error!(
+                span,
+                "integer value is too large";
+                hint: "value does not fit into a signed 64-bit integer";
+            );
+            if base.is_none() {
+                error.hint(
+                    "a floating point number could approximately represent this value",
+                );
+                error.hint(eco_format!(
+                    "you can use a floating point number by appending a dot: `{}.`",
+                    int.to_untyped().leaf_text()
+                ));
+            }
+            error
+        }
+        ast::IntLiteralError::InvalidDigit(base, digits) => {
+            let (range, bad_digits) = find_bad_digits(base, digits);
+            // Offset by two to skip the leading `0b`/`0o`/`0x`.
+            let sub_range = SubRange::new(range.start + 2, range.end + 2);
+            let hint_span = DiagSpan::from_span(span, sub_range);
+            let the_digits_are_invalid = match *bad_digits {
+                [digit] => eco_format!("the digit `{digit}` is invalid"),
+                [first, last] => {
+                    eco_format!("the digits `{first}` and `{last}` are invalid")
+                }
+                [ref digits @ .., last] => {
+                    eco_format!(
+                        "the digits {}and `{last}` are invalid",
+                        digits.iter().fold(
+                            String::with_capacity(5 * digits.len()),
+                            |mut buf, digit| {
+                                let _ = write!(buf, "`{digit}`, ");
+                                buf
+                            }
+                        )
+                    )
+                }
+                [] => unreachable!(),
+            };
+            error!(
+                span,
+                "integer contains digits that are not valid for a{} {} number",
+                    if base == ast::NonDecimalBase::Octal { "n" } else { "" },
+                    base.name();
+                hint[hint_span]: "{the_digits_are_invalid}";
+                hint: "{} numbers only allow digits {}",
+                    base.name(),
+                    match base {
+                        ast::NonDecimalBase::Hex => "0-9, a-f, A-F",
+                        ast::NonDecimalBase::Octal => "0-7",
+                        ast::NonDecimalBase::Binary => "0-1",
+                    };
+            )
+        }
     }
+}
+
+/// Find invalid digits for a non-decimal integer. Returns the sub-range of the
+/// digits and a string separated by commas.
+///
+/// We only check for digits/letters depending on the base since the lexer
+/// allows only ASCII digits for binary/octal, but allows ASCII letters for hex.
+pub fn find_bad_digits(
+    base: ast::NonDecimalBase,
+    digits: &str,
+) -> (Range<usize>, Vec<char>) {
+    let ranges: &[_] = match base {
+        ast::NonDecimalBase::Hex => &['g'..='z', 'G'..='Z'],
+        ast::NonDecimalBase::Octal => &['8'..='9'],
+        ast::NonDecimalBase::Binary => &['2'..='9'],
+    };
+    // Yield at most one copy of each digit.
+    let iter = ranges.iter().flat_map(|range| {
+        range.clone().filter_map(|c| digits.find(c).map(|index| (index, c)))
+    });
+    let mut start = digits.len();
+    let mut end = 0;
+    let mut bad_digits = Vec::new();
+    for (index, digit) in iter {
+        start = start.min(index);
+        end = end.max(index + 1); // Equal to `digit.len_utf8()` since ASCII.
+        bad_digits.push(digit);
+    }
+    (start..end, bad_digits)
 }

@@ -1034,7 +1034,14 @@ impl Lexer<'_> {
                     "expected a{} {name} number",
                     if non_decimal == NonDecimalBase::Octal { "n" } else { "" },
                 )),
-                Err(_) => Err(eco_format!("invalid {name} number: `{number}`")),
+                Err(_) if suffix_result.is_err() => {
+                    // We're already erroring, tell them about the invalid
+                    // integer first.
+                    Err(eco_format!("invalid {name} number: `{number}`"))
+                }
+                // Invalid digits and positive overflow errors are handled in
+                // the AST.
+                Err(_) => Ok(()),
             }
         } else {
             // Decimal integer errors are handled in the AST. Note that

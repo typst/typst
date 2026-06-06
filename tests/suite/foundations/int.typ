@@ -5,16 +5,40 @@
 #test(0xA + 0xa, 0x14)
 
 --- int-base-binary-invalid eval ---
-// Error: 2-7 invalid binary number: `0b123`
+// Error: 2-7 integer contains digits that are not valid for a binary number
+// Hint: 2-7 binary numbers only allow digits 0-1
+// Hint: 5-7 the digits `2` and `3` are invalid
 #0b123
 
 --- int-base-octal-invalid eval ---
-// Error: 2-11 invalid octal number: `0o1078970`
+// Error: 2-11 integer contains digits that are not valid for an octal number
+// Hint: 2-11 octal numbers only allow digits 0-7
+// Hint: 7-9 the digits `8` and `9` are invalid
 #0o1078970
 
 --- int-base-hex-invalid eval ---
-// Error: 2-9 invalid hexadecimal number: `0x123z4`
+// Error: 2-9 integer contains digits that are not valid for a hexadecimal number
+// Hint: 2-9 hexadecimal numbers only allow digits 0-9, a-f, A-F
+// Hint: 7-8 the digit `z` is invalid
 #0x123z4
+
+--- int-base-binary-invalid-long eval ---
+// Error: 2-14 integer contains digits that are not valid for a binary number
+// Hint: 2-14 binary numbers only allow digits 0-1
+// Hint: 6-14 the digits `2`, `3`, `4`, `5`, `6`, `7`, `8`, and `9` are invalid
+#0b0123456789
+
+--- int-base-octal-invalid-long eval ---
+// Error: 2-14 integer contains digits that are not valid for an octal number
+// Hint: 2-14 octal numbers only allow digits 0-7
+// Hint: 12-14 the digits `8` and `9` are invalid
+#0o0123456789
+
+--- int-base-hex-invalid-long eval ---
+// Error: 2-56 integer contains digits that are not valid for a hexadecimal number
+// Hint: 2-56 hexadecimal numbers only allow digits 0-9, a-f, A-F
+// Hint: 10-56 the digits `g`, `h`, `i`, `j`, `k`, `l`, `m`, `n`, `o`, `p`, `q`, `r`, `s`, `t`, `u`, `v`, `w`, `y`, `z`, `G`, `H`, `I`, `J`, `K`, `L`, `M`, `N`, `O`, `P`, `Q`, `R`, `S`, `T`, `U`, `V`, `W`, `X`, `Y`, and `Z` are invalid
+#0xabcdefghijklmnopqrstuvwkyzABCDEFGHIJKLMNOPQRSTUVWXYZ
 
 --- int-base-hex-invalid-non-ascii eval ---
 // Error: 9 expected comma
@@ -53,7 +77,8 @@
 #9223372036854775808
 
 --- int-bounds-max-plus-one-hex eval ---
-// Error: 2-20 invalid hexadecimal number: `0x8000000000000000`
+// Error: 2-20 integer value is too large
+// Hint: 2-20 value does not fit into a signed 64-bit integer
 #0x8000000000000000
 
 --- int-bounds-max-plus-two eval ---
@@ -93,7 +118,10 @@
    9223372036854775808)
 
 --- int-bounds-manual-min-hex eval ---
-// Error: 4-22 invalid hexadecimal number: `0x8000000000000000`
+// Error: 3-22 cannot write minimum integer manually
+// Hint: 3-22 Typst integers are always initially positive
+// Hint: 3-22 2^63 does not fit into a signed 64-bit integer
+// Hint: 3-22 try writing `int.min`
 #(-0x8000000000000000)
 
 --- int-bounds-min-minus-one eval ---
@@ -108,6 +136,7 @@
 // the int isn't evaluated.
 #let _ = () => 9223372036854775808
 #let _ = () => -9223372036854775808
+#let _ = () => 0b123
 
 --- int-constructor eval ---
 // Test conversion to numbers.

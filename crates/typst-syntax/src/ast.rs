@@ -1342,25 +1342,29 @@ node! {
     struct Int
 }
 
-impl Int<'_> {
+impl<'a> Int<'a> {
     /// Get the integer value.
     ///
     /// We return a result because we still want to highlight and treat invalid
     /// values like `9223372036854775808` as integers in the IDE.
-    pub fn get(self) -> Result<i64, IntLiteralError> {
+    pub fn get(self) -> Result<i64, IntLiteralError<'a>> {
         let (base, digits) = NonDecimalBase::strip_prefix(self.0.leaf_text());
         match base {
             Some(non_decimal) => i64::from_str_radix(digits, non_decimal.get()),
             Option::None => digits.parse(),
         }
         .map_err(|err| match err.kind() {
-            // All error kinds are actually positive overflow for decimals.
-            IntErrorKind::PosOverflow    // Of course
-            | IntErrorKind::NegOverflow  // We don't have negative int literals
-            | IntErrorKind::Empty        // Handled in the lexer
-            | IntErrorKind::InvalidDigit // Handled in the lexer
-            | IntErrorKind::Zero         // Not relevant
+            // Only non-decimal integers should encounter this error kind.
+            IntErrorKind::InvalidDigit => {
+                IntLiteralError::InvalidDigit(base.unwrap_or(NonDecimalBase::Hex), digits)
+            }
+            // All other errors are actually positive overflow.
+            IntErrorKind::PosOverflow   // Of course
+            | IntErrorKind::NegOverflow // We don't have negative int literals
+            | IntErrorKind::Empty       // Handled in the lexer
+            | IntErrorKind::Zero        // Not relevant
             | _ => IntLiteralError::PosOverflow {
+                base,
                 max_plus_one: {
                     let base = base.map_or(10, NonDecimalBase::get);
                     Ok(i64::MAX as u64 + 1) == u64::from_str_radix(digits, base)
@@ -1373,8 +1377,9 @@ impl Int<'_> {
 /// Possible errors for integer literals in the AST. Other integer errors are
 /// handled in the lexer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum IntLiteralError {
-    PosOverflow { max_plus_one: bool },
+pub enum IntLiteralError<'a> {
+    PosOverflow { base: Option<NonDecimalBase>, max_plus_one: bool },
+    InvalidDigit(NonDecimalBase, &'a str),
 }
 
 /// Non-decimal bases available for integer syntax: hexademical, octal, or
