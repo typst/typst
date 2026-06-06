@@ -210,7 +210,7 @@ Hello
 #set text(font: ())
 
 --- text-font-variable-ital paged ---
-#set text(font: "Mona Sans VF")
+#set text(font: "Mona Sans")
 Hello _Hello_
 
 #text(variations: (ital: 0))[Hello]
@@ -300,11 +300,9 @@ Grade axis \
 ]
 
 --- text-font-variable-and-static paged ---
+// This font exists both in its static and variable version.
 #set text(font: "Source Serif 4")
-Hello _nope._
-
-#set text(font: "Source Serif 4 Variable")
-Hello _world_ *with* *_Source Serif._*
+Hello _world_ *with* #text(weight: 550)[_Source Serif._]
 
 --- text-font-variable-multiple paged ---
 // Multiple fonts with multiple different axis combinations in one test.
@@ -314,13 +312,13 @@ Hello _world_ *with* *_Source Serif._*
     with #text(stretch: 150%)[*Grade* axis] enabled
   ]
 ] \
-#text(font: "Source Serif 4 Variable")[
+#text(font: "Source Serif 4")[
   Source _Serif_ 4 *Variable*
 ]
 
 --- text-font-variations-win paged ---
 // Test that custom variations win over built-in settings.
-#set text(font: "Mona Sans VF")
+#set text(font: "Mona Sans")
 #text(style: "italic")[
   Italic \
   #text(variations: (ital: 0))[Not italic]

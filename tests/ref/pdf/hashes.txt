@@ -819,7 +819,7 @@ c57b9e975a415fcbedecad31ff8740ca issue-6597-gradient-angle-negative-size
 562eb36fa211da425545cb9d6ce9d07f issue-7113-cjk-latin-spacing-shift
 709068faa9ec8f014fbbbc36083daf2a issue-7178-svg-fallback-deadlock
 1785486e66ccda143ac6a07a4306961a issue-7188-grid-counter-order
-f079ad921e5143b65dfdb1f0921f60b0 issue-7249-multiple-lookup-tables
+daa447a5ba4eaa60c9766fdf3dbf8258 issue-7249-multiple-lookup-tables
 4509b7925b7303792aec6664c40d8739 issue-7292-page-height-auto-margin-zero
 cfd285a5e9fdffb532aa1d59453b3cbe issue-7292-page-size-auto-margin-zero
 d7ce600b8f4ce5b27a9d63c4c738eca5 issue-7292-page-width-auto-margin-zero
@@ -1829,7 +1829,7 @@ de5e4f5091f691d50627dd711407b373 text-cjk-latin-spacing
 30e5553068a3ae292302d67ff3254990 text-font-covers-riffle
 84fc54d09466ea1e8f2f25dfe48c3b86 text-font-just-a-space
 e26f90caa7624620ede1f9d71e9dbc4d text-font-properties
-e8b4783abe488e9e4b67d67d36d6e5a4 text-font-variable-and-static
+b639a72ab8627d802759c359822c0534 text-font-variable-and-static
 1cd2d0bc4a137f5369e0f47251783300 text-font-variable-custom-grad
 61200f8b4d52bfd5088fe79f88b52f6f text-font-variable-custom-soft
 0e7e1ab0e3c0c1853965e499bc657a44 text-font-variable-custom-wonk

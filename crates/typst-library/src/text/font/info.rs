@@ -217,7 +217,8 @@ fn typographic_family(mut family: &str) -> &str {
         "normal", "italic", "oblique", "slanted",
         "thin", "th", "hairline", "light", "lt", "regular", "medium", "med",
         "md", "bold", "bd", "demi", "extb", "black", "blk", "bk", "heavy",
-        "narrow", "condensed", "cond", "cn", "cd", "compressed", "expanded", "exp"
+        "narrow", "condensed", "cond", "cn", "cd", "compressed", "expanded", "exp",
+        "vf", "var", "variable",
     ];
 
     // Trim spacing and weird leading dots in Apple fonts.
