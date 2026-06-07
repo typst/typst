@@ -332,8 +332,8 @@
       html.div(class: "dev-version-warning", body)
     } else {
       set text(
-        size: sizes.small,
-        weight: "bold",
+        size: sizes.small * 0.9,
+        weight: "medium",
         fill: colors.genuine.white,
       )
       // Same metrics as `ty-pill`.
