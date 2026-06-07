@@ -20,8 +20,9 @@ use crate::model::{TableCell, TableElem};
 ///
 /// Typst will automatically mark certain content, such as page headers,
 /// footers, backgrounds, and foregrounds, as artifacts. Likewise, paths and
-/// shapes are automatically marked as artifacts, but their content is not.
-/// Repetitions of table headers and footers are also marked as artifacts.
+/// shapes are automatically marked as artifacts, but their content is not. Line
+/// numbers created using @par.line are automatically marked as artifacts, as
+/// are repetitions of table headers and footers.
 ///
 /// Once something is marked as an artifact, you cannot make any of its contents
 /// accessible again. If you need to mark only part of something as an artifact,

@@ -256,3 +256,10 @@ Line 3
 A
 $ x $
 B
+
+--- line-numbers-pdf-2-0 pdf pdfstandard(2.0) ---
+#set page(margin: (left: 2.5em))
+#set par.line(numbering: "1")
+
+First line \
+Second line
