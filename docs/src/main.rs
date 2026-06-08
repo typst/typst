@@ -114,6 +114,8 @@ struct Config {
     output: Option<PathBuf>,
     /// The kind of output to produce.
     output_format: OutputFormat,
+    /// Whether to include a "development version" warning in the documentation.
+    is_dev_version: bool,
     /// A live reload server for the `watch` subcommand.
     server: Option<HttpServer>,
     /// Whether to open the output after compilation.
@@ -131,6 +133,7 @@ impl Config {
                 OutputFormat::Website => Some(SITE_PATH.into()),
             }),
             output_format: args.format,
+            is_dev_version: !args.release,
             server: (watching && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),
             open: args.open,
