@@ -14,6 +14,7 @@ use typst_library::layout::{
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
+use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -906,6 +907,7 @@ fn layout_line_number(
         counter.clone().update(Span::detached(), update),
         CounterDisplayElem::new(counter, numbering, false).pack(),
     ]);
+    let content = content.artifact(ArtifactKind::LineNumber);
 
     // Layout the number.
     let mut frame = crate::layout_frame(

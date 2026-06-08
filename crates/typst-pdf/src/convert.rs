@@ -12,6 +12,7 @@ use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
+use krilla::tagging::ArtifactType;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
@@ -247,6 +248,12 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
+    pub(crate) fn page_size(&self) -> Option<Size> {
+        self.page_idx
+            .is_some()
+            .then_some(self.states.first().unwrap().container_size)
+    }
+
     pub(crate) fn get_link_annotation(
         &mut self,
         id: GroupId,
@@ -331,7 +338,14 @@ pub(crate) fn handle_frame(
 
     if let Some(fill) = fill {
         let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
-        handle_shape(fc, &shape, surface, gc, Span::detached())?;
+        handle_shape(
+            fc,
+            &shape,
+            surface,
+            gc,
+            Span::detached(),
+            ArtifactType::Background,
+        )?;
     }
 
     fc.push();
@@ -345,19 +359,21 @@ pub(crate) fn handle_frame(
         match item {
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
-            FrameItem::Shape(s, span) => handle_shape(fc, s, surface, gc, *span)?,
+            FrameItem::Shape(s, span) => {
+                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?
+            }
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
-                    tags::handle_start(gc, surface);
+                    tags::handle_start(gc, fc, surface);
                 }
             }
             FrameItem::Tag(Tag::End(_, _, flags)) => {
                 if flags.tagged {
-                    tags::handle_end(gc, surface);
+                    tags::handle_end(gc, fc, surface);
                 }
             }
         }
@@ -380,7 +396,7 @@ pub(crate) fn handle_group(
     fc.push();
     fc.state_mut().pre_concat(group.transform);
 
-    tags::group(gc, surface, group.parent, |gc, surface| -> SourceResult<()> {
+    tags::group(gc, fc, surface, group.parent, |gc, fc, surface| {
         let clip_path = group
             .clip
             .as_ref()

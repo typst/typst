@@ -150,7 +150,7 @@ fn convert_pattern(
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
-    tags::tiling(gc, &mut surface, |gc, surface| {
+    tags::tiling(gc, &mut surface, pattern.size(), |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
         handle_frame(
             &mut fc,

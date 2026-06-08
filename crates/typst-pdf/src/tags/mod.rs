@@ -1,3 +1,4 @@
+use krilla::configure::PdfVersion;
 use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
@@ -37,35 +38,36 @@ pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags
     Ok(Tags::new(tree))
 }
 
-pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn handle_start(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     if disabled(gc) {
         return;
     }
 
-    tree::step_start_tag(&mut gc.tags.tree, surface);
+    tree::step_start_tag(gc, fc, surface);
 }
 
-pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn handle_end(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     if disabled(gc) {
         return;
     }
 
-    tree::step_end_tag(&mut gc.tags.tree, surface);
+    tree::step_end_tag(gc, fc, surface);
 }
 
 pub fn group<T>(
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
     surface: &mut Surface,
     parent: Option<FrameParent>,
-    group_fn: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
+    group_fn: impl FnOnce(&mut GlobalContext, &mut FrameContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) || parent.is_none() {
-        return group_fn(gc, surface);
+        return group_fn(gc, fc, surface);
     }
 
-    tree::enter_logical_child(&mut gc.tags.tree, surface);
+    tree::enter_logical_child(gc, fc, surface);
 
-    let res = group_fn(gc, surface);
+    let res = group_fn(gc, fc, surface);
 
     tree::leave_logical_child(&mut gc.tags.tree, surface);
 
@@ -98,6 +100,7 @@ pub fn page<T>(
 pub fn tiling<T>(
     gc: &mut GlobalContext,
     surface: &mut Surface,
+    tiling_size: Size,
     f: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) {
@@ -108,8 +111,24 @@ pub fn tiling<T>(
     gc.tags.in_tiling = true;
     let mark_artifact = gc.tags.tree.parent_artifact().is_none();
     if mark_artifact {
-        surface
-            .start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
+        let bbox = kg::Rect::from_ltrb(
+            0.0,
+            0.0,
+            tiling_size.x.to_pt() as f32,
+            tiling_size.y.to_pt() as f32,
+        );
+        surface.start_tagged(ContentTag::Artifact(Artifact::new(
+            if gc.options.standards.config.version() == PdfVersion::Pdf17
+                && bbox.is_none()
+            {
+                // PDF 1.7 cannot tolerate empty bounding boxes for background
+                // artifacts.
+                ArtifactType::Other
+            } else {
+                ArtifactType::Background
+            },
+            bbox,
+        )));
     }
 
     let res = f(gc, surface);
@@ -237,6 +256,7 @@ pub fn shape<'a, 'b>(
     fc: &FrameContext,
     surface: &'b mut Surface<'a>,
     shape: &Shape,
+    artifact_type: ArtifactType,
 ) -> TagHandle<'a, 'b> {
     if disabled(gc) {
         return TagHandle { surface, started: false };
@@ -248,7 +268,15 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ArtifactType::Other)));
+    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+        if gc.options.standards.config.version() == PdfVersion::Pdf17
+            && artifact_type == ArtifactType::Background
+        {
+            ArtifactType::Other
+        } else {
+            artifact_type
+        },
+    )));
 
     TagHandle { surface, started: true }
 }

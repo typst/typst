@@ -1,16 +1,19 @@
 use std::collections::hash_map::Entry;
 
+use krilla::configure::PdfVersion;
+use krilla::geom as kg;
 use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
-use typst_library::layout::{GridCell, Inherit};
+use typst_library::layout::{GridCell, Inherit, Size};
 use typst_library::math::EquationElem;
 use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
+use crate::PdfOptions;
 use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
@@ -492,18 +495,46 @@ impl std::fmt::Debug for GroupKind {
 
 impl GroupKind {
     pub fn is_artifact(&self) -> bool {
-        self.as_artifact().is_some()
+        matches!(*self, GroupKind::Artifact(_))
     }
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
     }
 
-    pub fn as_artifact(&self) -> Option<Artifact> {
-        match *self {
-            GroupKind::Artifact(ty) => Some(Artifact::with_kind(ty)),
-            _ => None,
+    pub fn to_artifact(
+        &self,
+        options: &PdfOptions,
+        page_size: Option<Size>,
+    ) -> Option<Artifact> {
+        let GroupKind::Artifact(artifact) = *self else { return None };
+
+        if options.standards.config.version() == PdfVersion::Pdf17
+            && artifact == ArtifactType::Background
+        {
+            // Background artifacts were introduced in PDF 1.7. However,
+            // they require a bounding box there, which may not be readily
+            // available throughout Typst. In PDF 2.0, this requirement is
+            // dropped. Hence, to not have to make up a bounding box, we
+            // explicitly override the type as `Other` for PDF 1.7. For PDF
+            // 1.6 and below, Krilla handles the type mapping. For PDF 2.0
+            // and above, we use the correct artifact type.
+            return Some(match page_size {
+                Some(size) => {
+                    let bbox = kg::Rect::from_ltrb(
+                        0.0,
+                        0.0,
+                        size.x.to_pt() as f32,
+                        size.y.to_pt() as f32,
+                    )
+                    .unwrap();
+                    Artifact { kind: ArtifactType::Background, bbox: Some(bbox) }
+                }
+                None => Artifact::with_kind(ArtifactType::Other),
+            });
         }
+
+        Some(Artifact::with_kind(artifact))
     }
 
     pub fn as_link(&self) -> Option<&Packed<LinkMarker>> {

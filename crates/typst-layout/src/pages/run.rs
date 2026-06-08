@@ -217,7 +217,7 @@ fn layout_page_run_impl(
 
     let header = header.clone().map(|h| h.artifact(ArtifactKind::Header));
     let footer = footer.clone().map(|f| f.artifact(ArtifactKind::Footer));
-    let background = background.clone().map(|b| b.artifact(ArtifactKind::Page));
+    let background = background.clone().map(|b| b.artifact(ArtifactKind::Background));
 
     for inner in fragment {
         let header_size = Size::new(inner.width(), margin.top - header_ascent);

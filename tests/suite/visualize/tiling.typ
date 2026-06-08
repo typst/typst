@@ -242,3 +242,6 @@
 
 #rect(fill: pat1, width: 100pt, height: 20pt, stroke: 1pt)
 #rect(fill: pat2, width: 100pt, height: 20pt, stroke: 1pt)
+
+--- tiling-negative-area pdf ---
+#rect(fill: tiling(size: (-2pt, -2pt))[Hello])
