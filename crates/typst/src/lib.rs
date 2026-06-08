@@ -122,6 +122,8 @@ mod csv {
         }
     }
 }
+#[cfg(feature = "toml")]
+mod toml;
 
 /// Compiles sources into an output.
 ///
@@ -402,4 +404,17 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     new_csv_reader_builder: || Box::new(crate::csv::ReaderBuilder::new()),
     #[cfg(not(feature = "csv"))]
     new_csv_reader_builder: || Box::new(csv::ErroringCsvReaderBuilder),
+    #[cfg(feature = "toml")]
+    toml_decode: crate::toml::decode,
+    #[cfg(not(feature = "toml"))]
+    toml_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to parse TOML",
+            "TOML support not enabled",
+        ))
+    },
+    #[cfg(feature = "toml")]
+    toml_encode: crate::toml::encode,
+    #[cfg(not(feature = "toml"))]
+    toml_encode: |_, _| Err(ecow::EcoString::from("TOML support not enabled")),
 });

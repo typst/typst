@@ -9,8 +9,8 @@ use typst_utils::LazyHash;
 use crate::diag::{LoadError, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
-    Styles, Value,
+    Args, Closure, Content, Context, Dict, Func, Module, NativeRuleMap, Scope, Str,
+    StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
@@ -121,6 +121,12 @@ routines! {
 
     /// Get a builder for CSV readers
     fn new_csv_reader_builder() -> Box<dyn CsvReaderBuilder>
+
+    /// Decode TOML data
+    fn toml_decode(data: &str) -> Result<Dict, LoadError>
+
+    /// Encode TOML data
+    fn toml_encode(value: Dict, pretty: bool) -> Result<Str, EcoString>
 }
 
 // The types below only live here to enable the routines to be defined here.
