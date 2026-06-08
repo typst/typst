@@ -122,6 +122,8 @@ mod csv {
         }
     }
 }
+#[cfg(feature = "json")]
+mod json;
 #[cfg(feature = "toml")]
 mod toml;
 
@@ -417,4 +419,17 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     toml_encode: crate::toml::encode,
     #[cfg(not(feature = "toml"))]
     toml_encode: |_, _| Err(ecow::EcoString::from("TOML support not enabled")),
+    #[cfg(feature = "json")]
+    json_decode: crate::json::decode,
+    #[cfg(not(feature = "json"))]
+    json_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to parse JSON",
+            "JSON support not enabled",
+        ))
+    },
+    #[cfg(feature = "json")]
+    json_encode: crate::json::encode,
+    #[cfg(not(feature = "json"))]
+    json_encode: |_, _| Err(ecow::EcoString::from("JSON support not enabled")),
 });

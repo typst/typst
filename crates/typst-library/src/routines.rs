@@ -127,6 +127,12 @@ routines! {
 
     /// Encode TOML data
     fn toml_encode(value: Dict, pretty: bool) -> Result<Str, EcoString>
+
+    /// Decode JSON data
+    fn json_decode(data: &[u8]) -> Result<Value, LoadError>
+
+    /// Encode JSON data
+    fn json_encode(value: Value, pretty: bool) -> Result<Str, EcoString>
 }
 
 // The types below only live here to enable the routines to be defined here.
