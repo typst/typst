@@ -23,9 +23,14 @@ typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 arrayvec = { workspace = true }
+ciborium = { workspace = true, optional = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
+
+[features]
+default = ["cbor"]
+cbor = ["dep:ciborium"]
 
 [lints]
 workspace = true

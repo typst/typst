@@ -2,10 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use comemo::{Tracked, TrackedMut};
+use ecow::EcoString;
 use typst_syntax::{FileId, RangeMapper, Span, SyntaxMode};
 use typst_utils::LazyHash;
 
-use crate::diag::SourceResult;
+use crate::diag::{LoadError, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
@@ -111,6 +112,12 @@ routines! {
     /// This is a temporary workaround until `TextElem::fill` is supported in
     /// HTML export.
     fn html_span_filled(content: Content, color: Color) -> Content
+
+    /// Decode CBOR data
+    fn cbor_decode(data: &[u8]) -> Result<Value, LoadError>
+
+    /// Encode CBOR data
+    fn cbor_encode(value: Value) -> Result<Vec<u8>, EcoString>
 }
 
 // The types below only live here to enable the routines to be defined here.

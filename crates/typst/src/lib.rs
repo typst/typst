@@ -60,6 +60,9 @@ use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};
 use typst_utils::Protected;
 
+#[cfg(feature = "cbor")]
+mod cbor;
+
 /// Compiles sources into an output.
 ///
 /// Supported outputs are
@@ -322,4 +325,17 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     html_module: typst_html::module,
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
+    #[cfg(feature = "cbor")]
+    cbor_decode: cbor::decode,
+    #[cfg(not(feature = "cbor"))]
+    cbor_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to load CBOR",
+            "CBOR support not enabled",
+        ))
+    },
+    #[cfg(feature = "cbor")]
+    cbor_encode: cbor::encode,
+    #[cfg(not(feature = "cbor"))]
+    cbor_encode: |_| Err(ecow::EcoString::from("CBOR support not enabled")),
 });

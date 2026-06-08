@@ -3060,6 +3060,7 @@ name = "typst"
 version = "0.14.2"
 dependencies = [
  "arrayvec",
+ "ciborium",
  "comemo",
  "ecow",
  "rustc-hash",
@@ -3345,7 +3346,6 @@ dependencies = [
  "az",
  "bitflags 2.11.1",
  "bumpalo",
- "ciborium",
  "codex",
  "comemo",
  "csv",
