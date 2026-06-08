@@ -118,6 +118,9 @@ routines! {
 
     /// Encode CBOR data
     fn cbor_encode(value: Value) -> Result<Vec<u8>, EcoString>
+
+    /// Get a builder for CSV readers
+    fn new_csv_reader_builder() -> Box<dyn CsvReaderBuilder>
 }
 
 // The types below only live here to enable the routines to be defined here.
@@ -201,3 +204,27 @@ pub struct Arenas {
 
 /// A pair of content and a style chain that applies to it.
 pub type Pair<'a> = (&'a Content, StyleChain<'a>);
+
+/// A builder for a CSV reader.
+pub trait CsvReaderBuilder {
+    /// Set whether the first line of the input is parsed as a header.
+    fn has_headers(&mut self, has_headers: bool);
+    /// Set what the delimiter is that is used to separate columns.
+    fn delimiter(&mut self, delimiter: u8);
+    /// Create the actual reader.
+    fn create_reader<'a>(&self, data: &'a [u8]) -> Box<dyn CsvReader + 'a>;
+}
+
+/// A CSV reader.
+pub trait CsvReader {
+    /// Read the header of the csv file.
+    fn header(&mut self) -> Result<Box<dyn CsvRecords>, LoadError>;
+    fn records<'a>(
+        &'a mut self,
+    ) -> Box<dyn Iterator<Item = Result<Box<dyn CsvRecords + 'a>, LoadError>> + 'a>;
+}
+
+/// A single line of data from a CSV file.
+pub trait CsvRecords {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a>;
+}

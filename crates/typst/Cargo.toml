@@ -23,14 +23,17 @@ typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 arrayvec = { workspace = true }
+az = { workspace = true, optional = true }
 ciborium = { workspace = true, optional = true }
 comemo = { workspace = true }
+csv = { workspace = true, optional = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
 
 [features]
-default = ["cbor"]
+default = ["cbor", "csv"]
 cbor = ["dep:ciborium"]
+csv = ["dep:csv", "dep:az"]
 
 [lints]
 workspace = true

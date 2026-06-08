@@ -62,6 +62,66 @@ use typst_utils::Protected;
 
 #[cfg(feature = "cbor")]
 mod cbor;
+#[cfg(feature = "csv")]
+mod csv;
+#[cfg(not(feature = "csv"))]
+mod csv {
+    use typst_library::{
+        diag::{LineCol, LoadError},
+        routines::{CsvReader, CsvReaderBuilder},
+    };
+
+    pub(crate) struct ErroringCsvReaderBuilder;
+    impl CsvReaderBuilder for ErroringCsvReaderBuilder {
+        fn has_headers(&mut self, _has_headers: bool) {
+            // do nothing
+        }
+
+        fn delimiter(&mut self, _delimiter: u8) {
+            // do nothing
+        }
+
+        fn create_reader<'a>(&self, _data: &'a [u8]) -> Box<dyn CsvReader + 'a> {
+            Box::new(ErroringCsvReader)
+        }
+    }
+
+    struct ErroringCsvReader;
+    impl CsvReader for ErroringCsvReader {
+        fn header(
+            &mut self,
+        ) -> Result<
+            Box<dyn typst_library::routines::CsvRecords>,
+            typst_library::diag::LoadError,
+        > {
+            Err(LoadError::text(
+                LineCol::one_based(1, 1),
+                "failed to parse CSV",
+                "CSV support not enabled",
+            ))
+        }
+
+        fn records<'a>(
+            &'a mut self,
+        ) -> Box<
+            dyn Iterator<
+                    Item = Result<
+                        Box<dyn typst_library::routines::CsvRecords + 'a>,
+                        typst_library::diag::LoadError,
+                    >,
+                > + 'a,
+        > {
+            Box::new(
+                [Err(LoadError::text(
+                    LineCol::one_based(1, 1),
+                    "failed to parse CSV",
+                    "CSV support not enabled",
+                ))]
+                .into_iter(),
+            )
+        }
+    }
+}
 
 /// Compiles sources into an output.
 ///
@@ -338,4 +398,8 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     cbor_encode: cbor::encode,
     #[cfg(not(feature = "cbor"))]
     cbor_encode: |_| Err(ecow::EcoString::from("CBOR support not enabled")),
+    #[cfg(feature = "csv")]
+    new_csv_reader_builder: || Box::new(crate::csv::ReaderBuilder::new()),
+    #[cfg(not(feature = "csv"))]
+    new_csv_reader_builder: || Box::new(csv::ErroringCsvReaderBuilder),
 });
