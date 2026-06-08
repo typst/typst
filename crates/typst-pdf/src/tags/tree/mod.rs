@@ -1,5 +1,5 @@
 use crate::PdfOptions;
-use crate::convert::GlobalContext;
+use crate::convert::{FrameContext, GlobalContext};
 use crate::tags::GroupId;
 use crate::tags::context::{BBoxCtx, BBoxId, Ctx};
 use crate::tags::groups::{Group, GroupKind, Groups};
@@ -187,15 +187,16 @@ struct Unfinished {
     group_to_close: GroupId,
 }
 
-pub fn step_start_tag(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn step_start_tag(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     let Some((prev, next)) = step(&mut gc.tags.tree) else { return };
 
     if let Some(brk) = consume_break(&mut gc.tags.tree) {
-        step_break(gc, surface, prev, next, brk);
+        step_break(gc, fc, surface, prev, next, brk);
     } else {
         open_group(
             &gc.tags.tree.groups,
             &mut gc.tags.tree.state,
+            fc,
             gc.options,
             surface,
             next,
@@ -203,18 +204,22 @@ pub fn step_start_tag(gc: &mut GlobalContext, surface: &mut Surface) {
     }
 }
 
-pub fn step_end_tag(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn step_end_tag(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     let Some((prev, next)) = step(&mut gc.tags.tree) else { return };
 
     if let Some(brk) = consume_break(&mut gc.tags.tree) {
-        step_break(gc, surface, prev, next, brk);
+        step_break(gc, fc, surface, prev, next, brk);
     } else {
         close_group(&mut gc.tags.tree, surface, prev);
     }
 }
 
 /// This can move to a completely different position in the tree.
-pub fn enter_logical_child(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn enter_logical_child(
+    gc: &mut GlobalContext,
+    fc: &FrameContext,
+    surface: &mut Surface,
+) {
     let Some((_, next)) = step(&mut gc.tags.tree) else { return };
 
     // Close any artifact in the previous location.
@@ -234,7 +239,7 @@ pub fn enter_logical_child(gc: &mut GlobalContext, surface: &mut Surface) {
         current = group.parent;
         Some((id, group))
     });
-    open_multiple_groups(&mut new_state, gc.options, surface, rev_iter);
+    open_multiple_groups(&mut new_state, fc, gc.options, surface, rev_iter);
 
     gc.tags.tree.state.push(new_state);
 }
@@ -298,6 +303,7 @@ fn consume_unfinished(tree: &mut Tree) -> Option<Unfinished> {
 
 fn step_break(
     gc: &mut GlobalContext,
+    fc: &FrameContext,
     surface: &mut Surface,
     prev: GroupId,
     next: GroupId,
@@ -319,6 +325,7 @@ fn step_break(
     });
     open_multiple_groups(
         &mut gc.tags.tree.state,
+        fc,
         gc.options,
         surface,
         rev_iter.take(brk.num_opened as usize),
@@ -328,13 +335,14 @@ fn step_break(
 fn open_group(
     groups: &Groups,
     state: &mut TraversalState,
+    fc: &FrameContext,
     options: &PdfOptions,
     surface: &mut Surface,
     id: GroupId,
 ) {
     let group = groups.get(id);
     if state.current_artifact.is_none()
-        && let Some(ty) = group.kind.as_artifact(options)
+        && let Some(ty) = group.kind.to_artifact(options, fc.page_size())
     {
         state.current_artifact = Some((id, ty));
         surface.start_tagged(ContentTag::Artifact(ty));
@@ -351,6 +359,7 @@ fn open_group(
 /// parent hierarchy from bottom to top, this cannot simply call [`open_group`].
 fn open_multiple_groups<'a>(
     state: &mut TraversalState,
+    fc: &FrameContext,
     options: &PdfOptions,
     surface: &mut Surface,
     rev_iter: impl Iterator<Item = (GroupId, &'a Group)>,
@@ -360,7 +369,7 @@ fn open_multiple_groups<'a>(
     let text_attr_start = state.text_attrs.len();
 
     for (id, group) in rev_iter {
-        if let Some(ty) = group.kind.as_artifact(options) {
+        if let Some(ty) = group.kind.to_artifact(options, fc.page_size()) {
             new_artifact = Some((id, ty));
         }
         if let Some(bbox) = group.kind.bbox() {

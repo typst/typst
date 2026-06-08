@@ -38,35 +38,36 @@ pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags
     Ok(Tags::new(tree))
 }
 
-pub fn handle_start(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn handle_start(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     if disabled(gc) {
         return;
     }
 
-    tree::step_start_tag(gc, surface);
+    tree::step_start_tag(gc, fc, surface);
 }
 
-pub fn handle_end(gc: &mut GlobalContext, surface: &mut Surface) {
+pub fn handle_end(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut Surface) {
     if disabled(gc) {
         return;
     }
 
-    tree::step_end_tag(gc, surface);
+    tree::step_end_tag(gc, fc, surface);
 }
 
 pub fn group<T>(
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
     surface: &mut Surface,
     parent: Option<FrameParent>,
-    group_fn: impl FnOnce(&mut GlobalContext, &mut Surface) -> T,
+    group_fn: impl FnOnce(&mut GlobalContext, &mut FrameContext, &mut Surface) -> T,
 ) -> T {
     if disabled(gc) || parent.is_none() {
-        return group_fn(gc, surface);
+        return group_fn(gc, fc, surface);
     }
 
-    tree::enter_logical_child(gc, surface);
+    tree::enter_logical_child(gc, fc, surface);
 
-    let res = group_fn(gc, surface);
+    let res = group_fn(gc, fc, surface);
 
     tree::leave_logical_child(&mut gc.tags.tree, surface);
 

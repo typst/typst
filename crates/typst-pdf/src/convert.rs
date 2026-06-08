@@ -248,6 +248,12 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
+    pub(crate) fn page_size(&self) -> Option<Size> {
+        self.page_idx
+            .is_some()
+            .then_some(self.states.first().unwrap().container_size)
+    }
+
     pub(crate) fn get_link_annotation(
         &mut self,
         id: GroupId,
@@ -362,12 +368,12 @@ pub(crate) fn handle_frame(
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
-                    tags::handle_start(gc, surface);
+                    tags::handle_start(gc, fc, surface);
                 }
             }
             FrameItem::Tag(Tag::End(_, _, flags)) => {
                 if flags.tagged {
-                    tags::handle_end(gc, surface);
+                    tags::handle_end(gc, fc, surface);
                 }
             }
         }
@@ -390,7 +396,7 @@ pub(crate) fn handle_group(
     fc.push();
     fc.state_mut().pre_concat(group.transform);
 
-    tags::group(gc, surface, group.parent, |gc, surface| -> SourceResult<()> {
+    tags::group(gc, fc, surface, group.parent, |gc, fc, surface| {
         let clip_path = group
             .clip
             .as_ref()
