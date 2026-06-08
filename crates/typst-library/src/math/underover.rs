@@ -6,7 +6,7 @@ use crate::math::Mathy;
 /// ```example
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct UnderlineElem {
     /// The content above the line.
     #[required]
@@ -18,7 +18,7 @@ pub struct UnderlineElem {
 /// ```example
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct OverlineElem {
     /// The content below the line.
     #[required]
@@ -30,7 +30,7 @@ pub struct OverlineElem {
 /// ```example
 /// $ underbrace(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct UnderbraceElem {
     /// The content above the brace.
     #[required]
@@ -46,7 +46,7 @@ pub struct UnderbraceElem {
 /// ```example
 /// $ overbrace(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct OverbraceElem {
     /// The content below the brace.
     #[required]
@@ -62,7 +62,7 @@ pub struct OverbraceElem {
 /// ```example
 /// $ underbracket(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct UnderbracketElem {
     /// The content above the bracket.
     #[required]
@@ -78,7 +78,7 @@ pub struct UnderbracketElem {
 /// ```example
 /// $ overbracket(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct OverbracketElem {
     /// The content below the bracket.
     #[required]
@@ -94,7 +94,7 @@ pub struct OverbracketElem {
 /// ```example
 /// $ underparen(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct UnderparenElem {
     /// The content above the parenthesis.
     #[required]
@@ -110,7 +110,7 @@ pub struct UnderparenElem {
 /// ```example
 /// $ overparen(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct OverparenElem {
     /// The content below the parenthesis.
     #[required]
@@ -127,7 +127,7 @@ pub struct OverparenElem {
 /// ```example
 /// $ undershell(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct UndershellElem {
     /// The content above the tortoise shell bracket.
     #[required]
@@ -144,7 +144,7 @@ pub struct UndershellElem {
 /// ```example
 /// $ overshell(0 + 1 + dots.c + n, n + 1 "numbers") $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct OvershellElem {
     /// The content below the tortoise shell bracket.
     #[required]

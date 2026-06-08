@@ -16,7 +16,7 @@ use kurbo::{PathEl, Shape as _};
 ///   to fit the content.
 /// ]
 /// ```
-#[elem(title = "Rectangle")]
+#[elem(title = "Rectangle", since = "forever")]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -140,7 +140,7 @@ pub struct RectElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -218,7 +218,7 @@ pub struct SquareElem {
 ///   to fit the content.
 /// ]
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -268,7 +268,7 @@ pub struct EllipseElem {
 ///   sized to fit.
 /// ]
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.

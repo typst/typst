@@ -71,7 +71,7 @@ pub use crate::__select_where as select_where;
 /// == So will this
 /// === But this will not.
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.3.0")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.
@@ -163,7 +163,7 @@ impl Selector {
     /// - A `{<label>}`.
     /// - A @location.
     /// - A more complex selector like `{heading.where(level: 1)}`.
-    #[func(constructor)]
+    #[func(constructor, since = "0.3.0")]
     pub fn construct(
         /// Can be an element function like a `heading` or `figure`, a
         /// `{<label>}` or a more complex selector like
@@ -174,7 +174,7 @@ impl Selector {
     }
 
     /// Selects all elements that match this or any of the other selectors.
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn or(
         self,
         /// The other selectors to match on.
@@ -185,7 +185,7 @@ impl Selector {
     }
 
     /// Selects all elements that match this and all of the other selectors.
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn and(
         self,
         /// The other selectors to match on.
@@ -200,7 +200,7 @@ impl Selector {
     ///
     /// _Note:_ This selector is currently only supported with introspection
     /// functions, not in show rules.
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn before(
         self,
         /// The original selection will end at the first match of `end`.
@@ -223,7 +223,7 @@ impl Selector {
     ///
     /// _Note:_ This selector is currently only supported with introspection
     /// functions, not in show rules.
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn after(
         self,
         /// The original selection will start at the first match of `start`.
@@ -281,7 +281,7 @@ impl Selector {
     ///
     /// _Note:_ This selector is currently only supported with introspection
     /// functions, not in show rules.
-    #[func]
+    #[func(since = "{FUTURE_TYPST_RELEASE}")]
     pub fn within(
         self,
         /// Only matches of `self` that are descendants of any element matching

@@ -59,6 +59,7 @@ fn create_func_data(
             title[0..1].make_ascii_uppercase();
             title
         },
+        since: Some("0.14.0"),
         docs: element.docs,
         def_site: None,
         keywords: &["typed-html"],

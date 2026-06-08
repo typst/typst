@@ -69,7 +69,7 @@ pub use crate::__array as array;
 /// #(("A", "B", "C")
 ///     .join(", ", last: " and "))
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Default, Clone, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Array(EcoVec<Value>);
@@ -160,7 +160,7 @@ impl Array {
     /// #let hi = "Hello 😃"
     /// #array(bytes(hi))
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.7.0")]
     pub fn construct(
         /// The value that should be converted to an array.
         value: ToArray,
@@ -169,7 +169,7 @@ impl Array {
     }
 
     /// The number of values in the array.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "forever")]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -177,7 +177,7 @@ impl Array {
     /// Returns the first item in the array. May be used on the left-hand side
     /// an assignment. Returns the default value if the array is empty or fails
     /// with an error is no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn first(
         &self,
         /// A default value to return if the array is empty.
@@ -190,7 +190,7 @@ impl Array {
     /// Returns the last item in the array. May be used on the left-hand side of
     /// an assignment. Returns the default value if the array is empty or fails
     /// with an error is no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn last(
         &self,
         /// A default value to return if the array is empty.
@@ -204,7 +204,7 @@ impl Array {
     /// left-hand side of an assignment. Returns the default value if the index
     /// is out of bounds or fails with an error if no default value was
     /// specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The index at which to retrieve the item. If negative, indexes from
@@ -221,7 +221,7 @@ impl Array {
     }
 
     /// Adds a value to the end of the array.
-    #[func]
+    #[func(since = "forever")]
     pub fn push(
         &mut self,
         /// The value to insert at the end of the array.
@@ -232,7 +232,7 @@ impl Array {
 
     /// Removes the last item from the array and returns it. Fails with an error
     /// if the array is empty.
-    #[func]
+    #[func(since = "forever")]
     pub fn pop(&mut self) -> StrResult<Value> {
         self.0.pop().ok_or_else(array_is_empty)
     }
@@ -242,7 +242,7 @@ impl Array {
     /// out of bounds.
     ///
     /// To replace an element of an array, use @array.at[`at`].
-    #[func]
+    #[func(since = "forever")]
     pub fn insert(
         &mut self,
         /// The index at which to insert the item. If negative, indexes from the
@@ -257,7 +257,7 @@ impl Array {
     }
 
     /// Removes the value at the specified index from the array and return it.
-    #[func]
+    #[func(since = "forever")]
     pub fn remove(
         &mut self,
         /// The index at which to remove the item. If negative, indexes from the
@@ -275,7 +275,7 @@ impl Array {
 
     /// Extracts a subslice of the array. Fails with an error if the start or
     /// end index is out of bounds.
-    #[func]
+    #[func(since = "forever")]
     pub fn slice(
         &self,
         /// The start index (inclusive). If negative, indexes from the back.
@@ -303,7 +303,7 @@ impl Array {
     ///
     /// This method also has dedicated syntax: You can write `{2 in (1, 2, 3)}`
     /// instead of `{(1, 2, 3).contains(2)}`.
-    #[func]
+    #[func(since = "forever")]
     pub fn contains(
         &self,
         /// The value to search for.
@@ -314,7 +314,7 @@ impl Array {
 
     /// Searches for an item for which the given function returns `{true}` and
     /// returns the first match or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn find(
         &self,
         engine: &mut Engine,
@@ -336,7 +336,7 @@ impl Array {
 
     /// Searches for an item for which the given function returns `{true}` and
     /// returns the index of the first match or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn position(
         &self,
         engine: &mut Engine,
@@ -380,7 +380,7 @@ impl Array {
     /// #range(21, step: 4) \
     /// #range(5, 2, step: -1)
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn range(
         args: &mut Args,
         /// The start of the range (inclusive).
@@ -444,7 +444,7 @@ impl Array {
 
     /// Produces a new array with only the items from the original one for which
     /// the given function returns `{true}`.
-    #[func]
+    #[func(since = "forever")]
     pub fn filter(
         &self,
         engine: &mut Engine,
@@ -467,7 +467,7 @@ impl Array {
 
     /// Produces a new array in which all items from the original one were
     /// transformed with the given function.
-    #[func]
+    #[func(since = "forever")]
     pub fn map(
         self,
         engine: &mut Engine,
@@ -494,7 +494,7 @@ impl Array {
     ///
     /// #("A", "B", "C").enumerate(start: 1)
     /// ```
-    #[func]
+    #[func(since = "0.2.0")]
     pub fn enumerate(
         self,
         /// The index returned for the first pair of the returned list.
@@ -528,7 +528,7 @@ impl Array {
     /// This function is variadic, meaning that you can zip multiple arrays
     /// together at once: `{(1, 2).zip(("A", "B"), (10, 20))}` yields
     /// `{((1, "A", 10), (2, "B", 20))}`.
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn zip(
         self,
         args: &mut Args,
@@ -618,7 +618,7 @@ impl Array {
     /// #let array = (1, 2, 3, 4)
     /// #array.fold(0, (acc, x) => acc + x)
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn fold(
         self,
         engine: &mut Engine,
@@ -637,7 +637,7 @@ impl Array {
     }
 
     /// Sums all items (works for all types that can be added).
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn sum(
         self,
         /// What to return if the array is empty. Must be set if the array can
@@ -658,7 +658,7 @@ impl Array {
 
     /// Calculates the product of all items (works for all types that can be
     /// multiplied).
-    #[func]
+    #[func(since = "0.3.0")]
     pub fn product(
         self,
         /// What to return if the array is empty. Must be set if the array can
@@ -678,7 +678,7 @@ impl Array {
     }
 
     /// Whether the given function returns `{true}` for any item in the array.
-    #[func]
+    #[func(since = "forever")]
     pub fn any(
         self,
         engine: &mut Engine,
@@ -696,7 +696,7 @@ impl Array {
     }
 
     /// Whether the given function returns `{true}` for all items in the array.
-    #[func]
+    #[func(since = "forever")]
     pub fn all(
         self,
         engine: &mut Engine,
@@ -714,7 +714,7 @@ impl Array {
     }
 
     /// Combine all nested arrays into a single flat one.
-    #[func]
+    #[func(since = "forever")]
     pub fn flatten(self) -> Array {
         let mut flat = EcoVec::with_capacity(self.0.len());
         for item in self {
@@ -728,7 +728,7 @@ impl Array {
     }
 
     /// Return a new array with the same items, but in reverse order.
-    #[func(title = "Reverse")]
+    #[func(title = "Reverse", since = "forever")]
     pub fn rev(self) -> Array {
         self.into_iter().rev().collect()
     }
@@ -738,7 +738,7 @@ impl Array {
     /// ```example
     /// #(1, 1, 2, 3, 2, 4, 5).split(2)
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn split(
         &self,
         /// The value to split at.
@@ -751,7 +751,7 @@ impl Array {
     }
 
     /// Combine all items in the array into one.
-    #[func]
+    #[func(since = "forever")]
     pub fn join(
         self,
         /// A value to insert between each item of the array.
@@ -798,7 +798,7 @@ impl Array {
     /// ```example
     /// #("A", "B", "C").intersperse("-")
     /// ```
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn intersperse(
         self,
         /// The value that will be placed between each adjacent element.
@@ -837,7 +837,7 @@ impl Array {
     /// #array.chunks(3) \
     /// #array.chunks(3, exact: true)
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn chunks(
         self,
         /// How many elements each chunk may at most contain.
@@ -865,7 +865,7 @@ impl Array {
     /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
     /// #array.windows(5)
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn windows(
         self,
         /// How many elements each window will contain.
@@ -896,7 +896,7 @@ impl Array {
     /// )
     /// #array.sorted(key: it => (it.a, it.b))
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn sorted(
         self,
         engine: &mut Engine,
@@ -1058,7 +1058,7 @@ impl Array {
     /// ```example
     /// #(3, 3, 1, 2, 3).dedup()
     /// ```
-    #[func(title = "Deduplicate")]
+    #[func(title = "Deduplicate", since = "0.7.0")]
     pub fn dedup(
         self,
         engine: &mut Engine,
@@ -1114,7 +1114,7 @@ impl Array {
     ///   ("apples", 5),
     /// ).to-dict()
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn to_dict(self) -> StrResult<Dict> {
         self.into_iter()
             .map(|value| {
@@ -1151,7 +1151,7 @@ impl Array {
     /// #let array = (2, 1, 4, 3)
     /// #array.reduce((acc, x) => calc.max(acc, x))
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn reduce(
         self,
         engine: &mut Engine,

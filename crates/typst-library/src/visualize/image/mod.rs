@@ -49,7 +49,7 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   ],
 /// )
 /// ```
-#[elem(Locatable, Tagged, Synthesize, LocalName, Figurable)]
+#[elem(since = "forever", Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A path to an image file or raw bytes making up an image in one of the
     /// supported @image.format[formats].

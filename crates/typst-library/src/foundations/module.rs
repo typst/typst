@@ -44,7 +44,7 @@ use crate::foundations::{Content, Repr, Scope, Value, ty};
 /// Alternatively, it is possible to convert a module to a dictionary, and
 /// therefore access its contents dynamically, using the
 /// @dictionary.constructor[dictionary constructor].
-#[ty(cast)]
+#[ty(cast, since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Module {
     /// The module's name.

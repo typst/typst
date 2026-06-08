@@ -108,7 +108,7 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 /// thematic bibliographies. For more fine-grained control, citations can be
 /// explicitly targeted by a bibliography through a
 /// @bibliography.target[`target`] selector.
-#[elem(Locatable, Synthesize, ShowSet, LocalName)]
+#[elem(since = "forever", Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.

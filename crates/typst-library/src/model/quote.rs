@@ -42,7 +42,7 @@ use crate::text::{SmartQuotes, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Locatable, Tagged, ShowSet)]
+#[elem(since = "0.9.0", Locatable, Tagged, ShowSet)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///

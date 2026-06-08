@@ -251,6 +251,7 @@ use crate::visualize::Color;
 #[elem(
     scope,
     title = "Raw Text / Code",
+    since = "forever",
     Synthesize,
     Locatable,
     Tagged,
@@ -810,7 +811,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", Tagged, PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", since = "0.9.0", Tagged, PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]

@@ -6,8 +6,9 @@ use syn::punctuated::Punctuated;
 use syn::{Ident, Result, Token};
 
 use crate::util::{
-    BlockWithReturn, determine_name_and_title, documentation, foundations, has_attr, kw,
-    oneliner, parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
+    BlockWithReturn, Since, determine_name_and_title, documentation, foundations,
+    has_attr, kw, oneliner, parse_attr, parse_flag, parse_key_value, parse_string,
+    parse_string_array, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.
@@ -22,6 +23,8 @@ struct Elem {
     name: String,
     /// The element's title case name.
     title: String,
+    /// The version of Typst the element was introduced in.
+    since: Option<Since>,
     /// Whether this element has an associated scope defined by the `#[scope]` macro.
     scope: bool,
     /// A list of alternate search terms for this element.
@@ -133,6 +136,7 @@ struct Meta {
     scope: bool,
     name: Option<String>,
     title: Option<String>,
+    since: Option<Since>,
     keywords: Vec<String>,
     capabilities: Vec<Ident>,
 }
@@ -143,6 +147,7 @@ impl Parse for Meta {
             scope: parse_flag::<kw::scope>(input)?,
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
             keywords: parse_string_array::<kw::keywords>(input)?,
             capabilities: Punctuated::<Ident, Token![,]>::parse_terminated(input)?
                 .into_iter()
@@ -185,6 +190,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     Ok(Elem {
         name,
         title,
+        since: meta.since,
         scope: meta.scope,
         keywords: meta.keywords,
         docs,
@@ -394,8 +400,16 @@ fn create_with_field_method(field: &Field) -> TokenStream {
 
 /// Creates the element's `NativeElement` implementation.
 fn create_native_elem_impl(element: &Elem) -> TokenStream {
-    let Elem { name, ident, title, scope, keywords, docs, .. } = element;
+    let Elem {
+        name, ident, title, since, scope, keywords, docs, ..
+    } = element;
     let def_site_key = ident.to_string();
+
+    let since = if let Some(since) = since {
+        quote! { Some(#since) }
+    } else {
+        quote! { None }
+    };
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;
@@ -447,6 +461,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                     #foundations::ContentVtable::new::<#ident>(
                         #name,
                         #title,
+                        #since,
                         #docs,
                         ::typst_utils::DefSite { path: file!(), key: #def_site_key },
                         &[#(#fields),*],

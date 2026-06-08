@@ -41,7 +41,7 @@ use crate::text::TextElem;
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented more
 /// than an item's marker becomes part of that item.
-#[elem(scope, title = "Bullet List", Locatable, Tagged)]
+#[elem(scope, title = "Bullet List", since = "forever", Locatable, Tagged)]
 pub struct ListElem {
     /// Defines the default @list.spacing[spacing] of the list. If it is
     /// `{false}`, the items are spaced apart with
@@ -164,7 +164,7 @@ impl ListElem {
 }
 
 /// A bullet list item.
-#[elem(name = "item", title = "Bullet List Item", Tagged)]
+#[elem(name = "item", title = "Bullet List Item", since = "0.4.0", Tagged)]
 pub struct ListItem {
     /// The item's body.
     #[required]
