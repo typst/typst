@@ -30,15 +30,18 @@
 #let releases = {
   releases
     .pairs()
-    .map(((v, d)) => {
-      let (day, month, year) = d.split(".").map(int)
-      (
-        version(..v.split(".").map(int)),
-        datetime(day: day, month: month, year: year),
-      )
-    })
+    .map(((tag, date)) => (
+      tag,
+      if date != none {
+        let (day, month, year) = date.split(".").map(int)
+        datetime(day: day, month: month, year: year)
+      },
+    ))
     .rev()
 }
+
+// The tag suffix of a release candidate.
+#let rc-suffix = regex("-rc(\\d+)$")
 
 #docs-chapter(
   title: "Changelog",
@@ -65,16 +68,36 @@
 // for them.
 #show heading.where(level: 2): set heading(numbering: none)
 
-#for (i, (release, date)) in releases.enumerate() {
-  let s = str(release)
+#for (i, (tag, date)) in releases.enumerate() {
+  let candidate = tag.match(rc-suffix)
+  let (base-version, rc) = if candidate != none {
+    let base-version = tag.trim(rc-suffix, at: end)
+    let rc = candidate.captures.first()
+    (base-version, rc)
+  } else {
+    (tag, none)
+  }
+
   docs-chapter(
-    route: "/changelog/" + s,
-    title: s,
-    title-fmt: [Typst #s (#date.display("[month repr:long] [day], [year]"))],
-    description: "Changes in Typst " + s,
+    route: "/changelog/" + base-version,
+    title: {
+      base-version
+      if rc != none { "-rc" + rc }
+    },
+    title-fmt: {
+      [Typst #base-version]
+      if rc != none [, Release Candidate #rc]
+      if date != none [
+        (#date.display("[month repr:long] [day], [year]"))
+      ] else [
+        (Unreleased)
+      ]
+    },
+    description: "Changes in Typst " + base-version,
+    class: "changelog",
     context {
       set heading(outlined: false) if target() == "paged"
-      include s + ".typ"
+      include base-version + ".typ"
       if target() == "html" [
         = Contributors <contributors>
         Thanks to everyone who contributed to this release!
@@ -82,7 +105,7 @@
         #block(html.elem("slot", attrs: (
           type: "contributors",
           from: "v" + str(releases.at(i + 1, default: ()).first(default: "23-03-28")),
-          to: "v" + s,
+          to: "v" + tag,
         )))
       ]
     },
