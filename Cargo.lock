@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "test-wrapper"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 
 [[package]]
 name = "thin-vec"
@@ -3057,7 +3057,7 @@ checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typst"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "arrayvec",
  "comemo",
@@ -3076,15 +3076,16 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.14.2"
-source = "git+https://github.com/typst/typst-assets?rev=955ae8d#955ae8db08d6e36694eb9cc61e61f586032ea572"
+version = "0.15.0-rc.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b89542a3881ae3efc945988a17c077919591893e03ce90972eb72ecdc368bcda"
 dependencies = [
  "bitflags 2.11.1",
 ]
 
 [[package]]
 name = "typst-bundle"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3106,7 +3107,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "chrono",
  "clap",
@@ -3152,12 +3153,12 @@ dependencies = [
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.14.2"
-source = "git+https://github.com/typst/typst-dev-assets?rev=0967e5e#0967e5ebc4ef264eee89dee938b29033c91d8e2c"
+version = "0.15.0-rc.1"
+source = "git+https://github.com/typst/typst-dev-assets?tag=v0.15.0-rc.1#6327db738a281e7b5766b40840a8601ef63f012b"
 
 [[package]]
 name = "typst-docs"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "az",
  "base64",
@@ -3195,7 +3196,7 @@ dependencies = [
 
 [[package]]
 name = "typst-eval"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3213,7 +3214,7 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
@@ -3229,7 +3230,7 @@ dependencies = [
 
 [[package]]
 name = "typst-html"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "az",
  "bumpalo",
@@ -3250,7 +3251,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3270,7 +3271,7 @@ dependencies = [
 
 [[package]]
 name = "typst-kit"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "chrono",
  "codespan-reporting",
@@ -3305,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "typst-layout"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "az",
  "bumpalo",
@@ -3339,7 +3340,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "arrayvec",
  "az",
@@ -3404,7 +3405,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3414,7 +3415,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "az",
  "bytemuck",
@@ -3441,7 +3442,7 @@ dependencies = [
 
 [[package]]
 name = "typst-realize"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -3458,7 +3459,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -3479,7 +3480,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "base64",
  "comemo",
@@ -3504,7 +3505,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "ecow",
  "rustc-hash",
@@ -3521,7 +3522,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "base64",
  "bitflags 2.11.1",
@@ -3565,7 +3566,7 @@ dependencies = [
 
 [[package]]
 name = "typst-timing"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "parking_lot",
  "serde",
@@ -3575,7 +3576,7 @@ dependencies = [
 
 [[package]]
 name = "typst-utils"
-version = "0.14.2"
+version = "0.15.0-rc.1"
 dependencies = [
  "libm",
  "once_cell",
