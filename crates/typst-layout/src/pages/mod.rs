@@ -4,6 +4,8 @@ mod collect;
 mod finalize;
 mod run;
 
+use std::num::NonZeroUsize;
+
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
@@ -181,19 +183,6 @@ fn layout_pages<'a>(
     // Slice up the children into logical parts.
     let items = collect(children, locator, styles);
 
-    // Layout the page runs in parallel.
-    let mut runs = engine.parallelize(
-        items.iter().filter_map(|item| match item {
-            Item::Run(children, initial, locator) => {
-                Some((children, initial, locator.relayout()))
-            }
-            _ => None,
-        }),
-        |engine, (children, initial, locator)| {
-            layout_page_run(engine, children, locator, *initial)
-        },
-    );
-
     let mut pages = EcoVec::new();
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
@@ -202,8 +191,15 @@ fn layout_pages<'a>(
     // between pages.
     for item in &items {
         match item {
-            Item::Run(..) => {
-                let layouted = runs.next().unwrap()?;
+            Item::Run(children, initial, locator) => {
+                let start_page = NonZeroUsize::new(pages.len() + 1).unwrap();
+                let layouted = layout_page_run(
+                    engine,
+                    children,
+                    locator.relayout(),
+                    *initial,
+                    start_page,
+                )?;
                 for layouted in layouted {
                     let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                     pages.push(page);
@@ -214,7 +210,9 @@ fn layout_pages<'a>(
                     continue;
                 }
 
-                let layouted = layout_blank_page(engine, locator.relayout(), *initial)?;
+                let start_page = NonZeroUsize::new(pages.len() + 1).unwrap();
+                let layouted =
+                    layout_blank_page(engine, locator.relayout(), *initial, start_page)?;
                 let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                 pages.push(page);
             }
