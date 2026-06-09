@@ -111,9 +111,9 @@ fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<Glyph
     {
         draw_raster_glyph(font, upem, raster_image)
     } else if ttf.is_color_glyph(glyph_id) {
-        draw_colr_glyph(font, upem, glyph_id)
+        draw_colr_glyph(font, glyph_id)
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
-        draw_svg_glyph(font, upem, glyph_id)
+        draw_svg_glyph(font, glyph_id)
     } else {
         None
     };
@@ -149,30 +149,27 @@ fn draw_raster_glyph(
     let data = Bytes::new(raster_image.data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
+    let scale = upem / raster_image.pixels_per_em as f64;
+    let image_width = scale * image.width();
+    let image_height = scale * image.height();
+
+    let x_offset = scale * raster_image.x as f64;
+    let mut y_offset = scale * raster_image.y as f64;
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
     // baseline to make it look good.
-    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
-        20.0
-    } else {
-        -(raster_image.y as f64)
-    };
+    if font.info().family.to_lowercase() == "apple color emoji" {
+        // This factor is just taken from krilla.
+        y_offset -= 0.128 * upem;
+    }
 
-    let position = Point::new(
-        upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * y_offset / raster_image.pixels_per_em as f64,
-    );
-    let aspect_ratio = image.width() / image.height();
-    let size = Size::new(upem, upem * aspect_ratio);
+    let position = Point::new(-x_offset, -(image_height + y_offset));
+    let size = Size::new(image_width, image_height);
     Some(GlyphFrameItem::Image(position, image, size))
 }
 
 /// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(
-    font: &FontInstance,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<GlyphFrameItem> {
+fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     let svg_string = colr_glyph_to_svg(font, glyph_id)?;
 
     let ttf = font.ttf();
@@ -184,8 +181,7 @@ fn draw_colr_glyph(
     let data = Bytes::from_string(svg_string);
     let image = Image::plain(SvgImage::new(data).ok()?);
 
-    let y_shift = Abs::pt(upem.to_pt() - y_max);
-    let position = Point::new(Abs::pt(x_min), y_shift);
+    let position = Point::new(Abs::pt(x_min), Abs::pt(-y_max));
     let size = Size::new(Abs::pt(width), Abs::pt(height));
     Some(GlyphFrameItem::Image(position, image, size))
 }
@@ -238,11 +234,7 @@ fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
 }
 
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(
-    font: &FontInstance,
-    upem: Abs,
-    glyph_id: GlyphId,
-) -> Option<GlyphFrameItem> {
+fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
     let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
@@ -287,7 +279,7 @@ fn draw_svg_glyph(
     let data = Bytes::from_string(data);
     let image = Image::plain(SvgImage::new(data).ok()?);
 
-    let position = Point::new(view_box.min.x, view_box.min.y + upem);
+    let position = Point::new(view_box.min.x, view_box.min.y);
     let size = view_box.size();
     Some(GlyphFrameItem::Image(position, image, size))
 }

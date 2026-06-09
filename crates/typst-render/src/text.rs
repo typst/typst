@@ -27,7 +27,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
             let upem = text.font.units_per_em();
             let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(x_offset, -y_offset - text.size))
+                .pre_translate(Point::new(x_offset, -y_offset))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
             if let Some(frame) = glyph_frame(&text.font, glyph.id) {
