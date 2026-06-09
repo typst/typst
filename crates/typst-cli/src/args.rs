@@ -627,6 +627,8 @@ pub enum Target {
     Paged,
     /// HTML.
     Html,
+    /// Bundle.
+    Bundle,
 }
 
 display_possible_values!(Target);
