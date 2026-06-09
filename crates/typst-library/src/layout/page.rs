@@ -254,6 +254,23 @@ pub struct PageElem {
     #[ghost]
     pub columns: NonZeroUsize,
 
+    /// The width of the side note column.
+    ///
+    /// This uses the same left/right and inside/outside terminology as
+    /// margins. A single length is interpreted as an `outside` side note
+    /// column.
+    #[default(SideNoteArea::outside(crate::layout::Em::new(12.0).into()))]
+    #[ghost]
+    pub side_width: SideNoteArea<Length>,
+
+    /// The gap between the page body and side note column.
+    ///
+    /// Footnotes with `placement: "side"` are offset from the body by this
+    /// amount.
+    #[default(crate::layout::Em::new(1.0).into())]
+    #[ghost]
+    pub side_gap: Length,
+
     /// The page's background fill.
     ///
     /// Setting this to something non-transparent instructs the printer to color
@@ -712,6 +729,124 @@ impl<T: Reflect + FromValue + Copy + PartialEq> FromValue for Margin<T> {
                     top,
                     right: outside.or(right).or(x),
                     bottom,
+                },
+                two_sided,
+            });
+        }
+
+        Err(Self::error(&value))
+    }
+}
+
+/// Specification of the page's side note column.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct SideNoteArea<T: PartialEq> {
+    /// The width for the horizontal side on which side notes are placed.
+    pub sides: Sides<Option<T>>,
+    /// Whether to swap `left` and `right` to make them `inside` and `outside`
+    /// (when to swap depends on the binding).
+    pub two_sided: bool,
+}
+
+impl<T: Clone + PartialEq> SideNoteArea<T> {
+    /// Create an outside side note column.
+    pub fn outside(value: T) -> Self {
+        Self {
+            sides: Sides {
+                left: None,
+                top: None,
+                right: Some(value),
+                bottom: None,
+            },
+            two_sided: true,
+        }
+    }
+
+    /// Map the value type.
+    pub fn map<U: PartialEq>(self, f: impl Fn(T) -> U) -> SideNoteArea<U> {
+        SideNoteArea {
+            sides: self.sides.map(|side| side.map(&f)),
+            two_sided: self.two_sided,
+        }
+    }
+}
+
+impl<T: Fold + PartialEq> Fold for SideNoteArea<T> {
+    fn fold(self, outer: Self) -> Self {
+        if self.sides.iter().any(Option::is_some) { self } else { outer }
+    }
+}
+
+impl<T: Reflect + PartialEq> Reflect for SideNoteArea<T> {
+    fn input() -> CastInfo {
+        T::input() + Dict::input()
+    }
+
+    fn output() -> CastInfo {
+        Self::input()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value) || Dict::castable(value)
+    }
+}
+
+impl<T: IntoValue + PartialEq> IntoValue for SideNoteArea<T> {
+    fn into_value(self) -> Value {
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: Option<T>| {
+            if let Some(c) = component {
+                dict.insert(key.into(), c.into_value());
+            }
+        };
+
+        if self.two_sided {
+            handle("inside", self.sides.left);
+            handle("outside", self.sides.right);
+        } else {
+            handle("left", self.sides.left);
+            handle("right", self.sides.right);
+        }
+
+        Value::Dict(dict)
+    }
+}
+
+impl<T: Reflect + FromValue + Copy + PartialEq> FromValue for SideNoteArea<T> {
+    fn from_value(value: Value) -> HintedStrResult<Self> {
+        if T::castable(&value) {
+            let v = T::from_value(value)?;
+            return Ok(Self::outside(v));
+        }
+
+        if Dict::castable(&value) {
+            let mut dict = Dict::from_value(value)?;
+            let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+
+            let outside = take("outside")?;
+            let inside = take("inside")?;
+            let left = take("left")?;
+            let right = take("right")?;
+
+            let specified =
+                [outside.is_some(), inside.is_some(), left.is_some(), right.is_some()]
+                    .into_iter()
+                    .filter(|&v| v)
+                    .count();
+            if specified != 1 {
+                bail!("expected exactly one of `left`, `right`, `inside`, or `outside`");
+            }
+
+            let two_sided = outside.is_some() || inside.is_some();
+
+            dict.finish(&["left", "right", "outside", "inside"])?;
+
+            return Ok(Self {
+                sides: Sides {
+                    left: inside.or(left),
+                    top: None,
+                    right: outside.or(right),
+                    bottom: None,
                 },
                 two_sided,
             });

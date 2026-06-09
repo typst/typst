@@ -12,7 +12,8 @@ use typst_library::layout::{
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
+    FootnoteElem, FootnoteEntry, FootnotePlacement, LineNumberingScope, Numbering,
+    ParLineMarker, SideNoteSide,
 };
 use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
@@ -38,7 +39,9 @@ pub fn compose(
     config: &Config,
     locator: Locator,
     regions: Regions,
+    number: NonZeroUsize,
 ) -> SourceResult<Frame> {
+    let sidenote_side = resolve_sidenote_side(config, number);
     Composer {
         engine,
         config,
@@ -46,6 +49,7 @@ pub fn compose(
         column: 0,
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
+        sidenote_side,
         work,
         footnote_spill: None,
         footnote_queue: vec![],
@@ -69,6 +73,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
+    sidenote_side: Option<(SideNoteSide, Abs)>,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -388,13 +393,22 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
+            let note_y = regions.base().y - regions.size.y + y;
+
             // The amount of space used by the in-flow content that contains the
             // footnote marker. For a breakable frame, it's the y position of
             // the marker. For an unbreakable frame, it's the full height.
             let flow_need = if breakable { y } else { flow_need };
 
             // Process the footnote.
-            match self.footnote(elem, &mut regions, flow_need, migratable) {
+            let result =
+                if elem.placement.get(self.config.shared) == FootnotePlacement::Side {
+                    self.sidenote(elem, &regions, note_y)
+                } else {
+                    self.footnote(elem, &mut regions, flow_need, migratable)
+                };
+
+            match result {
                 // The footnote was already processed or queued.
                 Ok(()) => {}
                 // First handle more footnotes before relayouting.
@@ -547,6 +561,57 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         Err(Stop::Relayout(PlacementScope::Column))
     }
 
+    /// Handles a single side note.
+    fn sidenote(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &Regions,
+        y: Abs,
+    ) -> FlowResult<()> {
+        // Ignore reference footnotes and already processed ones.
+        let loc = elem.location().unwrap();
+        if elem.is_ref() || self.skipped(loc) {
+            return Ok(());
+        }
+
+        let Some((side, width)) = self.sidenote_side else {
+            return Ok(());
+        };
+        let gap = self.config.sidenote.gap;
+
+        let mut pod = *regions;
+        pod.expand.x = true;
+        pod.expand.y = false;
+        pod.size.x = width;
+        pod.size.y = regions.base().y;
+
+        let frame = layout_footnote(self.engine, self.config, &elem, pod)?.into_frame();
+        let y = y - frame.baseline();
+        self.column_insertions.push_sidenote(frame, y, width, gap, side);
+        self.column_insertions.skips.push(loc);
+
+        Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// The amount by which a wide block should grow and shift.
+    pub fn wide_block_geometry(&self) -> Option<(SideNoteSide, Abs, Abs)> {
+        if self.config.mode != FlowMode::Root {
+            return None;
+        }
+
+        self.sidenote_side
+            .map(|(side, width)| (side, width, self.config.sidenote.gap))
+    }
+
+    /// Register a wide block as occupying the side note column.
+    pub fn push_sidenote_obstacle(&mut self, side: SideNoteSide, y: Abs, height: Abs) {
+        self.column_insertions.sidenote_obstacles.push(SideNoteObstacle {
+            side,
+            y,
+            height,
+        });
+    }
+
     /// Handles spillover from a footnote.
     fn footnote_spill(
         &mut self,
@@ -582,6 +647,23 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// The amount of width needed by insertions.
     pub fn insertion_width(&self) -> Abs {
         self.column_insertions.width.max(self.page_insertions.width)
+    }
+}
+
+/// Resolve the side note side for a physical page within the current page run.
+fn resolve_sidenote_side(
+    config: &Config,
+    number: NonZeroUsize,
+) -> Option<(SideNoteSide, Abs)> {
+    let mut area = config.sidenote.area;
+    if area.two_sided && config.sidenote.binding.swap(number) {
+        std::mem::swap(&mut area.sides.left, &mut area.sides.right);
+    }
+
+    if let Some(width) = area.sides.left {
+        Some((SideNoteSide::Left, width))
+    } else {
+        area.sides.right.map(|width| (SideNoteSide::Right, width))
     }
 }
 
@@ -634,6 +716,8 @@ struct Insertions<'a, 'b> {
     top_floats: Vec<(&'b PlacedChild<'a>, Frame)>,
     bottom_floats: Vec<(&'b PlacedChild<'a>, Frame)>,
     footnotes: Vec<Frame>,
+    sidenotes: Vec<SideNote>,
+    sidenote_obstacles: Vec<SideNoteObstacle>,
     footnote_separator: Option<Frame>,
     top_size: Abs,
     bottom_size: Abs,
@@ -677,6 +761,18 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.footnote_separator = Some(frame);
     }
 
+    /// Add a side note to the side note column.
+    fn push_sidenote(
+        &mut self,
+        frame: Frame,
+        y: Abs,
+        width: Abs,
+        gap: Abs,
+        side: SideNoteSide,
+    ) {
+        self.sidenotes.push(SideNote { frame, y, width, gap, side });
+    }
+
     /// The combined height of the top and bottom area (including clearances).
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
@@ -686,13 +782,15 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
     /// Produce a frame for the full region based on the `inner` frame produced
     /// by distribution or column layout.
-    fn finalize(self, work: &mut Work, config: &Config, inner: Frame) -> Frame {
+    fn finalize(mut self, work: &mut Work, config: &Config, inner: Frame) -> Frame {
         work.extend_skips(&self.skips);
 
         if self.top_floats.is_empty()
             && self.bottom_floats.is_empty()
             && self.footnote_separator.is_none()
             && self.footnotes.is_empty()
+            && self.sidenotes.is_empty()
+            && self.sidenote_obstacles.is_empty()
         {
             return inner;
         }
@@ -753,8 +851,90 @@ impl<'a, 'b> Insertions<'a, 'b> {
             output.push_frame(Point::with_y(y), frame);
         }
 
+        layout_sidenotes(
+            &mut self.sidenotes,
+            &self.sidenote_obstacles,
+            size.y,
+            config.footnote.gap,
+        );
+        for note in self.sidenotes {
+            let x = match note.side {
+                SideNoteSide::Left => -note.width - note.gap,
+                SideNoteSide::Right => size.x + note.gap,
+            };
+            output.push_frame(Point::new(x, note.y), note.frame);
+        }
+
         output
     }
+}
+
+/// A side note awaiting final placement.
+struct SideNote {
+    frame: Frame,
+    y: Abs,
+    width: Abs,
+    gap: Abs,
+    side: SideNoteSide,
+}
+
+/// A region in the side note column occupied by wide flow content.
+#[derive(Debug, Copy, Clone)]
+struct SideNoteObstacle {
+    side: SideNoteSide,
+    y: Abs,
+    height: Abs,
+}
+
+/// Avoid side note overlaps and keep them within the region bottom.
+fn layout_sidenotes(
+    notes: &mut [SideNote],
+    obstacles: &[SideNoteObstacle],
+    bottom: Abs,
+    gap: Abs,
+) {
+    notes.sort_by(|a, b| a.y.to_pt().total_cmp(&b.y.to_pt()));
+    let mut obstacles = obstacles.to_vec();
+    obstacles.sort_by(|a, b| a.y.to_pt().total_cmp(&b.y.to_pt()));
+
+    let mut next = Abs::zero();
+    for note in notes.iter_mut() {
+        note.y.set_max(next);
+        avoid_obstacles_down(note, &obstacles, gap);
+        next = note.y + note.frame.height() + gap;
+    }
+
+    let mut limit = bottom;
+    for note in notes.iter_mut().rev() {
+        let max_y = (limit - note.frame.height()).max(Abs::zero());
+        note.y.set_min(max_y);
+        avoid_obstacles_up(note, &obstacles, gap);
+        limit = note.y - gap;
+    }
+}
+
+fn avoid_obstacles_down(note: &mut SideNote, obstacles: &[SideNoteObstacle], gap: Abs) {
+    for obstacle in obstacles.iter().filter(|obstacle| obstacle.side == note.side) {
+        if overlaps_obstacle(note, *obstacle, gap) {
+            note.y = obstacle.y + obstacle.height + gap;
+        }
+    }
+}
+
+fn avoid_obstacles_up(note: &mut SideNote, obstacles: &[SideNoteObstacle], gap: Abs) {
+    for obstacle in obstacles.iter().filter(|obstacle| obstacle.side == note.side).rev() {
+        if overlaps_obstacle(note, *obstacle, gap) {
+            note.y = (obstacle.y - note.frame.height() - gap).max(Abs::zero());
+        }
+    }
+}
+
+fn overlaps_obstacle(note: &SideNote, obstacle: SideNoteObstacle, gap: Abs) -> bool {
+    let note_start = note.y;
+    let note_end = note.y + note.frame.height();
+    let obstacle_start = obstacle.y - gap;
+    let obstacle_end = obstacle.y + obstacle.height + gap;
+    note_start < obstacle_end && obstacle_start < note_end
 }
 
 /// Lay out the given collected lines' line numbers to an output frame.

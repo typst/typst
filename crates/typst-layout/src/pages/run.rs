@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
@@ -47,8 +49,9 @@ pub fn layout_blank_page(
     engine: &mut Engine,
     locator: Locator,
     initial: StyleChain,
+    start_page: NonZeroUsize,
 ) -> SourceResult<LayoutedPage> {
-    let layouted = layout_page_run(engine, &[], locator, initial)?;
+    let layouted = layout_page_run(engine, &[], locator, initial, start_page)?;
     Ok(layouted.into_iter().next().unwrap())
 }
 
@@ -59,6 +62,7 @@ pub fn layout_page_run(
     children: &[Pair],
     locator: Locator,
     initial: StyleChain,
+    start_page: NonZeroUsize,
 ) -> SourceResult<Vec<LayoutedPage>> {
     layout_page_run_impl(
         engine.world,
@@ -70,6 +74,7 @@ pub fn layout_page_run(
         children,
         locator.track(),
         initial,
+        start_page,
     )
 }
 
@@ -86,6 +91,7 @@ fn layout_page_run_impl(
     children: &[Pair],
     locator: Tracked<Locator>,
     initial: StyleChain,
+    start_page: NonZeroUsize,
 ) -> SourceResult<Vec<LayoutedPage>> {
     let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
@@ -196,6 +202,7 @@ fn layout_page_run_impl(
         styles.get(PageElem::columns),
         styles.get(ColumnsElem::gutter).resolve(styles),
         FlowMode::Root,
+        start_page,
     )?;
 
     // Layouts a single marginal.

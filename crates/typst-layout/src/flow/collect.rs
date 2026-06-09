@@ -237,6 +237,7 @@ impl<'a> Collector<'a, '_, '_> {
         let align = styles.resolve(AlignElem::alignment);
         let alone = self.children.len() == 1;
         let sticky = elem.sticky.get(styles);
+        let wide = elem.wide.get(styles);
         let breakable = elem.breakable.get(styles);
         let fr = match elem.height.get(styles) {
             Sizing::Fr(fr) => Some(fr),
@@ -257,6 +258,7 @@ impl<'a> Collector<'a, '_, '_> {
                 align,
                 sticky,
                 alone,
+                wide,
                 fr,
                 elem,
                 styles,
@@ -268,6 +270,7 @@ impl<'a> Collector<'a, '_, '_> {
                 align,
                 sticky,
                 alone,
+                wide,
                 elem,
                 styles,
                 locator,
@@ -380,6 +383,7 @@ pub struct SingleChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
     pub alone: bool,
+    pub wide: bool,
     pub fr: Option<Fr>,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
@@ -446,6 +450,7 @@ fn layout_single_impl(
 pub struct MultiChild<'a> {
     pub align: Axes<FixedAlignment>,
     pub sticky: bool,
+    pub wide: bool,
     alone: bool,
     elem: &'a Packed<BlockElem>,
     styles: StyleChain<'a>,
@@ -615,6 +620,11 @@ impl MultiSpill<'_, '_> {
     /// The alignment of the breakable block.
     pub fn align(&self) -> Axes<FixedAlignment> {
         self.multi.align
+    }
+
+    /// Whether the breakable block should occupy the side note area.
+    pub fn wide(&self) -> bool {
+        self.multi.wide
     }
 }
 

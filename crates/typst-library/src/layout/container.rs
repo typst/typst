@@ -387,6 +387,14 @@ pub struct BlockElem {
     #[default(false)]
     pub sticky: bool,
 
+    /// Whether the block may occupy the page's side note column.
+    ///
+    /// If enabled in the page flow, the block expands horizontally into the
+    /// configured side note area. This is useful for wide figures, callouts, or
+    /// tables that should temporarily use the space reserved for side notes.
+    #[default(false)]
+    pub wide: bool,
+
     /// The contents of the block.
     #[positional]
     pub body: Option<BlockBody>,
