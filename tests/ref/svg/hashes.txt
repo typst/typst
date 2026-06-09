@@ -839,7 +839,7 @@ d987856ceb0fd2f906c660cd0846c485 issue-758-link-repeat
 17d0529f1e0c4938084a584d217b2a99 issue-8261-string-as-ellipsis
 5e076d36931fe54b76edb4ac596f3109 issue-8261-string-as-empty
 605a385c63461134cb9e8f00fdaf88ec issue-8261-string-as-non-numeric
-a5bea2b54fbbf065983e8f63fa0bdc57 issue-8372-stretched-glyphs
+49c58d52a09c8a0e2941f0c9b3e02a26 issue-8372-stretched-glyphs
 4eaaaf2ce6aad3ad39da90b293649385 issue-852-mat-type
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
