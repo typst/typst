@@ -31,8 +31,8 @@
 #let releases = {
   releases
     .pairs()
-    .map(((tag, date)) => (
-      tag,
+    .map(((version, date)) => (
+      version,
       if date != none {
         let (day, month, year) = date.split(".").map(int)
         datetime(day: day, month: month, year: year)
@@ -42,7 +42,7 @@
 }
 
 // The tag suffix of a release candidate.
-#let rc-suffix = regex("-rc(\\d+)$")
+#let rc-suffix = regex("-rc\\.(\\d+)$")
 
 #docs-chapter(
   title: "Changelog",
@@ -69,21 +69,21 @@
 // for them.
 #show heading.where(level: 2): set heading(numbering: none)
 
-#for (i, (tag, date)) in releases.enumerate() {
-  let candidate = tag.match(rc-suffix)
+#for (i, (version, date)) in releases.enumerate() {
+  let candidate = version.match(rc-suffix)
   let (base-version, rc) = if candidate != none {
-    let base-version = tag.trim(rc-suffix, at: end)
+    let base-version = version.trim(rc-suffix, at: end)
     let rc = candidate.captures.first()
     (base-version, rc)
   } else {
-    (tag, none)
+    (version, none)
   }
 
   docs-chapter(
     route: "/changelog/" + base-version,
     title: {
       base-version
-      if rc != none { "-rc" + rc }
+      if rc != none { "-rc." + rc }
     },
     title-fmt: {
       [Typst #base-version]
@@ -106,7 +106,7 @@
         #block(html.elem("slot", attrs: (
           type: "contributors",
           from: "v" + str(releases.at(i + 1, default: ()).first(default: "23-03-28")),
-          to: "v" + tag,
+          to: "v" + version,
         )))
       ]
     },
