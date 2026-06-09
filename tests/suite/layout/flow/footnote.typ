@@ -82,7 +82,7 @@ Alpha #footnote[First overlapping side note wraps.]#footnote[
 #show footnote.entry: set text(5.5pt)
 
 Top.
-#v(54pt)
+#v(1fr)
 Bottom #footnote[
   Bottom \
   side note \
@@ -180,6 +180,62 @@ After.
 Before #footnote[Side note stays outside the fractionally sized block.]
 #block(wide: true, height: 1fr, fill: luma(230), inset: 3pt)[
   Fractional wide block.
+]
+
+--- footnote-sidenote-wide-block-outside paged ---
+// Test that wide blocks occupy the physical side note column on facing pages.
+#set page(
+  width: 190pt,
+  height: 92pt,
+  margin: (x: 45pt, y: 10pt),
+  binding: left,
+  side-width: (outside: 38pt),
+  side-gap: 5pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side")
+#show footnote.entry: set text(5.5pt)
+
+Odd #footnote[Outside on the first page.]
+
+#block(wide: true, fill: luma(230), inset: 3pt)[
+  Wide block reaches the right side note column.
+]
+
+#pagebreak()
+
+Even #footnote[Outside on the second page.]
+
+#block(wide: true, fill: luma(230), inset: 3pt)[
+  Wide block reaches the left side note column.
+]
+
+--- footnote-sidenote-wide-block-inside paged ---
+// Test that wide blocks can occupy the inside side note column.
+#set page(
+  width: 190pt,
+  height: 92pt,
+  margin: (x: 45pt, y: 10pt),
+  binding: left,
+  side-width: (inside: 38pt),
+  side-gap: 5pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side")
+#show footnote.entry: set text(5.5pt)
+
+Odd #footnote[Inside on the first page.]
+
+#block(wide: true, fill: luma(230), inset: 3pt)[
+  Wide block reaches the left side note column.
+]
+
+#pagebreak()
+
+Even #footnote[Inside on the second page.]
+
+#block(wide: true, fill: luma(230), inset: 3pt)[
+  Wide block reaches the right side note column.
 ]
 
 --- footnote-sidenote-width-conflict eval ---
