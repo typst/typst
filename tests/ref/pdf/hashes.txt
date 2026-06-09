@@ -597,6 +597,8 @@ d38df907d85d1f74e5f6e2c5d91ef1a4 highlight-radius
 5a9c9b8534023fefe65f882b3da982f7 hyphenate-between-shape-runs
 3c542194846da390bfa983a31485bdcd hyphenate-es-capitalized-names
 cd5a26da8e1b42e5679a784adf0ee9cb hyphenate-es-repeat-hyphen
+7d7e5fc1c42851cee3e5fa41cdc0c4b4 hyphenate-first-word-only
+086acf2050c5e258eec95b51bc735332 hyphenate-indic
 42008595c998919ff78299597bffa526 hyphenate-off-temporarily
 8e9229c5522ba7773f43328d16666917 hyphenate-outside-of-words
 fa59b09f37d26eea7cf91323391acf49 hyphenate-pt-dash-emphasis

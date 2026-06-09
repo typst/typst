@@ -595,6 +595,8 @@ da12af82efd5656a117722aec072acc5 hyphenate
 945499ca668fd291db5c55a01dd048c1 hyphenate-between-shape-runs
 ff6c6a8eabbe2534895545b0009449d1 hyphenate-es-capitalized-names
 68d032dbc2ce96a82f9bc4925452cbbd hyphenate-es-repeat-hyphen
+36ef833291289e6a44415fc5ef0acbc7 hyphenate-first-word-only
+2337feaf77387aaa92584330e68fec57 hyphenate-indic
 2dfc9d922d6fcb36d384ca7216027836 hyphenate-off-temporarily
 e0c79b602e3a75c00b06d60742814264 hyphenate-outside-of-words
 3e4b50464d8eee690edbfbe04990497f hyphenate-pt-dash-emphasis

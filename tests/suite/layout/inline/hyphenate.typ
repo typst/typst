@@ -60,6 +60,20 @@ It's a #emph[Tree]beard.
 #set text(lang: "de")
 #block(width: 0pt, "(bzw.)")
 
+--- hyphenate-first-word-only paged ---
+// Like TeX, only the first word of a chunk is hyphenated. Leading punctuation
+// is skipped, but a word following interior punctuation (here after the comma)
+// is left alone.
+#set text(hyphenate: true)
+#block(width: 0pt, "communication,communication")
+
+--- hyphenate-indic paged ---
+// Combining marks like the virama and vowel signs must stay attached to their
+// base letters, so that Indic scripts can be hyphenated.
+#set text(lang: "hi", hyphenate: true )
+#block(width: 0pt, "विद्यालय")
+#block(width: 0pt, "पुस्तकालय")
+
 --- hyphenate-pt-repeat-hyphen-natural-word-breaking paged ---
 // The word breaker naturally breaks arco-da-velha at arco-/-da-velha,
 // so we shall repeat the hyphen, even that hyphenate is set to false.
