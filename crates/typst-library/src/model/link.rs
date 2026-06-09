@@ -136,7 +136,7 @@ use crate::text::{LocalName, TextElem};
 /// as _named destinations._ PNG documents do not support linking.
 ///
 /// Note that links always use full relative paths. In some scenarios (primarily
-/// for multi-page web sites), this may not be desirable. For instance, you may
+/// for multi-page websites), this may not be desirable. For instance, you may
 /// want to generate a `/blog/index.html` document while wanting to link to it
 /// as just `/blog`. Furthermore, your web server might treat `/blog` and
 /// `/blog/` as interchangeable and serve `/blog/index.html` for both. If a user

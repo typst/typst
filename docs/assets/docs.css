@@ -1645,3 +1645,7 @@ p + .symbol-grid {
   font-size: 14px;
   color: #565565;
 }
+
+.changelog h3 {
+  font-size: 20px;
+}

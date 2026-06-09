@@ -110,6 +110,16 @@ pub struct TextElem {
     /// below, the font `Inria Serif` is preferred, but since it does not
     /// contain Arabic glyphs, the arabic text uses `Noto Sans Arabic` instead.
     ///
+    /// Typst aims to unify different fonts from the same family under a single
+    /// family name. To that effect, it automatically trims common style
+    /// suffixes like "Bold" or "Condensed" from font family names. Instead of
+    /// selecting these through the name, access them through Typst's built-in
+    /// mechanisms (such as the @text.weight[`weight`] and
+    /// @text.stretch[`stretch`] parameters). Similarly, when using a variable
+    /// font with Typst, the suffixes "Variable", "Var", and "VF" should be
+    /// omitted as Typst trims them to unify static and variable fonts into a
+    /// single family.
+    ///
     /// Between fonts from the same family, Typst picks the one that is the
     /// closest match to the configured text @text.style[`style`],
     /// @text.weight[`weight`], and @text.stretch[`stretch`]. If both a static

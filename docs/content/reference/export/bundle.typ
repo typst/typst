@@ -10,7 +10,7 @@
   Bundle export is only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with it by passing `--features bundle` or setting the `TYPST_FEATURES` environment variables to `bundle`. To use both the `bundle` and the `html` feature at the same time, specify both separated with a comma (i.e. `bundle,html`). In the web app, bundle export is not available at this time.
 ]
 
-With Typst's bundle export, you can emit multiple output files from a single Typst project. Bundle output is useful for creating multi-page web sites with HTML export, but it is not limited to HTML export. You can create bundles containing any combination of @html[HTML pages], @pdf[PDFs], @reference:png[PNGs], @reference:svg[SVGs], and arbitrary @asset[assets].
+With Typst's bundle export, you can emit multiple output files from a single Typst project. Bundle output is useful for creating multi-page websites with HTML export, but it is not limited to HTML export. You can create bundles containing any combination of @html[HTML pages], @pdf[PDFs], @reference:png[PNGs], @reference:svg[SVGs], and arbitrary @asset[assets].
 
 = Exporting as a bundle <exporting-as-a-bundle>
 == Command Line <command-line>
