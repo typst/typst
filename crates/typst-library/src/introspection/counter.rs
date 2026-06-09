@@ -296,9 +296,10 @@ impl Counter {
     ) -> Option<Numbering> {
         match self.0 {
             CounterKey::Page => loc.page_numbering(engine, span),
-            CounterKey::Selector(Selector::Elem(func, _)) => engine
+            CounterKey::Selector(Selector::Elem(func, _)) => match engine
                 .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
-                .and_then(|content| {
+            {
+                Some(content) => {
                     if func == HeadingElem::ELEM {
                         let elem = content.to_packed::<HeadingElem>()?;
                         elem.numbering.as_option().clone().flatten()
@@ -314,8 +315,8 @@ impl Counter {
                     } else {
                         None
                     }
-                })
-                .or_else(|| {
+                }
+                None => {
                     if func == HeadingElem::ELEM {
                         styles.get_cloned(HeadingElem::numbering)
                     } else if func == FigureElem::ELEM {
@@ -327,7 +328,8 @@ impl Counter {
                     } else {
                         None
                     }
-                }),
+                }
+            },
             _ => None,
         }
     }
