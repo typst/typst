@@ -107,7 +107,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
         drop(checkpoint);
 
-        Ok(self.page_insertions.finalize(self.work, self.config, output))
+        Ok(self.page_insertions.finalize(
+            self.work,
+            self.config,
+            regions.base().y,
+            output,
+        ))
     }
 
     /// Lay out the inner contents of a container/page.
@@ -212,7 +217,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         let insertions = std::mem::take(&mut self.column_insertions);
-        let mut output = insertions.finalize(self.work, self.config, inner);
+        let mut output =
+            insertions.finalize(self.work, self.config, regions.base().y, inner);
 
         // Lay out per-column line numbers.
         if let Some(line_config) = &self.config.line_numbers {
@@ -367,6 +373,20 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         breakable: bool,
         migratable: bool,
     ) -> FlowResult<()> {
+        self.footnotes_at(regions, frame, Abs::zero(), flow_need, breakable, migratable)
+    }
+
+    /// Like [`Self::footnotes`], but with a vertical offset for frames that are
+    /// placed out of the normal flow.
+    pub fn footnotes_at(
+        &mut self,
+        regions: &Regions,
+        frame: &Frame,
+        y_offset: Abs,
+        flow_need: Abs,
+        breakable: bool,
+        migratable: bool,
+    ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
         if self.config.mode != FlowMode::Root {
             return Ok(());
@@ -393,7 +413,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
-            let note_y = regions.base().y - regions.size.y + y;
+            let note_y = regions.base().y - regions.size.y + y_offset + y;
 
             // The amount of space used by the in-flow content that contains the
             // footnote marker. For a breakable frame, it's the y position of
@@ -587,10 +607,33 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let frame = layout_footnote(self.engine, self.config, &elem, pod)?.into_frame();
         let y = y - frame.baseline();
-        self.column_insertions.push_sidenote(frame, y, width, gap, side);
+        self.column_insertions.push_sidenote(frame, loc, y, width, gap, side);
         self.column_insertions.skips.push(loc);
 
         Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// Correct side note anchors after fractional spacing and alignment have
+    /// been resolved during distribution finalization.
+    pub fn reposition_sidenotes(&mut self, frame: &Frame, y_offset: Abs) {
+        let mut notes = vec![];
+        find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
+
+        for (y, elem) in notes {
+            if elem.placement.get(self.config.shared) != FootnotePlacement::Side {
+                continue;
+            }
+
+            let loc = elem.location().unwrap();
+            if let Some(note) = self
+                .column_insertions
+                .sidenotes
+                .iter_mut()
+                .find(|note| note.loc == loc)
+            {
+                note.y = y_offset + y - note.frame.baseline();
+            }
+        }
     }
 
     /// The amount by which a wide block should grow and shift.
@@ -765,12 +808,13 @@ impl<'a, 'b> Insertions<'a, 'b> {
     fn push_sidenote(
         &mut self,
         frame: Frame,
+        loc: Location,
         y: Abs,
         width: Abs,
         gap: Abs,
         side: SideNoteSide,
     ) {
-        self.sidenotes.push(SideNote { frame, y, width, gap, side });
+        self.sidenotes.push(SideNote { frame, loc, y, width, gap, side });
     }
 
     /// The combined height of the top and bottom area (including clearances).
@@ -782,7 +826,13 @@ impl<'a, 'b> Insertions<'a, 'b> {
 
     /// Produce a frame for the full region based on the `inner` frame produced
     /// by distribution or column layout.
-    fn finalize(mut self, work: &mut Work, config: &Config, inner: Frame) -> Frame {
+    fn finalize(
+        mut self,
+        work: &mut Work,
+        config: &Config,
+        base_height: Abs,
+        inner: Frame,
+    ) -> Frame {
         work.extend_skips(&self.skips);
 
         if self.top_floats.is_empty()
@@ -854,7 +904,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
         layout_sidenotes(
             &mut self.sidenotes,
             &self.sidenote_obstacles,
-            size.y,
+            size.y.max(base_height),
             config.footnote.gap,
         );
         for note in self.sidenotes {
@@ -872,6 +922,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
 /// A side note awaiting final placement.
 struct SideNote {
     frame: Frame,
+    loc: Location,
     y: Abs,
     width: Abs,
     gap: Abs,

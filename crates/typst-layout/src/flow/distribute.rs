@@ -511,8 +511,21 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.regions.size.y -= weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
-            self.composer
-                .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
+            let y_offset = match placed.align_y.unwrap_or_default() {
+                Some(align) => {
+                    let delta = placed.delta.y.relative_to(self.regions.base().y);
+                    align.position(self.regions.base().y - frame.height()) + delta
+                }
+                None => Abs::zero(),
+            };
+            self.composer.footnotes_at(
+                &self.regions,
+                &frame,
+                y_offset,
+                Abs::zero(),
+                true,
+                true,
+            )?;
             self.flush_tags();
             self.items.push(Item::Placed(frame, placed));
         }
@@ -651,6 +664,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                                 frame.height(),
                             );
                         }
+                        self.composer.reposition_sidenotes(&frame, pos.y);
                         output.push_frame(pos, frame);
                     }
                     offset += length;
@@ -671,6 +685,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                             frame.height(),
                         );
                     }
+                    self.composer.reposition_sidenotes(&frame, pos.y);
 
                     // The baseline of the whole region will be the set to the
                     // baseline of the first in-flow frame. For example, of the
