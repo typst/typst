@@ -547,6 +547,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
                 TestOutput::Pdftags => ("Filter PDF tags", icons::PDFTAGS),
                 TestOutput::Svg => ("Filter SVG", icons::SVG),
                 TestOutput::Html => ("Filter HTML", icons::HTML),
+                TestOutput::Xhtml => ("Filter XHTML", icons::HTML),
                 TestOutput::Bundle => ("Filter bundle", icons::BUNDLE),
             };
             parent.label().class("icon-toggle-button").with(|label| {
@@ -586,6 +587,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
                     TestOutput::Pdftags => ("Show PDF tags diffs", icons::PDFTAGS),
                     TestOutput::Svg => ("Show SVG diffs", icons::SVG),
                     TestOutput::Html => ("Show HTML diffs", icons::HTML),
+                    TestOutput::Xhtml => ("Show XHTML diffs", icons::HTML),
                     TestOutput::Bundle => ("Show bundle diffs", icons::BUNDLE),
                 };
 
@@ -732,6 +734,7 @@ fn test_report_header(
                     TestOutput::Pdftags => ("View PDF tags", icons::PDFTAGS),
                     TestOutput::Svg => ("View SVG", icons::SVG),
                     TestOutput::Html => ("View HTML", icons::HTML),
+                    TestOutput::Xhtml => ("View XHTML", icons::HTML),
                     TestOutput::Bundle => ("View bundle", icons::BUNDLE),
                 };
                 let report_file_tab = |parent: &mut HtmlElem| {

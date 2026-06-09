@@ -174,8 +174,13 @@ pub trait HashOutputType: OutputType {
 /// the [`HashOutputType::INDEX`].
 ///
 /// NOTE: This has to be kept in sync with the [`HashOutputType::INDEX`].
-pub const HASH_OUTPUTS: [TestOutput; 4] =
-    [TestOutput::Pdf, TestOutput::Pdftags, TestOutput::Svg, TestOutput::Html];
+pub const HASH_OUTPUTS: [TestOutput; 5] = [
+    TestOutput::Pdf,
+    TestOutput::Pdftags,
+    TestOutput::Svg,
+    TestOutput::Html,
+    TestOutput::Xhtml,
+];
 
 pub struct Render;
 
@@ -446,7 +451,7 @@ impl OutputType for Html {
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let options = HtmlOptions { pretty: true };
+        let options = HtmlOptions::default().pretty();
         typst_html::html(doc, &options)
     }
 
@@ -471,6 +476,62 @@ impl HashOutputType for Html {
     const INDEX: usize = 3;
 }
 
+pub struct Xhtml;
+
+impl OutputType for Xhtml {
+    type Doc = HtmlDocument;
+    type Live = String;
+
+    const OUTPUT: TestOutput = TestOutput::Xhtml;
+
+    fn is_empty(_: &Self::Doc, live: &Self::Live) -> bool {
+        // HACK: This is somewhat volatile, since it needs to be updated,
+        // whenever the default XHTML output changes.
+        const EMPTY_XHTML_DOC: &str = r#"<?xml version="1.0" encoding="UTF-8" ?><!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body></body>
+</html>
+"#;
+        live == EMPTY_XHTML_DOC
+    }
+
+    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let options = HtmlOptions::default().pretty().xhtml();
+        let live = typst_html::html(doc, &options)?;
+        roxmltree::Document::parse_with_options(
+            &live,
+            roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() },
+        )
+        .map_err(|err| eco_format!("failed to parse XHTML as XML ({err})"))
+        .at(Span::detached())?;
+        Ok(live)
+    }
+
+    fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
+        live
+    }
+
+    fn make_hash(live: &Self::Live) -> HashedRef {
+        HashedRef(typst_utils::hash128(live))
+    }
+
+    fn make_report(
+        a: Option<(&Path, Old<&[u8]>)>,
+        b: Result<(&Path, &[u8]), ()>,
+    ) -> ReportFile {
+        let diffs = [html_diff(a, b), text_diff(a, b)];
+        file_report(Self::OUTPUT, a, b, diffs)
+    }
+}
+
+impl HashOutputType for Xhtml {
+    const INDEX: usize = 4;
+}
+
 pub struct Bundle;
 
 impl OutputType for Bundle {
@@ -487,7 +548,7 @@ impl OutputType for Bundle {
         let standards =
             PdfStandards::new(test.attrs.pdf_standard.as_slice()).at(Span::detached())?;
         let options = BundleOptions {
-            html: HtmlOptions { pretty: true },
+            html: HtmlOptions::default().pretty(),
             pdf: PdfOptions { standards, ..Default::default() },
             png: RenderOptions {
                 pixel_per_pt: Scalar::new(1.0),

@@ -22,7 +22,7 @@ const reportFiles = []
  */
 
 /**
- * @typedef {"render" | "pdf" | "pdftags" | "svg" | "html"} TestOutput
+ * @typedef {"render" | "pdf" | "pdftags" | "svg" | "html" | "xhtml"} TestOutput
  */
 
 /**
@@ -128,7 +128,7 @@ for (const report of document.getElementsByClassName("test-report")) {
   }
 }
 
-let outputs = ["render", "pdf", "pdftags", "svg", "html"]
+let outputs = ["render", "pdf", "pdftags", "svg", "html", "xhtml"]
 /** @type {HTMLInputElement[]} */
 let filterDiffFormats = []
 for (const output of outputs) {
