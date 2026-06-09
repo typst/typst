@@ -1870,6 +1870,7 @@ e22ca36b0bc927a8f8968505af5e73c1 text-number-type
 2021efc48ef250e08c8065cbf4bcea17 text-spacing-relative
 50a8c85b424edd5e02ac0d95bad44b42 text-tracking-arabic
 b6f18262bb6c08883850e1d7af33bc3c text-tracking-changed-temporarily
+b9d7a992cac9144cde6745d8e751cd9c text-tracking-ligatures
 715378e7fb9b706fe79f10f0f7b0d7c1 text-tracking-mark-placement
 5ccca476ded669ee7b1fd7e5868029b7 text-tracking-negative
 3a5a87bbfa205cb75e367047e4ec507c text-unknown-font-family-warning

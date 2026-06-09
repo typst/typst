@@ -38,6 +38,7 @@ use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use typst_syntax::Spanned;
+use typst_utils::Numeric;
 use typst_utils::singleton;
 
 use crate::World;
@@ -1412,7 +1413,10 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
         feat(&storage, 1);
     }
 
-    if !styles.get(TextElem::ligatures) {
+    // When tracking is non-zero, ligatures need to be disabled because otherwise
+    // the letters forming a single ligature glyph look too closely grouped compared
+    // to the rest of the text.
+    if !styles.get(TextElem::ligatures) || !styles.get(TextElem::tracking).is_zero() {
         feat(b"liga", 0);
         feat(b"clig", 0);
     }
