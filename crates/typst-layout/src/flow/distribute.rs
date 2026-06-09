@@ -2,6 +2,7 @@ use typst_library::introspection::Tag;
 use typst_library::layout::{
     Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
 };
+use typst_library::model::SideNoteSide;
 use typst_utils::Numeric;
 
 use super::{
@@ -89,11 +90,32 @@ enum Item<'a, 'b> {
     /// Absolute spacing and its weakness level.
     Abs(Abs, u8),
     /// Fractional spacing or a fractional block.
-    Fr(Fr, u8, Option<&'b SingleChild<'a>>),
+    Fr(Fr, u8, Option<&'b SingleChild<'a>>, Option<WideBlock>),
     /// A frame for a laid out line or block.
-    Frame(Frame, Axes<FixedAlignment>),
+    Frame(Frame, Axes<FixedAlignment>, Option<WideBlock>),
     /// A frame for an absolutely (not floatingly) placed child.
     Placed(Frame, &'b PlacedChild<'a>),
+}
+
+/// Geometry for a block that occupies the side note area.
+#[derive(Debug, Copy, Clone)]
+struct WideBlock {
+    side: SideNoteSide,
+    width: Abs,
+    gap: Abs,
+}
+
+impl WideBlock {
+    fn extra(self) -> Abs {
+        self.width + self.gap
+    }
+
+    fn x(self) -> Abs {
+        match self.side {
+            SideNoteSide::Left => -self.extra(),
+            SideNoteSide::Right => Abs::zero(),
+        }
+    }
 }
 
 impl Item<'_, '_> {
@@ -102,7 +124,7 @@ impl Item<'_, '_> {
     fn migratable(&self) -> bool {
         match self {
             Self::Tag(_) => true,
-            Self::Frame(frame, _) => {
+            Self::Frame(frame, _, _) => {
                 frame.size().is_zero()
                     && frame.items().all(|(_, item)| {
                         matches!(item, FrameItem::Link(_, _) | FrameItem::Tag(_))
@@ -195,7 +217,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // spacing as no stronger fr spacing can exist.
         self.trim_spacing();
 
-        self.items.push(Item::Fr(fr, weakness, None));
+        self.items.push(Item::Fr(fr, weakness, None, None));
     }
 
     /// Decides whether to keep weak spacing based on previous items. If there
@@ -219,9 +241,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 Item::Tag(_) | Item::Abs(_, 0) | Item::Placed(..) => {}
                 // Any kind of fractional spacing destructs weak relative
                 // spacing.
-                Item::Fr(.., None) => return false,
+                Item::Fr(.., None, _) => return false,
                 // These naturally support the spacing.
-                Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
+                Item::Frame(..) | Item::Fr(.., Some(_), _) => return true,
             }
         }
         false
@@ -235,11 +257,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 // When previous weak fr spacing exists that's at most as weak,
                 // we reuse the old item, set it to the maximum of both, and
                 // discard the new item.
-                Item::Fr(prev_fr, prev_weakness @ 1.., None) => {
+                Item::Fr(prev_fr, prev_weakness @ 1.., None, _) => {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || fr > prev_fr)
                     {
-                        *item = Item::Fr(fr, weakness, None);
+                        *item = Item::Fr(fr, weakness, None, None);
                     }
                     return false;
                 }
@@ -249,9 +271,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 Item::Tag(_) | Item::Abs(..) | Item::Placed(..) => {}
                 // For weak + strong fr spacing, we keep both, same as for
                 // weak + strong rel spacing.
-                Item::Fr(.., None) => return true,
+                Item::Fr(.., None, _) => return true,
                 // These naturally support the spacing.
-                Item::Frame(..) | Item::Fr(.., Some(_)) => return true,
+                Item::Frame(..) | Item::Fr(.., Some(_), _) => return true,
             }
         }
         false
@@ -266,7 +288,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     self.items.remove(i);
                     break;
                 }
-                Item::Fr(_, 1.., None) => {
+                Item::Fr(_, 1.., None, _) => {
                     self.items.remove(i);
                     break;
                 }
@@ -321,15 +343,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        self.frame(line.frame.clone(), line.align, false, false)
+        self.frame(line.frame.clone(), line.align, false, false, None)
     }
 
     /// Processes an unbreakable block.
     fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
         // Lay out the block.
+        let wide = self.wide(single.wide);
         let frame = single.layout(
             self.composer.engine,
-            Region::new(self.regions.base(), self.regions.expand),
+            self.widen_region(
+                Region::new(self.regions.base(), self.regions.expand),
+                wide,
+            ),
         )?;
 
         // Handle fractionally sized blocks.
@@ -337,7 +363,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.composer
                 .footnotes(&self.regions, &frame, Abs::zero(), false, true)?;
             self.flush_tags();
-            self.items.push(Item::Fr(fr, 0, Some(single)));
+            self.items.push(Item::Fr(fr, 0, Some(single), wide));
             return Ok(());
         }
 
@@ -347,7 +373,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        self.frame(frame, single.align, single.sticky, false)
+        self.frame(frame, single.align, single.sticky, false, wide)
     }
 
     /// Processes a breakable block.
@@ -367,7 +393,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         // Lay out the block.
-        let (frame, spill) = multi.layout(self.composer.engine, pod)?;
+        let wide = self.wide(multi.wide);
+        let (frame, spill) =
+            multi.layout(self.composer.engine, self.widen_regions(pod, wide))?;
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -378,7 +406,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        self.frame(frame, multi.align, multi.sticky, true)?;
+        self.frame(frame, multi.align, multi.sticky, true, wide)?;
 
         // If the block didn't fully fit into the current region, save it into
         // the `spill` and finish the region.
@@ -409,8 +437,10 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Lay out the spilled remains.
         let align = spill.align();
-        let (frame, spill) = spill.layout(self.composer.engine, pod)?;
-        self.frame(frame, align, false, true)?;
+        let wide = self.wide(spill.wide());
+        let (frame, spill) =
+            spill.layout(self.composer.engine, self.widen_regions(pod, wide))?;
+        self.frame(frame, align, false, true, wide)?;
 
         // If there's still more, save it into the `spill` and finish the
         // region.
@@ -429,6 +459,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         align: Axes<FixedAlignment>,
         sticky: bool,
         breakable: bool,
+        wide: Option<WideBlock>,
     ) -> FlowResult<()> {
         // If the frame is sticky and we haven't remembered a preceding sticky
         // element, make a checkpoint which we can restore should we end on
@@ -480,8 +511,37 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         self.use_height(frame.height());
         self.used.x.set_max(frame.width());
         self.flush_tags();
-        self.items.push(Item::Frame(frame, align));
+        self.items.push(Item::Frame(frame, align, wide));
         Ok(())
+    }
+
+    /// Returns active wide block geometry if enabled for the child.
+    fn wide(&self, enabled: bool) -> Option<WideBlock> {
+        enabled
+            .then(|| self.composer.wide_block_geometry())
+            .flatten()
+            .map(|(side, width, gap)| WideBlock { side, width, gap })
+    }
+
+    /// Widen a single region for a wide block.
+    fn widen_region(&self, mut region: Region, wide: Option<WideBlock>) -> Region {
+        if let Some(wide) = wide {
+            region.size.x += wide.extra();
+        }
+        region
+    }
+
+    /// Widen regions for a wide breakable block.
+    fn widen_regions<'r>(
+        &self,
+        mut regions: Regions<'r>,
+        wide: Option<WideBlock>,
+    ) -> Regions<'r> {
+        if let Some(wide) = wide {
+            let extra = wide.extra();
+            regions.size.x += extra;
+        }
+        regions
     }
 
     /// Processes an absolutely or floatingly placed child.
@@ -565,7 +625,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut frs = Fr::zero();
         let mut has_fr_child = false;
         for item in &self.items {
-            if let Item::Fr(v, _, child) = item {
+            if let Item::Fr(v, _, child, _) = item {
                 frs += *v;
                 has_fr_child |= child.is_some();
             }
@@ -582,9 +642,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut fr_frames = vec![];
         if has_fr_child {
             for item in &self.items {
-                let Item::Fr(v, _, Some(single)) = item else { continue };
+                let Item::Fr(v, _, Some(single), wide) = item else { continue };
                 let length = v.share(frs, fr_space);
-                let pod = Region::new(Size::new(region.size.x, length), region.expand);
+                let pod = self.widen_region(
+                    Region::new(Size::new(region.size.x, length), region.expand),
+                    *wide,
+                );
                 let frame = single.layout(self.composer.engine, pod)?;
                 self.used.x.set_max(frame.width());
                 fr_frames.push(frame);
@@ -617,23 +680,41 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 Item::Abs(v, _) => {
                     offset += v;
                 }
-                Item::Fr(v, _, single) => {
+                Item::Fr(v, _, single, wide) => {
                     let length = v.share(frs, fr_space);
                     if let Some(single) = single {
                         let frame = fr_frames.next().unwrap();
-                        let x = single.align.x.position(size.x - frame.width());
+                        let x = wide.map(|wide| wide.x()).unwrap_or_else(|| {
+                            single.align.x.position(size.x - frame.width())
+                        });
                         let pos = Point::new(x, offset);
+                        if let Some(wide) = wide {
+                            self.composer.push_sidenote_obstacle(
+                                wide.side,
+                                pos.y,
+                                frame.height(),
+                            );
+                        }
                         output.push_frame(pos, frame);
                     }
                     offset += length;
                 }
-                Item::Frame(frame, align) => {
+                Item::Frame(frame, align, wide) => {
                     ruler = ruler.max(align.y);
 
-                    let x = align.x.position(size.x - frame.width());
+                    let x = wide
+                        .map(|wide| wide.x())
+                        .unwrap_or_else(|| align.x.position(size.x - frame.width()));
                     let y = offset + ruler.position(free);
                     let pos = Point::new(x, y);
                     offset += frame.height();
+                    if let Some(wide) = wide {
+                        self.composer.push_sidenote_obstacle(
+                            wide.side,
+                            pos.y,
+                            frame.height(),
+                        );
+                    }
 
                     // The baseline of the whole region will be the set to the
                     // baseline of the first in-flow frame. For example, of the
