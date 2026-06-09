@@ -46,7 +46,7 @@
 )
 
 #info[
-  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variables to `html`. In the web app, HTML export is not available at this time. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
+  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variable to `html`. In the web app, HTML export is not available at this time. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
 ]
 
 HTML files describe a document structurally. The aim of Typst's HTML export is to capture the structure of an input document and produce semantically rich HTML that retains this structure. The resulting HTML should be accessible, human-readable, and editable by hand and downstream tools.
