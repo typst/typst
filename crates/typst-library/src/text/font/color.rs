@@ -154,14 +154,14 @@ fn draw_raster_glyph(
     let image_height = scale * image.height();
 
     let x_offset = scale * raster_image.x as f64;
+    let mut y_offset = scale * raster_image.y as f64;
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
     // baseline to make it look good.
-    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
-        scale * 20.0
-    } else {
-        scale * raster_image.y as f64
-    };
+    if font.info().family.to_lowercase() == "apple color emoji" {
+        // This factor is just taken from krilla.
+        y_offset -= 0.128 * upem;
+    }
 
     let position = Point::new(-x_offset, -(image_height + y_offset));
     let size = Size::new(image_width, image_height);
