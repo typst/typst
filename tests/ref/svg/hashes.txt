@@ -267,6 +267,16 @@ c0157168f84ba9c7639aea963d02bed8 footnote-nested-break-across-pages
 850568c90c86bc64ed3a7f1ada1ab1e7 footnote-ref-forward
 a81b957f0011be890b17f98173831859 footnote-ref-in-footnote
 10ddb3bcb57061b776ae9385984ec3f6 footnote-ref-multiple
+a62332d1424c029fd7cf555f551f156d footnote-sidenote
+94cf19f553d8da0ceb2244fc441ccc7b footnote-sidenote-bottom-shift
+fe632160653678a5c6e5878973b83078 footnote-sidenote-inside
+7ae5fca126f8b7df7683d94f56668b1c footnote-sidenote-left
+4be6d197d50f2f4222cff4ecd9447daa footnote-sidenote-outside
+e4a63417569cc99a013d84e7881a4824 footnote-sidenote-overlap-avoidance
+9acc1523b57f50540450dd4c0d254873 footnote-sidenote-wide-block
+4e0f1564154d4a8928a0f1f2be519016 footnote-sidenote-wide-block-fr
+992733077961710550fce1c44f61c990 footnote-sidenote-wide-block-inside
+3113f02aed61ddd8173de09ef4567bb4 footnote-sidenote-wide-block-outside
 0c1d0ea8569b0ad86b0437ed02689c88 footnote-space-collapsing
 6d65ff73042df0b525cf13a51a48b9a5 footnote-styling
 e1dd84a3bbe74f2867d4568997582423 for-loop-basic
