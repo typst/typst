@@ -604,13 +604,32 @@ div[role="tooltip"]:not(.mobile)::after {
   white-space: nowrap;
 }
 
-a.pill {
-  color: inherit !important;
-  text-decoration: none !important;
+h1 > .pill {
+  font-size: 34px;
+  border-radius: 12px;
+  padding: 4px 12px;
+}
+
+h3 > .pill {
+  font-size: 20px;
+  border-radius: 8px;
+  padding: 4px 8px;
 }
 
 .pill + .pill {
   margin-inline-start: 4px;
+}
+
+h3 code + .pill,
+h4 code + .pill {
+  margin-inline-start: 16px;
+}
+
+/* Background styling for unique pills */
+
+a.pill {
+  color: inherit !important;
+  text-decoration: none !important;
 }
 
 .pill-con {
@@ -724,23 +743,6 @@ a.pill {
     rgba(255, 243, 124, 1) 66%,
     rgba(255, 164, 157, 1) 100%
   );
-}
-
-h1 > .pill {
-  font-size: 34px;
-  border-radius: 12px;
-  padding: 4px 12px;
-}
-
-h3 > .pill {
-  font-size: 20px;
-  border-radius: 8px;
-  padding: 4px 8px;
-}
-
-h3 code + .pill,
-h4 code + .pill {
-  margin-inline-start: 16px;
 }
 
 /* Navigation breadcrumbs */
