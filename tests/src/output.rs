@@ -12,7 +12,7 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
-use typst::foundations::{Content, SequenceElem};
+use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
 use typst::text::SpaceElem;
@@ -342,9 +342,17 @@ impl HashOutputType for Pdf {
 }
 
 fn generate_pdf(doc: &PagedDocument, standards: &[PdfStandard]) -> SourceResult<Vec<u8>> {
-    let standards = PdfStandards::new(standards).at(Span::detached())?;
-    let options = PdfOptions { standards, ..Default::default() };
+    let options = pdf_options(standards)?;
     typst_pdf::pdf(doc, &options)
+}
+
+fn pdf_options(standards: &[PdfStandard]) -> SourceResult<PdfOptions> {
+    let standards = PdfStandards::new(standards).at(Span::detached())?;
+    Ok(PdfOptions {
+        standards,
+        creator: Smart::Custom(Some("Typst Test Runner".into())),
+        ..Default::default()
+    })
 }
 
 pub struct Pdftags;
@@ -484,11 +492,10 @@ impl OutputType for Bundle {
     }
 
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let standards =
-            PdfStandards::new(test.attrs.pdf_standard.as_slice()).at(Span::detached())?;
+        let standards = test.attrs.pdf_standard.as_slice();
         let options = BundleOptions {
             html: HtmlOptions { pretty: true },
-            pdf: PdfOptions { standards, ..Default::default() },
+            pdf: pdf_options(standards)?,
             png: RenderOptions {
                 pixel_per_pt: Scalar::new(1.0),
                 ..Default::default()

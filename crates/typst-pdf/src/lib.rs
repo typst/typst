@@ -68,6 +68,9 @@ pub struct PdfOptions {
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
     pub ident: Smart<String>,
+    /// Configures the `/Creator` metadata in the resulting PDF. When set to
+    /// `Smart::Auto`, defaults to `Typst $version`.
+    pub creator: Smart<Option<String>>,
     /// If not `None`, shall be the creation timestamp of the document. It will
     /// only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Timestamp>,
@@ -97,6 +100,7 @@ impl Default for PdfOptions {
     fn default() -> Self {
         Self {
             ident: Smart::Auto,
+            creator: Smart::Auto,
             timestamp: None,
             page_ranges: None,
             standards: PdfStandards::default(),
