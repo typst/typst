@@ -726,13 +726,13 @@ a.pill {
   );
 }
 
-h1 .pill {
+h1 > .pill {
   font-size: 34px;
   border-radius: 12px;
   padding: 4px 12px;
 }
 
-h3 .pill {
+h3 > .pill {
   font-size: 20px;
   border-radius: 8px;
   padding: 4px 8px;
