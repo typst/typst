@@ -841,7 +841,7 @@ c538aeef16ca92d3fb2507ec32bf024d issue-80-emoji-linebreak
 48356f3f3fa5243087fe38356bd16b9a issue-8261-string-as-ellipsis
 6848c65a5cae60f0f053340e7efcc1d0 issue-8261-string-as-empty
 7e1f000cd72f3b9be4947c748abf32ca issue-8261-string-as-non-numeric
-9e35ae0a9945342f5b0e3482683eb5f8 issue-8372-stretched-glyphs
+d692bc952321332af9682048608d0b9b issue-8372-stretched-glyphs
 563412592490fc6574affb84b3127420 issue-8383-headers-pdf-ua
 1e55a1d84161e50285dac0df2b1ce6d4 issue-852-mat-type
 0eb3749200d7c9c78bffb945c49186b7 issue-886-args-sink

@@ -147,7 +147,6 @@ foo #box[foo] foo
   })
 }
 #b({
-  // Warning: 18-70 unknown font family: noto color emoji cbdt subset
   set text(font: ("Noto Color Emoji CBDT Subset", "Libertinus Serif"), fallback: false)
   [A#emoji.checkmark.box]
 })
