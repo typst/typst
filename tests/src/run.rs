@@ -189,7 +189,7 @@ impl<'a> Runner<'a> {
             if self.test.should_run(TestOutput::Pdf) {
                 let pdf = self.run_hash_test::<output::Pdf>(doc.as_ref());
                 if self.test.should_run(TestOutput::Pdftags) {
-                    self.run_file_test::<output::Pdftags>(pdf.as_ref());
+                    self.run_hash_test::<output::Pdftags>(pdf.as_ref());
                 }
             }
         }
@@ -197,7 +197,7 @@ impl<'a> Runner<'a> {
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
             let doc = self.compile::<HtmlDocument>(evaluated.clone());
-            self.run_file_test::<output::Html>(doc.as_ref());
+            self.run_hash_test::<output::Html>(doc.as_ref());
         }
 
         // Only compile bundle when the bundle target is specified.
@@ -568,7 +568,8 @@ impl<'a> Runner<'a> {
         };
 
         // Happy path: output is ok and doesn't need to be updated.
-        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live)) {
+        let tolerance = self.test.attrs.tolerance.unwrap_or(1);
+        if old_ref_data.as_ref().is_some_and(|r| T::matches(r, live, tolerance)) {
             return;
         }
 
@@ -786,13 +787,9 @@ impl<'a> Runner<'a> {
                 continue;
             }
 
-            let emitted_hint = Note::emitted(
-                NoteKind::Hint,
-                stage,
-                hint,
-                span.or(diag.span),
-                &self.world,
-            );
+            let hint_span = span.or(diag.span);
+            let emitted_hint =
+                Note::emitted(NoteKind::Hint, stage, hint, hint_span, &self.world);
             self.test.body.mark_seen_or_update(emitted_hint);
         }
     }
@@ -824,10 +821,10 @@ mod eval {
     use comemo::{Track, Tracked};
     use ecow::EcoVec;
     use rustc_hash::FxHashSet;
+    use typst::World;
     use typst::diag::{SourceDiagnostic, SourceResult, Warned};
     use typst::engine::{Route, Sink, Traced};
     use typst::foundations::Content;
-    use typst::{ROUTINES, World};
 
     pub fn eval(world: &dyn World) -> Warned<SourceResult<Content>> {
         let mut sink = Sink::new();
@@ -848,8 +845,8 @@ mod eval {
 
         // First evaluate the main source file into a module.
         let content = typst_eval::eval(
-            &ROUTINES,
             world,
+            world.library(),
             traced,
             sink.track_mut(),
             Route::default().track(),

@@ -24,22 +24,22 @@ use self::binding::*;
 use self::methods::*;
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
-use typst_library::routines::Routines;
-use typst_syntax::{Source, Span, SyntaxMode, ast, parse, parse_code, parse_math};
-use typst_utils::Protected;
+use typst_library::routines::SpanMode;
+use typst_library::{Library, World};
+use typst_syntax::{Source, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
 #[typst_macros::time(name = "eval", span = source.root().span())]
 pub fn eval(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
@@ -54,7 +54,7 @@ pub fn eval(
     // Prepare the engine.
     let introspector = EmptyIntrospector;
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::new(introspector.track()),
         traced,
@@ -64,13 +64,20 @@ pub fn eval(
 
     // Prepare VM.
     let context = Context::none();
-    let scopes = Scopes::new(Some(world.library()));
+    let scopes = Scopes::new(Some(library));
     let root = source.root();
     let mut vm = Vm::new(engine, context.track(), scopes, root.span());
 
-    // Check for well-formedness unless we are in trace mode.
-    let errors = root.errors();
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    // However, if we're inspecting a span, we keep going with evaluation
+    // regardless of syntax errors.
+    let (errors, warnings) = root.errors_and_warnings();
+    for warning in warnings {
+        vm.engine.sink.warn(warning.into());
+    }
     if !errors.is_empty() && vm.inspected.is_none() {
+        // We _could_ also return the warnings here with the errors, but we want
+        // to only use the sink for warnings for consistency.
         return Err(errors.into_iter().map(Into::into).collect());
     }
 
@@ -89,19 +96,18 @@ pub fn eval(
     Ok(Module::new(name, vm.scopes.top).with_content(output).with_file_id(id))
 }
 
-/// Evaluate a string as code and return the resulting value.
-///
-/// Everything in the output is associated with the given `span`.
+/// Evaluates a string in the given syntax `mode` and returns the resulting
+/// value.
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 pub fn eval_string(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
-    sink: TrackedMut<Sink>,
+    library: &LazyHash<Library>,
+    mut sink: TrackedMut<Sink>,
     introspector: Tracked<dyn Introspector + '_>,
     context: Tracked<Context>,
     string: &str,
-    span: Span,
+    spans: SpanMode,
     mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
@@ -111,18 +117,29 @@ pub fn eval_string(
         SyntaxMode::Math => parse_math(string),
     };
 
-    root.synthesize(span);
+    match spans {
+        SpanMode::Uniform(span) if span.is_detached() => {}
+        SpanMode::Uniform(span) => root.synthesize(span),
+        SpanMode::Mapped { id, mapper, mapper_error_span } => {
+            root.synthesize_mapped(id, mapper).at(mapper_error_span)?;
+        }
+    }
 
-    // Check for well-formedness.
-    let errors = root.errors();
+    // Check for errors or warnings in the syntax tree before evaluating it.
+    let (errors, warnings) = root.errors_and_warnings();
+    for warning in warnings {
+        sink.warn(warning.into());
+    }
     if !errors.is_empty() {
+        // We _could_ also return the warnings here with the errors, but we want
+        // to only use the sink for warnings for consistency.
         return Err(errors.into_iter().map(Into::into).collect());
     }
 
     // Prepare the engine.
     let traced = Traced::default();
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::new(introspector),
         traced: traced.track(),
@@ -131,7 +148,7 @@ pub fn eval_string(
     };
 
     // Prepare VM.
-    let scopes = Scopes::new(Some(world.library()));
+    let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(engine, context, scopes, root.span());
     vm.scopes.scopes.push(scope);
 
@@ -145,7 +162,7 @@ pub fn eval_string(
             EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
                 .with_block(false)
                 .pack()
-                .spanned(span),
+                .spanned(root.span()),
         ),
     };
 

@@ -5,7 +5,6 @@ use std::hash::Hash;
 use bumpalo::Bump;
 use bumpalo::boxed::Box as BumpBox;
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
 use typst_library::diag::{SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
@@ -18,9 +17,10 @@ use typst_library::layout::{
     Ratio, Region, Regions, Rel, Size, Sizing, Spacing, VElem,
 };
 use typst_library::model::ParElem;
-use typst_library::routines::{Pair, Routines};
+use typst_library::routines::Pair;
 use typst_library::text::TextElem;
-use typst_utils::{Protected, SliceExt};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Protected, SliceExt};
 
 use super::{FlowMode, layout_multi_block, layout_single_block};
 use crate::inline::ParSituation;
@@ -394,8 +394,8 @@ impl SingleChild<'_> {
             // Vertical expansion is only kept if this block is the only child.
             region.expand.y &= self.alone;
             layout_single_impl(
-                engine.routines,
                 engine.world,
+                engine.library,
                 engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
@@ -413,8 +413,8 @@ impl SingleChild<'_> {
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_single_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -428,7 +428,7 @@ fn layout_single_impl(
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -494,8 +494,8 @@ impl<'a> MultiChild<'a> {
             // Vertical expansion is only kept if this block is the only child.
             regions.expand.y &= self.alone;
             layout_multi_impl(
-                engine.routines,
                 engine.world,
+                engine.library,
                 engine.introspector.into_raw(),
                 engine.traced,
                 TrackedMut::reborrow_mut(&mut engine.sink),
@@ -513,8 +513,8 @@ impl<'a> MultiChild<'a> {
 #[comemo::memoize]
 #[allow(clippy::too_many_arguments)]
 fn layout_multi_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -528,7 +528,7 @@ fn layout_multi_impl(
     let link = LocatorLink::new(locator);
     let locator = Locator::link(&link);
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,

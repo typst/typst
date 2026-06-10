@@ -20,6 +20,12 @@
 #image("/assets/images/f2t.jpg", height: 80pt, alt: "height: 80pt")
 #image("/assets/images/f2t.jpg", height: 20% + 40pt, alt: "height: calc(20% + 40pt)")
 
+--- image-blocky-html html ---
+// Ensure that the image does not end up inline (the HTML `img` element is
+// phrasing content and `display: inline` by default).
+A paragraph followed by an image:
+#image("/assets/images/f2t.jpg")
+
 --- image-sizing paged ---
 // Test configuring the size and fitting behaviour of images.
 
@@ -75,6 +81,26 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   image("/assets/images/chinese.svg"),
   caption: [Bilingual text]
 )
+
+--- image-svg-variable-font paged ---
+#image(bytes(
+  ```
+  <svg id="svg1" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <text
+      x="10" y="40" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 300"
+    >
+      Hello
+    </text>
+    <text
+      x="10" y="80" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 700"
+    >
+      Hello
+    </text>
+  </svg>
+  ```.text
+))
 
 --- image-svg-auto-detection paged ---
 #image(bytes(
@@ -239,6 +265,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
     height: 3,
   ),
   width: 1cm,
+  height: 1cm,
   scaling: scaling,
 )
 
@@ -282,33 +309,23 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 
 --- image-decode-svg paged ---
 // Test parsing from svg data
-// Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
-// Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
+#image(bytes(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text), format: "svg")
 
 --- image-decode-bad-svg paged ---
-// Error: 15-152 failed to parse SVG (missing root node at 1:1)
-// Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
-// Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
+// Error: 8-150 failed to parse SVG (missing root node at 1:1)
+#image(bytes(`<sv height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></sv>`.text), format: "svg")
 
 --- image-decode-detect-format paged ---
 // Test format auto detect
-// Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
-// Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(read("/assets/images/tiger.jpg", encoding: none), width: 80%)
+#image(read("/assets/images/tiger.jpg", encoding: none), width: 80%)
 
 --- image-decode-specify-format paged ---
 // Test format manual
-// Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
-// Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "jpg", width: 80%)
+#image(read("/assets/images/tiger.jpg", encoding: none), format: "jpg", width: 80%)
 
 --- image-decode-specify-wrong-format paged ---
-// Error: 2-91 failed to decode image (Format error decoding Png: Invalid PNG signature.)
-// Warning: 8-14 `image.decode` is deprecated, directly pass bytes to `image` instead
-// Hint: 8-14 it will be removed in Typst 0.15.0
-#image.decode(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
+// Error: 2-84 failed to decode image (Format error decoding Png: Invalid PNG signature.)
+#image(read("/assets/images/tiger.jpg", encoding: none), format: "png", width: 80%)
 
 --- image-pixmap-empty paged ---
 // Error: 1:2-8:2 zero-sized images are not allowed
@@ -400,7 +417,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pdf-basic paged html ---
 #image("/assets/images/star.pdf")
 
---- image-pdf-complex paged ---
+--- image-pdf-complex paged tolerance(2) ---
 #image("/assets/images/matplotlib.pdf")
 
 --- image-pdf-multiple-pages paged ---
@@ -413,8 +430,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/images/base14-fonts.pdf")
 
 --- image-pdf-invalid-page paged ---
-// Error: 2-49 page 2 does not exist
-// Hint: 2-49 the document only has 1 page
+// Error: 8-39 failed to load PDF (page 2 does not exist in assets/images/matplotlib.pdf)
+// Hint: 8-39 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
 
 --- issue-6869-image-zero-sized paged ---

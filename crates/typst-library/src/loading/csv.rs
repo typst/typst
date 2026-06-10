@@ -1,10 +1,10 @@
 use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{LineCol, LoadError, LoadedWithin, ReportPos, SourceResult, bail};
+use crate::diag::{LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func, scope};
-use crate::loading::{DataSource, Load, Readable};
+use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
+use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a CSV file.
 ///
@@ -13,7 +13,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let results = csv("example.csv")
 ///
@@ -23,13 +23,13 @@ use crate::loading::{DataSource, Load, Readable};
 ///   ..results.flatten(),
 /// )
 /// ```
-#[func(scope, title = "CSV")]
+#[func(title = "CSV")]
 pub fn csv(
     engine: &mut Engine,
     /// A path to a CSV file or raw CSV bytes.
     source: Spanned<DataSource>,
-    /// The delimiter that separates columns in the CSV file.
-    /// Must be a single ASCII character.
+    /// The delimiter that separates columns in the CSV file. Must be a single
+    /// ASCII character.
     #[named]
     #[default]
     delimiter: Delimiter,
@@ -91,38 +91,6 @@ pub fn csv(
     Ok(array)
 }
 
-#[scope]
-impl csv {
-    /// Reads structured data from a CSV string/bytes.
-    #[func(title = "Decode CSV")]
-    #[deprecated(
-        message = "`csv.decode` is deprecated, directly pass bytes to `csv` instead",
-        until = "0.15.0"
-    )]
-    pub fn decode(
-        engine: &mut Engine,
-        /// CSV data.
-        data: Spanned<Readable>,
-        /// The delimiter that separates columns in the CSV file.
-        /// Must be a single ASCII character.
-        #[named]
-        #[default]
-        delimiter: Delimiter,
-        /// How to represent the file's rows.
-        ///
-        /// - If set to `array`, each row is represented as a plain array of
-        ///   strings.
-        /// - If set to `dictionary`, each row is represented as a dictionary
-        ///   mapping from header keys to strings. This option only makes sense
-        ///   when a header row is present in the CSV file.
-        #[named]
-        #[default(RowType::Array)]
-        row_type: RowType,
-    ) -> SourceResult<Array> {
-        csv(engine, data.map(Readable::into_source), delimiter, row_type)
-    }
-}
-
 /// The delimiter to use when parsing CSV files.
 pub struct Delimiter(char);
 
@@ -172,18 +140,18 @@ fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
     let pos = (err.kind().position())
         .map(|pos| {
             let start = pos.byte().saturating_as();
-            ReportPos::from(start..start)
+            ReportTextPos::from(start..start)
         })
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => {
-            LoadError::new(pos, msg, "file is not valid UTF-8")
+            LoadError::text(pos, msg, "file is not valid UTF-8")
         }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =
                 format!("found {len} instead of {expected_len} fields in line {line}");
-            LoadError::new(pos, msg, err)
+            LoadError::text(pos, msg, err)
         }
-        _ => LoadError::new(pos, "failed to parse CSV", err),
+        _ => LoadError::text(pos, "failed to parse CSV", err),
     }
 }

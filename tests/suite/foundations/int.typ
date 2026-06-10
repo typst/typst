@@ -5,12 +5,65 @@
 #test(0xA + 0xa, 0x14)
 
 --- int-base-binary-invalid eval ---
-// Error: 2-7 invalid binary number: 0b123
+// Error: 2-7 invalid binary number: `0b123`
 #0b123
 
+--- int-base-octal-invalid eval ---
+// Error: 2-11 invalid octal number: `0o1078970`
+#0o1078970
+
 --- int-base-hex-invalid eval ---
-// Error: 2-8 invalid hexadecimal number: 0x123z
-#0x123z
+// Error: 2-9 invalid hexadecimal number: `0x123z4`
+#0x123z4
+
+--- int-base-hex-invalid-non-ascii eval ---
+// Error: 9 expected comma
+#(0xabcdéf)
+
+--- int-base-empty eval ---
+// Error: 2-4 expected a hexadecimal number
+#0x
+// Error: 2-4 expected an octal number
+#0o
+// Error: 2-4 expected a binary number
+#0b
+
+--- int-max eval ---
+#test(int.max, 9223372036854775807)
+#test(int.max, 0x7FFFFFFFFFFFFFFF)
+
+--- int-min eval ---
+#test(int.min, -1 - int.max)
+#test(int.min, int("-9223372036854775808"))
+
+--- int-bounds-max-overflow eval ---
+// Error: 3-14 value is too large
+#(int.max + 1)
+
+--- int-bounds-min-underflow eval ---
+// TODO: Change this to "too small".
+// Error: 3-14 value is too large
+#(int.min - 1)
+
+--- int-bounds-max-plus-one eval ---
+#test(type(9223372036854775808), float)
+
+--- int-bounds-max-plus-one-hex eval ---
+// Error: 2-20 invalid hexadecimal number: `0x8000000000000000`
+#0x8000000000000000
+
+--- int-bounds-max-plus-two eval ---
+#test(type(9223372036854775809), float)
+
+--- int-bounds-max-u64 eval ---
+#test(type(18446744073709551615), float)
+
+--- int-bounds-manual-min eval ---
+#test(type(-9223372036854775808), float)
+
+--- int-bounds-manual-min-hex eval ---
+// Error: 4-22 invalid hexadecimal number: `0x8000000000000000`
+#(-0x8000000000000000)
 
 --- int-constructor eval ---
 // Test conversion to numbers.
@@ -25,8 +78,10 @@
 #test(int("10", base: 2), 2)
 #test(int("644", base: 8), 420)
 #test(int("\u{2212}79"), -79)
-#test(int("9223372036854775807"), 9223372036854775807)
-#test(int("-9223372036854775808"), -9223372036854775807 - 1)
+#test(int("9223372036854775807"), int.max)
+#test(int("-9223372036854775808"), int.min)
+#test(int("7FFFFFFFFFFFFFFF", base: 16), int.max)
+#test(int("-8000000000000000", base: 16), int.min)
 #test(int(10 / 3), 3)
 #test(int(-58.34), -58)
 #test(int(decimal("92492.193848921")), 92492)
@@ -130,40 +185,6 @@
 #test(repr(-0987654321), "-987654321")
 #test(repr(4 - 8), "-4")
 
---- int-parse-large-literals eval ---
-#import "../loading/edge-case.typ": large-integer, representable-integer
-
-#for (name, source) in representable-integer {
-  if name == "i64-min" {
-    // i64-min will be parsed as a float
-    assert.eq(
-      type(eval(source)),
-      float,
-      message: "failed to approximately parse " + name,
-    )
-    // but can still be obtained through integer arithmetic
-    let n = -1 - eval(representable-integer.i64-max)
-    assert(
-      type(n) == int and n < 0,
-      message: "failed to obtained i64-min through integer arithmetic",
-    )
-  } else {
-    assert.eq(
-      type(eval(source)),
-      int,
-      message: "failed to parse " + name,
-    )
-  }
-}
-
-#for (name, source) in large-integer {
-  assert.eq(
-    type(eval(source)),
-    float,
-    message: "failed to approximately parse " + name,
-  )
-}
-
 --- int-display paged ---
 // Test integers.
 #12 \
@@ -183,5 +204,5 @@
 #test(int(x), x)
 
 --- number-invalid-suffix eval ---
-// Error: 2-4 invalid number suffix: u
+// Error: 2-4 invalid number suffix: `u`
 #1u

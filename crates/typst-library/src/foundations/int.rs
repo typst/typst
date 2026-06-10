@@ -11,23 +11,21 @@ use crate::foundations::{
     Base, Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
 
-/// A whole number.
+/// An integer: a positive whole number, a negative whole number, or zero.
 ///
-/// The number can be negative, zero, or positive. As Typst uses 64 bits to
-/// store integers, integers cannot be smaller than `{-9223372036854775808}` or
-/// larger than `{9223372036854775807}`. Integer literals are always positive,
-/// so a negative integer such as `{-1}` is semantically the negation `-` of the
-/// positive literal `1`. A positive integer greater than the maximum value and
-/// a negative integer less than or equal to the minimum value cannot be
-/// represented as an integer literal, and are instead parsed as a `{float}`.
-/// The minimum integer value can still be obtained through integer arithmetic.
+/// #let twos = link.with("https://en.wikipedia.org/wiki/Two%27s_complement")
 ///
-/// The number can also be specified as hexadecimal, octal, or binary by
-/// starting it with a zero followed by either `x`, `o`, or `b`.
+/// Typst stores signed integers with the #twos[two's complement] representation
+/// in 64 bits. This allows storing numbers up to $2^63-1$ or
+/// `{9223372036854775807}`, and down to $-2^63$ or `{-9223372036854775808}`.
+/// These values are accessible as `{int.max}` and `{int.min}`.
+///
+/// Integers can also be specified as hexadecimal, octal, or binary by starting
+/// with the prefixes: `0x`, `0o`, or `0b`.
 ///
 /// You can convert a value to an integer with this type's constructor.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #(1 + 2) \
 /// #(2 - 5) \
@@ -36,18 +34,32 @@ use crate::foundations::{
 /// #0xff \
 /// #0o10 \
 /// #0b1001
+///
+/// #(int(3.8) + int("26"))
+///
+/// / Max: #int.max
+/// / Min: #int.min
 /// ```
 #[ty(scope, cast, name = "int", title = "Integer")]
 type i64;
 
 #[scope(ext)]
 impl i64 {
+    /// The maximum value that can be represented by a Typst integer: $2^63-1$,
+    /// `{9223372036854775807}`, or `{0x7FFFFFFFFFFFFFFF}`.
+    const MAX: i64 = i64::MAX;
+
+    /// The minimum value that can be represented by a Typst integer: $-(2^63)$,
+    /// `{-9223372036854775808}`, or `{0x8000000000000000}`.
+    const MIN: i64 = i64::MIN;
+
     /// Converts a value to an integer. Raises an error if there is an attempt
-    /// to parse an invalid string or produce an integer that doesn't fit
-    /// into a 64-bit signed integer.
+    /// to parse an invalid string or produce an integer that doesn't fit into a
+    /// 64-bit signed integer.
     ///
     /// - Booleans are converted to `0` or `1`.
-    /// - Floats and decimals are rounded to the next 64-bit integer towards zero.
+    /// - Floats and decimals are rounded to the next 64-bit integer towards
+    ///   zero.
     /// - Strings are parsed in base 10 by default.
     ///
     /// ```example
@@ -56,7 +68,7 @@ impl i64 {
     /// #int(2.7) \
     /// #int(decimal("3.8")) \
     /// #(int("27") + int("4")) \
-    /// #(int("beef", base: 16))
+    /// #int("beef", base: 16)
     /// ```
     #[func(constructor)]
     pub fn construct(
@@ -208,9 +220,9 @@ impl i64 {
         Ok(self.checked_shl(shift).ok_or("the result is too large")?)
     }
 
-    /// Shifts the operand's bits to the right by the specified amount.
-    /// Performs an arithmetic shift by default (extends the sign bit to the left,
-    /// such that negative numbers stay negative), but that can be changed by the
+    /// Shifts the operand's bits to the right by the specified amount. Performs
+    /// an arithmetic shift by default (extends the sign bit to the left, such
+    /// that negative numbers stay negative), but that can be changed by the
     /// `logical` parameter.
     ///
     /// For the purposes of this function, the operand is treated as a signed
@@ -234,10 +246,10 @@ impl i64 {
         /// times. Therefore, the shift will always succeed.
         shift: u32,
         /// Toggles whether a logical (unsigned) right shift should be performed
-        /// instead of arithmetic right shift.
-        /// If this is `{true}`, negative operands will not preserve their sign
-        /// bit, and bits which appear to the left after the shift will be
-        /// `{0}`. This parameter has no effect on non-negative operands.
+        /// instead of arithmetic right shift. If this is `{true}`, negative
+        /// operands will not preserve their sign bit, and bits which appear to
+        /// the left after the shift will be `{0}`. This parameter has no effect
+        /// on non-negative operands.
         #[named]
         #[default(false)]
         logical: bool,
@@ -392,7 +404,7 @@ impl i64 {
 
 impl Repr for i64 {
     fn repr(&self) -> EcoString {
-        eco_format!("{:?}", self)
+        eco_format!("{self:?}")
     }
 }
 

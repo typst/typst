@@ -22,7 +22,6 @@ arrayvec = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 bumpalo = { workspace = true }
-chinese-number = { workspace = true }
 ciborium = { workspace = true }
 codex = { workspace = true }
 comemo = { workspace = true }
@@ -35,8 +34,6 @@ glidesort = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
 icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_blob = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
@@ -44,10 +41,10 @@ kurbo = { workspace = true }
 libm = { workspace = true }
 lipsum = { workspace = true }
 memchr = { workspace = true }
+moxcms = { workspace = true }
 palette = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
-qcms = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 regex-syntax = { workspace = true }

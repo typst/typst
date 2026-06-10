@@ -13,7 +13,9 @@ use super::multiline::AlignedRow;
 use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::{Locator, Tag};
-use crate::layout::{Abs, Axes, Axis, BoxElem, Em, FixedAlignment, PlaceElem, Rel};
+use crate::layout::{
+    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Ratio, Rel,
+};
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
 };
@@ -63,8 +65,9 @@ impl<'a> RawMathItem<'a> {
 pub enum MathItem<'a> {
     /// A layoutable component with associated properties and styles.
     Component(MathComponent<'a>),
-    /// Explicit spacing. The boolean indicates whether the spacing is weak.
-    Spacing(Abs, bool),
+    /// Explicit spacing with the font size at the point of creation. The
+    /// boolean indicates whether the spacing is weak.
+    Spacing(Length, Abs, bool),
     /// A regular space.
     Space,
     /// An introspection tag.
@@ -101,39 +104,43 @@ impl<'a> MathItem<'a> {
 
     /// Returns the math class of this item.
     pub(crate) fn class(&self) -> MathClass {
+        self.raw_class().unwrap_or(MathClass::Normal)
+    }
+
+    pub(crate) fn raw_class(&self) -> Option<MathClass> {
         match self {
             Self::Component(comp) => comp.props.class,
-            Self::Spacing(_, _) | Self::Space => MathClass::Space,
-            Self::Tag(_) => MathClass::Special,
+            Self::Spacing(..) | Self::Space => Some(MathClass::Space),
+            Self::Tag(_) => Some(MathClass::Special),
         }
     }
 
     /// Returns the effective math class on the right side of this item.
     ///
-    /// For fenced items with a closing delimiter, this returns the closing
-    /// class instead of the item's overall class.
+    /// For fenced items with a closing delimiter and no explicit class, this
+    /// returns the closing class instead of the item's overall class.
     pub(crate) fn rclass(&self) -> MathClass {
         match self {
-            Self::Component(MathComponent { kind: MathKind::Fenced(fence), .. })
-                if fence.close.is_some() =>
-            {
-                MathClass::Closing
-            }
+            Self::Component(MathComponent {
+                kind: MathKind::Fenced(fence),
+                props: MathProperties { class: None, .. },
+                ..
+            }) if fence.close.is_some() => MathClass::Closing,
             _ => self.class(),
         }
     }
 
     /// Returns the effective math class on the left side of this item.
     ///
-    /// For fenced items with an opening delimiter, this returns the opening
-    /// class instead of the item's overall class.
+    /// For fenced items with an opening delimiter and no explicit class, this
+    /// returns the opening class instead of the item's overall class.
     pub(crate) fn lclass(&self) -> MathClass {
         match self {
-            Self::Component(MathComponent { kind: MathKind::Fenced(fence), .. })
-                if fence.open.is_some() =>
-            {
-                MathClass::Opening
-            }
+            Self::Component(MathComponent {
+                kind: MathKind::Fenced(fence),
+                props: MathProperties { class: None, .. },
+                ..
+            }) if fence.open.is_some() => MathClass::Opening,
             _ => self.class(),
         }
     }
@@ -154,7 +161,7 @@ impl<'a> MathItem<'a> {
 
         if let Self::Component(comp) = self
             && comp.props.spaced
-            && matches!(comp.props.class, MathClass::Normal | MathClass::Alphabetic)
+            && matches!(comp.props.class(), MathClass::Normal | MathClass::Alphabetic)
         {
             true
         } else {
@@ -163,7 +170,7 @@ impl<'a> MathItem<'a> {
     }
 
     /// Whether this item should be ignored for spacing calculations.
-    pub(crate) fn is_ignorant(&self) -> bool {
+    pub fn is_ignorant(&self) -> bool {
         match self {
             Self::Component(comp) => comp.props.ignorant,
             Self::Tag(_) => true,
@@ -228,20 +235,36 @@ impl<'a> MathItem<'a> {
     /// Sets the math class of this item.
     pub(crate) fn set_class(&mut self, class: MathClass) {
         if let Self::Component(comp) = self {
-            comp.props.class = class;
+            comp.props.class = Some(class);
+
+            // Small hack to ensure the non-explicit stretch gets added, as the
+            // class is not recursive. This applies an equivalent stretch to
+            // the one in `resolve_symbol`.
+            if let MathKind::Glyph(glyph) = &comp.kind
+                && class == MathClass::Large
+                && comp.props.size == MathSize::Display
+                && !glyph.stretch.get().is_explicit(Axis::Y)
+            {
+                let info = StretchInfo::default();
+                glyph.stretch.update(|stretch| stretch.with_y(info));
+            }
         }
     }
 
-    /// Sets the left spacing for this item.
+    /// Sets the left spacing for this item if not already set.
     pub(crate) fn set_lspace(&mut self, lspace: Option<Em>) {
-        if let Self::Component(comp) = self {
+        if let Self::Component(comp) = self
+            && comp.props.lspace.is_none()
+        {
             comp.props.lspace = lspace;
         }
     }
 
-    /// Sets the right spacing for this item.
+    /// Sets the right spacing for this item if not already set.
     pub(crate) fn set_rspace(&mut self, rspace: Option<Em>) {
-        if let Self::Component(comp) = self {
+        if let Self::Component(comp) = self
+            && comp.props.rspace.is_none()
+        {
             comp.props.rspace = rspace;
         }
     }
@@ -265,8 +288,19 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the stretch configuration for this glyph.
-    pub(crate) fn set_stretch(&self, stretch: Stretch) {
+    /// Sets the stretch configuration for this glyph, marking it as explicit.
+    pub(crate) fn set_stretch(&self, mut stretch: Stretch) {
+        if let Some(info) = &mut stretch.0.x {
+            info.explicit = true;
+        }
+        if let Some(info) = &mut stretch.0.y {
+            info.explicit = true;
+        }
+        self.replace_stretch(stretch);
+    }
+
+    /// Sets the stretch configuration for this glyph
+    pub(crate) fn replace_stretch(&self, stretch: Stretch) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
@@ -275,10 +309,11 @@ impl<'a> MathItem<'a> {
     }
 
     /// Updates the vertical stretch info for this glyph.
-    pub(crate) fn set_y_stretch(&self, info: StretchInfo) {
+    pub(crate) fn set_y_stretch(&self, mut info: StretchInfo) {
         if let Self::Component(comp) = self
             && let MathKind::Glyph(glyph) = &comp.kind
         {
+            info.explicit = true;
             glyph.stretch.update(|stretch| stretch.with_y(info));
         }
     }
@@ -360,7 +395,7 @@ pub enum MathKind<'a> {
     /// A base with a line drawn above or below.
     Line(Box<LineItem<'a>>),
     /// Grouped prime symbols.
-    Primes(Box<PrimesItem<'a>>),
+    Primes(Box<PrimesItem>),
     /// A text string.
     Text(TextItem<'a>),
     /// A number.
@@ -369,6 +404,8 @@ pub enum MathKind<'a> {
     Glyph(Box<GlyphItem>),
     /// Inline content.
     Box(BoxItem<'a>),
+    /// A MathML HTML element.
+    Mathml(Box<MathmlItem<'a>>),
     /// External content that needs to be laid out separately.
     External(ExternalItem<'a>),
 }
@@ -379,9 +416,11 @@ pub struct MathProperties {
     /// How attachments should be positioned.
     pub(crate) limits: Limits,
     /// The math class.
-    pub class: MathClass,
+    pub class: Option<MathClass>,
     /// The current math size.
     pub size: MathSize,
+    /// Whether this item is in a cramped style.
+    pub cramped: bool,
     /// Whether this item should be ignored for spacing calculations.
     pub(crate) ignorant: bool,
     /// Whether this item should have explicit spaces around it.
@@ -390,30 +429,40 @@ pub struct MathProperties {
     pub lspace: Option<Em>,
     /// The amount of spacing to the right of this item.
     pub rspace: Option<Em>,
+    /// Whether this item is at the start of a left-aligned column but
+    /// semantically infix.
+    pub align_form_infix: bool,
     /// The source span.
     pub span: Span,
 }
 
 impl MathProperties {
     /// Creates properties with an explicit class, avoiding the style lookup.
-    fn new(styles: StyleChain, class: MathClass) -> MathProperties {
+    fn new(styles: StyleChain, class: Option<MathClass>, span: Span) -> MathProperties {
         Self {
             limits: Limits::Never,
             class,
             size: styles.get(EquationElem::size),
+            cramped: styles.get(EquationElem::cramped),
             ignorant: false,
             spaced: false,
             lspace: None,
             rspace: None,
-            span: Span::detached(),
+            align_form_infix: false,
+            span,
         }
     }
 
     /// Creates default properties from the given styles.
     ///
-    /// This gets both the math class and size from the styles.
-    pub fn default(styles: StyleChain) -> MathProperties {
-        Self::new(styles, styles.get(EquationElem::class).unwrap_or(MathClass::Normal))
+    /// This gets the math size from the styles.
+    pub fn default(styles: StyleChain, span: Span) -> MathProperties {
+        Self::new(styles, None, span)
+    }
+
+    /// Returns the class, using the default normal class if None.
+    pub fn class(&self) -> MathClass {
+        self.class.unwrap_or(MathClass::Normal)
     }
 
     /// Sets how attachments should be positioned for this item.
@@ -433,12 +482,6 @@ impl MathProperties {
         self.spaced = spaced;
         self
     }
-
-    /// Sets the source span for this item.
-    fn with_span(mut self, span: Span) -> Self {
-        self.span = span;
-        self
-    }
 }
 
 /// A group of math items laid out horizontally.
@@ -454,7 +497,7 @@ impl<'a> GroupItem<'a> {
         items: Vec<MathItem<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         let kind = MathKind::Group(Self { items });
         MathComponent { kind, props, styles }.into()
     }
@@ -482,7 +525,7 @@ impl<'a> MultilineItem<'a> {
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Multiline(Self { rows, centered: false });
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -510,7 +553,7 @@ impl<'a> RadicalItem<'a> {
         span: Span,
     ) -> MathItem<'a> {
         let kind = MathKind::Radical(Box::new(Self { radicand, index, sqrt }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -546,7 +589,7 @@ impl<'a> FencedItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Fenced(Box::new(Self { open, close, body: body.into(), balanced }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -576,7 +619,7 @@ impl<'a> FractionItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Fraction(Box::new(Self { numerator, denominator, line, padding }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -601,10 +644,11 @@ impl<'a> SkewedFractionItem<'a> {
         denominator: MathItem<'a>,
         slash: MathItem<'a>,
         styles: StyleChain<'a>,
+        span: Span,
     ) -> MathItem<'a> {
         let kind =
             MathKind::SkewedFraction(Box::new(Self { numerator, denominator, slash }));
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -637,7 +681,7 @@ impl<'a> TableItem<'a> {
     ) -> MathItem<'a> {
         let kind =
             MathKind::Table(Box::new(Self { cells, gap, augment, align, alternator }));
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -675,7 +719,7 @@ impl<'a> ScriptsItem<'a> {
         bottom_right: Option<MathItem<'a>>,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class());
+        let props = MathProperties::new(styles, base.raw_class(), Span::detached());
         let kind = MathKind::Scripts(Box::new(Self {
             base,
             top,
@@ -698,6 +742,8 @@ pub struct AccentItem<'a> {
     pub accent: MathItem<'a>,
     /// Whether this is a top or bottom accent.
     pub position: Position,
+    /// Whether dotless styles have been added.
+    pub dotless: bool,
     /// Whether the item's width should include the accent's width.
     ///
     /// Only used in paged export.
@@ -712,14 +758,16 @@ impl<'a> AccentItem<'a> {
         base: MathItem<'a>,
         accent: MathItem<'a>,
         position: Position,
+        dotless: bool,
         exact_frame_width: bool,
         styles: StyleChain<'a>,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class());
+        let props = MathProperties::new(styles, base.raw_class(), Span::detached());
         let kind = MathKind::Accent(Box::new(Self {
             base,
             accent,
             position,
+            dotless,
             exact_frame_width,
         }));
         MathComponent { kind, props, styles }.into()
@@ -757,7 +805,7 @@ impl<'a> CancelItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.raw_class(), span);
         let kind = MathKind::Cancel(Box::new(Self {
             base,
             length,
@@ -789,33 +837,30 @@ impl<'a> LineItem<'a> {
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {
-        let props = MathProperties::new(styles, base.class()).with_span(span);
+        let props = MathProperties::new(styles, base.raw_class(), span);
         let kind = MathKind::Line(Box::new(Self { base, position }));
         MathComponent { kind, props, styles }.into()
     }
 }
+
+/// The prime character used by [`PrimesItem`].
+pub const PRIME_CHAR: char = '′';
 
 /// Grouped prime symbols.
 ///
 /// This is for more than four prime symbols, since there are only dedicated
 /// Unicode codepoints up to four.
 #[derive(Debug)]
-pub struct PrimesItem<'a> {
-    /// The prime symbol item.
-    pub prime: MathItem<'a>,
+pub struct PrimesItem {
     /// The number of primes to display. Always at least five.
     pub count: usize,
 }
 
-impl<'a> PrimesItem<'a> {
+impl PrimesItem {
     /// Creates a new primes item.
-    pub(crate) fn create(
-        prime: MathItem<'a>,
-        count: usize,
-        styles: StyleChain<'a>,
-    ) -> MathItem<'a> {
-        let kind = MathKind::Primes(Box::new(Self { prime, count }));
-        let props = MathProperties::default(styles);
+    pub(crate) fn create<'a>(count: usize, styles: StyleChain<'a>) -> MathItem<'a> {
+        let kind = MathKind::Primes(Box::new(Self { count }));
+        let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -840,9 +885,8 @@ impl<'a> TextItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Text(Self { text, locator });
-        let props = MathProperties::new(styles, MathClass::Alphabetic)
-            .with_spaced(true)
-            .with_span(span);
+        let props = MathProperties::new(styles, Some(MathClass::Alphabetic), span)
+            .with_spaced(true);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -862,7 +906,7 @@ impl NumberItem {
         span: Span,
     ) -> MathItem<'a> {
         let kind = MathKind::Number(Self { text });
-        let props = MathProperties::default(styles).with_span(span);
+        let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -894,12 +938,8 @@ impl GlyphItem {
 
         let c = text.chars().next().unwrap();
 
-        let default_class = default_math_class(c);
-        let limits = Limits::for_char_with_class(c, default_class);
-        let class = styles
-            .get(EquationElem::class)
-            .or(default_class)
-            .unwrap_or(MathClass::Normal);
+        let class = default_math_class(c);
+        let limits = Limits::for_char_with_class(c, class);
 
         let kind = MathKind::Glyph(Box::new(Self {
             text,
@@ -907,8 +947,7 @@ impl GlyphItem {
             mid_stretched: Cell::new(None),
             flac: Cell::new(false),
         }));
-        let props =
-            MathProperties::new(styles, class).with_limits(limits).with_span(span);
+        let props = MathProperties::new(styles, class, span).with_limits(limits);
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -932,7 +971,31 @@ impl<'a> BoxItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::Box(Self { elem, locator });
-        let props = MathProperties::default(styles).with_spaced(true);
+        let props = MathProperties::default(styles, elem.span()).with_spaced(true);
+        MathComponent { kind, props, styles }.into()
+    }
+}
+
+/// A MathML HTML element with resolved children.
+#[derive(Debug)]
+pub struct MathmlItem<'a> {
+    /// The original MathML HTML element content.
+    ///
+    /// This is always a `HtmlElem`.
+    pub elem: &'a Content,
+    /// The element's resolved IR body.
+    pub body: Option<MathItem<'a>>,
+}
+
+impl<'a> MathmlItem<'a> {
+    /// Creates a new MathML HTML element item.
+    pub(crate) fn create(
+        elem: &'a Content,
+        body: Option<MathItem<'a>>,
+        styles: StyleChain<'a>,
+    ) -> MathItem<'a> {
+        let kind = MathKind::Mathml(Box::new(Self { elem, body }));
+        let props = MathProperties::default(styles, elem.span());
         MathComponent { kind, props, styles }.into()
     }
 }
@@ -957,7 +1020,7 @@ impl<'a> ExternalItem<'a> {
         locator: Locator<'a>,
     ) -> MathItem<'a> {
         let kind = MathKind::External(Self { content, locator });
-        let props = MathProperties::default(styles)
+        let props = MathProperties::default(styles, content.span())
             .with_spaced(true)
             .with_ignorant(content.is::<PlaceElem>());
         MathComponent { kind, props, styles }.into()
@@ -1038,7 +1101,7 @@ impl<'a> Deref for FencedBody<'a> {
 }
 
 /// Stretch configuration for a glyph on both axes.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Stretch(Axes<Option<StretchInfo>>);
 
 impl Stretch {
@@ -1059,8 +1122,10 @@ impl Stretch {
         self
     }
 
-    /// Updates stretch info for both axes, combining with existing info.
-    pub(crate) fn update(mut self, info: StretchInfo) -> Self {
+    /// Updates stretch info for both axes, combining with existing info and
+    /// marking them as explicit.
+    pub(crate) fn update(mut self, mut info: StretchInfo) -> Self {
+        info.explicit = true;
         match &mut self.0.x {
             Some(val) => *val *= info,
             None => self.0.x = Some(info),
@@ -1113,16 +1178,35 @@ impl Stretch {
         }
         self.0.get(axis)
     }
+
+    /// Returns the user-requested stretch target for the given axis, if any.
+    pub fn resolve_requested(self, axis: Axis) -> Option<Rel<Length>> {
+        self.0
+            .get(axis)
+            .and_then(|info| info.requested_target)
+            .filter(|target| !target.is_one())
+    }
+
+    /// Whether the stretch along the given axis should be represented
+    /// explicitly.
+    pub fn is_explicit(self, axis: Axis) -> bool {
+        self.0.get(axis).is_some_and(|info| info.explicit)
+    }
 }
 
 /// Information about how to stretch a glyph on one axis.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StretchInfo {
     /// The target size to stretch to.
     pub target: Rel<Abs>,
     /// A buffer to store the latest stretch added, in case it needs to be
     /// relative to something else.
     buffer: Option<Rel<Abs>>,
+    /// Whether this stretch is explicit. That is, the stretch was not from a
+    /// large operator in display math.
+    pub(crate) explicit: bool,
+    /// The user-requested stretch target, if any.
+    pub(crate) requested_target: Option<Rel<Length>>,
     /// The short-fall amount for glyph assembly.
     pub short_fall: Em,
     /// The reference size for relative targets.
@@ -1141,10 +1225,32 @@ impl StretchInfo {
         Self {
             target,
             buffer: None,
+            explicit: false,
+            requested_target: None,
             short_fall,
             relative_to: None,
             font_size: None,
         }
+    }
+
+    /// Creates stretch info from a user-specified size.
+    pub(crate) fn from_size(size: Rel<Length>, short_fall: Em, font_size: Abs) -> Self {
+        Self {
+            target: size.map(|l| l.at(font_size)),
+            buffer: None,
+            explicit: false,
+            requested_target: (!size.is_one()).then_some(size),
+            short_fall,
+            relative_to: None,
+            font_size: None,
+        }
+    }
+}
+
+impl Default for StretchInfo {
+    fn default() -> Self {
+        let target = Rel::new(Ratio::one(), Abs::zero());
+        Self::new(target, Em::zero())
     }
 }
 
@@ -1157,6 +1263,18 @@ impl MulAssign for StretchInfo {
             );
         }
         self.buffer = Some(rhs.target);
+
+        if let Some(requested) = rhs.requested_target {
+            self.requested_target =
+                Some(self.requested_target.map_or(requested, |target| {
+                    Rel::new(
+                        target.rel * requested.rel,
+                        requested.rel.of(target.abs) + requested.abs,
+                    )
+                }));
+        }
+
+        self.explicit = self.explicit || rhs.explicit;
         self.short_fall = rhs.short_fall;
     }
 }

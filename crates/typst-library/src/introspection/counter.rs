@@ -7,9 +7,8 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, Protected};
+use typst_utils::{LazyHash, NonZeroExt, Protected};
 
-use crate::World;
 use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
@@ -24,7 +23,7 @@ use crate::introspection::{
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
 use crate::model::{FigureElem, FootnoteElem, HeadingElem, Numbering, NumberingPattern};
-use crate::routines::Routines;
+use crate::{Library, World};
 
 /// Counts through pages, elements, and more.
 ///
@@ -33,12 +32,12 @@ use crate::routines::Routines;
 /// other things you want to count.
 ///
 /// Since counters change throughout the course of the document, their current
-/// value is _contextual._ It is recommended to read the chapter on [context]
-/// before continuing here.
+/// value is _contextual._ It is recommended to read the chapter on
+/// @reference:context[context] before continuing here.
 ///
-/// # Accessing a counter { #accessing }
-/// To access the raw value of a counter, we can use the [`get`]($counter.get)
-/// function. This function returns an [array]: Counters can have multiple
+/// = #short-or-long[Accessing][Accessing a counter] <accessing>
+/// To access the raw value of a counter, we can use the @counter.get[`get`]
+/// function. This function returns an @array[array]: Counters can have multiple
 /// levels (in the case of headings for sections, subsections, and so on), and
 /// each item in the array corresponds to one level.
 ///
@@ -50,11 +49,12 @@ use crate::routines::Routines;
 /// #context counter(heading).get()
 /// ```
 ///
-/// # Displaying a counter { #displaying }
+/// = #short-or-long[Displaying][Displaying a counter] <displaying>
 /// Often, we want to display the value of a counter in a more human-readable
-/// way. To do that, we can call the [`display`]($counter.display) function on
-/// the counter. This function retrieves the current counter value and formats
-/// it either with a provided or with an automatically inferred [numbering].
+/// way. To do that, we can call the @counter.display[`display`] function on the
+/// counter. This function retrieves the current counter value and formats it
+/// either with a provided or with an automatically inferred
+/// @numbering[numbering].
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -72,7 +72,7 @@ use crate::routines::Routines;
 /// }
 /// ```
 ///
-/// # Modifying a counter { #modifying }
+/// = #short-or-long[Modifying][Modifying a counter] <modifying>
 /// To modify a counter, you can use the `step` and `update` methods:
 ///
 /// - The `step` method increases the value of the counter by one. Because
@@ -108,7 +108,7 @@ use crate::routines::Routines;
 /// }
 /// ```
 ///
-/// # Page counter
+/// = Page counter <page-counter>
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
 /// could have Roman page numbers for your preface, then switch to Arabic page
@@ -135,7 +135,7 @@ use crate::routines::Routines;
 /// Arabic numbers.
 /// ```
 ///
-/// # Custom counters
+/// = Custom counters <custom-counters>
 /// To define your own counter, call the `counter` function with a string as a
 /// key. This key identifies the counter globally.
 ///
@@ -148,7 +148,7 @@ use crate::routines::Routines;
 /// #context mine.display()
 /// ```
 ///
-/// # How to step
+/// = How to step <how-to-step>
 /// When you define and use a custom counter, in general, you should first step
 /// the counter and then display it. This way, the stepping behaviour of a
 /// counter can depend on the element it is stepped for. If you were writing a
@@ -178,7 +178,7 @@ use crate::routines::Routines;
 /// they always start at zero. This way, they are at one for the first display
 /// (which happens after the first step).
 ///
-/// # Time travel
+/// = Time travel <time-travel>
 /// Counters can travel through time! You can find out the final value of the
 /// counter before it is reached and even determine what the value was at any
 /// particular location in the document.
@@ -202,8 +202,8 @@ use crate::routines::Routines;
 /// #mine.step()
 /// ```
 ///
-/// # Other kinds of state { #other-state }
-/// The `counter` type is closely related to [state] type. Read its
+/// = #short-or-long[Other State][Other kinds of state] <other-state>
+/// The `counter` type is closely related to @state[state] type. Read its
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
 #[ty(scope)]
@@ -271,7 +271,7 @@ impl Counter {
         let context = Context::new(Some(loc), Some(styles));
         Ok(engine
             .introspect(CounterAtIntrospection(self.clone(), loc, span))?
-            .display(engine, context.track(), numbering)?
+            .display(engine, context.track(), span, numbering)?
             .display())
     }
 
@@ -341,13 +341,13 @@ impl Counter {
         ///
         /// - If it is a string, creates a custom counter that is only affected
         ///   by manual updates,
-        /// - If it is the [`page`] function, counts through pages,
-        /// - If it is a [selector], counts through elements that match the
-        ///   selector. For example,
+        /// - If it is the @page function, counts through pages,
+        /// - If it is a @selector[selector], counts through elements that match
+        ///   the selector. For example,
         ///   - provide an element function: counts elements of that type,
-        ///   - provide a [`where`]($function.where) selector:
-        ///     counts a type of element with specific fields,
-        ///   - provide a [`{<label>}`]($label): counts elements with that label.
+        ///   - provide a @function.where[`where`] selector: counts a type of
+        ///     element with specific fields,
+        ///   - provide a @label[`{<label>}`]: counts elements with that label.
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
@@ -371,8 +371,8 @@ impl Counter {
     /// Displays the value of the counter.
     ///
     /// You can provide both a custom numbering and a custom location. Both
-    /// default to `{auto}`, selecting sensible defaults (the numbering of
-    /// the counted element and the current location, respectively).
+    /// default to `{auto}`, selecting sensible defaults (the numbering of the
+    /// counted element and the current location, respectively).
     ///
     /// Returns the formatted output.
     #[func(contextual)]
@@ -381,11 +381,11 @@ impl Counter {
         engine: &mut Engine,
         context: Tracked<Context>,
         span: Span,
-        /// A [numbering pattern or a function]($numbering), which specifies how
+        /// A @numbering[numbering pattern or a function], which specifies how
         /// to display the counter. If given a function, that function receives
         /// each number of the counter as a separate argument. If the amount of
         /// numbers varies, e.g. for the heading argument, you can use an
-        /// [argument sink]($arguments).
+        /// @arguments[argument sink].
         ///
         /// If this is omitted or set to `{auto}`, displays the counter with the
         /// numbering style for the counted element or with the pattern
@@ -396,11 +396,10 @@ impl Counter {
         ///
         /// If a selector is used, it must match exactly one element in the
         /// document. The most useful kinds of selectors for this are
-        /// [labels]($label) and [locations]($location).
+        /// @label[labels] and @location[locations].
         ///
         /// If this is omitted or set to `{auto}`, this displays the counter at
-        /// the current location. This is equivalent to using
-        /// [`{here()}`]($here).
+        /// the current location. This is equivalent to using @here[`{here()}`].
         ///
         /// The numbering will be executed with a context in which `{here()}`
         /// resolves to the provided location, so that numberings which involve
@@ -437,9 +436,9 @@ impl Counter {
 
         if at.is_custom() {
             let context = Context::new(Some(location), context.styles().ok());
-            state.display(engine, context.track(), &numbering)
+            state.display(engine, context.track(), span, &numbering)
         } else {
-            state.display(engine, context, &numbering)
+            state.display(engine, context, span, &numbering)
         }
     }
 
@@ -447,8 +446,8 @@ impl Counter {
     /// an array of integers, even if the counter has just one number.
     ///
     /// The `selector` must match exactly one element in the document. The most
-    /// useful kinds of selectors for this are [labels]($label) and
-    /// [locations]($location).
+    /// useful kinds of selectors for this are @label[labels] and
+    /// @location[locations].
     #[func(contextual)]
     pub fn at(
         &self,
@@ -636,9 +635,10 @@ impl CounterState {
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
+        span: Span,
         numbering: &Numbering,
     ) -> SourceResult<Value> {
-        numbering.apply(engine, context, &self.0)
+        numbering.apply(engine, context, span, &self.0)
     }
 }
 
@@ -896,8 +896,8 @@ fn sequence(
     sequence_impl(
         counter,
         selector,
-        engine.routines,
         engine.world,
+        engine.library,
         introspector,
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -911,15 +911,15 @@ fn sequence(
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
     route: Tracked<Route>,
 ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector: Protected::from_raw(introspector),
         traced,

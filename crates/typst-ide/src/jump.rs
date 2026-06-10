@@ -49,6 +49,7 @@ impl JumpFromDocument for HtmlDocument {}
 
 mod jump_from_document_sealed {
     use typst::introspection::{HtmlPosition, InnerHtmlPosition, PagedPosition};
+    use typst::syntax::SyntaxKind;
     use typst_html::{HtmlDocument, HtmlNode, HtmlSliceExt};
     use typst_layout::PagedDocument;
 
@@ -175,9 +176,8 @@ mod jump_from_document_sealed {
             let span = current_node.span();
             let id = span.id()?;
             let source = world.source(id).ok()?;
-            let ast_node = source.find(span);
-            let is_text_node =
-                ast_node.is_some_and(|x| x.is::<typst::syntax::ast::Text>());
+            let ast_node = source.find(span)?;
+            let is_text_node = ast_node.kind() == SyntaxKind::Text;
 
             if let (HtmlNode::Frame(frame), Some(InnerHtmlPosition::Frame(point))) =
                 (current_node, &position.details())
@@ -185,7 +185,7 @@ mod jump_from_document_sealed {
                 return jump_from_click_in_frame(world, self, &frame.inner, *point);
             }
 
-            let source_range = source.range(span)?;
+            let source_range = ast_node.range();
             Some(Jump::File(
                 id,
                 source_range.start
@@ -789,5 +789,21 @@ mod tests {
     fn test_footnote_link_entry_customized() {
         let s = "#show footnote.entry: [Replaced]; #footnote[Hi]";
         test_click(s, point(10.0, 10.0), pos(1, 10.0, 31.58).map(Jump::Position));
+    }
+
+    #[test]
+    fn test_text_show_rule_jump() {
+        // Test that a jump from a word affected by a text show rule at least
+        // goes roughly to the right spot. It will not be quite precise because
+        // the text elements are sliced up and text show rules can't currently
+        // apply span offsets (the `styled` element would make the `.text` field
+        // not immediately accessible).
+        test_click(
+            r#"#show "word": underline; This is \ my word."#,
+            //                                    |  ^ clicking here
+            //                                    ^ jumping here
+            point(33.0, 27.0),
+            cursor(36),
+        );
     }
 }

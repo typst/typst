@@ -22,13 +22,15 @@ use typst_library::layout::{
     OuterHAlignment, Point, Region, Regions, Size, SpecificAlignment, VAlignment,
 };
 use typst_library::math::ir::{
-    BoxItem, ExternalItem, MathComponent, MathItem, MathKind, MathProperties,
+    BoxItem, ExternalItem, MathComponent, MathItem, MathKind, MathProperties, MathmlItem,
     resolve_equation,
 };
 use typst_library::math::{EquationElem, families};
 use typst_library::model::ParElem;
 use typst_library::routines::Arenas;
-use typst_library::text::{Font, FontFlags, TextEdgeBounds, TextElem, variant};
+use typst_library::text::{
+    Font, FontFlags, FontInstance, TextEdgeBounds, TextElem, variant,
+};
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
@@ -139,10 +141,9 @@ pub fn layout_equation_block(
         let mut last_first_pos = Point::zero();
         let mut regions = regions;
 
-        loop {
-            // Keep track of the position of the first row in this region,
-            // so that the offset can be reverted later.
-            let Some(&(_, first_pos)) = rows.peek() else { break };
+        // Keep track of the position of the first row in this region,
+        // so that the offset can be reverted later.
+        while let Some(&(_, first_pos)) = rows.peek() {
             last_first_pos = first_pos;
 
             let mut frames = vec![];
@@ -203,7 +204,7 @@ pub fn layout_equation_block(
     let Some(numbering) = elem.numbering.get_ref(styles) else {
         let frames = equation_builders
             .into_iter()
-            .map(MathRunFrameBuilder::build)
+            .map(MathRunFrameBuilder::build_aligned)
             .collect();
         return Ok(Fragment::frames(frames));
     };
@@ -231,7 +232,7 @@ pub fn layout_equation_block(
         .map(|builder| {
             if builder.frames.is_empty() && region_count > 1 {
                 // Don't number empty regions, but do number empty equations.
-                return builder.build();
+                return builder.build_aligned();
             }
             add_equation_number(
                 builder,
@@ -266,7 +267,7 @@ fn add_equation_number(
             |(frame, pos)| (frame.size(), *pos, frame.baseline()),
         );
     let line_count = equation_builder.frames.len();
-    let mut equation = equation_builder.build();
+    let mut equation = equation_builder.build_aligned();
 
     let width = if region_size_x.is_finite() {
         region_size_x
@@ -365,13 +366,13 @@ struct MathContext<'v, 'e> {
     engine: &'v mut Engine<'e>,
     region: Region,
     // Mutable.
-    fonts_stack: Vec<Font>,
+    fonts_stack: Vec<FontInstance>,
     fragments: MathRun,
 }
 
 impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
-    fn new(engine: &'v mut Engine<'e>, base: Size, font: Font) -> Self {
+    fn new(engine: &'v mut Engine<'e>, base: Size, font: FontInstance) -> Self {
         Self {
             engine,
             region: Region::new(base, Axes::splat(false)),
@@ -382,7 +383,7 @@ impl<'v, 'e> MathContext<'v, 'e> {
 
     /// Get the current base font.
     #[inline]
-    fn font(&self) -> &Font {
+    fn font(&self) -> &FontInstance {
         // Will always be at least one font in the stack.
         self.fonts_stack.last().unwrap()
     }
@@ -427,7 +428,7 @@ impl<'v, 'e> MathContext<'v, 'e> {
             .all(|e| e.is_text_like());
 
         let styles = item.styles().unwrap_or(styles);
-        let props = MathProperties::default(styles);
+        let props = MathProperties::default(styles, Span::detached());
         let frame = fragments.into_frame();
         Ok(FrameFragment::new(&props, styles, frame)
             .with_text_like(text_like)
@@ -471,8 +472,8 @@ fn layout_realized(
     // Handle non-component items first.
     let comp = match item {
         MathItem::Component(comp) => comp,
-        MathItem::Spacing(amount, _) => {
-            ctx.push(MathFragment::Space(*amount));
+        MathItem::Spacing(amount, font_size, _) => {
+            ctx.push(MathFragment::Space(amount.at(*font_size)));
             return Ok(());
         }
         MathItem::Space => {
@@ -487,8 +488,12 @@ fn layout_realized(
 
     let props = &comp.props;
 
-    // Insert left spacing.
-    if let Some(lspace) = props.lspace {
+    // Insert left spacing. Items with an alignment form get their spacing
+    // handled by the multiline layout instead.
+    if let Some(lspace) = props.lspace
+        && !props.align_form_infix
+        && !lspace.is_zero()
+    {
         let width = lspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }
@@ -496,6 +501,7 @@ fn layout_realized(
     // Dispatch based on item kind to the appropriate layout function.
     match &comp.kind {
         MathKind::Box(item) => layout_box(item, ctx, styles, props)?,
+        MathKind::Mathml(item) => layout_mathml(item, ctx, styles, props)?,
         MathKind::External(item) => layout_external(item, ctx, styles, props)?,
         MathKind::Glyph(item) => layout_glyph(item, ctx, styles, props)?,
         MathKind::Cancel(item) => layout_cancel(item, ctx, styles, props)?,
@@ -513,7 +519,8 @@ fn layout_realized(
         MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
         MathKind::Fenced(item) => layout_fenced(item, ctx, styles, props)?,
         MathKind::Multiline(item) => {
-            let mut frame = layout_multiline(item, ctx, styles)?.build();
+            // Don't set the baseline by default, unless the item is centered.
+            let mut frame = layout_multiline(item, ctx, styles)?.build_unaligned();
             if item.centered {
                 let axis = ctx.font().math().axis_height.resolve(styles);
                 frame.set_baseline(frame.height() / 2.0 + axis);
@@ -533,11 +540,27 @@ fn layout_realized(
     }
 
     // Insert right spacing.
-    if let Some(rspace) = props.rspace {
+    if let Some(rspace) = props.rspace
+        && !rspace.is_zero()
+    {
         let width = rspace.at(styles.resolve(TextElem::size));
         ctx.push(MathFragment::Space(width));
     }
 
+    Ok(())
+}
+
+/// Ignore a MathML HTML element during paged export.
+fn layout_mathml(
+    item: &MathmlItem,
+    ctx: &mut MathContext,
+    _styles: StyleChain,
+    _props: &MathProperties,
+) -> SourceResult<()> {
+    ctx.engine.sink.warn(warning!(
+        item.elem.span(),
+        "MathML element was ignored during paged export",
+    ));
     Ok(())
 }
 
@@ -582,7 +605,7 @@ fn layout_external(
 }
 
 /// Styles to add font constants to the style chain.
-fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+fn style_for_script_scale(font: &FontInstance) -> LazyHash<Style> {
     EquationElem::script_scale
         .set((
             font.math().script_percent_scale_down,
@@ -596,8 +619,10 @@ fn get_font(
     world: Tracked<dyn World + '_>,
     styles: StyleChain,
     span: Span,
-) -> SourceResult<Font> {
+) -> SourceResult<FontInstance> {
     let variant = variant(styles);
+    let size = styles.resolve(TextElem::size);
+    let variations = styles.get_cloned(TextElem::variations);
     families(styles)
         .find_map(|family| {
             world
@@ -605,6 +630,7 @@ fn get_font(
                 .select(family.as_str(), variant)
                 .and_then(|id| world.font(id))
                 .filter(|_| family.covers().is_none())
+                .map(|font| font.instantiate(variant, size, &variations))
         })
         .ok_or("no font could be found")
         .at(span)

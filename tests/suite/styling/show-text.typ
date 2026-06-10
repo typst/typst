@@ -221,6 +221,17 @@ A C \
 A#text(red)[ ]C \
 A#text(red)[X]C
 
+--- show-text-isolated-space paged ---
+#show " ": it => {
+  test(it.func(), text)
+  test(it.text, " ")
+  [-]
+}
+// We split up the text run into three separate elements to see what kind of
+// element we get in the match (space vs text). We want text so that a `.text`
+// field is available.
+A#[ ]B
+
 --- show-text-where-text-is-space paged ---
 // Spaces in `text` match even if differently styled, unlike the previous test.
 #show text.where(text: " "): [B]
@@ -236,3 +247,33 @@ A#text(" ", red)C
   c.step()
   [bc]
 }
+
+--- issue-7991-show-text-symbol-grapheme-sliced paged ---
+#show "*": set text(red)
+$ast.basic$
+
+--- issue-8058-show-text-grapheme-sliced paged ---
+// The issue is not yet fixed, so this test demonstrates the current undesirable
+// behavior.
+
+#set text(font: "New Computer Modern Math")
+
+#let emptyset = sym.emptyset
+#let narrowemptysettext = emptyset + "\u{fe00}"
+#let narrowemptyset = symbol(narrowemptysettext)
+
+// This should still be narrow, but it's currently not because the symbol is
+// split up and the shaper gets both parts separately. This could probably also
+// be fixed in the inline layout.
+//
+// See also https://github.com/typst/typst/issues/8058.
+#[
+  #show emptyset: it => it
+  #narrowemptysettext, $narrowemptyset$
+]
+
+// Same here.
+#[
+  #show "\u{fe00}": it => it
+  #narrowemptysettext, $narrowemptyset$
+]

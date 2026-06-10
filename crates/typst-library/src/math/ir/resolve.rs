@@ -13,7 +13,7 @@ use super::process::{GroupResult, process_group, process_table_cell};
 use crate::diag::{SourceResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Packed, Resolve, Style, StyleChain, Styles, SymbolElem,
+    Content, Packed, Style, StyleChain, Styles, SymbolElem, TargetElem,
 };
 use crate::introspection::{Locator, SplitLocator, TagElem};
 use crate::layout::{Abs, Axes, BoxElem, FixedAlignment, HElem, Ratio, Rel, Spacing};
@@ -73,8 +73,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         base: StyleChain<'a>,
         new: impl Into<Styles>,
     ) -> StyleChain<'a> {
-        let new = self.arenas.styles.alloc(new.into());
-        self.arenas.bump.alloc(base).chain(new)
+        self.store_chain(base).chain(self.store_styles(new))
     }
 
     /// Lifetime-extends some style chain.
@@ -130,7 +129,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let pairs = (self.engine.routines.realize)(
+        let pairs = (self.engine.library.routines.realize)(
             RealizationKind::Math,
             self.engine,
             &mut self.locator,
@@ -224,10 +223,30 @@ fn resolve_realized<'a, 'v, 'e>(
         resolve_undershell(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<OvershellElem>() {
         resolve_overshell(elem, ctx, styles)?;
+    } else if let Some(body) =
+        (ctx.engine.library.routines.html_mathml_body)(elem, styles)
+    {
+        resolve_mathml(elem, body, ctx, styles)?;
     } else {
         let locator = ctx.locator.next(&elem.span());
         ctx.push(ExternalItem::create(elem, styles, locator));
     }
+    Ok(())
+}
+
+/// Resolves a MathML HTML element.
+fn resolve_mathml<'a, 'v, 'e>(
+    elem: &'a Content,
+    body: Option<&'a Content>,
+    ctx: &mut MathResolver<'a, 'v, 'e>,
+    styles: StyleChain<'a>,
+) -> SourceResult<()> {
+    let body = if styles.get(TargetElem::target).is_html() {
+        body.map(|body| ctx.resolve_into_item(body, styles)).transpose()?
+    } else {
+        None
+    };
+    ctx.push(MathmlItem::create(elem, body, styles));
     Ok(())
 }
 
@@ -240,7 +259,11 @@ fn resolve_h(
     if let Spacing::Rel(rel) = elem.amount
         && rel.rel.is_zero()
     {
-        ctx.push(MathItem::Spacing(rel.abs.resolve(styles), elem.weak.get(styles)));
+        ctx.push(MathItem::Spacing(
+            rel.abs,
+            styles.resolve(TextElem::size),
+            elem.weak.get(styles),
+        ));
     }
     Ok(())
 }
@@ -259,7 +282,14 @@ fn resolve_text<'a, 'v, 'e>(
     // Create item with correct styles and properties.
     let local_styles = ctx.store_chain(styles).chain(&*TEXT_BASE_LOCAL_STYLES);
     let mut create_item = |text: &str| {
-        let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
+        let mut decimal_count = 0;
+        let num = text.chars().all(|c| {
+            if c == '.' {
+                decimal_count += 1;
+            }
+            c.is_ascii_digit() || c == '.'
+        }) && decimal_count != text.len() // at least one digit
+            && decimal_count <= 1; // at most one dot
         let styled_text: EcoString = text
             .chars()
             .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
@@ -318,9 +348,8 @@ fn resolve_symbol<'a, 'v, 'e>(
         let item = GlyphItem::create(text, styles, elem.span());
 
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
-            let target = Rel::new(Ratio::one(), Abs::zero());
-            let stretch = Stretch::new().with_y(StretchInfo::new(target, Em::zero()));
-            item.set_stretch(stretch);
+            let stretch = Stretch::new().with_y(StretchInfo::default());
+            item.replace_stretch(stretch);
         }
 
         ctx.push(item);
@@ -330,7 +359,7 @@ fn resolve_symbol<'a, 'v, 'e>(
 
 /// Resolves an accent element.
 ///
-/// The base is resolved in cramped style.
+/// The base is resolved in cramped style if the accent is above.
 fn resolve_accent<'a, 'v, 'e>(
     elem: &'a Packed<AccentElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
@@ -340,10 +369,13 @@ fn resolve_accent<'a, 'v, 'e>(
     let position = if accent.is_bottom() { Position::Below } else { Position::Above };
 
     let mut new_styles = Styles::new();
-    new_styles.apply(style_cramped().into());
-    // Try to replace the base glyph with its dotless variant.
-    if position == Position::Above && elem.dotless.get(styles) {
-        new_styles.apply(style_dtls().into());
+    if position == Position::Above {
+        new_styles.apply(style_cramped().into());
+
+        // Try to replace the base glyph with its dotless variant.
+        if elem.dotless.get(styles) {
+            new_styles.apply(style_dtls().into());
+        }
     }
 
     let base_styles = ctx.chain_styles(styles, new_styles);
@@ -356,7 +388,14 @@ fn resolve_accent<'a, 'v, 'e>(
     let width = elem.size.resolve(styles);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(width, ACCENT_SHORT_FALL)));
 
-    ctx.push(AccentItem::create(base, accent, position, false, styles));
+    ctx.push(AccentItem::create(
+        base,
+        accent,
+        position,
+        elem.dotless.get(styles),
+        false,
+        styles,
+    ));
     Ok(())
 }
 
@@ -438,7 +477,7 @@ fn resolve_inner_attach<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<MathItem<'a>> {
     // Lifetime-extend the super/subscript styles.
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
     let sup_style = ctx.store_styles(style_for_superscript(styles));
     let sup_style_chain = bumped_styles.chain(sup_style);
     let sub_style = ctx.store_styles(style_for_subscript(styles));
@@ -563,11 +602,7 @@ fn resolve_primes<'a, 'v, 'e>(
         }
         count => {
             // Custom amount of primes
-            let prime = ctx.resolve_into_item(
-                ctx.store(SymbolElem::packed('′').spanned(elem.span())),
-                styles,
-            )?;
-            ctx.push(PrimesItem::create(prime, count, styles));
+            ctx.push(PrimesItem::create(count, styles));
         }
     }
     Ok(())
@@ -605,8 +640,9 @@ fn resolve_stretch<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let item = ctx.resolve_into_item(&elem.body, styles)?;
-    let size = elem.size.resolve(styles);
-    item.update_stretch(StretchInfo::new(size, Em::zero()));
+    let size = elem.size.get(styles);
+    let font_size = styles.resolve(TextElem::size);
+    item.update_stretch(StretchInfo::from_size(size, Em::zero(), font_size));
     ctx.push(item);
     Ok(())
 }
@@ -693,7 +729,7 @@ fn resolve_vertical_frac_like<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
 
@@ -757,8 +793,11 @@ fn resolve_horizontal_frac<'a, 'v, 'e>(
     let num = ctx.resolve_into_item(num, styles)?;
     ctx.push(num);
 
-    let slash =
+    let mut slash =
         ctx.resolve_into_item(ctx.store(SymbolElem::packed('/').spanned(span)), styles)?;
+    slash.set_class(MathClass::Binary);
+    slash.set_lspace(Some(Em::zero()));
+    slash.set_rspace(Some(Em::zero()));
     ctx.push(slash);
 
     let denom = if denom_deparen {
@@ -789,7 +828,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
+    let bumped_styles = ctx.store_chain(styles);
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
     let denominator = ctx.resolve_into_item(denom, bumped_styles.chain(denom_style))?;
@@ -802,7 +841,7 @@ fn resolve_skewed_frac<'a, 'v, 'e>(
         Stretch::new().with_y(StretchInfo::new(Rel::one(), DELIM_SHORT_FALL)),
     );
 
-    ctx.push(SkewedFractionItem::create(numerator, denominator, slash, styles));
+    ctx.push(SkewedFractionItem::create(numerator, denominator, slash, styles, span));
 
     Ok(())
 }
@@ -834,8 +873,10 @@ fn resolve_lr<'a, 'v, 'e>(
     let inner_range = (start + start_idx)..(start + end_idx);
     let inner_items = &mut ctx.items[inner_range.clone()];
 
-    let height = elem.size.resolve(styles);
-    let stretch = Stretch::new().with_y(StretchInfo::new(height, DELIM_SHORT_FALL));
+    let size = elem.size.get(styles);
+    let font_size = styles.resolve(TextElem::size);
+    let stretch =
+        Stretch::new().with_y(StretchInfo::from_size(size, DELIM_SHORT_FALL, font_size));
 
     let scale_if_delimiter = |item: &mut MathItem, apply: Option<MathClass>| {
         if matches!(
@@ -870,10 +911,12 @@ fn resolve_lr<'a, 'v, 'e>(
                         }
                     }
                 } else {
-                    one.set_y_stretch(StretchInfo::new(
-                        height.abs.into(),
-                        DELIM_SHORT_FALL,
-                    ));
+                    let mut info =
+                        StretchInfo::new(size.abs.at(font_size).into(), DELIM_SHORT_FALL);
+                    if !size.is_one() {
+                        info.requested_target = Some(size);
+                    }
+                    one.set_y_stretch(info);
                 }
             }
             return Ok(());
@@ -914,7 +957,7 @@ fn resolve_lr<'a, 'v, 'e>(
     inner_items.retain(|item| {
         let discard = (index == 1 && opening_exists
             || index + 2 == len && closing_exists)
-            && matches!(item, RawMathItem::Item(MathItem::Spacing(_, true)));
+            && matches!(item, RawMathItem::Item(MathItem::Spacing(_, _, true)));
         index += 1;
         !discard
     });
@@ -1093,7 +1136,7 @@ fn resolve_cells<'a, 'v, 'e>(
             if processed.had_linebreaks {
                 ctx.engine.sink.warn(warning!(
                    cell.span(),
-                   "linebreaks are ignored in {}", children;
+                   "linebreaks are ignored in {children}";
                    hint: "use commas instead to separate each line";
                 ));
             }
@@ -1102,6 +1145,15 @@ fn resolve_cells<'a, 'v, 'e>(
         }
 
         cells.push(resolved_row);
+    }
+
+    // Pad sub-columns so that every row has the same length.
+    let ncols = cells.first().map_or(0, |row| row.len());
+    for c in 0..ncols {
+        let max = cells.iter().map(|row| row[c].len()).max().unwrap_or_default();
+        for row in &mut cells {
+            row[c].pad_to(max, cell_styles);
+        }
     }
 
     Ok(TableItem::create(cells, gap, augment, align, alternator, styles, span))
@@ -1141,8 +1193,6 @@ fn resolve_class<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let styles =
-        ctx.chain_styles(styles, EquationElem::class.set(Some(elem.class)).wrap());
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
     item.set_class(elem.class);
     item.set_limits(Limits::for_class(elem.class));
@@ -1170,25 +1220,23 @@ fn resolve_op<'a, 'v, 'e>(
 /// Resolves a root (radical) element.
 ///
 /// The radicand is resolved in cramped style, and the index in
-/// scriptscript size.
+/// scriptscript size and cramped style.
 fn resolve_root<'a, 'v, 'e>(
     elem: &'a Packed<RootElem>,
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let bumped_styles = ctx.arenas.bump.alloc(styles);
-    let radicand = {
-        let cramped = ctx.store_styles(style_cramped());
-        ctx.resolve_into_item(&elem.radicand, bumped_styles.chain(cramped))?
-            .with_multiline_centering()
-    };
+    let cramped_styles = ctx.store_chain(ctx.chain_styles(styles, style_cramped()));
+    let radicand = ctx
+        .resolve_into_item(&elem.radicand, *cramped_styles)?
+        .with_multiline_centering();
     let index = {
         let sscript =
             ctx.store_styles(EquationElem::size.set(MathSize::ScriptScript).wrap());
         elem.index
             .get_ref(styles)
             .as_ref()
-            .map(|elem| ctx.resolve_into_item(elem, bumped_styles.chain(sscript)))
+            .map(|elem| ctx.resolve_into_item(elem, cramped_styles.chain(sscript)))
             .transpose()?
     };
     let sqrt = ctx.resolve_into_item(
@@ -1381,7 +1429,7 @@ fn resolve_underoverspreader<'a, 'v, 'e>(
     accent.set_class(MathClass::Diacritic);
     accent.set_stretch(Stretch::new().with_x(StretchInfo::new(Rel::one(), Em::zero())));
 
-    let base = AccentItem::create(base, accent, position, true, styles);
+    let base = AccentItem::create(base, accent, position, false, true, styles);
 
     let Some(annotation) = annotation else {
         ctx.push(base);

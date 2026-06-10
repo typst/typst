@@ -11,8 +11,8 @@ use typst::foundations::{
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, ast, is_id_continue, is_id_start,
-    is_ident,
+    FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
+    is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
 use typst::visualize::Color;
@@ -49,17 +49,22 @@ pub fn autocomplete(
         &leaf,
         cursor,
         explicit,
-    )?;
+    );
 
-    let _ = complete_comments(&mut ctx)
-        || complete_field_accesses(&mut ctx)
+    // Getting the syntax mode also ensures we are not in a comment.
+    let mode = ctx.leaf.mode_after()?;
+
+    _ = complete_field_accesses(&mut ctx)
         || complete_open_labels(&mut ctx)
         || complete_imports(&mut ctx)
         || complete_rules(&mut ctx)
         || complete_params(&mut ctx)
-        || complete_markup(&mut ctx)
-        || complete_math(&mut ctx)
-        || complete_code(&mut ctx);
+        // Only attempt the general completions after the more specific ones.
+        || match mode {
+            SyntaxMode::Markup => complete_markup(&mut ctx),
+            SyntaxMode::Math => complete_math(&mut ctx),
+            SyntaxMode::Code => complete_code(&mut ctx),
+        };
 
     Some((ctx.from, ctx.completions))
 }
@@ -106,281 +111,24 @@ pub enum CompletionKind {
     Symbol(EcoString),
 }
 
-/// Complete in comments. Or rather, don't!
-fn complete_comments(ctx: &mut CompletionContext) -> bool {
-    matches!(ctx.leaf.kind(), SyntaxKind::LineComment | SyntaxKind::BlockComment)
-}
-
-/// Complete in markup mode.
-fn complete_markup(ctx: &mut CompletionContext) -> bool {
-    // Bail if we aren't even in markup.
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
-    ) {
-        return false;
-    }
-
-    // Start of an interpolated identifier: "#|".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // An existing identifier: "#pa|".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Start of a reference: "@|".
-    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
-        ctx.from = ctx.cursor;
-        ctx.label_completions();
-        return true;
-    }
-
-    // An existing reference: "@he|".
-    if ctx.leaf.kind() == SyntaxKind::RefMarker {
-        ctx.from = ctx.leaf.offset() + 1;
-        ctx.label_completions();
-        return true;
-    }
-
-    // Behind a half-completed binding: "#let x = |".
-    if let Some(prev) = ctx.leaf.prev_leaf()
-        && prev.kind() == SyntaxKind::Eq
-        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
-    {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, false);
-        return true;
-    }
-
-    // Behind a half-completed context block: "#context |".
-    if let Some(prev) = ctx.leaf.prev_leaf()
-        && prev.kind() == SyntaxKind::Context
-    {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, false);
-        return true;
-    }
-
-    // Directly after a raw block.
-    let mut s = Scanner::new(ctx.text);
-    s.jump(ctx.leaf.offset());
-    if s.eat_if("```") {
-        s.eat_while('`');
-        let start = s.cursor();
-        if s.eat_if(is_id_start) {
-            s.eat_while(is_id_continue);
-        }
-        if s.cursor() == ctx.cursor {
-            ctx.from = start;
-            ctx.raw_completions();
-        }
-        return true;
-    }
-
-    // Anywhere: "|".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        markup_completions(ctx);
-        return true;
-    }
-
-    false
-}
-
-/// Add completions for markup snippets.
-#[rustfmt::skip]
-fn markup_completions(ctx: &mut CompletionContext) {
-    ctx.snippet_completion(
-        "expression",
-        "#${}",
-        "Variables, function calls, blocks, and more.",
-    );
-
-    ctx.snippet_completion(
-        "linebreak",
-        "\\\n${}",
-        "Inserts a forced linebreak.",
-    );
-
-    ctx.snippet_completion(
-        "strong text",
-        "*${strong}*",
-        "Strongly emphasizes content by increasing the font weight.",
-    );
-
-    ctx.snippet_completion(
-        "emphasized text",
-        "_${emphasized}_",
-        "Emphasizes content by setting it in italic font style.",
-    );
-
-    ctx.snippet_completion(
-        "raw text",
-        "`${text}`",
-        "Displays text verbatim, in monospace.",
-    );
-
-    ctx.snippet_completion(
-        "code listing",
-        "```${lang}\n${code}\n```",
-        "Inserts computer code with syntax highlighting.",
-    );
-
-    ctx.snippet_completion(
-        "hyperlink",
-        "https://${example.com}",
-        "Links to a URL.",
-    );
-
-    ctx.snippet_completion(
-        "label",
-        "<${name}>",
-        "Makes the preceding element referenceable.",
-    );
-
-    ctx.snippet_completion(
-        "reference",
-        "@${name}",
-        "Inserts a reference to a label.",
-    );
-
-    ctx.snippet_completion(
-        "heading",
-        "= ${title}",
-        "Inserts a section heading.",
-    );
-
-    ctx.snippet_completion(
-        "list item",
-        "- ${item}",
-        "Inserts an item of a bullet list.",
-    );
-
-    ctx.snippet_completion(
-        "enumeration item",
-        "+ ${item}",
-        "Inserts an item of a numbered list.",
-    );
-
-    ctx.snippet_completion(
-        "enumeration item (numbered)",
-        "${number}. ${item}",
-        "Inserts an explicitly numbered list item.",
-    );
-
-    ctx.snippet_completion(
-        "term list item",
-        "/ ${term}: ${description}",
-        "Inserts an item of a term list.",
-    );
-
-    ctx.snippet_completion(
-        "math (inline)",
-        "$${x}$",
-        "Inserts an inline-level mathematical equation.",
-    );
-
-    ctx.snippet_completion(
-        "math (block)",
-        "$ ${sum_x^2} $",
-        "Inserts a block-level mathematical equation.",
-    );
-}
-
-/// Complete in math mode.
-fn complete_math(ctx: &mut CompletionContext) -> bool {
-    if !matches!(
-        ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-    ) {
-        return false;
-    }
-
-    // Start of an interpolated identifier: "$#|$".
-    if ctx.leaf.kind() == SyntaxKind::Hash {
-        ctx.from = ctx.cursor;
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Behind existing interpolated identifier: "$#pa|$".
-    if ctx.leaf.kind() == SyntaxKind::Ident {
-        ctx.from = ctx.leaf.offset();
-        code_completions(ctx, true);
-        return true;
-    }
-
-    // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(
-        ctx.leaf.kind(),
-        SyntaxKind::Text | SyntaxKind::MathText | SyntaxKind::MathIdent
-    ) {
-        ctx.from = ctx.leaf.offset();
-        math_completions(ctx);
-        return true;
-    }
-
-    // Anywhere: "$|$".
-    if ctx.explicit {
-        ctx.from = ctx.cursor;
-        math_completions(ctx);
-        return true;
-    }
-
-    false
-}
-
-/// Add completions for math snippets.
-#[rustfmt::skip]
-fn math_completions(ctx: &mut CompletionContext) {
-    ctx.scope_completions(true, |_| true);
-
-    ctx.snippet_completion(
-        "subscript",
-        "${x}_${2:2}",
-        "Sets something in subscript.",
-    );
-
-    ctx.snippet_completion(
-        "superscript",
-        "${x}^${2:2}",
-        "Sets something in superscript.",
-    );
-
-    ctx.snippet_completion(
-        "fraction",
-        "${x}/${y}",
-        "Inserts a fraction.",
-    );
-}
-
 /// Complete field accesses.
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
-    // Used to determine whether trivia nodes are allowed before '.'.
-    // During an inline expression in markup mode trivia nodes exit the inline expression.
-    let in_markup: bool = matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
-    );
+    let (after_dot, textual_dot) = match ctx.leaf.kind() {
+        SyntaxKind::Dot => (true, false),
+        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.leaf_text() == "." => {
+            (true, true)
+        }
+        _ => (false, false),
+    };
 
-    // Behind an expression plus dot: "emoji.|".
-    if (ctx.leaf.kind() == SyntaxKind::Dot
-        || (matches!(ctx.leaf.kind(), SyntaxKind::Text | SyntaxKind::MathText)
-            && ctx.leaf.text() == "."))
-        && ctx.leaf.range().end == ctx.cursor
+    // After an expression plus a dot: "emoji.|".
+    if after_dot
         && let Some(prev) = ctx.leaf.prev_sibling()
-        && (!in_markup || prev.range().end == ctx.leaf.range().start)
-        && prev.is::<ast::Expr>()
+        // We don't complete when we had trivia between the previous node
+        // and a textual dot: `[#x .|]`
+        && (!textual_dot || prev.range().end == ctx.leaf.range().start)
+        && prev.is::<ast::Expr>() // The dot must comes after an expression.
+        // And that expression must allow field access
         && (prev.parent_kind() != Some(SyntaxKind::Markup)
             || prev.prev_sibling_kind() == Some(SyntaxKind::Hash))
         && let Some((value, styles)) = analyze_expr(ctx.world, &prev).into_iter().next()
@@ -390,8 +138,8 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         return true;
     }
 
-    // Behind a started field access: "emoji.fa|".
-    if ctx.leaf.kind() == SyntaxKind::Ident
+    // After a started field access: "emoji.fa|".
+    if matches!(ctx.leaf.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
         && let Some(prev) = ctx.leaf.prev_sibling()
         && prev.kind() == SyntaxKind::Dot
         && let Some(prev_prev) = prev.prev_sibling()
@@ -399,6 +147,10 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         && let Some((value, styles)) =
             analyze_expr(ctx.world, &prev_prev).into_iter().next()
     {
+        debug_assert!(matches!(
+            ctx.leaf.parent_kind(),
+            Some(SyntaxKind::FieldAccess | SyntaxKind::MathFieldAccess),
+        ));
         ctx.from = ctx.leaf.offset();
         field_access_completions(ctx, &value, &styles);
         return true;
@@ -471,6 +223,11 @@ fn field_access_completions(
                 ctx.value_completion(name.clone(), value);
             }
         }
+        Value::Args(args) => {
+            for (name, value) in args.to_named().iter() {
+                ctx.value_completion(name.clone(), value);
+            }
+        }
         Value::Func(func) => {
             // Autocomplete get rules.
             if let Some((elem, styles)) = func.to_element().zip(styles.as_ref()) {
@@ -490,7 +247,7 @@ fn field_access_completions(
 /// Complete half-finished labels.
 fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
-    if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
+    if ctx.leaf.kind().is_error() && ctx.leaf.leaf_text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
         return true;
@@ -663,6 +420,11 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 }
 
 /// Complete call and set rule parameters.
+///
+/// FUTURE: Make this work for math functions. This will require a much deeper
+/// refactoring of `param_completions` below, including handling 2d arguments
+/// correctly and ensuring we add a hash in math when suggesting to insert
+/// values that aren't strings.
 fn complete_params(ctx: &mut CompletionContext) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
     let (callee, set, args, args_linked) = if let Some(parent) = ctx.leaf.parent()
@@ -859,24 +621,230 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("cite"), "style") => &["csl"],
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
-        (Some("embed"), "path") => &[],
         (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
         (None, "path") => &[],
         _ => return None,
     })
 }
 
+/// Complete in markup mode.
+fn complete_markup(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Markup));
+
+    // Start of a reference: "@|".
+    if ctx.leaf.kind() == SyntaxKind::Text && ctx.before.ends_with("@") {
+        ctx.from = ctx.cursor;
+        ctx.label_completions();
+        return true;
+    }
+
+    // An existing reference: "@he|".
+    if ctx.leaf.kind() == SyntaxKind::RefMarker {
+        ctx.from = ctx.leaf.offset() + 1;
+        ctx.label_completions();
+        return true;
+    }
+
+    // Behind a half-completed binding: "#let x = |".
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Eq
+        && prev.parent_kind() == Some(SyntaxKind::LetBinding)
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
+    }
+
+    // Behind a half-completed context block: "#context |".
+    if let Some(prev) = ctx.leaf.prev_leaf()
+        && prev.kind() == SyntaxKind::Context
+    {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, false);
+        return true;
+    }
+
+    // Directly after a raw block.
+    let mut s = Scanner::new(ctx.text);
+    s.jump(ctx.leaf.offset());
+    if s.eat_if("```") {
+        s.eat_while('`');
+        let start = s.cursor();
+        if s.eat_if(is_id_start) {
+            s.eat_while(is_id_continue);
+        }
+        if s.cursor() == ctx.cursor {
+            ctx.from = start;
+            ctx.raw_completions();
+        }
+        return true;
+    }
+
+    // Anywhere: "|".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        markup_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for markup snippets.
+#[rustfmt::skip]
+fn markup_completions(ctx: &mut CompletionContext) {
+    ctx.snippet_completion(
+        "expression",
+        "#${}",
+        "Variables, function calls, blocks, and more.",
+    );
+
+    ctx.snippet_completion(
+        "linebreak",
+        "\\\n${}",
+        "Inserts a forced linebreak.",
+    );
+
+    ctx.snippet_completion(
+        "strong text",
+        "*${strong}*",
+        "Strongly emphasizes content by increasing the font weight.",
+    );
+
+    ctx.snippet_completion(
+        "emphasized text",
+        "_${emphasized}_",
+        "Emphasizes content by setting it in italic font style.",
+    );
+
+    ctx.snippet_completion(
+        "raw text",
+        "`${text}`",
+        "Displays text verbatim, in monospace.",
+    );
+
+    ctx.snippet_completion(
+        "code listing",
+        "```${lang}\n${code}\n```",
+        "Inserts computer code with syntax highlighting.",
+    );
+
+    ctx.snippet_completion(
+        "hyperlink",
+        "https://${example.com}",
+        "Links to a URL.",
+    );
+
+    ctx.snippet_completion(
+        "label",
+        "<${name}>",
+        "Makes the preceding element referenceable.",
+    );
+
+    ctx.snippet_completion(
+        "reference",
+        "@${name}",
+        "Inserts a reference to a label.",
+    );
+
+    ctx.snippet_completion(
+        "heading",
+        "= ${title}",
+        "Inserts a section heading.",
+    );
+
+    ctx.snippet_completion(
+        "list item",
+        "- ${item}",
+        "Inserts an item of a bullet list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item",
+        "+ ${item}",
+        "Inserts an item of a numbered list.",
+    );
+
+    ctx.snippet_completion(
+        "enumeration item (numbered)",
+        "${number}. ${item}",
+        "Inserts an explicitly numbered list item.",
+    );
+
+    ctx.snippet_completion(
+        "term list item",
+        "/ ${term}: ${description}",
+        "Inserts an item of a term list.",
+    );
+
+    ctx.snippet_completion(
+        "math (inline)",
+        "$${x}$",
+        "Inserts an inline-level mathematical equation.",
+    );
+
+    ctx.snippet_completion(
+        "math (block)",
+        "$ ${sum_x^2} $",
+        "Inserts a block-level mathematical equation.",
+    );
+}
+
+/// Complete in math mode.
+fn complete_math(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Math));
+
+    // Behind existing atom or identifier: "$a|$" or "$abc|$".
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
+        ctx.from = ctx.leaf.offset();
+        math_completions(ctx);
+        return true;
+    }
+
+    // Anywhere: "$|$".
+    if ctx.explicit {
+        ctx.from = ctx.cursor;
+        math_completions(ctx);
+        return true;
+    }
+
+    false
+}
+
+/// Add completions for math snippets.
+#[rustfmt::skip]
+fn math_completions(ctx: &mut CompletionContext) {
+    ctx.scope_completions(true, |_| true);
+
+    ctx.snippet_completion(
+        "subscript",
+        "${x}_${2:2}",
+        "Sets something in subscript.",
+    );
+
+    ctx.snippet_completion(
+        "superscript",
+        "${x}^${2:2}",
+        "Sets something in superscript.",
+    );
+
+    ctx.snippet_completion(
+        "fraction",
+        "${x}/${y}",
+        "Inserts a fraction.",
+    );
+}
+
 /// Complete in code mode.
 fn complete_code(ctx: &mut CompletionContext) -> bool {
-    if matches!(
-        ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
-            | Some(SyntaxKind::MathRoot)
-    ) {
-        return false;
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Code));
+
+    // Start of embedded code in markup or math: "[#|]", "$#|$".
+    // (if not in markup or math, the kind would be an `Error`).
+    if ctx.leaf.kind() == SyntaxKind::Hash {
+        ctx.from = ctx.cursor;
+        code_completions(ctx, true);
+        return true;
     }
 
     // An existing identifier: "{ pa| }".
@@ -886,13 +854,6 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
     {
         ctx.from = ctx.leaf.offset();
         code_completions(ctx, false);
-        return true;
-    }
-
-    // A potential label (only at the start of an argument list): "(<|".
-    if ctx.before.ends_with("(<") {
-        ctx.from = ctx.cursor;
-        ctx.label_completions();
         return true;
     }
 
@@ -1115,9 +1076,9 @@ impl<'a> CompletionContext<'a> {
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
         explicit: bool,
-    ) -> Option<Self> {
+    ) -> Self {
         let text = source.text();
-        Some(Self {
+        Self {
             world,
             output,
             text,
@@ -1129,7 +1090,7 @@ impl<'a> CompletionContext<'a> {
             from: cursor,
             completions: vec![],
             seen_casts: FxHashSet::default(),
-        })
+        }
     }
 
     /// A small window of context before the cursor.
@@ -1342,7 +1303,12 @@ impl<'a> CompletionContext<'a> {
             && !self.after.starts_with(['(', '['])
         {
             if let Value::Func(func) = value {
-                apply = Some(match BracketMode::of(func) {
+                let bracket_mode = if self.leaf.mode_after() == Some(SyntaxMode::Math) {
+                    BracketMode::RoundWithin
+                } else {
+                    BracketMode::of(func)
+                };
+                apply = Some(match bracket_mode {
                     BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
                     BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
                     BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
@@ -1680,7 +1646,10 @@ mod tests {
 
     #[test]
     fn test_autocomplete_hash_expr() {
+        test("#", -1).must_include(["int", "if conditional"]);
         test("#i", -1).must_include(["int", "if conditional"]);
+        test("$#$", -2).must_include(["int", "if conditional"]);
+        test("$#i$", -2).must_include(["int", "if conditional"]);
     }
 
     #[test]
@@ -1689,13 +1658,17 @@ mod tests {
         test("#{ let x = (1, 2, 3); x. }", -3).must_include(["at", "push", "pop"]);
     }
 
-    /// Test that extra space before '.' is handled correctly.
+    /// Test that extra spaces before a '.' don't cause autocompletion in markup
+    /// or math.
     #[test]
-    fn test_autocomplete_whitespace() {
+    fn test_autocomplete_dot_whitespace() {
         test("#() .", -1).must_exclude(["insert", "remove", "len", "all"]);
         test("#{() .}", -2).must_include(["insert", "remove", "len", "all"]);
+        test("$#() .$", -2).must_exclude(["insert", "remove", "len", "all"]);
+        test("$std.array .$", -2).must_exclude(["insert", "remove", "len", "all"]);
         test("#() .a", -1).must_exclude(["insert", "remove", "len", "all"]);
         test("#{() .a}", -2).must_include(["at", "any", "all"]);
+        test("$std.array .a$", -2).must_exclude(["insert", "remove", "len", "all"]);
     }
 
     /// Test that autocomplete in math uses the correct global scope.
@@ -1703,6 +1676,92 @@ mod tests {
     fn test_autocomplete_math_scope() {
         test("$#col$", -2).must_include(["colbreak"]).must_exclude(["colon"]);
         test("$col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+        test("$(col)$", -3).must_include(["colon"]).must_exclude(["colbreak"]);
+        test("$1/col$", -2).must_include(["colon"]).must_exclude(["colbreak"]);
+    }
+
+    /// Basic tests for field access autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_field_access() {
+        test("#assert.", -1).must_include(["eq", "ne"]);
+        test("$#assert.$", -2).must_include(["eq", "ne"]);
+        // Note that we still include `ne` even though we've started typing.
+        test("#assert.e", -1).must_include(["eq", "ne"]);
+        test("#(assert.e)", -2).must_include(["eq", "ne"]);
+        test("$#assert.e$", -2).must_include(["eq", "ne"]);
+        test("$#std.assert.e$", -2)
+            .must_include(["eq", "ne"])
+            .must_exclude(["lt"]);
+        test("$std.assert.e$", -2)
+            .must_include(["eq", "ne"])
+            .must_exclude(["lt"]);
+    }
+
+    /// Test autocomplete inside math function call arguments.
+    #[test]
+    fn test_autocomplete_math_func_call() {
+        test("$f(#pi)$", -3).must_include(["box"]).must_exclude(["pi"]);
+        test("$f(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$pi()$", -4).must_include(["pi"]).must_exclude(["box"]);
+        test("$pi(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(size:pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+        test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
+    }
+
+    /// Test dict field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_dict_fields() {
+        let with = |text| &*format!("#let dict = (a: (c: 1), b: 2); {text}").leak();
+        test(with("#dict."), -1)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("$dict.$"), -2)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("#dict.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$dict.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#dict.a."), -1)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("$dict.a.$"), -2)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("#dict.a.c."), -1).must_include(["bit-or"]);
+        test(with("$dict.a.c.$"), -2).must_include(["bit-or"]);
+    }
+
+    /// Test argument field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_argument_fields() {
+        let with = |text| {
+            &*format!("#let args = arguments(0, a: arguments(c: 1), b: 2); {text}").leak()
+        };
+        test(with("#args."), -1)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("$args.$"), -2)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("#args.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$args.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#args.at(0)."), -1).must_include(["bit-or"]);
+        test(with("#args.a."), -1)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("$args.a.$"), -2)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("#args.a.c."), -1).must_include(["bit-or"]);
+        test(with("$args.a.c.$"), -2).must_include(["bit-or"]);
     }
 
     /// Test that the `before_window` doesn't slice into invalid byte
@@ -1767,6 +1826,7 @@ mod tests {
         test("#", 1).at("table").must_apply_as("table(\n  ${}\n)");
         test("#()", 1).at("list").must_apply_as(None);
         test("#[]", 1).at("strong").must_apply_as(None);
+        test("$$", 1).at("overline").must_apply_as("overline(${})");
     }
 
     /// Test that we only complete positional parameters if they aren't

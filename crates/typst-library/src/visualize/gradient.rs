@@ -3,35 +3,36 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{At, SourceResult, bail};
 use crate::foundations::{
     Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Ratio};
-use crate::visualize::{Color, ColorSpace, WeightedColor};
+use crate::visualize::{
+    Color, ColorSpace, ProcessColorSpace, WeightedColor, resolve_color_space,
+};
 
 /// A color gradient.
 ///
 /// Typst supports linear gradients through the
-/// [`gradient.linear` function]($gradient.linear), radial gradients through
-/// the [`gradient.radial` function]($gradient.radial), and conic gradients
-/// through the [`gradient.conic` function]($gradient.conic).
+/// @gradient.linear[`gradient.linear` function], radial gradients through the
+/// @gradient.radial[`gradient.radial` function], and conic gradients through
+/// the @gradient.conic[`gradient.conic` function].
 ///
 /// A gradient can be used for the following purposes:
 /// - As a fill to paint the interior of a shape:
 ///   `{rect(fill: gradient.linear(..))}`
 /// - As a stroke to paint the outline of a shape:
 ///   `{rect(stroke: 1pt + gradient.linear(..))}`
-/// - As the fill of text:
-///   `{set text(fill: gradient.linear(..))}`
-/// - As a color map you can [sample]($gradient.sample) from:
+/// - As the fill of text: `{set text(fill: gradient.linear(..))}`
+/// - As a color map you can @gradient.sample[sample] from:
 ///   `{gradient.linear(..).sample(50%)}`
 ///
-/// # Examples
+/// = Examples <examples>
 /// ```example
 /// >>> #set square(size: 50pt)
 /// #stack(
@@ -44,10 +45,10 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// ```
 ///
 /// Gradients are also supported on text, but only when setting the
-/// [relativeness]($gradient.relative) to either `{auto}` (the default value) or
+/// @gradient.relative[relativeness] to either `{auto}` (the default value) or
 /// `{"parent"}`. To create word-by-word or glyph-by-glyph gradients, you can
-/// wrap the words or characters of your text in [boxes]($box) manually or
-/// through a [show rule]($styling/#show-rules).
+/// wrap the words or characters of your text in @box[boxes] manually or through
+/// a @reference:styling:show-rules[show rule].
 ///
 /// ```example
 /// >>> #set page(width: auto, height: auto, margin: 12pt)
@@ -61,9 +62,9 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// This is a gradient on text, but with a #rainbow[twist]!
 /// ```
 ///
-/// # Stops
+/// = Stops <stops>
 /// A gradient is composed of a series of stops. Each of these stops has a color
-/// and an offset. The offset is a [ratio]($ratio) between `{0%}` and `{100%}` or
+/// and an offset. The offset is a @ratio[ratio] between `{0%}` and `{100%}` or
 /// an angle between `{0deg}` and `{360deg}`. The offset is a relative position
 /// that determines how far along the gradient the stop is located. The stop's
 /// color is the color of the gradient at that position. You can choose to omit
@@ -71,12 +72,12 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// stops evenly.
 ///
 /// Typst predefines color maps that you can use as stops. See the
-/// [`color`]($color/#predefined-color-maps) documentation for more details.
+/// @color:predefined-color-maps[`color`] documentation for more details.
 ///
-/// # Relativeness
-/// The location of the `{0%}` and `{100%}` stops depends on the dimensions
-/// of a container. This container can either be the shape that it is being
-/// painted on, or the closest surrounding container. This is controlled by the
+/// = Relativeness <relativeness>
+/// The location of the `{0%}` and `{100%}` stops depends on the dimensions of a
+/// container. This container can either be the shape that it is being painted
+/// on, or the closest surrounding container. This is controlled by the
 /// `relative` argument of a gradient constructor. By default, gradients are
 /// relative to the shape they are being painted on, unless the gradient is
 /// applied on text, in which case they are relative to the closest ancestor
@@ -85,15 +86,13 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// Typst determines the ancestor container as follows:
 /// - For shapes that are placed at the root/top level of the document, the
 ///   closest ancestor is the page itself.
-/// - For other shapes, the ancestor is the innermost [`block`] or [`box`] that
-///   contains the shape. This includes the boxes and blocks that are implicitly
-///   created by show rules and elements. For example, a [`rotate`] will not
-///   affect the parent of a gradient, but a [`grid`] will.
+/// - For other shapes, the ancestor is the innermost @block or @box that
+///   contains the shape.
 ///
-/// # Color spaces and interpolation
+/// = Color spaces and interpolation <color-spaces-and-interpolation>
 /// Gradients can be interpolated in any color space. By default, gradients are
-/// interpolated in the [Oklab]($color.oklab) color space, which is a
-/// [perceptually uniform](https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html)
+/// interpolated in the @color.oklab[Oklab] color space, which is a
+/// #link("https://programmingdesignsystems.com/color/perceptually-uniform-color-spaces/index.html")[perceptually uniform]
 /// color space. This means that the gradient will be perceived as having a
 /// smooth progression of colors. This is particularly useful for data
 /// visualization.
@@ -103,16 +102,33 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// perceptually interpolating between colors. Consult the table below when
 /// choosing an interpolation space.
 ///
-/// |           Color space           | Perceptually uniform? |
-/// | ------------------------------- |-----------------------|
-/// | [Oklab]($color.oklab)           | *Yes*                 |
-/// | [Oklch]($color.oklch)           | *Yes*                 |
-/// | [sRGB]($color.rgb)              | *No*                  |
-/// | [linear-RGB]($color.linear-rgb) | *Yes*                 |
-/// | [CMYK]($color.cmyk)             | *No*                  |
-/// | [Grayscale]($color.luma)        | *Yes*                 |
-/// | [HSL]($color.hsl)               | *No*                  |
-/// | [HSV]($color.hsv)               | *No*                  |
+/// #docs-table(
+///   table.header[Color space][Perceptually uniform?],
+///
+///   [@color.oklab[Oklab]],
+///   [_Yes_],
+///
+///   [@color.oklch[Oklch]],
+///   [_Yes_],
+///
+///   [@color.rgb[sRGB]],
+///   [_No_],
+///
+///   [@color.linear-rgb[linear-RGB]],
+///   [_Yes_],
+///
+///   [@color.cmyk[CMYK]],
+///   [_No_],
+///
+///   [@color.luma[Grayscale]],
+///   [_Yes_],
+///
+///   [@color.hsl[HSL]],
+///   [_No_],
+///
+///   [@color.hsv[HSV]],
+///   [_No_],
+/// )
 ///
 /// ```preview
 /// >>> #set text(fill: white, font: "IBM Plex Sans", 8pt)
@@ -142,7 +158,7 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// }
 /// ```
 ///
-/// # Direction
+/// = Direction <direction>
 /// Some gradients are sensitive to direction. For example, a linear gradient
 /// has an angle that determines its direction. Typst uses a clockwise angle,
 /// with 0° being from left to right, 90° from top to bottom, 180° from right to
@@ -160,19 +176,16 @@ use crate::visualize::{Color, ColorSpace, WeightedColor};
 /// )
 /// ```
 ///
-/// # Note on file sizes
-///
+/// = Note on file sizes <note-on-file-sizes>
 /// Gradients can be quite large, especially if they have many stops. This is
-/// because gradients are stored as a list of colors and offsets, which can
-/// take up a lot of space. If you are concerned about file sizes, you should
-/// consider the following:
-/// - SVG gradients are currently inefficiently encoded. This will be improved
-///   in the future.
-/// - PDF gradients in the [`color.oklab`], [`color.hsv`], [`color.hsl`], and
-///   [`color.oklch`] color spaces are stored as a list of [`color.rgb`] colors
-///   with extra stops in between. This avoids needing to encode these color
-///   spaces in your PDF file, but it does add extra stops to your gradient,
-///   which can increase the file size.
+/// because gradients are stored as a list of colors and offsets, which can take
+/// up a lot of space. In SVG export, gradients are stored as a list of
+/// @color.rgb colors replicating the original color space with an optimized
+/// number of extra stops in between. In PDF export, the same applies to
+/// gradients in the @color.oklab, @color.oklch, @color.hsv, @color.hsl, and
+/// @color.linear-rgb color spaces. This avoids needing to encode these color
+/// spaces in your PDF file, but it does add extra stops to your gradient, which
+/// can increase the file size.
 #[ty(scope, cast)]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
@@ -200,22 +213,20 @@ impl Gradient {
     pub fn linear(
         args: &mut Args,
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
-        #[default(ColorSpace::Oklab)]
-        space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        #[default(Spanned::detached(Smart::Auto))]
+        space: Spanned<Smart<ColorSpace>>,
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the
-        /// parent is the page itself. For other elements, the parent is the
-        /// innermost block, box, column, grid, or stack that contains the
-        /// element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -247,8 +258,10 @@ impl Gradient {
             );
         }
 
+        let (stops, space) = process_stops(&stops, space)?;
+
         Ok(Self::Linear(Arc::new(LinearGradient {
-            stops: process_stops(&stops)?,
+            stops,
             angle,
             space,
             relative,
@@ -289,28 +302,27 @@ impl Gradient {
     #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
-        #[default(ColorSpace::Oklab)]
-        space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        #[default(Spanned::detached(Smart::Auto))]
+        space: Spanned<Smart<ColorSpace>>,
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block,
-        /// box, column, grid, or stack that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
         /// The center of the end circle of the gradient.
         ///
-        /// A value of `{(50%, 50%)}` means that the end circle is
-        /// centered inside of its container.
+        /// A value of `{(50%, 50%)}` means that the end circle is centered
+        /// inside of its container.
         #[named]
         #[default(Axes::splat(Ratio::new(0.5)))]
         center: Axes<Ratio>,
@@ -325,8 +337,8 @@ impl Gradient {
         ///
         /// The focal center must be inside of the end circle.
         ///
-        /// A value of `{(50%, 50%)}` means that the focal circle is
-        /// centered inside of its container.
+        /// A value of `{(50%, 50%)}` means that the focal circle is centered
+        /// inside of its container.
         ///
         /// By default it is set to the same as the center of the last circle.
         #[named]
@@ -337,7 +349,7 @@ impl Gradient {
         /// The focal center must be inside of the end circle.
         ///
         /// By default, it is set to `{0%}`. The focal radius must be smaller
-        /// than the ending radius`.
+        /// than the ending radius.
         #[named]
         #[default(Spanned::detached(Ratio::new(0.0)))]
         focal_radius: Spanned<Ratio>,
@@ -370,8 +382,10 @@ impl Gradient {
             );
         }
 
+        let (stops, space) = process_stops(&stops, space)?;
+
         Ok(Gradient::Radial(Arc::new(RadialGradient {
-            stops: process_stops(&stops)?,
+            stops,
             center: center.map(From::from),
             radius: radius.v,
             focal_center,
@@ -405,7 +419,7 @@ impl Gradient {
     #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
-        /// The color [stops](#stops) of the gradient.
+        /// The color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
@@ -415,15 +429,14 @@ impl Gradient {
         /// The color space in which to interpolate the gradient.
         ///
         /// Defaults to a perceptually uniform color space called
-        /// [Oklab]($color.oklab).
+        /// @color.oklab[Oklab].
         #[named]
-        #[default(ColorSpace::Oklab)]
-        space: ColorSpace,
-        /// The [relative placement](#relativeness) of the gradient.
+        #[default(Spanned::detached(Smart::Auto))]
+        space: Spanned<Smart<ColorSpace>>,
+        /// The @gradient:relativeness[relative placement] of the gradient.
         ///
-        /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the innermost block,
-        /// box, column, grid, or stack that contains the element.
+        /// The parent of an element is the innermost @box or @block that
+        /// contains the element, or, if there is none, the page itself.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
@@ -442,8 +455,10 @@ impl Gradient {
             );
         }
 
+        let (stops, space) = process_stops(&stops, space)?;
+
         Ok(Gradient::Conic(Arc::new(ConicGradient {
-            stops: process_stops(&stops)?,
+            stops,
             angle,
             center: center.map(From::from),
             space,
@@ -454,9 +469,9 @@ impl Gradient {
 
     /// Creates a sharp version of this gradient.
     ///
-    /// Sharp gradients have discrete jumps between colors, instead of a
-    /// smooth transition. They are particularly useful for creating color
-    /// lists for a preset gradient.
+    /// Sharp gradients have discrete jumps between colors, instead of a smooth
+    /// transition. They are particularly useful for creating color lists for a
+    /// preset gradient.
     ///
     /// ```example
     /// #set rect(width: 100%, height: 20pt)
@@ -490,7 +505,7 @@ impl Gradient {
                 let c = self
                     .sample(RatioOrAngle::Ratio(Ratio::new(i as f64 / (n - 1) as f64)));
 
-                [c, c]
+                [c.clone(), c]
             })
             .collect::<Vec<_>>();
 
@@ -524,7 +539,7 @@ impl Gradient {
             Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
                 stops,
                 angle: linear.angle,
-                space: linear.space,
+                space: linear.space.clone(),
                 relative: linear.relative,
                 anti_alias: false,
             })),
@@ -534,7 +549,7 @@ impl Gradient {
                 radius: radial.radius,
                 focal_center: radial.focal_center,
                 focal_radius: radial.focal_radius,
-                space: radial.space,
+                space: radial.space.clone(),
                 relative: radial.relative,
                 anti_alias: false,
             })),
@@ -542,7 +557,7 @@ impl Gradient {
                 stops,
                 angle: conic.angle,
                 center: conic.center,
-                space: conic.space,
+                space: conic.space.clone(),
                 relative: conic.relative,
                 anti_alias: false,
             })),
@@ -565,8 +580,8 @@ impl Gradient {
         &self,
         /// The number of times to repeat the gradient.
         repetitions: Spanned<usize>,
-        /// Whether to mirror the gradient at every second repetition, i.e.,
-        /// the first instance (and all odd ones) stays unchanged.
+        /// Whether to mirror the gradient at every second repetition, i.e., the
+        /// first instance (and all odd ones) stays unchanged.
         ///
         /// ```example
         /// #circle(
@@ -590,12 +605,12 @@ impl Gradient {
             .flat_map(|(i, stops)| {
                 let mut stops = stops
                     .iter()
-                    .map(move |&(color, offset)| {
+                    .map(|(color, offset)| {
                         let r = offset.get();
                         if i % 2 == 1 && mirror {
-                            (color, Ratio::new((i as f64 + 1.0 - r) / n as f64))
+                            (color.clone(), Ratio::new((i as f64 + 1.0 - r) / n as f64))
                         } else {
-                            (color, Ratio::new((i as f64 + r) / n as f64))
+                            (color.clone(), Ratio::new((i as f64 + r) / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
@@ -614,7 +629,7 @@ impl Gradient {
             Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
                 stops,
                 angle: linear.angle,
-                space: linear.space,
+                space: linear.space.clone(),
                 relative: linear.relative,
                 anti_alias: linear.anti_alias,
             })),
@@ -624,7 +639,7 @@ impl Gradient {
                 radius: radial.radius,
                 focal_center: radial.focal_center,
                 focal_radius: radial.focal_radius,
-                space: radial.space,
+                space: radial.space.clone(),
                 relative: radial.relative,
                 anti_alias: radial.anti_alias,
             })),
@@ -632,7 +647,7 @@ impl Gradient {
                 stops,
                 angle: conic.angle,
                 center: conic.center,
-                space: conic.space,
+                space: conic.space.clone(),
                 relative: conic.relative,
                 anti_alias: conic.anti_alias,
             })),
@@ -657,7 +672,7 @@ impl Gradient {
                 .stops
                 .iter()
                 .map(|(color, offset)| GradientStop {
-                    color: *color,
+                    color: color.clone(),
                     offset: Some(*offset),
                 })
                 .collect(),
@@ -665,7 +680,7 @@ impl Gradient {
                 .stops
                 .iter()
                 .map(|(color, offset)| GradientStop {
-                    color: *color,
+                    color: color.clone(),
                     offset: Some(*offset),
                 })
                 .collect(),
@@ -673,7 +688,7 @@ impl Gradient {
                 .stops
                 .iter()
                 .map(|(color, offset)| GradientStop {
-                    color: *color,
+                    color: color.clone(),
                     offset: Some(*offset),
                 })
                 .collect(),
@@ -684,9 +699,9 @@ impl Gradient {
     #[func]
     pub fn space(&self) -> ColorSpace {
         match self {
-            Self::Linear(linear) => linear.space,
-            Self::Radial(radial) => radial.space,
-            Self::Conic(conic) => conic.space,
+            Self::Linear(linear) => linear.space.clone(),
+            Self::Radial(radial) => radial.space.clone(),
+            Self::Conic(conic) => conic.space.clone(),
         }
     }
 
@@ -762,9 +777,9 @@ impl Gradient {
 
     /// Sample the gradient at a given position.
     ///
-    /// The position is either a position along the gradient (a [ratio] between
-    /// `{0%}` and `{100%}`) or an [angle]. Any value outside of this range will
-    /// be clamped.
+    /// The position is either a position along the gradient (a @ratio[ratio]
+    /// between `{0%}` and `{100%}`) or an @angle[angle]. Any value outside of
+    /// this range will be clamped.
     #[func]
     pub fn sample(
         &self,
@@ -774,9 +789,13 @@ impl Gradient {
         let value: f64 = t.to_ratio().get();
 
         match self {
-            Self::Linear(linear) => sample_stops(&linear.stops, linear.space, value),
-            Self::Radial(radial) => sample_stops(&radial.stops, radial.space, value),
-            Self::Conic(conic) => sample_stops(&conic.stops, conic.space, value),
+            Self::Linear(linear) => {
+                sample_stops(&linear.stops, linear.space.clone(), value)
+            }
+            Self::Radial(radial) => {
+                sample_stops(&radial.stops, radial.space.clone(), value)
+            }
+            Self::Conic(conic) => sample_stops(&conic.stops, conic.space.clone(), value),
         }
     }
 
@@ -823,17 +842,17 @@ impl Gradient {
     /// rgb color space interpolation by bisecting
     pub fn generate_intermediate_stops_for_rgb_interpolation(
         &self,
-        first: GradientStop,
-        second: GradientStop,
+        first: &GradientStop,
+        second: &GradientStop,
     ) -> impl Iterator<Item = (Color, Ratio)> {
         const THRESHOLD: f32 = 0.001;
         const MAX_SUBDIVISIONS: u64 = 64;
 
         let t0 = first.offset.unwrap().get();
         let dt = second.offset.unwrap().get() - t0;
-        let mut prev_color = first.color;
+        let mut prev_color = first.color.clone();
         let mut next_stop = second.offset.unwrap();
-        let mut next_color = second.color;
+        let mut next_color = second.color.clone();
         let mut n: u64 = 1; // number of subdivisions
         let mut i: u64 = 1; // next stop at this subdivision
 
@@ -845,12 +864,13 @@ impl Gradient {
                     let mid = Ratio::new(t0 + dt * (i as f64 - 0.5) / n as f64);
                     let exact = self.sample(RatioOrAngle::Ratio(mid));
                     let approx = Color::mix_iter(
-                        [prev_color, next_color].map(|c| WeightedColor::new(c, 0.5)),
-                        ColorSpace::LinearRgb,
+                        [&prev_color, &next_color]
+                            .map(|c| WeightedColor::new(c.clone(), 0.5)),
+                        Smart::Custom(ProcessColorSpace::Srgb.into()),
                     )
                     .unwrap();
-                    let exact_color = exact.to_linear_rgb().premultiply().color;
-                    let approx_color = approx.to_linear_rgb().premultiply().color;
+                    let exact_color = exact.to_rgb().premultiply().color;
+                    let approx_color = approx.to_rgb().premultiply().color;
                     let delta = (exact_color - approx_color).into_components();
                     (delta.0 * delta.0 + delta.1 * delta.1 + delta.2 * delta.2).sqrt()
                 };
@@ -864,8 +884,8 @@ impl Gradient {
                     break None;
                 } else {
                     // intermediate stop found -> yield
-                    intermediate_stop = Some((next_color, next_stop));
-                    prev_color = next_color;
+                    intermediate_stop = Some((next_color.clone(), next_stop));
+                    prev_color = next_color.clone();
                     // next subdivision (largest possible)
                     let shift = i.trailing_zeros();
                     n >>= shift;
@@ -1030,9 +1050,9 @@ impl Repr for LinearGradient {
             r.push_str(", ");
         }
 
-        if self.space != ColorSpace::Oklab {
+        if self.space != ColorSpace::Process(ProcessColorSpace::Oklab) {
             r.push_str("space: ");
-            r.push_str(&self.space.into_value().repr());
+            r.push_str(&self.space.clone().into_value().repr());
             r.push_str(", ");
         }
 
@@ -1111,9 +1131,9 @@ impl Repr for RadialGradient {
             r.push_str(", ");
         }
 
-        if self.space != ColorSpace::Oklab {
+        if self.space != ColorSpace::Process(ProcessColorSpace::Oklab) {
             r.push_str("space: ");
-            r.push_str(&self.space.into_value().repr());
+            r.push_str(&self.space.clone().into_value().repr());
             r.push_str(", ");
         }
 
@@ -1176,9 +1196,9 @@ impl Repr for ConicGradient {
             r.push_str("), ");
         }
 
-        if self.space != ColorSpace::Oklab {
+        if self.space != ColorSpace::Process(ProcessColorSpace::Oklab) {
             r.push_str("space: ");
-            r.push_str(&self.space.into_value().repr());
+            r.push_str(&self.space.clone().into_value().repr());
             r.push_str(", ");
         }
 
@@ -1214,7 +1234,7 @@ pub enum RelativeTo {
 }
 
 /// A color stop.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct GradientStop {
     /// The color for this stop.
     pub color: Color,
@@ -1276,16 +1296,47 @@ cast! {
     angle: Angle => Self::Angle(angle),
 }
 
-/// Pre-processes the stops, checking that they are valid and computing the
-/// offsets if necessary.
+/// Pre-processes the stops, checking their offsets are well-formed, computing
+/// missing offsets, and converting all of them into the mixing space.
 ///
-/// Returns an error if the stops are invalid.
+/// Returns an error if the stops' offsets are invalid or if they cannot be
+/// converted to the mixing space.
 ///
 /// This is split into its own function because it is used by all of the
 /// different gradient types.
 #[comemo::memoize]
-fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ratio)>> {
+fn process_stops(
+    stops: &[Spanned<GradientStop>],
+    space: Spanned<Smart<ColorSpace>>,
+) -> SourceResult<(Vec<(Color, Ratio)>, ColorSpace)> {
+    let space_span: Option<_> = (!space.span.is_detached()).then_some(space.span);
+
     let has_offset = stops.iter().any(|stop| stop.v.offset.is_some());
+    let space = resolve_color_space(space.v, stops.iter().map(|s| s.v.color.clone()));
+
+    let stops_iter = stops.iter().map(|s| -> SourceResult<Spanned<GradientStop>> {
+        let color = s.v.color.to_space(&space).at(s.span).map_err(|diagnostics| {
+            diagnostics
+                .into_iter()
+                .enumerate()
+                .map(|(i, diag)| {
+                    if let Some(span) = space_span
+                        && i == 0
+                    {
+                        diag.with_spanned_hint(
+                            "gradient color mixing space specified here",
+                            span,
+                        )
+                    } else {
+                        diag
+                    }
+                })
+                .collect::<EcoVec<_>>()
+        })?;
+
+        Ok(Spanned::new(GradientStop { color, offset: s.v.offset }, s.span))
+    });
+
     if has_offset {
         let mut last_stop = f64::NEG_INFINITY;
         for Spanned { v: stop, span } in stops.iter() {
@@ -1303,13 +1354,13 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             last_stop = stop.get();
         }
 
-        let out = stops
-            .iter()
-            .map(|Spanned { v: GradientStop { color, offset }, span }| {
+        let out = stops_iter
+            .map(|stop| {
+                let Spanned { v: GradientStop { color, offset }, span } = stop?;
                 if offset.unwrap().get() > 1.0 || offset.unwrap().get() < 0.0 {
-                    bail!(*span, "offset must be between 0 and 1");
+                    bail!(span, "offset must be between 0 and 1");
                 }
-                Ok((*color, offset.unwrap()))
+                Ok((color.clone(), offset.unwrap()))
             })
             .collect::<SourceResult<Vec<_>>>()?;
 
@@ -1329,17 +1380,19 @@ fn process_stops(stops: &[Spanned<GradientStop>]) -> SourceResult<Vec<(Color, Ra
             );
         }
 
-        return Ok(out);
+        return Ok((out, space));
     }
 
-    Ok(stops
-        .iter()
-        .enumerate()
-        .map(|(i, stop)| {
-            let offset = i as f64 / (stops.len() - 1) as f64;
-            (stop.v.color, Ratio::new(offset))
-        })
-        .collect())
+    Ok((
+        stops_iter
+            .enumerate()
+            .map(|(i, stop)| {
+                let offset = i as f64 / (stops.len() - 1) as f64;
+                Ok((stop?.v.color.clone(), Ratio::new(offset)))
+            })
+            .collect::<SourceResult<Vec<_>>>()?,
+        space,
+    ))
 }
 
 /// Sample the stops at a given position.
@@ -1351,16 +1404,20 @@ fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> C
         while stops.get(j + 1).is_some_and(|(_, r)| r.is_zero()) {
             j += 1;
         }
-        return stops[j].0;
+
+        return stops[j].0.clone();
     }
 
-    let (col_0, pos_0) = stops[j - 1];
-    let (col_1, pos_1) = stops[j];
+    let (col_0, pos_0) = stops[j - 1].clone();
+    let (col_1, pos_1) = stops[j].clone();
     let t = (t - pos_0.get()) / (pos_1.get() - pos_0.get());
 
+    // For two colors, positive weights, and `mixing_space` equaling the color
+    // space of each color, this function will not return an Error. The relevant
+    // Errors are raised in `process_stops` instead.
     Color::mix_iter(
         [WeightedColor::new(col_0, 1.0 - t), WeightedColor::new(col_1, t)],
-        mixing_space,
+        Smart::Custom(mixing_space),
     )
     .unwrap()
 }

@@ -124,12 +124,12 @@ hi:
 
 --- bibliography-chicago-fullnotes-warning paged empty ---
 // Test warning for deprecated alias.
-// Warning: 47-66 style "chicago-fullnotes" has been deprecated in favor of "chicago-notes"
+// Warning: 47-66 style `"chicago-fullnotes"` has been deprecated in favor of `"chicago-notes"`
 #bibliography("/assets/bib/works.bib", style: "chicago-fullnotes", title: none)
 
 --- bibliography-modern-humanities-research-association-warning paged empty ---
 // Test warning for deprecated alias.
-// Warning: 47-87 style "modern-humanities-research-association" has been deprecated in favor of "modern-humanities-research-association-notes"
+// Warning: 47-87 style `"modern-humanities-research-association"` has been deprecated in favor of `"modern-humanities-research-association-notes"`
 #bibliography("/assets/bib/works.bib", style: "modern-humanities-research-association", title: none)
 
 --- bibliography-csl-display paged html ---
@@ -180,3 +180,31 @@ hi:
   title: none,
   full: true,
 )
+
+--- bibliography-group-none html ---
+#set bibliography(group: none)
+
+@keshav2007read @netwok @arrgh
+#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works_too.bib", style: "nlm-citation-sequence")
+
+--- bibliography-group-auto html ---
+@netwok @arrgh @keshav2007read
+#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works_too.bib")
+
+--- bibliography-group-str html ---
+@netwok @arrgh @keshav2007read
+#bibliography("/assets/bib/works.bib", group: "a")
+#bibliography("/assets/bib/works_too.bib", group: "b", style: "nlm-citation-sequence")
+
+@quark @distress @keshav2007read
+#bibliography("/assets/bib/works.bib", group: "a")
+#bibliography("/assets/bib/works_too.bib", group: "b", style: "nlm-citation-sequence")
+
+--- bibliography-group-out-of-order html ---
+// The numbers are ordered in the order of the bibliographies, so in the prose
+// they can be out of order if using shared numbering.
+@keshav2007read @netwok @arrgh
+#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works_too.bib")

@@ -9,9 +9,8 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
-use typst_utils::ArcExt;
 
-use crate::diag::{DeprecationSink, HintedStrResult, HintedString, StrResult};
+use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
 use crate::foundations::{
     Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
     Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
@@ -155,13 +154,14 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str, sink: impl DeprecationSink) -> StrResult<Value> {
+    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => {
                 symbol.clone().modified(sink, field).map(Self::Symbol)
             }
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
+            Self::Args(args) => args.field(field).cloned(),
             Self::Content(content) => content.field_by_name(field),
             Self::Type(ty) => ty.field(field, sink).cloned(),
             Self::Func(func) => func.field(field, sink).cloned(),
@@ -682,7 +682,7 @@ impl<T: Reflect> Reflect for Arc<T> {
 
 impl<T: Clone + IntoValue> IntoValue for Arc<T> {
     fn into_value(self) -> Value {
-        Arc::take(self).into_value()
+        Arc::unwrap_or_clone(self).into_value()
     }
 }
 
@@ -699,13 +699,13 @@ impl<T: Clone + Resolve> Resolve for Arc<T> {
     type Output = Arc<T::Output>;
 
     fn resolve(self, styles: super::StyleChain) -> Self::Output {
-        Arc::new(Arc::take(self).resolve(styles))
+        Arc::new(Arc::unwrap_or_clone(self).resolve(styles))
     }
 }
 
 impl<T: Clone + Fold> Fold for Arc<T> {
     fn fold(self, outer: Self) -> Self {
-        Arc::new(Arc::take(self).fold(Arc::take(outer)))
+        Arc::new(Arc::unwrap_or_clone(self).fold(Arc::unwrap_or_clone(outer)))
     }
 }
 

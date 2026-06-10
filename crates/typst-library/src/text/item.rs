@@ -5,14 +5,14 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::layout::{Abs, Em, Point, Rect};
-use crate::text::{Font, Lang, Region, is_default_ignorable};
+use crate::text::{FontInstance, Lang, Region, is_default_ignorable};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct TextItem {
     /// The font the glyphs are contained in.
-    pub font: Font,
+    pub font: FontInstance,
     /// The font size.
     pub size: Abs,
     /// Glyph color.

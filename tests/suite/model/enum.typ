@@ -44,6 +44,20 @@ a + 0.
   13. d // indented past c
 14. e
 
+--- enum-in-align-in-block paged ---
+// The marker doesn't move as the list body expands and aligns itself.
+// However, with `block`, the list body does not expand, so the marker is also
+// aligned.
++ a
++ b
+#align(right)[+ c]
+#align(right, block[+ d])
+
+--- enum-in-align-centering paged ---
++ $ x $
+#align(right)[+ $ y $]
+#align(right, block[+ $ z $])
+
 --- enum-number-override paged ---
 // Test item number overriding.
 1. first
@@ -181,6 +195,19 @@ a + 0.
    32. g
    64. h
 
+--- enum-number-align-unfolded-mixed paged ---
+// Verify whether overriding vertical alignment causes horizontal alignment to
+// be inherited from the context.
+#set align(center)
+#set enum(
+  number-align: top,
+  numbering: n => "1" * n,
+)
+
++ abc
++ abc
++ abc
+
 --- enum-number-align-values paged empty ---
 // Test valid number align values (horizontal and vertical)
 #set enum(number-align: start)
@@ -246,3 +273,18 @@ a + 0.
   + E
 + = F
   G
+
+--- issue-529-enum-center-alignment paged ---
+#set page(width: 2cm)
++ A
++ #align(center)[B]
++ $ C $
+
+--- issue-1204-enum-baseline-alignment paged ---
++ A
++ $ sum_(i = 1)^n overbrace(x^6, y) $
++ #box(baseline: 1cm)[C]
++ #v(1cm) D
++ #text(48pt)[E]
++ #block(inset: 10pt, stroke: red)[Hello world!]
++ #rect[Hello world!]

@@ -182,7 +182,7 @@ impl SVGRenderer<'_> {
     ) {
         let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
         // Flip the transform again, since images are drawn Y-Down.
-        let ts = Transform::translate(x_offset, y_offset + text.size)
+        let ts = Transform::translate(x_offset, y_offset)
             .pre_concat(Transform::scale(scale, -scale));
 
         svg.elem("use")

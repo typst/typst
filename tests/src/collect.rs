@@ -13,7 +13,7 @@ use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
 use crate::notes::{TestBody, parse_test_body};
-use crate::output::{self, HashOutputType, HashedRef, HashedRefs};
+use crate::output::{self, HashOutputType, HashStore, HashedRef, HashedRefs};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -21,7 +21,7 @@ use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 /// Returns:
 /// - the tests and the number of skipped tests in the success case.
 /// - parsing errors in the failure case.
-pub fn collect() -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
+pub fn collect() -> Result<(HashStore, Vec<Test>, usize), Vec<TestParseError>> {
     Collector::new().collect()
 }
 
@@ -91,11 +91,16 @@ bitflags! {
 }
 
 /// The parsed and evaluated test attributes specified in the test header.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
-    pub pdf_standard: Option<PdfStandard>,
+    pub pdf_standard: Vec<PdfStandard>,
+    /// Tolerance for image comparisons. Render tests are not 100% reproducible.
+    /// By default, we allow a byte difference of 1, but in rare cases, we need
+    /// to increase it. This can for example happen due to cross-platform
+    /// differences in float and SIMD handling.
+    pub tolerance: Option<u8>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
@@ -379,12 +384,11 @@ impl TestOutput {
     /// The output kind.
     pub fn kind(&self) -> TestOutputKind {
         match self {
-            TestOutput::Render
-            | TestOutput::Pdftags
-            | TestOutput::Html
-            | TestOutput::Bundle => TestOutputKind::File,
+            TestOutput::Render | TestOutput::Bundle => TestOutputKind::File,
             TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),
+            TestOutput::Pdftags => TestOutputKind::Hash(output::Pdftags::INDEX),
             TestOutput::Svg => TestOutputKind::Hash(output::Svg::INDEX),
+            TestOutput::Html => TestOutputKind::Hash(output::Html::INDEX),
         }
     }
 }
@@ -420,7 +424,7 @@ impl Display for FileSize {
 
 /// Collects all tests from all files.
 struct Collector {
-    hashes: [HashedRefs; 2],
+    hashes: HashStore,
     tests: Vec<Test>,
     errors: Vec<TestParseError>,
     seen: FxHashMap<EcoString, (FilePos, Attrs)>,
@@ -431,7 +435,7 @@ impl Collector {
     /// Creates a new test collector.
     fn new() -> Self {
         Self {
-            hashes: std::array::from_fn(|_| HashedRefs::default()),
+            hashes: HashStore::default(),
             tests: vec![],
             errors: vec![],
             seen: FxHashMap::default(),
@@ -440,9 +444,7 @@ impl Collector {
     }
 
     /// Collects tests from all files.
-    fn collect(
-        mut self,
-    ) -> Result<([HashedRefs; 2], Vec<Test>, usize), Vec<TestParseError>> {
+    fn collect(mut self) -> Result<(HashStore, Vec<Test>, usize), Vec<TestParseError>> {
         self.walk_files();
         self.walk_references();
 
@@ -644,7 +646,7 @@ impl<'a> Parser<'a> {
                 path: self.path.clone(),
                 line: self.test_start_line,
             };
-            self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
+            self.collector.seen.insert(name.clone(), (pos.clone(), attrs.clone()));
 
             while !self.s.done() && !self.s.at("---") {
                 self.s.eat_until(is_newline);
@@ -686,7 +688,9 @@ impl<'a> Parser<'a> {
     fn parse_attrs(&mut self) -> Attrs {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
-        let mut pdf_standard = None;
+        let mut pdf_standard = Vec::new();
+        let mut tolerance = None;
+
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -710,11 +714,27 @@ impl<'a> Parser<'a> {
                         self.error("expected parameter for `pdfstandard`");
                         continue;
                     };
-                    pdf_standard = serde_yaml::from_str(param)
-                        .inspect_err(|e| {
-                            self.error(format!("unknown pdf standard `{param}`: {e}"))
+                    pdf_standard = param
+                        .split(',')
+                        .map(str::trim)
+                        .filter_map(|s| {
+                            serde_yaml::from_str(s)
+                                .inspect_err(|e| {
+                                    self.error(format!("unknown pdf standard `{s}`: {e}"))
+                                })
+                                .ok()
                         })
-                        .ok();
+                        .collect();
+                }
+                "tolerance" => {
+                    let Some(param) = attr_params.take() else {
+                        self.error("expected parameter for `tolerance`");
+                        continue;
+                    };
+                    match param.parse::<u8>() {
+                        Ok(value) => tolerance = Some(value),
+                        _ => self.error("expected integer for `tolerance`"),
+                    }
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
@@ -756,6 +776,7 @@ impl<'a> Parser<'a> {
             empty: flags.contains(AttrFlags::EMPTY),
             pdf_standard,
             stages,
+            tolerance,
         }
     }
 

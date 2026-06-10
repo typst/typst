@@ -18,11 +18,6 @@
 // Error: "/assets/data/bad.json" 3:14 failed to parse JSON (expected value at line 3 column 14)
 #json("/assets/data/bad.json")
 
---- json-decode-deprecated eval ---
-// Warning: 15-21 `json.decode` is deprecated, directly pass bytes to `json` instead
-// Hint: 15-21 it will be removed in Typst 0.15.0
-#let _ = json.decode
-
 --- issue-3363-json-large-number paged ---
 // Big numbers (larger than what i64 can store) should just lose some precision
 // but not overflow

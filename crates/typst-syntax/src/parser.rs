@@ -7,7 +7,7 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
@@ -139,8 +139,14 @@ fn strong(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Star);
         markup(p, false, true, syntax_set!(Star, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Star);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Star);
         p.wrap(m, SyntaxKind::Strong);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within stars");
+            let hint = "using multiple consecutive stars (e.g. **) has no \
+                        additional effect";
+            p[m].hint(hint);
+        }
     });
 }
 
@@ -150,8 +156,14 @@ fn emph(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Underscore);
         markup(p, false, true, syntax_set!(Underscore, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Underscore);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Underscore);
         p.wrap(m, SyntaxKind::Emph);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within underscores");
+            let hint = "using multiple consecutive underscores (e.g. __) has no \
+                        additional effect";
+            p[m].hint(hint);
+        }
     });
 }
 
@@ -260,8 +272,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
-        // The lexer manages creating full FieldAccess nodes if needed.
-        SyntaxKind::MathIdent | SyntaxKind::FieldAccess => {
+
+        // The lexer manages creating full MathFieldAccess nodes if needed.
+        SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
             continuable = true;
             p.eat();
             // Parse a function call for an identifier or field access.
@@ -451,8 +464,8 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     }
 
     if let [first, .., last] = node.children_mut()
-        && first.text() == "("
-        && last.text() == ")"
+        && first.leaf_text() == "("
+        && last.leaf_text() == ")"
     {
         first.convert_to_kind(SyntaxKind::LeftParen);
         last.convert_to_kind(SyntaxKind::RightParen);
@@ -572,13 +585,7 @@ fn embedded_code_expr(p: &mut Parser) {
         }
 
         let stmt = p.at_set(set::STMT);
-        let at = p.at_set(set::ATOMIC_CODE_EXPR);
         code_expr_prec(p, true, 0);
-
-        // Consume error for things like `#12p` or `#"abc\"`.#
-        if !at {
-            p.unexpected();
-        }
 
         // Note: 2d math arguments rely on the `directly_at` check.
         let semi = (stmt || p.directly_at(SyntaxKind::Semicolon))
@@ -592,7 +599,7 @@ fn embedded_code_expr(p: &mut Parser) {
 
 /// Parses a single code expression.
 fn code_expr(p: &mut Parser) {
-    code_expr_prec(p, false, 0)
+    code_expr_prec(p, false, 0);
 }
 
 /// Parses a code expression with at least the given precedence.
@@ -600,11 +607,18 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
-    if !atomic && p.at_set(set::UNARY_OP) {
-        let op = ast::UnOp::from_kind(p.current()).unwrap();
-        p.eat();
-        code_expr_prec(p, atomic, op.precedence());
-        p.wrap(m, SyntaxKind::Unary);
+    if p.at_set(set::UNARY_OP) {
+        if !atomic {
+            let op = ast::UnOp::from_kind(p.current()).unwrap();
+            p.eat();
+            code_expr_prec(p, atomic, op.precedence());
+            p.wrap(m, SyntaxKind::Unary);
+        } else {
+            p.unexpected();
+            p.hint(
+                "to use a unary operator here, wrap the entire expression in parentheses",
+            );
+        }
     } else {
         code_primary(p, atomic);
     }
@@ -665,7 +679,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: u8) {
     }
 }
 
-/// Parses an primary in a code expression. These are the atoms that unary and
+/// Parses a primary in a code expression. These are the atoms that unary and
 /// binary operations, functions calls, and field accesses start with / are
 /// composed of.
 fn code_primary(p: &mut Parser, atomic: bool) {
@@ -723,11 +737,15 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         | SyntaxKind::Str
         | SyntaxKind::Label => p.eat(),
 
+        // Consume erroneous tokens for things like `#12p`, `#]`, or `#"abc\"`.
+        _ if atomic => p.unexpected(),
+
         _ => p.expected("expression"),
     }
 }
 
-/// Reparses a full content or code block.
+/// Reparses a full content or code block. This only succeeds if the new block
+/// contains balanced delimiters.
 pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNode> {
     let mut p = Parser::new(text, range.start, SyntaxMode::Code);
     assert!(p.at(SyntaxKind::LeftBracket) || p.at(SyntaxKind::LeftBrace));
@@ -1778,10 +1796,11 @@ impl<'s> Parser<'s> {
     fn wrap_error(&mut self, from: Marker, message: impl Into<EcoString>) {
         let to = self.before_trivia().0;
         let from = from.0.min(to);
-        let text: EcoString =
-            self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
-        self.nodes
-            .insert(from, SyntaxNode::error(SyntaxError::new(message), text));
+        let len: usize = self.nodes.drain(from..to).map(|node| node.len()).sum();
+        let end = self.token.prev_end;
+        let start = end - len;
+        let text = &self.text[start..end];
+        self.nodes.insert(from, SyntaxNode::error(message.into(), text));
     }
 
     /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
@@ -1978,15 +1997,32 @@ impl Parser<'_> {
     /// Consume the given closing delimiter or produce an error for the matching
     /// opening delimiter at `open`.
     #[track_caller]
-    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
-        if !self.eat_if(kind) {
+    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) -> bool {
+        let at = self.eat_if(kind);
+        if !at {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
         }
+        at
     }
 
-    /// Produce an error that the given `thing` was expected.
+    /// Produce an error that the given `thing` was expected. If the parser is
+    /// at an erroneous token, this will instead eat that token and continue.
     fn expected(&mut self, thing: &str) {
-        if !self.after_error() {
+        if self.token.kind.is_error() {
+            // If we encounter an erroneous token when something was expected,
+            // we need to actually consume the token. If we don't, and we then
+            // proceed to exit our current lexing mode, future incremental
+            // reparsing could fail to lex the token in the correct mode.
+            //
+            // Example: When parsing an unclosed string in `#import "str`,
+            // we need to make sure the string is lexed as code, because if
+            // it were lexed as markup, a future insert of a closing quote
+            // would only be adjacent to markup text, and wouldn't lex as a
+            // string when reparsing, causing a difference between the full
+            // parse and the incremental parse.
+            self.trim_errors();
+            self.eat();
+        } else if !self.after_error() {
             self.expected_at(self.before_trivia(), thing);
         }
     }
@@ -2000,8 +2036,7 @@ impl Parser<'_> {
     /// Produce an error that the given `thing` was expected at the position
     /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let error =
-            SyntaxNode::error(SyntaxError::new(eco_format!("expected {thing}")), "");
+        let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
         self.nodes.insert(m.0, error);
     }
 

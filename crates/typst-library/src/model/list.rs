@@ -7,7 +7,7 @@ use crate::foundations::{
     Styles, Value, cast, elem, scope,
 };
 use crate::introspection::{Locatable, Tagged};
-use crate::layout::{Em, Length};
+use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::text::TextElem;
 
 /// A bullet list.
@@ -15,7 +15,7 @@ use crate::text::TextElem;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Normal list.
 /// - Text
@@ -36,17 +36,17 @@ use crate::text::TextElem;
 /// )
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
-/// paragraphs and other block-level content. All content that is indented
-/// more than an item's marker becomes part of that item.
+/// paragraphs and other block-level content. All content that is indented more
+/// than an item's marker becomes part of that item.
 #[elem(scope, title = "Bullet List", Locatable, Tagged)]
 pub struct ListElem {
-    /// Defines the default [spacing]($list.spacing) of the list. If it is
+    /// Defines the default @list.spacing[spacing] of the list. If it is
     /// `{false}`, the items are spaced apart with
-    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
-    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// @par.spacing[paragraph spacing]. If it is `{true}`, they use
+    /// @par.leading[paragraph leading] instead. This makes the list more
     /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
@@ -104,10 +104,38 @@ pub struct ListElem {
 
     /// The spacing between the items of the list.
     ///
-    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
-    /// lists and paragraph [`spacing`]($par.spacing) for wide (non-tight)
-    /// lists.
+    /// If set to `{auto}`, uses paragraph @par.leading[`leading`] for tight
+    /// lists and paragraph @par.spacing[`spacing`] for wide (non-tight) lists.
     pub spacing: Smart<Length>,
+
+    /// Alignment to use for list markers.
+    ///
+    /// Vertical alignment is always relative to the height of the list items
+    /// they are attached to. By default, it is unspecified, which means that
+    /// each marker will vertically align with the baseline of the item it is
+    /// attached to (which is usually its first line of text, or otherwise its
+    /// top).
+    ///
+    /// Horizontal alignment, on the other hand, is relative to other markers at
+    /// the same list level. By default, it is set to `{end}`, meaning that
+    /// markers line up towards the end of the current text direction (`{right}`
+    /// for LTR, `{left}` for RTL text). However, since markers at each level
+    /// are usually identical, it is expected that horizontal alignment has no
+    /// actual effect, most of the time. Regardless, it is still possible for it
+    /// to make a difference in some cases, particularly if markers use counters
+    /// or other forms of state to display different content for each item.
+    ///
+    /// ```example
+    /// - Baseline \
+    ///   aligned
+    ///
+    /// #set list(marker-align: horizon)
+    ///
+    /// - Horizon \
+    ///   aligned
+    /// ```
+    #[default(Alignment::H(HAlignment::End))]
+    pub marker_align: Alignment,
 
     /// The bullet list's children.
     ///

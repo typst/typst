@@ -16,7 +16,7 @@ use crate::layout::Ratio;
 /// - Degrees: `{180deg}`
 /// - Radians: `{3.14rad}`
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #rotate(10deg)[Hello there!]
 /// ```

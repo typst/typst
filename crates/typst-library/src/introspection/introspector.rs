@@ -315,6 +315,14 @@ impl<P> ElementIntrospector<P> {
                         Err(i) => i,
                     };
 
+                    // If the ancestor is fully contained in one of the list
+                    // elements, we exclude the list element from both the start
+                    // and end, leading to `end < start``.
+                    if end_in_list < start_in_list {
+                        debug_assert_eq!(end_in_list + 1, start_in_list);
+                        continue;
+                    }
+
                     // Clamp at `visited` to ensure we don't yield elements
                     // twice.
                     let start_in_list = start_in_list.max(visited);

@@ -35,8 +35,8 @@ use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
+use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 /// Turn a closure into a struct implementing [`Debug`].
@@ -89,22 +89,6 @@ impl NonZeroExt for NonZeroUsize {
 
 impl NonZeroExt for NonZeroU32 {
     const ONE: Self = Self::new(1).unwrap();
-}
-
-/// Extra methods for [`Arc`].
-pub trait ArcExt<T> {
-    /// Takes the inner value if there is exactly one strong reference and
-    /// clones it otherwise.
-    fn take(self) -> T;
-}
-
-impl<T: Clone> ArcExt<T> for Arc<T> {
-    fn take(self) -> T {
-        match Arc::try_unwrap(self) {
-            Ok(v) => v,
-            Err(rc) => (*rc).clone(),
-        }
-    }
 }
 
 /// Extra methods for [`Option`].
@@ -203,6 +187,40 @@ impl<T> SliceExt<T> for [T] {
             .rposition(|v| !f(v))
             .map_or(start, |i| start + i + 1);
         (start, end)
+    }
+}
+
+/// A variant of `dedup` that keeps the later value rather than the earlier one.
+pub trait Rdedup {
+    type Item;
+
+    /// Deduplicates values in a sorted sequence using a key function, but
+    /// unlike the standard version keeps the later one.
+    fn rdedup_by_key<K, F>(&mut self, key: F)
+    where
+        F: Fn(&mut Self::Item) -> K,
+        K: PartialEq<K>;
+}
+
+impl<T: Copy, const N: usize> Rdedup for SmallVec<[T; N]> {
+    type Item = T;
+
+    fn rdedup_by_key<K, F>(&mut self, mut key: F)
+    where
+        T: Copy,
+        K: PartialEq<K>,
+        F: FnMut(&mut T) -> K,
+    {
+        let mut k = 0;
+        for i in 1..self.len() {
+            if key(&mut self[i]) != key(&mut self[k]) {
+                k += 1;
+            }
+            if k < i {
+                self[k] = self[i];
+            }
+        }
+        self.truncate(k + 1);
     }
 }
 
@@ -358,6 +376,9 @@ pub trait Numeric:
     fn is_finite(self) -> bool;
 }
 
+/// A marker trait for numeric lengths.
+pub trait NumericLength: Numeric {}
+
 /// Returns the default math class of a character in Typst, if it has one.
 ///
 /// This is determined by the Unicode math class, with some manual overrides.
@@ -433,4 +454,62 @@ pub fn defer<T, F: FnOnce(&mut T)>(
     }
 
     DeferHandle { thing, deferred: Some(deferred) }
+}
+
+/// Describes the source code where something is defined.
+///
+/// This does not include a concrete line number because, due to the way Rust
+/// macros expand, a `#[func]` item in a `#[scope]` impl receives the line of
+/// the full impl, which is not so useful. Rather, a per-file unique key is used
+/// to find the element. Identifiers of a semantical parent may also be used in
+/// this key. This has the added benefit that we can reliably find the
+/// definition site in the presence of edits (for hot reload).
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct DefSite {
+    /// The path to the file as returned by the `file!()` macro.
+    ///
+    /// Note that the path separator may vary across platforms.
+    pub path: &'static str,
+    /// An identifying key associated with the definition. Can be used to find
+    /// the definition in the file.
+    pub key: &'static str,
+}
+
+/// Implements `Display` for a type that implements clap's `ValueEnum` via
+/// `to_possible_values`.
+#[macro_export]
+macro_rules! display_possible_values {
+    ($ty:ty) => {
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.to_possible_value()
+                    .expect("no values are skipped")
+                    .get_name()
+                    .fmt(f)
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rdedup() {
+        #[track_caller]
+        fn test(given: &[(char, i32)], expected: &[(char, i32)]) {
+            let mut vec: SmallVec<[(char, i32); 2]> = given.into();
+            vec.rdedup_by_key(|&mut (c, _)| c);
+            assert_eq!(vec.as_slice(), expected);
+        }
+
+        test(&[], &[]);
+        test(&[('a', 1), ('a', 2), ('a', 3), ('b', 2)], &[('a', 3), ('b', 2)]);
+        test(&[('b', 2), ('c', 3), ('c', 4)], &[('b', 2), ('c', 4)]);
+        test(
+            &[('a', 1), ('b', 1), ('c', 1), ('c', 2), ('d', 1)],
+            &[('a', 1), ('b', 1), ('c', 2), ('d', 1)],
+        );
+    }
 }

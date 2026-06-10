@@ -3,13 +3,15 @@ use std::fmt::Write;
 use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
-use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail};
+use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail, warning};
 use typst::engine::Sink;
 use typst::foundations::{
     Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
 };
 use typst::introspection::{EmptyIntrospector, Introspector};
+use typst::routines::SpanMode;
 use typst::syntax::{Span, SyntaxMode};
+use typst_bundle::Bundle;
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
@@ -33,6 +35,8 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
             .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
         Target::Html => typst::compile::<HtmlDocument>(&world)
             .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+        Target::Bundle => typst::compile::<Bundle>(&world)
+            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
     };
 
     // Add deprecation warning.
@@ -40,8 +44,8 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
 
     match output {
         // Retrieve and print query results.
-        Ok(document) => {
-            let data = retrieve(&world, command, document.introspector())?;
+        Ok(output) => {
+            let data = retrieve(&world, command, output.introspector())?;
             let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.process.diagnostic_format)
@@ -71,14 +75,14 @@ fn retrieve(
     introspector: &dyn Introspector,
 ) -> HintedStrResult<Vec<Content>> {
     let selector = eval_string(
-        &typst::ROUTINES,
         world.track(),
+        world.library(),
         // TODO: propagate warnings
         Sink::new().track_mut(),
         EmptyIntrospector.track(),
         Context::none().track(),
         &command.selector,
-        Span::detached(),
+        SpanMode::Uniform(Span::detached()),
         SyntaxMode::Code,
         Scope::default(),
     )
@@ -148,9 +152,9 @@ fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
         Input::Stdin => eco_format!("typst eval {query}"),
     };
 
-    SourceDiagnostic::warning(
+    warning!(
         Span::detached(),
-        "the `typst query` subcommand is deprecated",
+        "the `typst query` subcommand is deprecated";
+        hint: "use `{eval_command}` instead";
     )
-    .with_hint(eco_format!("use `{}` instead", eval_command))
 }

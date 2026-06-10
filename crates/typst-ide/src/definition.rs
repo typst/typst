@@ -1,5 +1,5 @@
 use typst::foundations::{AsOutput, Label, Selector, Value};
-use typst::syntax::{LinkedNode, Side, Source, Span, ast};
+use typst::syntax::{FileId, LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
 use crate::utils::globals;
@@ -13,6 +13,8 @@ use crate::{
 pub enum Definition {
     /// The item is defined at the given span.
     Span(Span),
+    /// The item is the entire included/imported file.
+    File(FileId),
     /// The item is defined in the standard library.
     Std(Value),
 }
@@ -65,8 +67,7 @@ pub fn definition(
                 return None;
             };
             let id = module.file_id()?;
-            let span = Span::from_range(id, 0..0);
-            return Some(Definition::Span(span));
+            return Some(Definition::File(id));
         }
 
         // Try to jump to the referenced content.
@@ -101,6 +102,7 @@ mod tests {
 
     trait ResponseExt {
         fn must_be_at(&self, path: &str, range: Range<usize>) -> &Self;
+        fn must_be_file(&self, path: &str) -> &Self;
         fn must_be_value(&self, value: impl IntoValue) -> &Self;
     }
 
@@ -114,6 +116,17 @@ mod tests {
                     assert_eq!(range, Some(expected));
                 }
                 _ => panic!("expected span definition"),
+            }
+            self
+        }
+
+        #[track_caller]
+        fn must_be_file(&self, path: &str) -> &Self {
+            match self.1 {
+                Some(Definition::File(file_id)) => {
+                    assert_eq!(file_id.vpath().get_without_slash(), path);
+                }
+                _ => panic!("expected file definition"),
             }
             self
         }
@@ -167,14 +180,14 @@ mod tests {
     fn test_definition_import() {
         let world = TestWorld::new("#import \"other.typ\" as o: x")
             .with_source("other.typ", "#let x = 1");
-        test(&world, 14, Side::Before).must_be_at("other.typ", 0..0);
+        test(&world, 14, Side::Before).must_be_file("other.typ");
     }
 
     #[test]
     fn test_definition_include() {
         let world = TestWorld::new("#include \"other.typ\"")
             .with_source("other.typ", "Hello there");
-        test(&world, 14, Side::Before).must_be_at("other.typ", 0..0);
+        test(&world, 14, Side::Before).must_be_file("other.typ");
     }
 
     #[test]

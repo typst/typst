@@ -5,7 +5,7 @@ use bytemuck::TransparentWrapper;
 use krilla::surface::{Location, Surface};
 use krilla::text::GlyphId;
 use typst_library::diag::{SourceResult, bail};
-use typst_library::text::{Font, Glyph, TextItem};
+use typst_library::text::{FontInstance, Glyph, TextItem};
 use typst_library::visualize::FillRule;
 use typst_syntax::Span;
 use typst_utils::defer;
@@ -61,7 +61,7 @@ pub(crate) fn handle_text(
 
 fn convert_font(
     gc: &mut GlobalContext,
-    typst_font: Font,
+    typst_font: FontInstance,
 ) -> SourceResult<krilla::text::Font> {
     if let Some(font) = gc.fonts_forward.get(&typst_font) {
         Ok(font.clone())
@@ -76,11 +76,22 @@ fn convert_font(
 }
 
 #[comemo::memoize]
-fn build_font(typst_font: Font) -> SourceResult<krilla::text::Font> {
+fn build_font(typst_font: FontInstance) -> SourceResult<krilla::text::Font> {
     let font_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
         Arc::new(typst_font.data().clone());
 
-    match krilla::text::Font::new(font_data.into(), typst_font.index()) {
+    let variations = typst_font
+        .variations()
+        .0
+        .iter()
+        .map(|(tag, value)| (krilla::text::Tag::new(&tag.to_bytes()), value.0))
+        .collect::<Vec<_>>();
+
+    match krilla::text::Font::new_variable(
+        font_data.into(),
+        typst_font.index(),
+        &variations,
+    ) {
         Some(f) => Ok(f),
         None => {
             bail!(

@@ -491,3 +491,20 @@ This is never reached.
 --- import-from-file-package-lookalike eval ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
+--- issue-7393-import-error-string-unclosed eval ---
+// More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`
+// Error: 1:9-3:1 unclosed string
+#import "@preview/unify:0.1.0
+
+--- issue-7393-import-error-string-unclosed-newlines eval ---
+// Error: 1:9-5:1 unclosed string
+#import "a
+b
+c
+
+--- issue-7393-import-error-extra-quote eval ---
+// Error: 1:31-4:1 unclosed string
+#import "@preview/unify:0.1.0""a
+b
+c

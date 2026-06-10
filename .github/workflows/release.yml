@@ -1,15 +1,14 @@
 # Based on ripgrep's release action:
 # https://github.com/BurntSushi/ripgrep/blob/master/.github/workflows/release.yml
 
-name: Build Release Binaries
+name: Create Release Assets
 on:
-  workflow_dispatch:
   release:
     types: [published]
 
 jobs:
-  build-release:
-    name: release ${{ matrix.target }}
+  build-binaries:
+    name: Build ${{ matrix.target }} binary
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -17,73 +16,101 @@ jobs:
       fail-fast: false
       matrix:
         include:
-        - target: x86_64-unknown-linux-musl
-          os: ubuntu-latest
-          cross: true
-        - target: aarch64-unknown-linux-musl
-          os: ubuntu-latest
-          cross: true
-        - target: armv7-unknown-linux-musleabi
-          os: ubuntu-latest
-          cross: true
-        - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-latest
-          cross: true
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          cross: false
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          cross: false
-        - target: x86_64-pc-windows-msvc
-          os: windows-latest
-          cross: false
-        - target: aarch64-pc-windows-msvc
-          os: windows-latest
-          cross: false
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: armv7-unknown-linux-musleabi
+            os: ubuntu-latest
+            cross: true
+          - target: riscv64gc-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            cross: false
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            cross: false
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            cross: false
+          - target: aarch64-pc-windows-msvc
+            os: windows-latest
+            cross: false
 
     steps:
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-    - uses: dtolnay/rust-toolchain@f941e41d00837ee686f9d4575861485df1f7a655 # Rust 1.91.0
-      with:
-        target: ${{ matrix.target }}
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-    - name: Run Cross
-      if: ${{ matrix.cross }}
-      run: |
-        cargo install cross --git https://github.com/cross-rs/cross.git --locked --rev 085092ca
-        cross build -p typst-cli --release --target ${{ matrix.target }} --features self-update,vendor-openssl
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+        with:
+          target: ${{ matrix.target }}
 
-    - name: Run Cargo
-      if: ${{ !matrix.cross }}
-      run: cargo build -p typst-cli --release --target ${{ matrix.target }} --features self-update
+      - name: Run Cross
+        if: ${{ matrix.cross }}
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross.git --locked --rev 085092ca
+          # Suppress getrandom 0.2/0.3 NetBSD metadata conflict warning (doesn't
+          # affect us). We can't currently unify the depencencies because
+          # unicode_names2 is not compatible with getrandom 0.3.
+          CROSS_NO_WARNINGS=0 cross build -p typst-cli --release --target "${{ matrix.target }}" --features self-update,vendor-openssl
 
-    - name: create artifact directory
-      shell: bash
-      run: |
-        directory=typst-${{ matrix.target }}
-        mkdir $directory
-        cp README.md LICENSE NOTICE $directory
-        if [ -f target/${{ matrix.target }}/release/typst.exe ]; then
-          cp target/${{ matrix.target }}/release/typst.exe $directory
-          7z a -r $directory.zip $directory
-        else
-          cp target/${{ matrix.target }}/release/typst $directory
-          tar cJf $directory.tar.xz $directory
-        fi
+      - name: Run Cargo
+        if: ${{ !matrix.cross }}
+        run: cargo build -p typst-cli --release --target "${{ matrix.target }}" --features self-update
 
-    - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
-      if: github.event_name == 'workflow_dispatch'
-      with:
-        name: typst-${{ matrix.target }}
-        path: "typst-${{ matrix.target }}.*"
-        retention-days: 3
+      - name: Create artifact directory
+        shell: bash
+        run: |
+          TARGET_DIR="target/${{ matrix.target }}/release"
+          ARCHIVE_DIR="typst-${{ matrix.target }}"
+          mkdir "$ARCHIVE_DIR"
+          cp README.md LICENSE NOTICE "$ARCHIVE_DIR"
+          if [ -f "$TARGET_DIR/typst.exe" ]; then
+            ARCHIVE="$ARCHIVE_DIR.zip"
+            cp "$TARGET_DIR/typst.exe" "$ARCHIVE_DIR"
+            7z a -r "$ARCHIVE" "$ARCHIVE_DIR"
+          else
+            ARCHIVE="$ARCHIVE_DIR.tar.xz"
+            cp "$TARGET_DIR/typst" "$ARCHIVE_DIR"
+            tar cJf "$ARCHIVE" "$ARCHIVE_DIR"
+          fi
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
-    - uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
-      if: github.event_name == 'release'
-      with:
-        artifacts: "typst-${{ matrix.target }}.*"
-        allowUpdates: true
-        omitNameDuringUpdate: true
-        omitBodyDuringUpdate: true
-        omitPrereleaseDuringUpdate: true
+      - name: Upload asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          gh release upload "$VERSION" "$ARCHIVE"
+
+  build-docs:
+    name: Build documentation (PDF)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+
+      - name: Compile documentation
+        run: cargo docit compile --format pdf
+
+      - name: Rename documentation file
+        run: mv docs/dist/docs.pdf typst-documentation.pdf
+
+      - name: Upload asset
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.ref_name }}"
+          gh release upload "$VERSION" typst-documentation.pdf

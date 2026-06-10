@@ -1,6 +1,5 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
-use typst_library::World;
 use typst_library::diag::{
     At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail, error,
 };
@@ -11,7 +10,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
-use typst_library::routines::Routines;
+use typst_library::{Library, World};
 use typst_syntax::ast::{self, AstNode};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
@@ -42,7 +41,14 @@ impl Eval for ast::FuncCall<'_> {
             } else {
                 (target_expr.eval(vm)?, None)
             };
-            match eval_field_callee(vm, access, target, false)? {
+            match eval_field_callee(
+                vm,
+                access.to_untyped(),
+                field.as_str(),
+                field.span(),
+                target,
+                false,
+            )? {
                 FieldCallee::Func(func) => {
                     let args = match maybe_args {
                         Some(args) => args,
@@ -91,14 +97,17 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
     vm.engine.route.check_call_depth().at(span)?;
 
     let math_call_result = match callee {
-        ast::MathCallee::MathIdent(ident) => {
+        ast::MathAccess::MathIdent(ident) => {
             let callee_value = ident.eval(vm)?;
+            // We need to call `trace_at` for the callee manually because we did
+            // not evaluate via `ast::Expr::eval()`.
+            vm.trace_at(ident.span(), &callee_value);
             match callee_value.clone().cast::<Func>() {
                 Ok(func) => FieldCallee::Func(func),
                 Err(err) => FieldCallee::NonFunc(callee_value, err),
             }
         }
-        ast::MathCallee::FieldAccess(access) => {
+        ast::MathAccess::MathFieldAccess(access) => {
             let target_expr = access.target();
             target_span = target_expr.span();
             let field = access.field();
@@ -120,10 +129,17 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
                     span,
                     "cannot call mutating methods in math";
                     hint: "try using code mode to call the method: `#{}`",
-                        math_call.to_untyped().clone().into_text();
+                        math_call.to_untyped().full_text();
                 );
             }
-            eval_field_callee(vm, access, target, true)?
+            eval_field_callee(
+                vm,
+                access.to_untyped(),
+                field.as_str(),
+                field.span(),
+                target,
+                true,
+            )?
         }
     };
 
@@ -222,13 +238,12 @@ enum FieldCallee {
 ///   e.g. `(at: x => ...).at(key)`.
 fn eval_field_callee<'a, 'b>(
     vm: &'a mut Vm<'b>,
-    access: ast::FieldAccess,
+    access: &SyntaxNode,
+    field: &str,
+    field_span: Span,
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let field_node = access.field();
-    let field_span = field_node.span();
-    let field = field_node.as_str();
     let sink = (&mut vm.engine, field_span);
 
     let mut is_method_call = false;
@@ -248,13 +263,12 @@ fn eval_field_callee<'a, 'b>(
         target.field(field, sink).at(field_span)?
     } else {
         // Otherwise we cannot call this field and produce an error.
-        let full_text = || access.to_untyped().clone().into_text();
         match target.field(field, sink) {
             // The field does exist.
             Ok(callee_value) => {
-                // Aside from Dict and Content, only a few other types have
-                // accessible fields which could produce these errors. As of
-                // March 2026, they are:
+                // Aside from Dict, named Args, and Content, only a few other
+                // types have accessible fields which could produce these
+                // errors. As of June 2026, they are:
                 // - Alignment (.x, .y)
                 // - Length (.abs, .em)
                 // - Relative Length (.ratio, .length)
@@ -263,6 +277,7 @@ fn eval_field_callee<'a, 'b>(
                 // The other types with fields (Symbol, Func, Type, Module) are
                 // handled above.
                 let is_dict = matches!(target, Value::Dict(_));
+                let is_named = matches!(target, Value::Args(_));
                 let mut err = if is_dict {
                     // Dictionaries get a specific error & hint because they're
                     // the easiest to attempt this with, and users need to be
@@ -270,6 +285,12 @@ fn eval_field_callee<'a, 'b>(
                     error!(
                         access.span(),
                         "cannot directly call dictionary keys as functions";
+                    )
+                } else if is_named {
+                    // Also give the custom error & hint for named arguments.
+                    error!(
+                        access.span(),
+                        "cannot directly call named argument fields as functions";
                     )
                 } else {
                     let (kind, name) = element_or_type_with_name(&target);
@@ -284,21 +305,32 @@ fn eval_field_callee<'a, 'b>(
                             in parentheses: `{}({})(..)`",
                         if in_math { "use code mode and " } else { "" },
                         if in_math { "#" } else { "" },
-                        full_text()
+                        access.full_text(),
                     ));
                 } else if in_math {
                     err.hint("try adding a space before the parentheses");
                 } else {
                     err.hint(eco_format!(
                         "to access the `{field}` {}, remove the function arguments: `{}`",
-                        if is_dict { "key" } else { "field" },
-                        full_text(),
+                        if is_dict {
+                            "key"
+                        } else if is_named {
+                            "argument"
+                        } else {
+                            "field"
+                        },
+                        access.full_text(),
                     ));
                 }
                 if is_dict {
                     err.hint(
                         "dictionary keys cannot be used with method syntax as keys \
                             could conflict with built-in method names",
+                    );
+                } else if is_named {
+                    err.hint(
+                        "named arguments cannot be used with method syntax as argument \
+                            names could conflict with built-in method names",
                     );
                 }
 
@@ -313,9 +345,7 @@ fn eval_field_callee<'a, 'b>(
         }
     };
 
-    if vm.inspected == Some(access.span()) {
-        vm.trace(callee_value.clone());
-    }
+    vm.trace_at(access.span(), &callee_value);
 
     match callee_value.clone().cast::<Func>() {
         Ok(func) if is_method_call => Ok(FieldCallee::Method(func, target)),
@@ -478,7 +508,7 @@ impl Eval for ast::MathArgs<'_> {
 fn unparse_math_args(
     vm: &mut Vm,
     args: ast::MathArgs,
-    callee: ast::MathCallee,
+    callee: ast::MathAccess,
 ) -> SourceResult<Content> {
     let mut body = Vec::new();
     let mut errors = EcoVec::new();
@@ -500,40 +530,22 @@ fn unparse_math_args(
                 body.push(expr.eval(vm)?.display().spanned(expr.span()));
             }
             ast::MathArgItem::Arg(ast::Arg::Named(named)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    named.to_untyped().clone().into_text().replacen(":", "\\:", 1);
-                errors.push(
-                    error!(
-                        named.span(),
-                        "named-argument syntax can only be used with functions"
-                    )
-                    .with_spanned_hint(
-                        eco_format!("`{name}` is not a function"),
-                        callee.span(),
-                    )
-                    .with_hint(eco_format!(
-                        "to render the colon as text, escape it: `{fixed}`"
-                    )),
-                );
+                let name = callee.to_untyped().full_text();
+                let fixed = named.to_untyped().full_text().replacen(":", "\\:", 1);
+                errors.push(error!(
+                    named.span(), "named-argument syntax can only be used with functions";
+                    hint[callee.span()]: "`{name}` is not a function";
+                    hint: "to render the colon as text, escape it: `{fixed}`";
+                ));
             }
             ast::MathArgItem::Arg(ast::Arg::Spread(spread)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    spread.to_untyped().clone().into_text().replacen("..", ".. ", 1);
-                errors.push(
-                    error!(
-                        spread.span(),
-                        "spread-argument syntax can only be used with functions"
-                    )
-                    .with_spanned_hint(
-                        eco_format!("`{name}` is not a function"),
-                        callee.span(),
-                    )
-                    .with_hint(eco_format!(
-                        "to render the dots as text, add a space: `{fixed}`"
-                    )),
-                );
+                let name = callee.to_untyped().full_text();
+                let fixed = spread.to_untyped().full_text().replacen("..", ".. ", 1);
+                errors.push(error!(
+                    spread.span(), "spread-argument syntax can only be used with functions";
+                    hint[callee.span()]: "`{name}` is not a function";
+                    hint: "to render the dots as text, add a space: `{fixed}`";
+                ));
             }
         }
     }
@@ -588,8 +600,8 @@ impl Eval for ast::Closure<'_> {
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -616,7 +628,7 @@ pub fn eval_closure(
     // Prepare the engine.
     let introspector = Protected::from_raw(introspector);
     let engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -741,6 +753,9 @@ impl<'a> CapturesVisitor<'a> {
 
             // Don't capture the field of a field access.
             Some(ast::Expr::FieldAccess(access)) => {
+                self.visit(access.target().to_untyped());
+            }
+            Some(ast::Expr::MathFieldAccess(access)) => {
                 self.visit(access.target().to_untyped());
             }
 

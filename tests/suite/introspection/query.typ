@@ -202,10 +202,6 @@
 )
 
 --- query-within paged html bundle ---
-// The within selector is not yet publicly exposed, but already used internally,
-// so it's good to have some tests. Since it's not yet in the public API, we
-// have a test-runner specific `selector-within` "polyfill" instead.
-
 // We also want to test in bundle mode to ensure the inner introspector
 // correctly forwards the stuff.
 #show: it => context if target() == "bundle" {
@@ -232,38 +228,38 @@ What's *up* with *you?*
   #let loc = here()
   *Local* bold *text*
   #test-selector(
-    selector-within(strong, loc),
+    selector(strong).within(loc),
     ([Local], [text]),
   )
 ]
 
 #test-selector(
-  selector-within(strong, par),
+  selector(strong).within(par),
   ([up], [you?], [Local], [text]),
 )
 
 #test-selector(
-  selector-within(strong, selector.or(heading, emph, figure)),
+  selector(strong).within(selector.or(heading, emph, figure)),
   ([there], [nice], [rect]),
 )
 
 #test-selector(
-  selector-within(selector-within(strong, emph), heading),
+  selector(strong).within(emph).within(heading),
   ([there],),
 )
 
 #test-selector(
-  selector-within(selector-within(strong, heading), emph),
+  selector(strong).within(heading).within(emph),
   ([there],),
 )
 
 #test-selector(
-  selector-within(strong, selector-within(heading, emph)),
+  selector(strong).within(selector(heading).within(emph)),
   (),
 )
 
 #test-selector(
-  selector-within(emph, quote),
+  selector.within(emph, quote),
   ([Hello],),
 )
 
@@ -286,13 +282,21 @@ What's *up* with *you?*
   = 5
 ] <b>
 
-#test-selector(selector-within(heading, table), ([2], [3]))
-#test-selector(selector-within(heading, <a>), ([1], [2], [3]))
-#test-selector(selector-within(heading, <b>), ([4], [5]))
+#test-selector(selector.within(heading, table), ([2], [3]))
+#test-selector(selector.within(heading, <a>), ([1], [2], [3]))
+#test-selector(selector.within(heading, <b>), ([4], [5]))
+
+--- query-within-inverted paged empty ---
+// Test a case where the ancestor is fully contained in one of the children.
+#let m(l) = [#metadata(none)#l]
+#strong({
+  m(<a>)
+  m(<b>)
+  m(<c>)
+})
+#context test(query(selector.within(strong, <b>)), ())
 
 --- query-bundle-logical-order bundle ---
-#let m(s) = [#metadata(s) <hi>]
-
 #metadata(1)
 #document("hi.html")[
   #metadata("a")

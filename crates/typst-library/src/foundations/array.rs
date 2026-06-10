@@ -46,15 +46,15 @@ pub use crate::__array as array;
 ///
 /// You can access and update array items with the `.at()` method. Indices are
 /// zero-based and negative indices wrap around to the end of the array. You can
-/// iterate over an array using a [for loop]($scripting/#loops). Arrays can be
-/// added together with the `+` operator, [joined together]($scripting/#blocks)
-/// and multiplied with integers.
+/// iterate over an array using a @reference:scripting:loops[for loop]. Arrays
+/// can be added together with the `+` operator,
+/// @reference:scripting:blocks[joined together] and multiplied with integers.
 ///
-/// **Note:** An array of length one needs a trailing comma, as in `{(1,)}`.
-/// This is to disambiguate from a simple parenthesized expressions like `{(1 +
-/// 2) * 3}`. An empty array is written as `{()}`.
+/// *Note:* An array of length one needs a trailing comma, as in `{(1,)}`. This
+/// is to disambiguate from a simple parenthesized expressions like
+/// `{(1 + 2) * 3}`. An empty array is written as `{()}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let values = (1, 7, 4, -3, 2)
 ///
@@ -151,9 +151,10 @@ impl Array {
 impl Array {
     /// Converts a value to an array.
     ///
-    /// Note that this function is only intended for conversion of a collection-like
-    /// value to an array, not for creation of an array from individual items. Use
-    /// the array syntax `(1, 2, 3)` (or `(1,)` for a single-element array) instead.
+    /// Note that this function is only intended for conversion of a
+    /// collection-like value to an array, not for creation of an array from
+    /// individual items. Use the array syntax `(1, 2, 3)` (or `(1,)` for a
+    /// single-element array) instead.
     ///
     /// ```example
     /// #let hi = "Hello 😃"
@@ -174,8 +175,8 @@ impl Array {
     }
 
     /// Returns the first item in the array. May be used on the left-hand side
-    /// an assignment. Returns the default value if the array is empty
-    /// or fails with an error is no default value was specified.
+    /// an assignment. Returns the default value if the array is empty or fails
+    /// with an error is no default value was specified.
     #[func]
     pub fn first(
         &self,
@@ -187,8 +188,8 @@ impl Array {
     }
 
     /// Returns the last item in the array. May be used on the left-hand side of
-    /// an assignment. Returns the default value if the array is empty
-    /// or fails with an error is no default value was specified.
+    /// an assignment. Returns the default value if the array is empty or fails
+    /// with an error is no default value was specified.
     #[func]
     pub fn last(
         &self,
@@ -240,12 +241,12 @@ impl Array {
     /// subsequent elements to the right. Fails with an error if the index is
     /// out of bounds.
     ///
-    /// To replace an element of an array, use [`at`]($array.at).
+    /// To replace an element of an array, use @array.at[`at`].
     #[func]
     pub fn insert(
         &mut self,
-        /// The index at which to insert the item. If negative, indexes from
-        /// the back.
+        /// The index at which to insert the item. If negative, indexes from the
+        /// back.
         index: i64,
         /// The value to insert into the array.
         value: Value,
@@ -259,8 +260,8 @@ impl Array {
     #[func]
     pub fn remove(
         &mut self,
-        /// The index at which to remove the item. If negative, indexes from
-        /// the back.
+        /// The index at which to remove the item. If negative, indexes from the
+        /// back.
         index: i64,
         /// A default value to return if the index is out of bounds.
         #[named]
@@ -272,8 +273,8 @@ impl Array {
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Extracts a subslice of the array. Fails with an error if the start or end
-    /// index is out of bounds.
+    /// Extracts a subslice of the array. Fails with an error if the start or
+    /// end index is out of bounds.
     #[func]
     pub fn slice(
         &self,
@@ -284,7 +285,8 @@ impl Array {
         #[default]
         end: Option<i64>,
         /// The number of items to extract. This is equivalent to passing
-        /// `start + count` as the `end` position. Mutually exclusive with `end`.
+        /// `start + count` as the `end` position. Mutually exclusive with
+        /// `end`.
         #[named]
         count: Option<i64>,
     ) -> StrResult<Array> {
@@ -340,6 +342,13 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
+        ///
+        /// ```example
+        /// #let values = (1, 7, 4, 6, 9)
+        /// #values.position(x => calc.even(x)) \
+        /// // Or equivalently:
+        /// #values.position(calc.even)
+        /// ```
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
@@ -378,9 +387,20 @@ impl Array {
         #[external]
         #[default]
         start: i64,
-        /// The end of the range (exclusive).
+        /// The end of the range.
         #[external]
         end: i64,
+        /// Whether `end` is inclusive.
+        ///
+        /// ```example
+        /// #range(0, inclusive: true) \
+        /// #range(7, 10, inclusive: true) \
+        /// #range(-8, -4, inclusive: true) \
+        /// #range(-6, step: -2, inclusive: true)
+        /// ```
+        #[named]
+        #[default(false)]
+        inclusive: bool,
         /// The distance between the generated numbers.
         #[named]
         #[default(NonZeroI64::new(1).unwrap())]
@@ -393,13 +413,30 @@ impl Array {
         };
 
         let step = step.get();
+        let step_dir = 0.cmp(&step);
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&end) == 0.cmp(&step) {
+        let in_bounds = |x: i64| {
+            if inclusive {
+                // `x` must not exceed `end`.
+                x.cmp(&end) != step_dir.reverse()
+            } else {
+                // `x` must stay strictly before `end`.
+                x.cmp(&end) == step_dir
+            }
+        };
+
+        while in_bounds(x) {
             array.push(x.into_value());
-            x += step;
+
+            if let Some(next) = x.checked_add(step) {
+                x = next;
+            } else {
+                // `end` must have been exceeded this iteration, so we yield.
+                break;
+            }
         }
 
         Ok(array)
@@ -446,8 +483,9 @@ impl Array {
     /// Returns a new array with the values alongside their indices.
     ///
     /// The returned array consists of `(index, value)` pairs in the form of
-    /// length-2 arrays. These can be [destructured]($scripting/#bindings) with
-    /// a let binding or for loop.
+    /// length-2 arrays. These can be
+    /// @reference:scripting:bindings[destructured] with a let binding or for
+    /// loop.
     ///
     /// ```example
     /// #for (i, value) in ("A", "B", "C").enumerate() {
@@ -494,9 +532,8 @@ impl Array {
     pub fn zip(
         self,
         args: &mut Args,
-        /// Whether all arrays have to have the same length.
-        /// For example, `{(1, 2).zip((1, 2, 3), exact: true)}` produces an
-        /// error.
+        /// Whether all arrays have to have the same length. For example,
+        /// `{(1, 2).zip((1, 2, 3), exact: true)}` produces an error.
         #[named]
         #[default(false)]
         exact: bool,
@@ -791,9 +828,9 @@ impl Array {
     /// Splits an array into non-overlapping chunks, starting at the beginning,
     /// ending with a single remainder chunk.
     ///
-    /// All chunks but the last have `chunk-size` elements.
-    /// If `exact` is set to `{true}`, the remainder is dropped if it
-    /// contains less than `chunk-size` elements.
+    /// All chunks but the last have `chunk-size` elements. If `exact` is set to
+    /// `{true}`, the remainder is dropped if it contains less than `chunk-size`
+    /// elements.
     ///
     /// ```example
     /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
@@ -805,7 +842,8 @@ impl Array {
         self,
         /// How many elements each chunk may at most contain.
         chunk_size: NonZeroUsize,
-        /// Whether to discard the remainder if its size is less than `chunk-size`.
+        /// Whether to discard the remainder if its size is less than
+        /// `chunk-size`.
         #[named]
         #[default(false)]
         exact: bool,
@@ -820,7 +858,8 @@ impl Array {
 
     /// Returns sliding windows of `window-size` elements over an array.
     ///
-    /// If the array length is less than `window-size`, this will return an empty array.
+    /// If the array length is less than `window-size`, this will return an
+    /// empty array.
     ///
     /// ```example
     /// #let array = (1, 2, 3, 4, 5, 6, 7, 8)
@@ -928,7 +967,9 @@ impl Array {
                     // Because we use booleans for the comparison function, in
                     // order to keep the sort stable, we need to compare in the
                     // right order.
-                    if i < j {
+                    if i == j {
+                        Ordering::Equal
+                    } else if i < j {
                         // If `x` and `y` appear in this order in the original
                         // array, then we should change their order (i.e.,
                         // return `Ordering::Greater`) iff `y` is strictly less
@@ -1061,8 +1102,8 @@ impl Array {
         Ok(Self(out))
     }
 
-    /// Converts an array of pairs into a dictionary.
-    /// The first value of each pair is the key, the second the value.
+    /// Converts an array of pairs into a dictionary. The first value of each
+    /// pair is the key, the second the value.
     ///
     /// If the same key occurs multiple times, the last value is selected.
     ///
@@ -1079,7 +1120,7 @@ impl Array {
             .map(|value| {
                 let value_ty = value.ty();
                 let pair = value.cast::<Array>().map_err(|_| {
-                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                    eco_format!("expected (str, any) pairs, found {value_ty}")
                 })?;
                 if let [key, value] = pair.as_slice() {
                     let key = key.clone().cast::<Str>().map_err(|_| {
@@ -1102,7 +1143,7 @@ impl Array {
     /// The reducing function is a closure with two arguments: an "accumulator",
     /// and an element.
     ///
-    /// For arrays with at least one element, this is the same as [`array.fold`]
+    /// For arrays with at least one element, this is the same as @array.fold
     /// with the first element of the array as the initial accumulator value,
     /// folding every subsequent element into it.
     ///
@@ -1241,6 +1282,12 @@ impl<T: Reflect, const N: usize> Reflect for SmallVec<[T; N]> {
 
     fn castable(value: &Value) -> bool {
         Array::castable(value)
+    }
+}
+
+impl<T: IntoValue + Copy> IntoValue for &[T] {
+    fn into_value(self) -> Value {
+        Value::Array(self.iter().copied().map(IntoValue::into_value).collect())
     }
 }
 

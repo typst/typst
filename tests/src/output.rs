@@ -5,25 +5,32 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
-use hayro::{FontData, FontQuery, InterpreterSettings, StandardFont};
+use hayro::hayro_interpret::InterpreterSettings;
+use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+use hayro_svg::{RenderCache, SvgRenderSettings};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
-use typst::foundations::{Content, SequenceElem};
+use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
 use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_bundle::{BundleOptions, VirtualFs};
-use typst_html::HtmlDocument;
+use typst_html::{HtmlDocument, HtmlOptions};
 use typst_layout::PagedDocument;
 use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
+use typst_render::RenderOptions;
+use typst_svg::SvgOptions;
 use typst_syntax::Span;
+use typst_utils::Scalar;
 
 use crate::collect::{Test, TestOutput};
 use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
+
+pub type HashStore = [HashedRefs; HASH_OUTPUTS.len()];
 
 /// A map from a test name to the corresponding reference hash.
 #[derive(Default)]
@@ -154,7 +161,7 @@ pub trait FileOutputType: OutputType {
     fn save_ref(live: &Self::Live) -> impl AsRef<[u8]>;
 
     /// Checks whether the reference output matches.
-    fn matches(old: &[u8], new: &Self::Live) -> bool;
+    fn matches(old: &[u8], new: &Self::Live, tolerance: u8) -> bool;
 }
 
 /// An output type that produces hashed references.
@@ -167,7 +174,8 @@ pub trait HashOutputType: OutputType {
 /// the [`HashOutputType::INDEX`].
 ///
 /// NOTE: This has to be kept in sync with the [`HashOutputType::INDEX`].
-pub const HASH_OUTPUTS: [TestOutput; 2] = [TestOutput::Pdf, TestOutput::Svg];
+pub const HASH_OUTPUTS: [TestOutput; 4] =
+    [TestOutput::Pdf, TestOutput::Pdftags, TestOutput::Svg, TestOutput::Html];
 
 pub struct Render;
 
@@ -218,9 +226,9 @@ impl FileOutputType for Render {
         oxipng::optimize_from_memory(&data, &opts).unwrap()
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
+    fn matches(old: &[u8], new: &Self::Live, tolerance: u8) -> bool {
         let old_pixmap = sk::Pixmap::decode_png(old).unwrap();
-        approx_equal(&old_pixmap, new)
+        approx_equal(&old_pixmap, new, tolerance)
     }
 }
 
@@ -240,12 +248,12 @@ impl OutputType for Pdf {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
         // If another standard is specified in the test, run that as well.
-        let default_pdf = generate_pdf(doc, None);
-        let ua1_pdf = generate_pdf(doc, Some(PdfStandard::Ua_1));
-        match test.attrs.pdf_standard {
-            Some(PdfStandard::Ua_1) => ua1_pdf,
-            Some(other) => generate_pdf(doc, Some(other)),
-            None => default_pdf,
+        let default_pdf = generate_pdf(doc, &[]);
+        let ua1_pdf = generate_pdf(doc, &[PdfStandard::Ua_1]);
+        match test.attrs.pdf_standard.as_slice() {
+            &[] => default_pdf,
+            &[PdfStandard::Ua_1] => ua1_pdf,
+            others => generate_pdf(doc, others),
         }
     }
 
@@ -306,10 +314,18 @@ fn pdf_to_svg(bytes: &[u8]) -> String {
             FontQuery::Standard(s) => select_standard_font(*s),
             FontQuery::Fallback(f) => select_standard_font(f.pick_standard_font()),
         }),
+        cmap_resolver: Arc::new(|_| None),
         warning_sink: Arc::new(|_| {}),
+        render_annotations: false,
     };
 
-    let mut svg = hayro_svg::convert(&pdf.pages()[0], &interpreter_settings);
+    let cache = RenderCache::new();
+    let mut svg = hayro_svg::convert(
+        &pdf.pages()[0],
+        &cache,
+        &interpreter_settings,
+        &SvgRenderSettings { bg_color: [0, 0, 0, 0] },
+    );
 
     // Insert a white background, since PDFs don't set a background by default.
     let pos = svg.find(">").expect("end of opening `<svg>` tag");
@@ -325,13 +341,18 @@ impl HashOutputType for Pdf {
     const INDEX: usize = 0;
 }
 
-fn generate_pdf(
-    doc: &PagedDocument,
-    standard: Option<PdfStandard>,
-) -> SourceResult<Vec<u8>> {
-    let standards = PdfStandards::new(standard.as_slice()).unwrap();
-    let options = PdfOptions { standards, ..Default::default() };
+fn generate_pdf(doc: &PagedDocument, standards: &[PdfStandard]) -> SourceResult<Vec<u8>> {
+    let options = pdf_options(standards)?;
     typst_pdf::pdf(doc, &options)
+}
+
+fn pdf_options(standards: &[PdfStandard]) -> SourceResult<PdfOptions> {
+    let standards = PdfStandards::new(standards).at(Span::detached())?;
+    Ok(PdfOptions {
+        standards,
+        creator: Smart::Custom(Some("Typst Test Runner".into())),
+        ..Default::default()
+    })
 }
 
 pub struct Pdftags;
@@ -367,14 +388,8 @@ impl OutputType for Pdftags {
     }
 }
 
-impl FileOutputType for Pdftags {
-    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
-    }
-
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
-    }
+impl HashOutputType for Pdftags {
+    const INDEX: usize = 1;
 }
 
 pub struct Svg;
@@ -390,7 +405,8 @@ impl OutputType for Svg {
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        Ok(typst_svg::svg_merged(doc, Abs::pt(1.0)))
+        let options = SvgOptions { pretty: true, ..Default::default() };
+        Ok(typst_svg::svg_merged(doc, &options, Abs::pt(1.0)))
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -411,7 +427,7 @@ impl OutputType for Svg {
 }
 
 impl HashOutputType for Svg {
-    const INDEX: usize = 1;
+    const INDEX: usize = 2;
 }
 
 pub struct Html;
@@ -438,7 +454,8 @@ impl OutputType for Html {
     }
 
     fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        typst_html::html(doc)
+        let options = HtmlOptions { pretty: true };
+        typst_html::html(doc, &options)
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -458,14 +475,8 @@ impl OutputType for Html {
     }
 }
 
-impl FileOutputType for Html {
-    fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
-        live
-    }
-
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
-        old == new.as_bytes()
-    }
+impl HashOutputType for Html {
+    const INDEX: usize = 3;
 }
 
 pub struct Bundle;
@@ -481,10 +492,15 @@ impl OutputType for Bundle {
     }
 
     fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let standards = PdfStandards::new(test.attrs.pdf_standard.as_slice()).unwrap();
+        let standards = test.attrs.pdf_standard.as_slice();
         let options = BundleOptions {
-            pixel_per_pt: 1.0,
-            pdf: PdfOptions { standards, ..Default::default() },
+            html: HtmlOptions { pretty: true },
+            pdf: pdf_options(standards)?,
+            png: RenderOptions {
+                pixel_per_pt: Scalar::new(1.0),
+                ..Default::default()
+            },
+            svg: SvgOptions { pretty: true, ..Default::default() },
         };
         typst_bundle::export(doc, &options)
     }
@@ -522,7 +538,7 @@ impl FileOutputType for Bundle {
         hashed_fs_list(live)
     }
 
-    fn matches(old: &[u8], new: &Self::Live) -> bool {
+    fn matches(old: &[u8], new: &Self::Live, _: u8) -> bool {
         old == hashed_fs_list(new).as_bytes()
     }
 }
@@ -576,8 +592,12 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     }
 
     let gap = Abs::pt(1.0);
+    let opts = typst_render::RenderOptions {
+        pixel_per_pt: Scalar::new(pixel_per_pt as f64),
+        render_bleed: false,
+    };
     let mut pixmap =
-        typst_render::render_merged(document, pixel_per_pt, gap, Some(Color::BLACK));
+        typst_render::render_merged(document, &opts, gap, Some(Color::BLACK));
 
     let gap = (pixel_per_pt * gap.to_pt() as f32).round();
 
@@ -615,10 +635,13 @@ fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
 }
 
 /// Whether two pixel images are approximately equal.
-fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap) -> bool {
+fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap, tolerance: u8) -> bool {
     a.width() == b.width()
         && a.height() == b.height()
-        && a.data().iter().zip(b.data()).all(|(&a, &b)| a.abs_diff(b) <= 1)
+        && a.data()
+            .iter()
+            .zip(b.data())
+            .all(|(&a, &b)| a.abs_diff(b) <= tolerance)
 }
 
 /// Convert a Typst transform to a tiny-skia transform.
