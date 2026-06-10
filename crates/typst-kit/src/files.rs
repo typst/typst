@@ -286,6 +286,7 @@ impl<F: FileLoader> FileLoader for Arc<F> {
 /// - package files are loaded from configured directories and/or the official
 ///   Typst Universe package registry via [`SystemPackages`].
 #[cfg(feature = "system-files")]
+#[derive(Debug)]
 pub struct SystemFiles {
     project: FsRoot,
     packages: SystemPackages,
