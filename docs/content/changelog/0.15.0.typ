@@ -79,7 +79,7 @@
   - Added support for BibLaTeX name options in `.bib` files #pr(90, repo: "typst/biblatex")
   - Added support for propagating non-numeric `volume` fields in `.bib` files to bibliographies #pr(478, repo: "typst/hayagriva")
   - Improved sorting in bibliographies to take into account language conventions #pr(314, repo: "typst/hayagriva")
-  - Improved interoperability with CSL styles; for a full listing of changes, review #link("https://github.com/typst/codex/blob/v0.3.0/CHANGELOG.md#version-030-june-4-2026")[the Hayagriva 0.10.0 changelog]
+  - Improved interoperability with CSL styles; for a full listing of changes, review #link("https://github.com/typst/hayagriva/blob/v0.10.0/CHANGELOG.md#0100")[the Hayagriva 0.10.0 changelog]
   - Added support for setting directors on videos without a parent in Hayagriva YAML files #pr(450, repo: "typst/hayagriva")
   - Improved handling of `Anthos` entries in Hayagriva YAML files by treating them as `chapter`s in CSL #pr(427, repo: "typst/hayagriva")
 - Footnotes
