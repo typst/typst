@@ -5,6 +5,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::str::Utf8Error;
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -262,6 +263,18 @@ pub trait FileLoader {
     /// [`id.vpath()`](typst_syntax::RootedPath::vpath) in the project /
     /// package.
     fn load(&self, id: FileId) -> FileResult<Bytes>;
+}
+
+impl<F: FileLoader> FileLoader for Box<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
+}
+
+impl<F: FileLoader> FileLoader for Arc<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
 }
 
 /// Serves project files from a directory and package files from standard
