@@ -10,7 +10,7 @@ use typst_library::layout::{Abs, Ratio, Size, Transform};
 use typst_library::text::color::{
     GlyphFrame, GlyphFrameItem, glyph_frame, should_outline,
 };
-use typst_library::text::{Font, TextItem};
+use typst_library::text::{Font, FontInstance, TextItem};
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
 use write_fonts::FontBuilder;
 use write_fonts::from_obj::ToOwnedTable;
@@ -318,7 +318,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Save the glyph ID & font for later subsetting in [`SVGRenderer::write_text_metrics`].
-    fn save_glyph_for_subset(&mut self, font: Font, glyph_id: u32) {
+    fn save_glyph_for_subset(&mut self, font: FontInstance, glyph_id: u32) {
         self.fonts_for_subset.entry(font).or_default().insert(glyph_id);
     }
 }
@@ -339,7 +339,7 @@ impl FontExt for Font {
 }
 
 /// Subset the font to only include the used glyphs.
-fn subset_font(font: &Font, glyphs: &HashSet<u32>) -> Vec<u8> {
+fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     let fr = FontRef::from_index(font.data().as_slice(), font.index()).unwrap();
     let ttf = font.ttf();
 

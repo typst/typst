@@ -21,7 +21,7 @@ use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
-use typst_library::text::Font;
+use typst_library::text::{Font, FontInstance};
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use write_fonts::read::TableProvider;
 use xmlwriter::XmlWriter;
@@ -197,7 +197,7 @@ struct SVGRenderer<'a> {
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Glyphs used in the text items, separated by font. Used for subsetting.
-    fonts_for_subset: HashMap<Font, HashSet<u32>>,
+    fonts_for_subset: HashMap<FontInstance, HashSet<u32>>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
