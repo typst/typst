@@ -28,7 +28,7 @@ use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
 /// If you need more control, you can skip this and implement custom logic that
 /// directly handles the [`World::source`](typst_library::World::source) and
 /// [`World::file`](typst_library::World::file) requests. A language server is
-/// an example of an integration that might want to go even deeper,  to create,
+/// an example of an integration that might want to go even deeper, to create,
 /// manage, and edit source files by itself. If you go the manual route, ensure
 /// that those methods are cheap on repeated calls (either through caching or by
 /// virtue of always being cheap).
