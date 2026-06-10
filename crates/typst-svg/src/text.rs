@@ -1,3 +1,6 @@
+use crate::path::SvgPathBuilder;
+use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
+use crate::{DedupId, SVGRenderer, State};
 use base64::Engine;
 use ecow::EcoString;
 use std::cmp::{max, min};
@@ -12,7 +15,6 @@ use typst_library::text::color::{
 };
 use typst_library::text::{Font, FontInstance, TextItem};
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
-use write_fonts::FontBuilder;
 use write_fonts::from_obj::ToOwnedTable;
 use write_fonts::read::tables::glyf::CurvePoint;
 use write_fonts::read::{FontRef, TableProvider};
@@ -25,10 +27,7 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-
-use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
-use crate::{DedupId, SVGRenderer, State};
+use write_fonts::FontBuilder;
 
 /// Represents a glyph to be rendered.
 #[derive(Clone)]
@@ -56,11 +55,17 @@ impl SVGRenderer<'_> {
     ) {
         let svg = &mut svg.elem("g");
 
+        let css_variations = text.font.variations().0.iter()
+            .map(|(axis, value)| format!("'{}' {}", axis, value.0))
+            .collect::<Vec<_>>()
+            .join(", ");
+
         // Flip the transform since fonts use a Y-Up coordinate system.
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
         svg.attr("font-family", text.font.svg_font_family());
         svg.attr("font-size", text.size.to_pt());
+        svg.attr("style", format!("font-variation-settings: {css_variations}").as_str());
 
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
@@ -306,7 +311,7 @@ impl SVGRenderer<'_> {
 
         let mut style = String::new();
         for (font, glyphs) in &self.fonts_for_subset {
-            let b64 = B64_STANDARD.encode(&subset_font(font, glyphs));
+            let b64 = B64_STANDARD.encode(subset_font(font, glyphs));
             write!(
                 &mut style,
                 "@font-face {{ font-family: '{}'; src: url('data:font/ttf;base64,{b64}') format('truetype'); }}",
@@ -346,9 +351,15 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     let mut head: Head = fr.head().unwrap().to_owned_table();
     let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
     let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
-    let os2: Os2 = fr.os2().unwrap().to_owned_table();
+    let mut os2: Os2 = fr.os2().unwrap().to_owned_table();
     let name: Name = fr.name().unwrap().to_owned_table();
-    let post: Post = fr.post().unwrap().to_owned_table();
+
+    os2.panose_10[3] = 0; // force set `Proportion` field to `Any`
+
+    // make ascender/descender/line_gap consistent
+    os2.s_typo_ascender = hhea.ascender.to_i16();
+    os2.s_typo_descender = hhea.descender.to_i16();
+    os2.s_typo_line_gap = hhea.line_gap.to_i16();
 
     let mut needed_pairs = HashMap::with_capacity(glyphs.len());
     for subtable in ttf.tables().cmap.unwrap().subtables {
@@ -362,6 +373,11 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     }
 
     let n_glyphs = needed_pairs.len() + 1;
+
+    let glyph_names = [".notdef"].into_iter().chain(needed_pairs.iter()
+        .map(|(_, gid)| ttf.glyph_name(GlyphId(gid.to_u32() as u16)).unwrap()));
+
+    let post = Post::new_v2(glyph_names);
 
     let mut glyf = GlyfLocaBuilder::new();
 
@@ -378,6 +394,8 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     hmtx.h_metrics.resize(needed_pairs.len() + 1, old_metrics[0].clone());
     hhea.number_of_h_metrics = n_glyphs as u16;
 
+    let mut max_width = 0;
+
     for (i, (_, gid)) in needed_pairs.iter_mut().enumerate() {
         glyf.add_glyph(&Glyph::Empty).unwrap();
 
@@ -388,7 +406,13 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
 
         hmtx.h_metrics[i + 1] = LongMetric { advance, side_bearing };
         *gid = (i as u16 + 1).into();
+
+        if advance > max_width {
+            max_width = advance;
+        }
     }
+
+    hhea.advance_width_max = max_width.into();
 
     hmtx.left_side_bearings.clear(); // only clear() after the loop above
 
