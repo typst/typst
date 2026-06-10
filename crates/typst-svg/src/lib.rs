@@ -21,9 +21,8 @@ use typst_layout::{Page, PagedDocument};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
-use typst_library::text::{Font, FontInstance};
+use typst_library::text::FontInstance;
 use typst_library::visualize::{Geometry, Gradient, Tiling};
-use write_fonts::read::TableProvider;
 use xmlwriter::XmlWriter;
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};

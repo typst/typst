@@ -1,5 +1,5 @@
 use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgIdRef, SvgTransform, SvgWrite};
+use crate::write::{SvgElem, SvgIdRef, SvgTransform};
 use crate::{DedupId, SVGRenderer, State};
 use base64::Engine;
 use ecow::EcoString;
@@ -15,6 +15,7 @@ use typst_library::text::color::{
 };
 use typst_library::text::{Font, FontInstance, TextItem};
 use typst_library::visualize::{FillRule, Paint, RelativeTo};
+use write_fonts::FontBuilder;
 use write_fonts::from_obj::ToOwnedTable;
 use write_fonts::read::tables::glyf::CurvePoint;
 use write_fonts::read::{FontRef, TableProvider};
@@ -27,7 +28,6 @@ use write_fonts::tables::maxp::Maxp;
 use write_fonts::tables::name::Name;
 use write_fonts::tables::os2::Os2;
 use write_fonts::tables::post::Post;
-use write_fonts::FontBuilder;
 
 /// Represents a glyph to be rendered.
 #[derive(Clone)]
@@ -55,7 +55,11 @@ impl SVGRenderer<'_> {
     ) {
         let svg = &mut svg.elem("g");
 
-        let css_variations = text.font.variations().0.iter()
+        let css_variations = text
+            .font
+            .variations()
+            .0
+            .iter()
             .map(|(axis, value)| format!("'{}' {}", axis, value.0))
             .collect::<Vec<_>>()
             .join(", ");
@@ -128,7 +132,7 @@ impl SVGRenderer<'_> {
                 let text = &text.text[item.range];
 
                 // check if all whitespace
-                if let None = text.split_whitespace().next() {
+                if text.split_whitespace().next().is_none() {
                     text_el.attr("style", "white-space: pre");
                 }
 
@@ -310,6 +314,8 @@ impl SVGRenderer<'_> {
         }
 
         let mut style = String::new();
+        #[allow(clippy::iter_over_hash_type)]
+        // the order doesn't matter as long as it's the same for every input / run
         for (font, glyphs) in &self.fonts_for_subset {
             let b64 = B64_STANDARD.encode(subset_font(font, glyphs));
             write!(
@@ -374,8 +380,11 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
 
     let n_glyphs = needed_pairs.len() + 1;
 
-    let glyph_names = [".notdef"].into_iter().chain(needed_pairs.iter()
-        .map(|(_, gid)| ttf.glyph_name(GlyphId(gid.to_u32() as u16)).unwrap()));
+    let glyph_names = [".notdef"].into_iter().chain(
+        needed_pairs
+            .values()
+            .map(|gid| ttf.glyph_name(GlyphId(gid.to_u32() as u16)).unwrap()),
+    );
 
     let post = Post::new_v2(glyph_names);
 
