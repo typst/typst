@@ -115,6 +115,7 @@ This section documents all changes to the Typst language and compiler between Ty
 - Improved translations for Swedish #pr(7166), Portuguese #pr(7088), Czech #pr(7318), Latvian #pr(7701), Slovak #pr(7734), Polish #pr(7734), Vietnamese #pr(7774), Finnish #pr(7988) #pr(7989), and Welsh #pr(7811)
 - Added font exception to avoid _SimSun-ExtB_ being incorrectly merged with _SimSun_ #pr(8042)
 - Updated New Computer Modern fonts to version 8.1.0 #pr(7597) #pr(7663) #pr(8164) #pr(8330) #pr(8435)
+  - This update changes the default look of @math.cal[calligraphic letterforms] in the math font; the previous style can be restored through `{show math.equation: set text(stylistic-set: 6)}`
 - Updated Unicode components #pr(8406)
   - In particular, this fixed an issue with linebreaking of guillemets
 
@@ -364,6 +365,19 @@ $ chevron.l(x) $
 
 == Math classes <math-classes>
 The @math.class[`class`] function defines how part of an equation should be laid out (primarily the spacing around it). In Typst 0.14 and below, the `class` function applied recursively: If applied to a larger piece of content, all items in it would receive the class. In Typst 0.15, the class is only applied to the directly wrapped content. This is mostly a bug fix, but can lead to subtle layout changes.
+
+== #short-or-long[Calligraphic letterforms][Calligraphic letterforms in the default math font] <calligraphic-letterforms>
+With the update to _New Computer Modern Math_ 8.1.0, the default @math.cal[calligraphic letterforms] were changed. The previous letterforms can still be accessed by selecting @text.stylistic-set[stylistic set] 6.
+
+```example
+// Typst 0.15, default style
+$ R != cal(R) $
+
+// Typst 0.15, with stylistic set 6
+// Typst 0.14 and below, default style
+#show math.equation: set text(stylistic-set: 6)
+$ R != cal(R) $
+```
 
 == #short-or-long[HTML paragraphs][Paragraphs, boxes, and blocks in HTML] <html-paragraphs>
 Typst automatically @par:what-becomes-a-paragraph[collects inline-level content into paragraphs]. In Typst 0.14 and below, the exact same rules were used to collect inline-level HTML elements (e.g. a `<span>`) into Typst paragraphs, which in turn result in `<p>` elements. This had the unfortunate effect that even use of the low-level @html:typed[typed HTML API] could result in `<p>` elements appearing automatically. Consider the example below:
