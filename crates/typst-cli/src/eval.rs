@@ -1,6 +1,8 @@
+use std::io::{Write, stdout};
+
 use comemo::Track;
-use ecow::eco_format;
-use typst::diag::{HintedStrResult, SourceResult, Warned};
+use ecow::{EcoVec, eco_format};
+use typst::diag::{HintedStrResult, SourceResult, Warned, bail};
 use typst::foundations::{Context, Output, Scope, StyleChain, Value};
 use typst::routines::SpanMode;
 use typst::syntax::{Span, SyntaxMode};
@@ -10,10 +12,41 @@ use typst_eval::eval_string;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 
-use crate::args::{EvalCommand, Target};
+use crate::args::{EvalCommand, EvalSerializationFormat, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
+
+fn print_eval_result(
+    value: &Value,
+    format: EvalSerializationFormat,
+    pretty: bool,
+) -> HintedStrResult<()> {
+    match format {
+        EvalSerializationFormat::Json => {
+            println!("{}", crate::serialize(&value, SerializationFormat::Json, pretty)?);
+        }
+        EvalSerializationFormat::Yaml => {
+            println!("{}", crate::serialize(&value, SerializationFormat::Yaml, pretty)?);
+        }
+        EvalSerializationFormat::Raw => match value {
+            Value::Str(s) => {
+                println!("{s}");
+            }
+            Value::Bytes(bytes) => {
+                stdout().lock().write_all(bytes).map_err(|err| {
+                    eco_format!("failed to write eval result to stdout ({err})")
+                })?;
+            }
+            _ => bail!(
+                "invalid eval result type: {}", &value.ty();
+                hint: "--format=raw allows only string and bytes as result types"
+            ),
+        },
+    };
+
+    Ok(())
+}
 
 /// Execute a query command.
 pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
@@ -34,7 +67,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
     };
 
-    match output {
+    let errors = match output {
         // Retrieve and print evaluation results.
         Ok(output) => {
             let mut sink = Sink::new();
@@ -44,39 +77,25 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                 &world,
                 output.introspector(),
             );
-            let errors = match &eval_result {
-                Err(errors) => errors.as_slice(),
-                Ok(value) => {
-                    let serialized =
-                        crate::serialize(value, command.format, command.pretty)?;
-                    println!("{serialized}");
-                    &[]
-                }
-            };
             // Collect additional warnings from evaluating the expression.
             warnings.extend(sink.warnings());
-
-            print_diagnostics(
-                &world,
-                errors,
-                &warnings,
-                command.process.diagnostic_format,
-            )
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+            match eval_result {
+                Err(errors) => errors,
+                Ok(value) => {
+                    print_eval_result(&value, command.format, command.pretty)?;
+                    EcoVec::new()
+                }
+            }
         }
-
         // Print diagnostics.
         Err(errors) => {
             set_failed();
-            print_diagnostics(
-                &world,
-                &errors,
-                &warnings,
-                command.process.diagnostic_format,
-            )
-            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+            errors
         }
-    }
+    };
+
+    print_diagnostics(&world, &errors, &warnings, command.process.diagnostic_format)
+        .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
     Ok(())
 }
