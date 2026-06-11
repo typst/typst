@@ -1115,7 +1115,7 @@ fn make_mo(
     let info = OperatorInfo::of(
         text,
         form.unwrap_or(initial_form),
-        form.filter(|f| *f != initial_form).is_some(),
+        form.is_some_and(|f| f != initial_form),
     );
 
     // We force emitting `lspace` and `rspace` for a fraction slash (for
