@@ -97,7 +97,7 @@
     description: "Changes in Typst " + base-version,
     class: "changelog",
     context {
-      set heading(outlined: false) if target() == "paged"
+      set heading(outlined: false, bookmarked: true) if target() == "paged"
       include base-version + ".typ"
       if target() == "html" [
         = Contributors <contributors>
@@ -119,7 +119,7 @@
   route: "/changelog/earlier",
   description: "Changes in early, unversioned Typst",
   context {
-    set heading(outlined: false) if target() == "paged"
+    set heading(outlined: false, bookmarked: true) if target() == "paged"
     include "earlier.typ"
   },
 )
