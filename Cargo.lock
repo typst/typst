@@ -3366,6 +3366,7 @@ dependencies = [
  "memchr",
  "moxcms",
  "palette",
+ "percent-encoding",
  "phf 0.13.1",
  "png",
  "rayon",
