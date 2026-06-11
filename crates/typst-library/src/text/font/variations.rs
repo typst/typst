@@ -1,6 +1,7 @@
 use ecow::{EcoString, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use std::fmt::{self, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use typst_utils::Rdedup;
 
@@ -63,6 +64,24 @@ impl AxisValue {
 impl Hash for AxisValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.to_bits().hash(state);
+    }
+}
+
+impl Display for AxisValue {
+    // Per Google Fonts Axis Registry, generally no more than two decimal digits
+    // of precision are expected; we replicate std::fmt's rounding to compute
+    // the appropriate amount, avoiding visual noise of trailing zeros.
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let rounded_hundredths = (self.0 * 100.0).round_ties_even();
+        let decimal_digits = rounded_hundredths.rem_euclid(100.) as u8;
+
+        let precision = match decimal_digits {
+            0 => 0,
+            v if v % 10 == 0 => 1,
+            _ => 2,
+        };
+
+        write!(f, "{:.precision$}", self.0)
     }
 }
 
@@ -225,4 +244,19 @@ cast! {
 
 fn tag_hint_helper(index: usize, key: &impl Repr) -> EcoString {
     eco_format!("occurred in tag at index {index} (`{}`)", key.repr())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_axis_value_fmt() {
+        assert_eq!(format!("{}", AxisValue(100.)), "100");
+        assert_eq!(format!("{}", AxisValue(-2.5)), "-2.5");
+        assert_eq!(format!("{}", AxisValue(8.250023)), "8.25");
+        assert_eq!(format!("{}", AxisValue(25_000.248)), "25000.25");
+        assert_eq!(format!("{}", AxisValue(f32::NAN)), "NaN");
+        assert_eq!(format!("{}", AxisValue(f32::INFINITY)), "inf");
+    }
 }
