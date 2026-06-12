@@ -68,20 +68,8 @@ impl Hash for AxisValue {
 }
 
 impl Display for AxisValue {
-    // Per Google Fonts Axis Registry, generally no more than two decimal digits
-    // of precision are expected; we replicate std::fmt's rounding to compute
-    // the appropriate amount, avoiding visual noise of trailing zeros.
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let rounded_hundredths = (self.0 * 100.0).round_ties_even();
-        let decimal_digits = rounded_hundredths.rem_euclid(100.) as u8;
-
-        let precision = match decimal_digits {
-            0 => 0,
-            v if v % 10 == 0 => 1,
-            _ => 2,
-        };
-
-        write!(f, "{:.precision$}", self.0)
+        write!(f, "{}", typst_utils::round_with_precision(self.0.into(), 2))
     }
 }
 
@@ -252,10 +240,13 @@ mod tests {
 
     #[test]
     fn text_axis_value_fmt() {
+        // Assure we're printing with appropriate precision.
         assert_eq!(format!("{}", AxisValue(100.)), "100");
         assert_eq!(format!("{}", AxisValue(-2.5)), "-2.5");
-        assert_eq!(format!("{}", AxisValue(8.250023)), "8.25");
-        assert_eq!(format!("{}", AxisValue(25_000.248)), "25000.25");
+        assert_eq!(format!("{}", AxisValue(4.2)), "4.2");
+        assert_eq!(format!("{}", AxisValue(i16::MAX as f32 + 0.75)), "32767.75");
+
+        // These should be impossible to represent, but still work in fmt.
         assert_eq!(format!("{}", AxisValue(f32::NAN)), "NaN");
         assert_eq!(format!("{}", AxisValue(f32::INFINITY)), "inf");
     }
