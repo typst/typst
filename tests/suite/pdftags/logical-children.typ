@@ -1,4 +1,5 @@
---- logical-children-tags-place-within-artifact pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-place-within-artifact pdftags ---
+#set pdf(standard: "ua-1")
 // Error: 2:4-4:4 PDF/UA-1 error: PDF artifacts may not contain links
 // Hint: 2:4-4:4 references, citations, and footnotes are also considered links in PDF
 #pdf.artifact[
@@ -7,7 +8,8 @@
   ]
 ]
 
---- logical-children-tags-link-within-place-within-artifact pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-link-within-place-within-artifact pdftags ---
+#set pdf(standard: "ua-1")
 // Error: 3:6-5:6 PDF/UA-1 error: PDF artifacts may not contain links
 // Hint: 3:6-5:6 references, citations, and footnotes are also considered links in PDF
 #pdf.artifact[
@@ -18,7 +20,8 @@
   ]
 ]
 
---- logical-children-tags-footnote-in-tiling pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-footnote-in-tiling pdftags ---
+#set pdf(standard: "ua-1")
 // Error: PDF/UA-1 error: PDF artifacts may not contain links
 // Hint: a link was used within a tiling
 // Hint: references, citations, and footnotes are also considered links in PDF
@@ -26,12 +29,14 @@
   #footnote[hi]
 ])
 
---- logical-children-tags-place-in-tiling pdftags pdfstandard(ua-1) empty ---
+--- logical-children-tags-place-in-tiling pdftags empty ---
+#set pdf(standard: "ua-1")
 #rect(width: 90pt, height: 90pt, fill: tiling(size: (30pt, 30pt))[
   #place(float: true, top + right)[hi]
 ])
 
---- logical-children-tags-decorations-in-broken-grid-cell pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-decorations-in-broken-grid-cell pdftags ---
+#set pdf(standard: "ua-1")
 #set page(height: 50pt)
 #grid(
   columns: 2,
@@ -43,14 +48,16 @@
   ],
 )
 
---- logical-children-tags-hide-around-footnote pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-hide-around-footnote pdftags ---
+#set pdf(standard: "ua-1")
 #hide[
   Some text #footnote[explanation].
 ]
 
 Some other text.
 
---- logical-children-tags-hide-around-place pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-hide-around-place pdftags ---
+#set pdf(standard: "ua-1")
 #hide[
   Some text #place(float: true, bottom + right)[explanation].
 ]
@@ -58,14 +65,16 @@ Some other text.
 Some other text.
 
 
---- logical-children-tags-underline-around-footnote pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-underline-around-footnote pdftags ---
+#set pdf(standard: "ua-1")
 #underline[
   Some text #footnote[explanation].
 ]
 
 Some other text.
 
---- logical-children-tags-underline-around-place paged pdftags pdfstandard(ua-1) ---
+--- logical-children-tags-underline-around-place paged pdftags ---
+#set pdf(standard: "ua-1")
 #underline[
   Some text #place(float: true, bottom + right)[explanation].
 ]

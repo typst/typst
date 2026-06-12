@@ -300,7 +300,13 @@ impl LibraryExt for Library {
     }
 
     fn builder() -> LibraryBuilder {
-        LibraryBuilder::from_routines(&ROUTINES)
+        // TODO: These could be pluggable by features flags.
+        LibraryBuilder::from_routines(&ROUTINES).with_formats([
+            typst_html::format(),
+            typst_pdf::format(),
+            typst_svg::format(),
+            typst_render::format(),
+        ])
     }
 }
 
@@ -312,6 +318,7 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     rules: || {
         let mut rules = NativeRuleMap::new();
         typst_layout::register(&mut rules);
+        // TODO: HTML rules could be plugged in by the `Format`.
         typst_html::register(&mut rules);
         rules
     },
@@ -319,7 +326,6 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
-    html_module: typst_html::module,
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
 });

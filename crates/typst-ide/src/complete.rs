@@ -5,6 +5,7 @@ use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::diag::{BindingSink, HintedString, WarningSink};
+use typst::format::AttachElem;
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
     ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
@@ -624,7 +625,7 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("cite"), "style") => &["csl"],
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
-        (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
+        (Some("attach"), "path") if *func == AttachElem::ELEM => &[],
         (None, "path") => &[],
         _ => return None,
     })

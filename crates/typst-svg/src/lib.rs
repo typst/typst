@@ -1,5 +1,6 @@
 //! Rendering of Typst documents into SVG images.
 
+mod format;
 mod image;
 mod paint;
 mod path;
@@ -11,7 +12,8 @@ use comemo::Tracked;
 pub use image::{WebImage, convert_image_scaling};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
-use typst_library::model::{Destination, LateLinkResolver};
+use typst_library::format::{Complete, Fields, Partial};
+use typst_library::model::{Destination, Document, LateLinkResolver};
 
 use std::hash::Hash;
 
@@ -23,17 +25,19 @@ use typst_library::layout::{
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
 
+pub use self::format::*;
+
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
 use crate::write::{SvgDisplay, SvgElem, SvgTransform, SvgUrl, SvgWrite};
 
 /// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(page: &Page, opts: &SvgOptions) -> String {
+pub fn svg(page: &Page, opts: &SvgOptions<Complete>) -> String {
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(xml_options(opts.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -51,14 +55,14 @@ pub fn svg(page: &Page, opts: &SvgOptions) -> String {
 #[typst_macros::time(name = "svg in bundle")]
 pub fn svg_in_bundle(
     page: &Page,
-    opts: &SvgOptions,
+    opts: &SvgOptions<Complete>,
     anchors: &[(Point, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
-    let mut xml = XmlWriter::new(xml_options(opts.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -126,21 +130,22 @@ pub fn svg_in_html(
 ///
 /// The gap will be added between the individual pages.
 pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> String {
+    let opts = opts.resolve(document.options().get::<Svg>());
     let num_gaps = document.pages().len().saturating_sub(1) as f64;
     let mut size = Size::new(Abs::zero(), num_gaps * gap);
     for page in document.pages() {
-        let (page_size, _ts) = page_bleed(page, opts);
+        let (page_size, _ts) = page_bleed(page, &opts);
         size.x.set_max(page_size.x);
         size.y += page_size.y;
     }
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(xml_options(opts.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
     let mut svg = svg_header(&mut xml, size);
 
     let mut y = Abs::zero();
     for page in document.pages() {
-        let (page_size, bleed_ts) = page_bleed(page, opts);
+        let (page_size, bleed_ts) = page_bleed(page, &opts);
         let state = State::new(page_size);
         renderer.render_page(
             &mut svg,
@@ -155,7 +160,7 @@ pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> Stri
     xml.end_document()
 }
 
-fn page_bleed(page: &Page, opts: &SvgOptions) -> (Size, Transform) {
+fn page_bleed(page: &Page, opts: &SvgOptions<Complete>) -> (Size, Transform) {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
     let size = page.frame.size() + bleed.sum_by_axis();
     let ts = Transform::translate(bleed.left, bleed.top);
@@ -176,15 +181,24 @@ fn xml_options(pretty: bool) -> xmlwriter::Options {
 
 /// Settings for SVG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct SvgOptions {
+pub struct SvgOptions<F: Fields = Partial> {
     /// By default, SVG documents are bounded to the page size. In some
     /// circumstances, such as when preparing documents for print, it may be
     /// desirable to include content beyond these bounds to account for bleed
     /// margins. This field allows expanding the document area to include such
     /// bleed.
     pub render_bleed: bool,
-    /// Whether to format the SVG in a human-readable way.
-    pub pretty: bool,
+    /// Format options that override the defaults set by the document.
+    pub format: SvgFormatOptions<F>,
+}
+
+impl SvgOptions<Partial> {
+    pub fn resolve(&self, doc: &SvgFormatOptions) -> SvgOptions<Complete> {
+        SvgOptions {
+            render_bleed: self.render_bleed,
+            format: self.format.resolve(doc),
+        }
+    }
 }
 
 /// Renders one or multiple frames to an SVG file.

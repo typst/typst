@@ -78,7 +78,7 @@ pub(crate) fn handle_link(
 
     if tags::disabled(gc) {
         if gc.tags.in_tiling
-            && let Some(accessibility) = gc.options.accessibility_validator()
+            && let Some(accessibility) = gc.options.validators().accessibility()
         {
             let validator = accessibility.as_str();
             bail!(
@@ -109,7 +109,7 @@ pub(crate) fn handle_link(
     let alt = link.alt.as_ref().map(Into::into);
 
     if gc.tags.tree.parent_artifact().is_some() {
-        if let Some(accessibility) = gc.options.accessibility_validator() {
+        if let Some(accessibility) = gc.options.validators().accessibility() {
             let validator = accessibility.as_str();
             bail!(
                 link.span(),
@@ -142,7 +142,7 @@ pub(crate) fn handle_link(
     // typst/typst and then ends on another line.
     // ```
     // The bounding box would span the entire paragraph, which is undesirable.
-    let join_annotations = gc.options.accessibility_validator().is_some();
+    let join_annotations = gc.options.validators().accessibility().is_some();
     match fc.get_link_annotation(group_id) {
         Some(annotation) if join_annotations => annotation.rects.push(rect),
         _ => {

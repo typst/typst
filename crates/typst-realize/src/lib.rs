@@ -608,7 +608,7 @@ fn visit_styled<'a>(
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
             let local = StyleChain::new(&local);
-            if let RealizationKind::Document { info } = &mut s.kind {
+            if let RealizationKind::Document { info, .. } = &mut s.kind {
                 info.populate(local);
             } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
@@ -626,7 +626,7 @@ fn visit_styled<'a>(
             }
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
-            if let RealizationKind::Document { info } = &mut s.kind {
+            if let RealizationKind::Document { info, .. } = &mut s.kind {
                 info.populate_locale(StyleChain::new(&local));
             }
         } else if elem == PageElem::ELEM {
@@ -651,6 +651,15 @@ fn visit_styled<'a>(
                     style.span(),
                     "page configuration is not allowed inside of containers",
                 ),
+            }
+        } else if s.engine.library.formats.iter().any(|f| f.elem == elem) {
+            if let RealizationKind::Document { options, .. } = &mut s.kind {
+                options.populate(StyleChain::new(&local));
+            } else if !matches!(s.kind, RealizationKind::Bundle) {
+                bail!(
+                    style.span(),
+                    "format set rules are not allowed inside of containers",
+                );
             }
         }
     }
