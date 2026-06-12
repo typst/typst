@@ -202,6 +202,101 @@ hi:
 #bibliography("/assets/bib/works.bib", group: "a")
 #bibliography("/assets/bib/works_too.bib", group: "b", style: "nlm-citation-sequence")
 
+--- bibliography-group-full html ---
+// Test that a numbered bibliography that is printed in full without any
+// citations still advances the shared numbering.
+#bibliography("/assets/bib/works_too.bib", full: true)
+#bibliography("/assets/bib/works.bib", full: true)
+
+--- bibliography-group-mixed-full html ---
+// Test that the shared numbering continues from a bibliography with
+// `full: true` into one that only contains cited entries, and that the
+// latter advances the numbering by its rendered items rather than by the
+// entries in its source file.
+#bibliography("/assets/bib/works_too.bib", full: true)
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
+#bibliography("/assets/bib/works_too.bib", full: true)
+
+--- bibliography-group-mixed-styles html ---
+// Test that a bibliography with a non-numeric style does not consume
+// numbers from the shared numbering.
+@Zee04
+#bibliography("/assets/bib/works_too.bib", style: "apa")
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-group-citation-numbers-only html ---
+// Test that a bibliography whose style displays citation numbers in
+// citations, but not in the bibliography itself, still advances the
+// shared numbering.
+#let style = ```csl
+  <?xml version="1.0" encoding="utf-8"?>
+  <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+    <info>
+      <title>Test</title>
+      <id>test</id>
+    </info>
+    <citation>
+      <layout prefix="[" suffix="]" delimiter=", ">
+        <text variable="citation-number"/>
+      </layout>
+    </citation>
+    <bibliography>
+      <layout>
+        <text variable="title"/>
+      </layout>
+    </bibliography>
+  </style>
+```
+#set bibliography(style: bytes(style.text))
+
+@Zee04
+#bibliography("/assets/bib/works_too.bib")
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-group-form-year html ---
+// Test that a bibliography whose citations all use a form that displays no
+// citation number still advances the shared numbering.
+#cite(<Zee04>, form: "year")
+#bibliography("/assets/bib/works_too.bib")
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-group-full-custom-style html ---
+// Test that the shared numbering also advances for a numbered custom style
+// that does not declare its citation format.
+#let style = ```csl
+  <?xml version="1.0" encoding="utf-8"?>
+  <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+    <info>
+      <title>Test</title>
+      <id>test</id>
+    </info>
+    <citation>
+      <layout prefix="[" suffix="]" delimiter=", ">
+        <text variable="citation-number"/>
+      </layout>
+    </citation>
+    <bibliography second-field-align="flush">
+      <layout>
+        <text variable="citation-number" prefix="[" suffix="]"/>
+        <text variable="title"/>
+      </layout>
+    </bibliography>
+  </style>
+```
+
+#set bibliography(style: bytes(style.text), full: true)
+#bibliography("/assets/bib/works_too.bib")
+#bibliography("/assets/bib/works.bib")
+
 --- bibliography-group-out-of-order html ---
 // The numbers are ordered in the order of the bibliographies, so in the prose
 // they can be out of order if using shared numbering.
