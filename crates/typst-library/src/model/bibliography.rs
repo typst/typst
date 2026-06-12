@@ -1093,18 +1093,39 @@ fn render<'a>(
 
     if let Some(offset) = offset
         && let Some(bib) = &rendered.bibliography
-        // Check whether the style uses numbering.
-        && rendered.citations.iter().any(|rendered| {
-            rendered
-                .citation
-                .find_meta(&hayagriva::ElemMeta::CitationNumber)
-                .is_some()
-        })
+        // Check whether the bibliography or any citation displays citation
+        // numbers. Only then does the bibliography occupy a numbering range
+        // that subsequent bibliographies in the same group must skip.
+        && (bib.items.iter().any(displays_citation_number)
+            || rendered.citations.iter().any(|rendered| {
+                rendered
+                    .citation
+                    .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                    .is_some()
+            }))
     {
         *offset += bib.items.len();
     }
 
     rendered
+}
+
+/// Whether a rendered bibliography item displays a citation number.
+///
+/// For styles with `second-field-align` (like IEEE), the number resides in
+/// the item's first field rather than in its content.
+fn displays_citation_number(item: &hayagriva::BibliographyItem) -> bool {
+    item.content.find_meta(&hayagriva::ElemMeta::CitationNumber).is_some()
+        || item.first_field.as_ref().is_some_and(|child| match child {
+            hayagriva::ElemChild::Elem(elem) => {
+                elem.meta == Some(hayagriva::ElemMeta::CitationNumber)
+                    || elem
+                        .children
+                        .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                        .is_some()
+            }
+            _ => false,
+        })
 }
 
 /// Creates a hayagriva citation item for a citation element.
