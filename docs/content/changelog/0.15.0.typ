@@ -370,11 +370,11 @@ The @math.class[`class`] function defines how part of an equation should be laid
 With the update to _New Computer Modern Math_ 8.1.0, the default @math.cal[calligraphic letterforms] were changed. The previous letterforms can still be accessed by selecting @text.stylistic-set[stylistic set] 6.
 
 ```example
-// Typst 0.15, default style
+// Typst 0.15, default style.
 $ R != cal(R) $
 
-// Typst 0.15, with stylistic set 6
-// Typst 0.14 and below, default style
+// Typst 0.15, with stylistic set 6.
+// Reproduces the default style from Typst 0.14 and below.
 #show math.equation: set text(stylistic-set: 6)
 $ R != cal(R) $
 ```
