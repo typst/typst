@@ -301,31 +301,48 @@ pub fn deco_intersect(
     let mut x = pos.x;
     let font_metrics = text.font.metrics();
 
+    //let proper_transform = transform.unwrap_or_default();
     for glyph in text.glyphs.iter() {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
-        let path = builder.finish();
+        let mut path = builder.finish();
+
+        if let Some(transform) = &transform {
+            path.apply_affine(affine_from_transform(transform));
+        }
 
         x += glyph.x_advance.at(text.size);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
         let intersect = bbox.is_some_and(|bbox| {
-            let y_min = -text.font.to_em(bbox.y_max).at(text.size);
-            let y_max = -text.font.to_em(bbox.y_min).at(text.size);
+            let mut y_min = -text.font.to_em(bbox.y_max).at(text.size);
+            let mut y_max = -text.font.to_em(bbox.y_min).at(text.size);
+
+            if let Some(transform) = &transform {
+                let x_min = -text.font.to_em(bbox.x_max).at(text.size);
+                let x_max = -text.font.to_em(bbox.x_min).at(text.size);
+                let rect = Rect::new(Point::new(x_min, y_min), Point::new(x_max, y_max));
+                let parallelogram = transform_rect(rect, transform);
+                y_max = parallelogram.iter().max_by_key(|p| p.y).unwrap().y;
+                y_min = parallelogram.iter().min_by_key(|p| p.y).unwrap().y;
+            }
+
             offset >= y_min && offset <= y_max
         });
 
-        if intersect {
+        // TODO: use transform to compute whether intersect can happen...
+        if intersect || transform.is_some() {
             // Find all intersections of segments with the line.
-            intersections.extend(
+            intersections.extend(dbg!(
                 path.segments()
                     .flat_map(|seg| seg.intersect_line(line))
-                    .map(|is| Abs::raw(line.eval(is.line_t).x)),
-            );
+                    .map(|is| Abs::raw(line.eval(is.line_t).x))
+                    .collect::<Vec<_>>() // TODO: remove this
+            ));
         }
     }
 }
