@@ -4,9 +4,11 @@ a845db3f6f6d466d683136b703f44cf6 basic-table
 3f625e61698549ccccf65b72a66b72e7 bibliography-csl-display
 74b33b507da27e15d265f3217c858ac6 bibliography-custom-title
 b7db257520089ca4fabc7de0ce145d4f bibliography-group-auto
+02368f0b0c101c641df858196b440872 bibliography-group-citation-numbers-only
 f6e1a9094c1ed21bef299f26aad195a2 bibliography-group-form-year
 8997aa88a2a9c92d8e39674942922140 bibliography-group-full
 12ec2dcc83fe5ee77a921565164d048e bibliography-group-full-custom-style
+c00f97bdc174e68526d4a94d7b7f0b6f bibliography-group-mixed-full
 0b7c6366e0660d06550c9081512d5bb9 bibliography-group-none
 5fab6af8d6370f60818ea4e1eec8095a bibliography-group-out-of-order
 17da3cafc27f03d422dd8863d4bf9707 bibliography-group-str

@@ -208,6 +208,45 @@ hi:
 #bibliography("/assets/bib/works_too.bib", full: true)
 #bibliography("/assets/bib/works.bib", full: true)
 
+--- bibliography-group-mixed-full html ---
+// Test that the shared numbering continues from a bibliography with
+// `full: true` into one that only contains cited entries.
+#bibliography("/assets/bib/works_too.bib", full: true)
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
+--- bibliography-group-citation-numbers-only html ---
+// Test that a bibliography whose style displays citation numbers in
+// citations, but not in the bibliography itself, still advances the
+// shared numbering.
+#let style = ```csl
+  <?xml version="1.0" encoding="utf-8"?>
+  <style xmlns="http://purl.org/net/xbiblio/csl" class="in-text" version="1.0">
+    <info>
+      <title>Test</title>
+      <id>test</id>
+    </info>
+    <citation>
+      <layout prefix="[" suffix="]" delimiter=", ">
+        <text variable="citation-number"/>
+      </layout>
+    </citation>
+    <bibliography>
+      <layout>
+        <text variable="title"/>
+      </layout>
+    </bibliography>
+  </style>
+```
+#set bibliography(style: bytes(style.text))
+
+@Zee04
+#bibliography("/assets/bib/works_too.bib")
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
 --- bibliography-group-form-year html ---
 // Test that a bibliography whose citations all use a form that displays no
 // citation number still advances the shared numbering.
