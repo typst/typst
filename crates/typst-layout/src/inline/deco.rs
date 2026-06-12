@@ -285,9 +285,18 @@ pub fn deco_intersect(
     intersections: &mut Vec<Abs>,
     transform: Option<Transform>,
 ) {
+    let width = if let Some(transform) = &transform {
+        // TODO: what about infinity?
+        dbg!(transform);
+        dbg!(text.bbox());
+        dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
+    } else {
+        // Cheaper...
+        text.width()
+    };
     let line = Line::new(
         kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-        kurbo::Point::new((pos.x + text.width()).to_raw(), offset.to_raw()),
+        kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
     );
     let mut x = pos.x;
     let font_metrics = text.font.metrics();
@@ -319,6 +328,37 @@ pub fn deco_intersect(
             );
         }
     }
+}
+
+/// Transform a rectangle's 4 corners (might become a parallelogram).
+fn transform_rect(rect: Rect, transform: &Transform) -> [Point; 4] {
+    // (min) ------------- (min.y, max.x)
+    //   |                   |
+    //   |                   |
+    // (min.x, max.y) ---- (max)
+    let mut corners = [
+        rect.min,
+        Point::new(rect.min.y, rect.max.x),
+        rect.max,
+        Point::new(rect.min.x, rect.max.y),
+    ];
+
+    for corner in &mut corners {
+        *corner = corner.transform_inf(*transform);
+    }
+    corners
+}
+
+fn parallelogram_width(corners: [Point; 4]) -> Abs {
+    let max_x = corners.iter().max_by_key(|p| p.x).unwrap();
+    let min_x = corners.iter().min_by_key(|p| p.x).unwrap();
+    max_x.x - min_x.x
+}
+
+fn parallelogram_height(corners: [Point; 4]) -> Abs {
+    let max_y = corners.iter().max_by_key(|p| p.y).unwrap();
+    let min_y = corners.iter().min_by_key(|p| p.y).unwrap();
+    max_y.y - min_y.y
 }
 
 /// Convert a Typst [`Transform`] into an equivalent [`Affine`] transform.
