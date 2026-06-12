@@ -1,6 +1,8 @@
-use kurbo::{BezPath, Line, ParamCurve};
+use kurbo::{Affine, BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{
+    Abs, Em, Frame, FrameItem, GroupItem, Point, Rect, Size, Transform,
+};
 use typst_library::text::{
     BottomEdge, DecoLine, Decoration, Font, TextEdgeBounds, TextItem, TopEdge,
 };
@@ -281,6 +283,7 @@ pub fn deco_intersect(
     text: &TextItem,
     offset: Abs,
     intersections: &mut Vec<Abs>,
+    transform: Option<Transform>,
 ) {
     let line = Line::new(
         kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
@@ -318,22 +321,56 @@ pub fn deco_intersect(
     }
 }
 
+/// Convert a Typst [`Transform`] into an equivalent [`Affine`] transform.
+fn affine_from_transform(transform: &Transform) -> Affine {
+    // | sx kx tx |
+    // | ky sy ty |
+    // | 0  0   1 |
+    Affine::new([
+        transform.sx.get(),
+        transform.ky.get(),
+        transform.kx.get(),
+        transform.sy.get(),
+        transform.tx.to_raw(),
+        transform.ty.to_raw(),
+    ])
+}
+
 pub fn deco_intersect_frames(
     frame: &Frame,
-    frame_x: Abs,
+    frame_pos: Point,
+    parent_baseline: Abs,
     offset: Abs,
     intersections: &mut Vec<Abs>,
+    transform: Option<Transform>,
 ) {
     for (pos, item) in frame.items() {
         match item {
             // Text might be "floating" away from the baseline in the frame.
-            // Adjust the line's position for intersections so that it is relative to where the text actually is.
+            // But the line offset is assumed to be relative to the text's position, not to the top of the frame.
+            // Therefore, adjust the line's position for intersections so that it is relative to where the text actually is,
+            // by moving the top of the frame to the top of the text, i.e. by subtracting its height from the top of the frame.
             FrameItem::Text(text) => deco_intersect(
-                *pos + Point::with_x(frame_x),
+                *pos + frame_pos,
                 text,
-                frame.baseline() + offset - pos.y,
+                parent_baseline + offset - pos.y - frame_pos.y,
                 intersections,
+                transform,
             ),
+            FrameItem::Group(group) => {
+                deco_intersect_frames(
+                    &group.frame,
+                    *pos + frame_pos,
+                    parent_baseline,
+                    offset,
+                    intersections,
+                    Some(if let Some(transform) = transform {
+                        transform.post_concat(group.transform)
+                    } else {
+                        group.transform
+                    }),
+                );
+            }
             _ => {}
         }
     }

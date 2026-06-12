@@ -464,6 +464,7 @@ impl<'a> ShapedText<'a> {
                         &item,
                         data.offset,
                         intersections,
+                        None,
                     );
                 }
             }

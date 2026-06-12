@@ -615,9 +615,11 @@ pub fn commit(
                 for (_, data, intersections) in &mut decos {
                     deco::deco_intersect_frames(
                         frame,
-                        offset,
+                        Point::with_x(offset),
+                        frame.baseline(),
                         data.offset,
                         intersections,
+                        None,
                     );
                 }
                 push(&mut offset, frame.clone(), idx);
