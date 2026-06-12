@@ -299,13 +299,12 @@ impl Repr for FontStretch {
 
 impl Display for FontStretch {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let integer_component = self.0 / 10;
-        let decimal_component = self.0 % 10;
-
-        if decimal_component == 0 {
-            write!(f, "{integer_component}%")
+        let int_part = self.0 / 10;
+        let dec_part = self.0 % 10;
+        if dec_part == 0 {
+            write!(f, "{int_part}%")
         } else {
-            write!(f, "{integer_component}.{decimal_component}%")
+            write!(f, "{int_part}.{dec_part}%")
         }
     }
 }
@@ -356,10 +355,9 @@ mod tests {
         assert_eq!(format!("{}", FontStretch(1)), "0.1%");
         assert_eq!(format!("{}", FontStretch(10)), "1%");
         assert_eq!(format!("{}", FontStretch(100)), "10%");
-        assert_eq!(format!("{}", FontStretch(1000)), "100%");
-        assert_eq!(format!("{}", FontStretch(u16::MAX)), "6553.5%");
-
-        assert_eq!(format!("{}", FontStretch(1120)), "112%");
         assert_eq!(format!("{}", FontStretch(666)), "66.6%");
+        assert_eq!(format!("{}", FontStretch(1000)), "100%");
+        assert_eq!(format!("{}", FontStretch(1120)), "112%");
+        assert_eq!(format!("{}", FontStretch(u16::MAX)), "6553.5%");
     }
 }

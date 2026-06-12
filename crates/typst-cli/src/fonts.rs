@@ -99,7 +99,6 @@ fn write_variant(
 /// Formats a variation axis.
 fn write_axis(f: &mut Formatter, axis: &FontAxis) -> fmt::Result {
     use std::convert::identity;
-
     match axis.tag {
         StandardAxes::ITAL => write_axis_with(f, axis, "Italic", identity),
         StandardAxes::SLNT => write_axis_with(f, axis, "Slant", identity),

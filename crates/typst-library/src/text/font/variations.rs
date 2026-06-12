@@ -1,8 +1,9 @@
+use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
+
 use ecow::{EcoString, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::fmt::{self, Display, Formatter};
-use std::hash::{Hash, Hasher};
 use typst_utils::Rdedup;
 
 use crate::diag::{Hint, HintedStrResult};
@@ -61,15 +62,15 @@ impl AxisValue {
     }
 }
 
-impl Hash for AxisValue {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.to_bits().hash(state);
-    }
-}
-
 impl Display for AxisValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", typst_utils::round_with_precision(self.0.into(), 2))
+    }
+}
+
+impl Hash for AxisValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.to_bits().hash(state);
     }
 }
 
