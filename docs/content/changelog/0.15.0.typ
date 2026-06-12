@@ -1,5 +1,14 @@
 #import "utils.typ": *
 
+#let changelogs = (
+  codex: "https://github.com/typst/codex/blob/v0.3.0/CHANGELOG.md",
+  hayagriva: "https://github.com/typst/hayagriva/blob/v0.10.0/CHANGELOG.md",
+  resvg: "https://github.com/linebender/resvg/blob/v0.47.0/CHANGELOG.md",
+  hayro: "https://github.com/LaurenzV/hayro/compare/d0b540fc9ab8e18b4a7a000d1404139af8e9d023...34834627c0b4afa9c83c9b64d4d978b127030c77",
+)
+
+This section documents all changes to the Typst language and compiler between Typst 0.14.2 and 0.15.0. If you are migrating an existing document to Typst 0.15, make sure to check out the @changelog:0.15.0:migration-guide. It walks you through changes you may need to make to your existing documents to ensure compatibility with Typst 0.15.
+
 = Highlights <highlights>
 - Typst now supports @text.variations[variable fonts]
 - HTML export now supports equations out of the box via MathML
@@ -79,7 +88,7 @@
   - Added support for BibLaTeX name options in `.bib` files #pr(90, repo: "typst/biblatex")
   - Added support for propagating non-numeric `volume` fields in `.bib` files to bibliographies #pr(478, repo: "typst/hayagriva")
   - Improved sorting in bibliographies to take into account language conventions #pr(314, repo: "typst/hayagriva")
-  - Improved interoperability with CSL styles; for a full listing of changes, review #link("https://github.com/typst/hayagriva/blob/v0.10.0/CHANGELOG.md#0100")[the Hayagriva 0.10.0 changelog]
+  - Improved interoperability with CSL styles; for a full listing of changes, review #link(changelogs.hayagriva)[the Hayagriva 0.10.0 changelog]
   - Added support for setting directors on videos without a parent in Hayagriva YAML files #pr(450, repo: "typst/hayagriva")
   - Improved handling of `Anthos` entries in Hayagriva YAML files by treating them as `chapter`s in CSL #pr(427, repo: "typst/hayagriva")
 - Footnotes
@@ -106,6 +115,7 @@
 - Improved translations for Swedish #pr(7166), Portuguese #pr(7088), Czech #pr(7318), Latvian #pr(7701), Slovak #pr(7734), Polish #pr(7734), Vietnamese #pr(7774), Finnish #pr(7988) #pr(7989), and Welsh #pr(7811)
 - Added font exception to avoid _SimSun-ExtB_ being incorrectly merged with _SimSun_ #pr(8042)
 - Updated New Computer Modern fonts to version 8.1.0 #pr(7597) #pr(7663) #pr(8164) #pr(8330) #pr(8435)
+  - This update changes the default look of @math.cal[calligraphic letterforms] in the math font; the previous style can be restored through `{show math.equation: set text(stylistic-set: 6)}`
 - Updated Unicode components #pr(8406)
   - In particular, this fixed an issue with linebreaking of guillemets
 
@@ -113,7 +123,7 @@
 - Layout
   - Improved layout of under/over elements like @math.underbrace[`underbrace`] #pr(7299)
   - Slightly improved spacing around @math.op elements #pr(7429)
-  - When _cramped_ styles (with tighter spacing) are applied is now fully consistent with TeX and MathML Core #pr(8082)
+  - In which situations _cramped_ styles (with tighter spacing) are applied is now fully consistent with TeX and MathML Core #pr(8082)
   - The @math.lr.size[`size` parameter] of the `lr` function now consistently applies to @math.mid[middle delimiters] in the same way it does to outer delimiters #pr(7435)
   - The @math.lr.size[`size` parameter] of the `lr` function now resolves relatively to the height of just the inner content; it does not take the delimiters into account anymore #pr(7605) #minor-breaking
   - Glyph @math.stretch[stretching] is now always relative to the base glyph rather than a potentially already scaled version (e.g. due to display sizing) #pr(7435) #minor-breaking
@@ -132,7 +142,7 @@
 - Fixed a bug with ordering of primes and nested attachments #pr(7647)
 
 == Symbols <symbols>
-- Added many new symbols and variants, deprecated some, and removed some previously deprecated ones. View #link("https://github.com/typst/codex/blob/v0.3.0/CHANGELOG.md#version-030-june-4-2026")[the `codex` 0.3.0 changelog] for a full listing. #breaking
+- Added many new symbols and variants. View #link(changelogs.codex)[the `codex` 0.3.0 changelog] for a full listing.
 
 == Layout <layout>
 - Baseline information is now retained in many more parts of the layout engine #pr(8150) #breaking
@@ -163,10 +173,10 @@
   - Fixed parent-relative placement for @stack and @polygon #pr(8324)
 - Fixed various bugs with rectangle strokes in combination with @rect.radius[radii] #pr(7357) #pr(8081)
 - Fixed a potential deadlock with font fallback in SVGs #pr(7766)
-- Various improvements to SVG image handling (see the #link("https://github.com/linebender/resvg/blob/v0.47.0/CHANGELOG.md#0460")[resvg 0.46 and 0.47 changelogs]); in particular:
+- Various improvements to SVG image handling (see the #link(changelogs.resvg)[resvg 0.46 and 0.47 changelogs]); in particular:
   - Added support for SVGs without top-level `xmlns` attribute
   - Added support for variable fonts in SVG using the `font-variation-settings` CSS property
-- Various improvements to PDF image handling (see the #link("https://github.com/LaurenzV/hayro/compare/d0b540fc9ab8e18b4a7a000d1404139af8e9d023...34834627c0b4afa9c83c9b64d4d978b127030c77")[commits between `d0b540f` and `3483462` on hayro]); in particular:
+- Various improvements to PDF image handling (see the #link(changelogs.hayro)[commits between `d0b540f` and `3483462` on hayro]); in particular:
   - Added support for JPEG2000 (`JPXDecode`) and JBIG2 (`JBIG2Decode`) images
   - Improved parsing robustness for non-compliant files
   - Added support for blend modes
@@ -281,23 +291,166 @@
 
 = Deprecations <deprecations>
 - Certain unclear/ambiguous ways to write a raw language tag; these will now emit a warning in anticipation of an @raw:language-tag-changes[upcoming change to how they are parsed] #pr(8257)
-- Undocumented array forms of @enum and @terms items #pr(7484)
 - Fallback to Arabic numerals for @numbering systems that do not support the number zero (e.g. for `{"⓵"}`) #pr(7936)
+- Various symbols were renamed, see the #link(changelogs.codex + "#deprecations-in-sym")[deprecation section in the dedicated changelog] for a full listing
 - Some citation styles that were renamed or superseded #pr(404, repo: "typst/hayagriva") #pr(424, repo: "typst/hayagriva") #pr(453, repo: "typst/hayagriva")
   - `council-of-science-editors` is now called `cse-citation-sequence-brackets-8th-edition`
   - `council-of-science-editors-author-date` is now called `cse-name-year`
   - `modern-language-association-8` / `mla-8` is superseded by `modern-language-association` / `mla`
   - `vancouver` is now called `nlm-citation-sequence`
   - `vancouver-superscript` is now called `nlm-citation-sequence-superscript`
+- Undocumented array forms of @enum and @terms items #pr(7484)
 
 = Removals <removals>
 - The `path` element, use @curve instead #pr(7554) #breaking
 - The `pattern` type, use @tiling instead #pr(8252) #breaking
 - The `pdf.embed` element, use @pdf.attach instead #pr(8252) #breaking
 - The scoped functions `cbor.decode`, `csv.decode`, `json.decode`, `toml.decode`, `xml.decode`, `yaml.decode`, and `image.decode`; directly pass @bytes to the top-level functions instead #pr(8252) #breaking
+- Various previously deprecated symbols, see the #link(changelogs.codex + "#removals-in-sym-breaking-change")[removals section in the dedicated changelog] for a full listing #breaking
 
 = Development <development>
 - The `typst-kit` crate was completely reworked to make it easier to create a Typst `World` implementation #pr(7710) #pr(8026)
 - Diagnostic hints can now have spans (though typically they will be _detached,_ which just means there isn't a span) #pr(7364)
 - Increased minimum supported Rust version to 1.92 #pr(8236)
 - Moved Nix flake from #repo("typst/typst") to #repo("typst/typst-flake"), where it is now maintained by the community as a best effort #pr(7512)
+
+= Migration guide <migration-guide>
+This section walks you through changes you may need to make to your existing documents to ensure compatibility with Typst 0.15.
+
+Typst 0.15 @changelog:0.15.0:removals[removes] definitions from the Typst standard library that were already deprecated in previous Typst versions. If you are still relying on those, also refer to the #link("https://typst.app/blog/2025/typst-0.14#migrating")[Typst 0.14] and #link("https://typst.app/blog/2025/typst-0.13#migrating")[Typst 0.13] migration guides.
+
+== Baselines <baselines>
+Typst now retains baseline information in more parts of the layout engine (most importantly for @box[boxes], @block[blocks], @list.item[list items], and @math.equation[equations]). This may lead to silent layout shifts. These are generally improvements, but if you've previously counter-acted bad-looking output through explicit adjustments, you may need to revisit those.
+
+In particular, Typst will now set the baseline of a @box to the baseline of its first line of content and use it to align the `box` with its surrounding text. This yields better-looking output out of the box.
+
+```example
+// Typst 0.15+
+Lorem #box(inset: 0.3em, stroke: 1pt)[ipsum] dolor.
+
+// Typst 0.14 and below
+<<< Lorem #box(inset: 0.3em, stroke: 1pt)[ipsum] dolor.
+>>> Lorem #box(inset: 0.3em, stroke: 1pt, baseline: -0.3em)[ipsum] dolor.
+```
+
+== File paths <file-paths>
+If you are using Typst on Windows, you may have used backslashes in your file paths. This syntax is not supported anymore. Consistent use of forward slashes ensures your document compiles on all supported platforms.
+
+```typ
+// Typst 0.15+ ✅
+#include "chapters/introduction.typ"
+
+// Typst 0.14 and below ❌
+#include "chapters\\introduction.typ"
+```
+
+Moreover, the Typst CLI does not support non-Unicode input paths anymore. Such paths are exceedingly rare today.
+
+== #short-or-long[Math stretching][Math glyph stretching] <math-stretching>
+In mathematical typesetting, glyphs frequently need to be stretched to the size of some part of an equation. This primarily applies to brackets, but also accents, arrows, and more. In Typst, this happens implicitly through matched delimiters or explicitly through the @math.lr[`lr`] and @math.stretch[`stretch`] functions.
+
+Typst 0.15 makes some adjustments to how ratios passed to these functions are resolved. Previously, a size of `{200%}` passed to @math.lr.size[`lr.size`] or @math.stretch.size[`stretch.size`] would be interpreted relative to a glyph size that was potentially already affected by @math.display[display sizing]. Now, ratios are always resolved relative to the base glyph size. In practice, this means that, to retain the same appearance, you may need to increase the target sizes you've configured for glyphs that are already larger out of the box in display style (e.g. integrals).
+
+== #short-or-long[Math delimiters][Math delimiters as functions] <math-delimiters>
+In Typst's math mode, various symbols defined in @sym can be called like a function, either to be applied as an accent or to delimit body content. Typst 0.15 extends this handling to additional delimiters like `chevron.l`. This can change the output of existing calls, which would previously fall back to displaying the parentheses (which would rarely have produced desirable output in the case of delimiters).
+
+```example
+// Typst 0.15+ ✅
+$ chevron.l(x) $
+
+// Typst 0.14 and below ⚠️
+<<< $ chevron.l(x) $
+>>> $ chevron.l (x) $
+```
+
+== Math classes <math-classes>
+The @math.class[`class`] function defines how part of an equation should be laid out (primarily the spacing around it). In Typst 0.14 and below, the `class` function applied recursively: If applied to a larger piece of content, all items in it would receive the class. In Typst 0.15, the class is only applied to the directly wrapped content. This is mostly a bug fix, but can lead to subtle layout changes.
+
+== #short-or-long[Calligraphic letterforms][Calligraphic letterforms in the default math font] <calligraphic-letterforms>
+With the update to _New Computer Modern Math_ 8.1.0, the default @math.cal[calligraphic letterforms] were changed. The previous letterforms can still be accessed by selecting @text.stylistic-set[stylistic set] 6.
+
+```example
+// Typst 0.15, default style.
+$ R != cal(R) $
+
+// Typst 0.15, with stylistic set 6.
+// Reproduces the default style from Typst 0.14 and below.
+#show math.equation: set text(stylistic-set: 6)
+$ R != cal(R) $
+```
+
+== #short-or-long[HTML paragraphs][Paragraphs, boxes, and blocks in HTML] <html-paragraphs>
+Typst automatically @par:what-becomes-a-paragraph[collects inline-level content into paragraphs]. In Typst 0.14 and below, the exact same rules were used to collect inline-level HTML elements (e.g. a `<span>`) into Typst paragraphs, which in turn result in `<p>` elements. This had the unfortunate effect that even use of the low-level @html:typed[typed HTML API] could result in `<p>` elements appearing automatically. Consider the example below:
+
+```typ
+#html.div({
+  html.span[Hello]
+  html.div[World]
+})
+```
+
+Where Typst 0.14 would insert an unexpected additional `<p>` element, Typst 0.15 yields the expected result:
+
+```html
+<!-- Typst 0.14 and below ⚠️ -->
+<div>
+  <p><span>Hello</span></p>
+  <div>World</div>
+</div>
+
+<!-- Typst 0.15+ ✅ -->
+<div>
+  <span>Hello</span>
+  <div>World</div>
+</div>
+```
+
+This change in output is achieved through a few new rules for how paragraphs are collected in HTML export. Previously, Typst would always categorize elements into either inline-level or block-level. It would then force inline-level elements into a paragraph whenever at least one block-level element was present in the same flow of content. In Typst 0.15, elements can instead be considered inline-level, block-level, or _neutral:_
+
+- Text, Typst @box elements and HTML _phrasing content_ (elements that are allowed as children of `<p>` elements) are considered inline-level #footnote[There are a few exceptions: Some elements like `<script>` are considered phrasing content by the HTML specifications, but don't make sense in paragraphs as they default to `display: none`.]
+- All other HTML elements are considered neutral
+- Typst @block elements are considered block-level
+
+Neutral elements don't force adjacent inline-level content into paragraphs. They can co-exist with inline-level content in a _mixed flow._ This ensures that usage of the typed HTML API does not result in extraneous paragraphs.
+
+Meanwhile, Typst elements that are block-level out of the box (e.g. @heading) now explicitly use a @block in their default show rule to ensure that they still force adjacent inline-level elements into paragraphs. This ensures consistency in paragraph grouping across paged and HTML export. Package authors should also explicitly use @block[blocks] when creating HTML components that Typst should consider block-level.
+
+To make this change possible, the way @box[boxes] and @block[blocks] behave in HTML export has been adjusted: Instead of unconditionally wrapping their contents in a `<span>` or `<div>`, they now do just what is necessary to ensure their contents are considered inline- or block-level by browsers. If they contain multiple children, they still create a wrapper element, but for just a single child, they instead configure the CSS `display` property. And if the single child already has the appropriate `display` property by default, it is fully omitted. Then, the effect of the `box` or `block` is limited to influencing Typst's paragraph grouping.
+
+== #short-or-long[HTML raw text elements][HTML `script` and `style` elements] <html-script-and-style>
+The typed HTML functions for the HTML @html.script[`script`] and @html.style[`style`] element previously accepted arbitrary body content and then only failed during HTML serialization if the content resulted in non-textual elements. In Typst 0.15, they instead only accept strings in the first place. Note that you can also use them with @raw syntax by accessing the `.text` field.
+
+````typ
+// Typst 0.15+ ✅
+#html.style("a { color: red }")
+#html.style(
+  ```css
+  a { color: red }
+  ```.text
+)
+
+// Typst 0.14 ❌
+#html.style[
+  a { color: red }
+]
+````
+
+== #short-or-long[Variable families][Variable font family names] <variable-families>
+Typst aims to unify different fonts from the same family under a single family name. To that effect, it automatically trims common style suffixes like "Bold" or "Condensed" from font family names. Instead of selecting these through the name, they should be accessed through Typst's built-in mechanisms (such as the @text.weight[`weight`] and @text.stretch[`stretch`] parameters).
+
+In Typst 0.15, the additional suffixes "Variable", "Var", and "VF" are trimmed to unify static and variable fonts into a single family. If you've previously used a font with any of these suffixes in its family name, you should now omit the suffix when specifying the @text.font[`font`].
+
+== #short-or-long[Language tags][Upcoming raw language tag changes] <language-tags>
+In the next Typst version, we will make a change to how @raw:language-tag-changes[raw language tags are parsed]. Should this upcoming change have an effect on your document, the compiler will already warn you today and suggest how to adjust your document to future-proof it against the change.
+
+== #short-or-long[Numbering fallback][Numbering fallback for the number zero] <numbering-fallback>
+Not all @numbering systems can express the number zero. In Typst 0.14 and below, those would silently fall back to Arabic numerals for `{0}`. This behavior is deprecated in Typst 0.15. Using zero with these systems will become a hard error in the future.
+
+== #short-or-long[Validation][Tightened validation in some functions] <validation>
+The @array.slice function, @str constructor, and @text.features parameter now perform stricter validation on their inputs. If you've previously passed invalid or nonsensical input, you will now receive an error.
+
+== #short-or-long[Citation styles][Renamed citation styles] <citation-styles>
+Typst 0.15 @changelog:0.15.0:deprecations[renames] some citation styles to stay aligned with upstream CSL changes. If you are relying on any of these, the compiler will warn you and suggest the new name.
+
+== #short-or-long[Symbols][Renamed symbols] <citation-styles>
+Typst 0.15 also #link(changelogs.codex + "#deprecations-in-sym")[renames] a few symbols in @sym. If you are using any of these, the compiler will warn you and suggest the new name.
