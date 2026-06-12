@@ -148,7 +148,7 @@ impl SystemPackages {
 /// - Top-level directories denote namespaces
 /// - Second-level directories denote packages
 /// - Third-level directories denote package versions
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FsPackages(PathBuf);
 
 impl FsPackages {

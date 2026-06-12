@@ -5,6 +5,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::str::Utf8Error;
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -27,7 +28,7 @@ use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
 /// If you need more control, you can skip this and implement custom logic that
 /// directly handles the [`World::source`](typst_library::World::source) and
 /// [`World::file`](typst_library::World::file) requests. A language server is
-/// an example of an integration that might want to go even deeper,  to create,
+/// an example of an integration that might want to go even deeper, to create,
 /// manage, and edit source files by itself. If you go the manual route, ensure
 /// that those methods are cheap on repeated calls (either through caching or by
 /// virtue of always being cheap).
@@ -264,6 +265,18 @@ pub trait FileLoader {
     fn load(&self, id: FileId) -> FileResult<Bytes>;
 }
 
+impl<F: FileLoader> FileLoader for Box<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
+}
+
+impl<F: FileLoader> FileLoader for Arc<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
+}
+
 /// Serves project files from a directory and package files from standard
 /// locations.
 ///
@@ -273,6 +286,7 @@ pub trait FileLoader {
 /// - package files are loaded from configured directories and/or the official
 ///   Typst Universe package registry via [`SystemPackages`].
 #[cfg(feature = "system-files")]
+#[derive(Debug)]
 pub struct SystemFiles {
     project: FsRoot,
     packages: SystemPackages,
