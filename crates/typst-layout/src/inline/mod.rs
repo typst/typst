@@ -12,18 +12,20 @@ pub use self::box_::layout_box;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::SourceResult;
+use typst_library::diag::{At, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
+use typst_library::math::families_deco;
 use typst_library::model::{
     EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
     ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind};
-use typst_library::text::{Costs, Lang, TextElem};
+use typst_library::text::{Costs, Font, Lang, TextElem, variant};
 use typst_library::{Library, World};
+use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric, Protected, SliceExt};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
@@ -161,7 +163,7 @@ fn layout_inline_impl<'a>(
     base: &ConfigBase,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole inline layout.
-    let config = configuration(base, children, shared, par);
+    let config = configuration(engine, base, children, shared, par);
 
     // Collect all text into one string for BiDi analysis.
     let (text, segments, spans) = collect(children, engine, locator, &config, region)?;
@@ -177,8 +179,29 @@ fn layout_inline_impl<'a>(
     finalize(engine, &p, &lines, region, expand, locator)
 }
 
+/// Get the current base font.
+fn get_font(
+    world: Tracked<dyn World + '_>,
+    styles: StyleChain,
+    span: Span,
+) -> SourceResult<Font> {
+    let variant = variant(styles);
+    families_deco(styles)
+        .find_map(|family| {
+            world
+                .book()
+                .select(family.as_str(), variant)
+                .and_then(|id| world.font(id))
+                .filter(|_| family.covers().is_none())
+        })
+        .ok_or("no font could be found")
+        .at(span)
+}
+
 /// Determine the inline layout's configuration.
 fn configuration(
+    // TODO: remove this parameter, do it later when collecting decorations.
+    engine: &mut Engine,
     base: &ConfigBase,
     children: &[Pair],
     shared: StyleChain,
@@ -187,6 +210,8 @@ fn configuration(
     let justify = base.justify;
     let font_size = shared.resolve(TextElem::size);
     let dir = shared.resolve(TextElem::dir);
+    // TODO
+    let font = get_font(engine.world, shared, Span::detached()).unwrap();
 
     Config {
         justify,
@@ -238,6 +263,10 @@ fn configuration(
         fallback: shared.get(TextElem::fallback),
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
         costs: shared.get(TextElem::costs),
+        font,
+        fill: shared.get_cloned(TextElem::fill),
+        shift: shared.resolve(TextElem::baseline),
+        decos: shared.get_cloned(TextElem::deco),
     }
 }
 
@@ -297,6 +326,13 @@ struct Config {
     cjk_latin_spacing: bool,
     /// Costs for various layout decisions.
     costs: Costs,
+    /// Text fill.
+    fill: typst_library::visualize::Paint,
+    /// Text vertical shift.
+    shift: Abs,
+    /// Temporary field for global decorations.
+    decos: smallvec::SmallVec<[typst_library::text::Decoration; 1]>,
+    font: Font,
 }
 
 /// Get a style property, but only if it is the same for all of the children.

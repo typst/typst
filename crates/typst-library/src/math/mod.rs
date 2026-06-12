@@ -191,3 +191,25 @@ pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> 
     let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
     styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
 }
+
+/// Similar to math families, but prioritizing non-math fonts.
+pub fn families_deco(
+    styles: StyleChain<'_>,
+) -> impl Iterator<Item = &'_ FontFamily> + Clone {
+    let fallbacks = singleton!(Vec<FontFamily>, {
+        [
+            "libertinus serif",
+            "new computer modern math",
+            "twitter color emoji",
+            "noto color emoji",
+            "apple color emoji",
+            "segoe ui emoji",
+        ]
+        .into_iter()
+        .map(FontFamily::new)
+        .collect()
+    });
+
+    let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
+    styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
+}

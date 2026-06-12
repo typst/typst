@@ -22,6 +22,7 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{Item, Range, SpanMapper, decorate};
+use crate::inline::deco::{self, DecoData};
 use crate::modifiers::FrameModifyText;
 
 const SHY: char = '\u{ad}';
@@ -327,6 +328,8 @@ impl<'a> ShapedText<'a> {
         spans: &SpanMapper,
         justification_ratio: f64,
         extra_justification: Abs,
+        par_decos: &mut [(&typst_library::text::Decoration, DecoData, Vec<Abs>)],
+        par_x: Abs,
     ) -> Frame {
         let (top, bottom) = self.measure(engine);
         let size = Size::new(self.width(), top + bottom);
@@ -447,11 +450,21 @@ impl<'a> ShapedText<'a> {
             let width = item.width();
             if decos.is_empty() {
                 frame.push(pos, FrameItem::Text(item));
-            } else {
-                // Apply line decorations.
+            } else if par_decos.is_empty() {
+                // Apply line decorations (only if there are no par decorations).
                 frame.push(pos, FrameItem::Text(item.clone()));
                 for deco in &decos {
                     decorate(&mut frame, deco, &item, width, shift, pos);
+                }
+            } else {
+                frame.push(pos, FrameItem::Text(item.clone()));
+                for (_, data, intersections) in &mut *par_decos {
+                    deco::deco_intersect(
+                        pos + Point::with_x(par_x),
+                        &item,
+                        data.offset,
+                        intersections,
+                    );
                 }
             }
 

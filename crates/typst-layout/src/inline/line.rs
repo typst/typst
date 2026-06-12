@@ -555,7 +555,25 @@ pub fn commit(
     let mut bottom = Abs::zero();
 
     // Build the frames and determine the height and baseline.
+    // At the same time, produce decorations.
     let mut frames = vec![];
+
+    let mut decos: Vec<_> = p
+        .config
+        .decos
+        .iter()
+        .flat_map(|deco| {
+            deco::init_decos(
+                deco,
+                &p.config.font,
+                p.config.shift,
+                p.config.font_size,
+                p.config.fill.clone(),
+            )
+            .map(|data| (deco, data, vec![]))
+        })
+        .collect();
+
     for &(idx, ref item) in line.items.indexed_iter() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
@@ -588,10 +606,20 @@ pub fn commit(
                     &p.spans,
                     justification_ratio,
                     extra_justification,
+                    &mut decos,
+                    offset,
                 );
                 push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
+                for (_, data, intersections) in &mut decos {
+                    deco::deco_intersect_frames(
+                        frame,
+                        offset,
+                        data.offset,
+                        intersections,
+                    );
+                }
                 push(&mut offset, frame.clone(), idx);
             }
             Item::Tag(tag) => {
@@ -626,6 +654,18 @@ pub fn commit(
         let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
+    }
+
+    for (deco, data, intersections) in decos {
+        deco::deco_draw(
+            Point::zero(),
+            offset,
+            &mut output,
+            top,
+            deco,
+            data,
+            intersections,
+        );
     }
 
     Ok(output)
