@@ -960,8 +960,7 @@ dependencies = [
 [[package]]
 name = "hayagriva"
 version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5f9b181c35b7aa0ca4837c7b26a940d2502ec940fabfc520b61eb0f2e47acf"
+source = "git+https://github.com/typst/hayagriva?rev=7c455c6#7c455c6d54b1e6c0dd7ccc0fc25c2f9f80bd810b"
 dependencies = [
  "biblatex",
  "ciborium",

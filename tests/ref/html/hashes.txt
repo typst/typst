@@ -12,6 +12,7 @@ dfb3c710d089677eec69861ae5785a31 bibliography-group-mixed-full
 c456aecc3b410f0b4f8705fc87e6d499 bibliography-group-mixed-styles
 0b7c6366e0660d06550c9081512d5bb9 bibliography-group-none
 5fab6af8d6370f60818ea4e1eec8095a bibliography-group-out-of-order
+26e950c54e970fbac890d45eee54e320 bibliography-group-sorted-style
 17da3cafc27f03d422dd8863d4bf9707 bibliography-group-str
 376934db510f9e65eee13bd8a679ddc3 bibliography-multiple-files
 1e0f40cc69e2d5efa0590d9c17fec0a6 bibliography-no-title

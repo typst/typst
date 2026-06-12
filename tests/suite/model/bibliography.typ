@@ -303,3 +303,10 @@ hi:
 @keshav2007read @netwok @arrgh
 #bibliography("/assets/bib/works.bib")
 #bibliography("/assets/bib/works_too.bib")
+
+--- bibliography-group-sorted-style html ---
+// Test that the shared numbering also advances for a style that uses sorting.
+#set bibliography(style: "association-for-computing-machinery")
+@netwok @keshav2007read
+#bibliography("/assets/bib/works.bib")
+#bibliography("/assets/bib/works_too.bib")
