@@ -98,15 +98,16 @@ fn write_variant(
 
 /// Formats a variation axis.
 fn write_axis(f: &mut Formatter, axis: &FontAxis) -> fmt::Result {
+    use std::convert::identity;
     match axis.tag {
-        StandardAxes::ITAL => write_axis_with(f, axis, "Italic", |v| v.0),
-        StandardAxes::SLNT => write_axis_with(f, axis, "Slant", |v| v.0),
+        StandardAxes::ITAL => write_axis_with(f, axis, "Italic", identity),
+        StandardAxes::SLNT => write_axis_with(f, axis, "Slant", identity),
         StandardAxes::WGHT => write_axis_with(f, axis, "Weight", FontWeight::from_wght),
         StandardAxes::WDTH => write_axis_with(f, axis, "Stretch", FontStretch::from_wdth),
         StandardAxes::OPSZ => write_axis_with(f, axis, "Optical Size", |v| {
-            typst_utils::display(move |f| write!(f, "{}pt", v.0))
+            typst_utils::display(move |f| write!(f, "{v}pt"))
         }),
-        _ => write_axis_with(f, axis, &axis.tag.to_str_lossy(), |v| v.0),
+        _ => write_axis_with(f, axis, &axis.tag.to_str_lossy(), identity),
     }
 }
 

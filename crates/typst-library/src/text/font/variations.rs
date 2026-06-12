@@ -1,7 +1,9 @@
+use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
+
 use ecow::{EcoString, eco_format};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use std::hash::{Hash, Hasher};
 use typst_utils::Rdedup;
 
 use crate::diag::{Hint, HintedStrResult};
@@ -57,6 +59,12 @@ impl AxisValue {
     /// Clamps this value into the allowed range for the given `axis`.
     pub fn clamp(self, axis: &FontAxis) -> Self {
         AxisValue(self.0.clamp(axis.min.0, axis.max.0))
+    }
+}
+
+impl Display for AxisValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "{}", typst_utils::round_with_precision(self.0.into(), 2))
     }
 }
 
@@ -225,4 +233,22 @@ cast! {
 
 fn tag_hint_helper(index: usize, key: &impl Repr) -> EcoString {
     eco_format!("occurred in tag at index {index} (`{}`)", key.repr())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_axis_value_fmt() {
+        // Assure we're printing with appropriate precision.
+        assert_eq!(format!("{}", AxisValue(100.)), "100");
+        assert_eq!(format!("{}", AxisValue(-2.5)), "-2.5");
+        assert_eq!(format!("{}", AxisValue(4.2)), "4.2");
+        assert_eq!(format!("{}", AxisValue(i16::MAX as f32 + 0.75)), "32767.75");
+
+        // These should be impossible to represent, but still work in fmt.
+        assert_eq!(format!("{}", AxisValue(f32::NAN)), "NaN");
+        assert_eq!(format!("{}", AxisValue(f32::INFINITY)), "inf");
+    }
 }
