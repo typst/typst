@@ -216,6 +216,15 @@ hi:
 @netwok
 #bibliography("/assets/bib/works.bib")
 
+--- bibliography-group-mixed-styles html ---
+// Test that a bibliography with a non-numeric style does not consume
+// numbers from the shared numbering.
+@Zee04
+#bibliography("/assets/bib/works_too.bib", style: "apa")
+
+@netwok
+#bibliography("/assets/bib/works.bib")
+
 --- bibliography-group-citation-numbers-only html ---
 // Test that a bibliography whose style displays citation numbers in
 // citations, but not in the bibliography itself, still advances the
