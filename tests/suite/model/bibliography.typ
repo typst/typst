@@ -210,11 +210,15 @@ hi:
 
 --- bibliography-group-mixed-full html ---
 // Test that the shared numbering continues from a bibliography with
-// `full: true` into one that only contains cited entries.
+// `full: true` into one that only contains cited entries, and that the
+// latter advances the numbering by its rendered items rather than by the
+// entries in its source file.
 #bibliography("/assets/bib/works_too.bib", full: true)
 
 @netwok
 #bibliography("/assets/bib/works.bib")
+
+#bibliography("/assets/bib/works_too.bib", full: true)
 
 --- bibliography-group-mixed-styles html ---
 // Test that a bibliography with a non-numeric style does not consume

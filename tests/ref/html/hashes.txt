@@ -8,7 +8,7 @@ b7db257520089ca4fabc7de0ce145d4f bibliography-group-auto
 f6e1a9094c1ed21bef299f26aad195a2 bibliography-group-form-year
 8997aa88a2a9c92d8e39674942922140 bibliography-group-full
 12ec2dcc83fe5ee77a921565164d048e bibliography-group-full-custom-style
-c00f97bdc174e68526d4a94d7b7f0b6f bibliography-group-mixed-full
+dfb3c710d089677eec69861ae5785a31 bibliography-group-mixed-full
 c456aecc3b410f0b4f8705fc87e6d499 bibliography-group-mixed-styles
 0b7c6366e0660d06550c9081512d5bb9 bibliography-group-none
 5fab6af8d6370f60818ea4e1eec8095a bibliography-group-out-of-order
