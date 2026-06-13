@@ -42,9 +42,20 @@ attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
 --- math-attach-followed-by-func-call paged html ---
-// Test function call after subscript.
-$pi_1(Y), a_f(x), a^zeta (x), a^abs(b)_sqrt(c) \
- a^subset.eq (x), a_(zeta(x)), pi_(1(Y)), a^(abs(b))_(sqrt(c))$
+// Test function calls after attachments.
+$ A_(2(z))          &quad A_2(z)          &quad A_2 (z) \
+  pi_(f(y))         &quad pi_f(y)         &quad pi_f (y) \
+  f_(pi(x))         &quad f_ pi(x)        &quad f_pi (x) \
+  ->^(subset.eq(*)) &quad ->^subset.eq(*) &quad ->^subset.eq (*) \
+  perp_(arrow.l(j)) &quad perp_arrow.l(j) &quad perp_arrow.l (j) \
+  e^(abs(gamma))    &quad e^abs(gamma)    &quad /*error, below*/
+$
+
+// --- math-attach-func-call-error-space eval ---
+// $ e^abs (gamma) $
+
+--- math-attach-non-func-prefix paged html ---
+$ integral(x+y)^2 $
 
 --- math-attach-nested paged html ---
 // Test associativity and scaling.

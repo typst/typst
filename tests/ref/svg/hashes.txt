@@ -1090,7 +1090,7 @@ d373533d76a546ada23f312547705b06 math-at-par-start
 fac65585c00db6f166fe2282caaa0e4d math-attach-default-placement
 5a930be922aa6693ecb5e6becbf6f924 math-attach-descender-collision
 20f931cef571543ed696de0f780ecbba math-attach-double-chain
-eaff613e6494aa1a7003c68ae43c3a0b math-attach-followed-by-func-call
+654bd3c4e08482bcd6026bf972eaceaf math-attach-followed-by-func-call
 c9fd34ab22c364180e4eade547f46801 math-attach-force-scripts-and-limits
 71eb0db50ab5da4221b2c7a8022e4079 math-attach-high
 07e9b0c776ced92fe590337c35068e5f math-attach-horizontal-align
@@ -1105,6 +1105,7 @@ c6398e3b2a8f8e5e4f3fe442cd432e22 math-attach-mixed
 1cceea14f8d257978f4cc41d1594a78f math-attach-nested-base
 95a084363c45a991224b9bc9aabcfa71 math-attach-nested-base-bad-placement
 016e15841bb57224b47b33be167271b5 math-attach-nested-deep-base
+3e9203b2c4f6b74e4f01a018b1660d36 math-attach-non-func-prefix
 55a0de2c2420e7451b1a598c32f5ce1e math-attach-postscripts
 73af16daf9094efa97ca7266606bc567 math-attach-prescripts
 de94a5325bdde4f822fd00e8a6ba696c math-attach-scripts-extended-shapes
