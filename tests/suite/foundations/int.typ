@@ -46,24 +46,46 @@
 #(int.min - 1)
 
 --- int-bounds-max-plus-one eval ---
-#test(type(9223372036854775808), float)
+// Error: 2-21 integer value is too large
+// Hint: 2-21 value does not fit into a signed 64-bit integer
+// Hint: 2-21 a floating point number could approximately represent this value
+// Hint: 2-21 you can use a floating point number by appending a dot: `9223372036854775808.`
+#9223372036854775808
 
 --- int-bounds-max-plus-one-hex eval ---
 // Error: 2-20 invalid hexadecimal number: `0x8000000000000000`
 #0x8000000000000000
 
 --- int-bounds-max-plus-two eval ---
-#test(type(9223372036854775809), float)
+// Error: 2-21 integer value is too large
+// Hint: 2-21 value does not fit into a signed 64-bit integer
+// Hint: 2-21 a floating point number could approximately represent this value
+// Hint: 2-21 you can use a floating point number by appending a dot: `9223372036854775809.`
+#9223372036854775809
 
 --- int-bounds-max-u64 eval ---
-#test(type(18446744073709551615), float)
+// Error: 2-22 integer value is too large
+// Hint: 2-22 value does not fit into a signed 64-bit integer
+// Hint: 2-22 a floating point number could approximately represent this value
+// Hint: 2-22 you can use a floating point number by appending a dot: `18446744073709551615.`
+#18446744073709551615
 
 --- int-bounds-manual-min eval ---
-#test(type(-9223372036854775808), float)
+// Error: 4-23 integer value is too large
+// Hint: 4-23 value does not fit into a signed 64-bit integer
+// Hint: 4-23 a floating point number could approximately represent this value
+// Hint: 4-23 you can use a floating point number by appending a dot: `9223372036854775808.`
+#(-9223372036854775808)
 
 --- int-bounds-manual-min-hex eval ---
 // Error: 4-22 invalid hexadecimal number: `0x8000000000000000`
 #(-0x8000000000000000)
+
+--- int-bounds-invalid-no-syntax-error eval ---
+// Some integer syntax errors happen in the AST, so we won't actually error if
+// the int isn't evaluated.
+#let _ = () => 9223372036854775808
+#let _ = () => -9223372036854775808
 
 --- int-constructor eval ---
 // Test conversion to numbers.

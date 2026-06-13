@@ -1,5 +1,5 @@
 use ecow::{EcoVec, eco_vec};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
@@ -195,7 +195,10 @@ impl Eval for ast::Int<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Int(self.get()))
+        match self.get() {
+            Ok(int) => Ok(Value::Int(int)),
+            Err(err) => Err(eco_vec![int_literal_error(self, err)]),
+        }
     }
 }
 
@@ -430,4 +433,19 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     }
 
     engine.sink.warn(warning);
+}
+
+/// Evaluation error for an integer literal.
+#[cold]
+fn int_literal_error(int: ast::Int, err: ast::IntLiteralError) -> SourceDiagnostic {
+    match err {
+        ast::IntLiteralError::PosOverflow => error!(
+            int.span(),
+            "integer value is too large";
+            hint: "value does not fit into a signed 64-bit integer";
+            hint: "a floating point number could approximately represent this value";
+            hint: "you can use a floating point number by appending a dot: `{}.`",
+                int.to_untyped().leaf_text();
+        ),
+    }
 }
