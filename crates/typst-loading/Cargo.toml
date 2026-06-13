@@ -1,0 +1,28 @@
+[package]
+name = "typst-loading"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+categories.workspace = true
+keywords.workspace = true
+readme.workspace = true
+
+[dependencies]
+typst-library = { workspace = true }
+typst-syntax = { workspace = true }
+typst-utils = { workspace = true }
+az = { workspace = true }
+ciborium = { workspace = true }
+csv = { workspace = true }
+ecow = { workspace = true }
+roxmltree = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+toml = { workspace = true }
+
+[lints]
+workspace = true

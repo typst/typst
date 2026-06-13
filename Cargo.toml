@@ -25,6 +25,7 @@ typst-ide = { path = "crates/typst-ide", version = "0.14.2" }
 typst-kit = { path = "crates/typst-kit", version = "0.14.2", default-features = false }
 typst-layout = { path = "crates/typst-layout", version = "0.14.2" }
 typst-library = { path = "crates/typst-library", version = "0.14.2" }
+typst-loading = { path = "crates/typst-loading", version = "0.14.2" }
 typst-macros = { path = "crates/typst-macros", version = "0.14.2" }
 typst-pdf = { path = "crates/typst-pdf", version = "0.14.2" }
 typst-realize = { path = "crates/typst-realize", version = "0.14.2" }

@@ -17,6 +17,7 @@ typst-eval = { workspace = true }
 typst-html = { workspace = true }
 typst-layout = { workspace = true }
 typst-library = { workspace = true }
+typst-loading = { workspace = true }
 typst-macros = { workspace = true }
 typst-realize = { workspace = true }
 typst-syntax = { workspace = true }
