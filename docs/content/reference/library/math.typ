@@ -1,4 +1,4 @@
-#import "../../../components/index.typ": docs-category
+#import "../../../components/index.typ": docs-category, example
 
 #show: docs-category.with(
   title: "Math",
@@ -200,11 +200,75 @@ $ (3x + y) / 7 &= 9 && "given" \
 ```
 
 = Math fonts <math-fonts>
-You can set the math font by with a @reference:styling:show-rules[show-set rule] as demonstrated below. Note that only special OpenType math fonts are suitable for typesetting maths.
+The default math font is `New Computer Modern Math`. As demonstrated below, you can tweak it with @reference:styling:show-rules[show-set rules]. The rule's selector can be the general `{math.equation}`, specific @math:symbols[symbols] and texts, or @math:function-calls[math functions] like `{math.op}`.
+
+#example(
+  title: "Change the overall math font",
+  open: true,
+  ```
+  #show math.equation: set text(font: "Pennstander Math")
+  $ sum_(i in NN) 1 + i $
+  ```
+)
+
+#example(
+  title: "Change the font for a specific character",
+  open: true,
+  ```
+  #show math.equation: it => {
+    show "{": set text(font: "STIX Two Math", fill: maroon)
+    it
+  }
+  $ f(x, y) := cases(0 "if" x < 0, x "otherwise") $
+  ```
+)
+
+As in the regular text layout, the @text.font[`font`] parameter also accepts a priority list of font family descriptor. In the example below, the font `Noto Sans Math` covers capital serif italic letters, and the default font `New Computer Modern Math` covers the others. The letters `𝐴` and `𝑍` in the @regex are #link("https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols")[mathematical alphanumeric symbols] defined in the Unicode standard, instead of the regular `A` and `Z` in ASCII. Besides, some characters do not belong to this Unicode block for historic reasons, making it harder to match other ranges. For example, `{regex("[𝑎-𝑧]")}` does not match `ℎ` and the dotless `𝚤` and `𝚥`.
+
+#example(
+  title: "Change the font for a range of characters",
+  open: true,
+  ```
+  #show math.equation: set text(font: (
+    (name: "Noto Sans Math", covers: regex("[𝐴-𝑍]")),
+    "New Computer Modern Math",
+  ))
+  $ 2A + B = C. $
+  ```
+)
+
+In addition to @text.font[`font`], the rule can also change OpenType @text.features[features] including @text.stylistic-set[stylistic sets] and character variants.
+
+#example(
+  title: "Configure OpenType features",
+  open: true,
+  ```
+  #show math.equation: set text(
+    // Prefer upright integrals (ss02) and small capitals (ss05)
+    stylistic-set: (2, 5),
+    // Use a slashed circle for ∅, replacing the default slashed zero
+    features: ("cv01",),
+  )
+  // These features are defined by New Computer Modern Math.
+  // Other fonts may not support them or map them to different features.
+
+  $ integral f dif x, a inter bb(N) = nothing. $
+  ```
+)
+
+Note that typesetting maths involves complex positioning and spacing, requiring a specially designed #link("https://learn.microsoft.com/typography/opentype/spec/math")[OpenType math font]. Typst will take the first font without any @text.font[`covers`] as the base font, and extract typographic metrics for maths from it. If you have to use non-math fonts for certain glyphs, specify a coverage to tell Typst select the base from other fonts.
 
 ```example
-#show math.equation: set text(font: "Pennstander Math")
-$ sum_(i in NN) 1 + i $
+>>> #set page(width: auto)
+#show math.equation: set text(font: (
+  (name: "Noto Serif CJK SC", covers: regex("[–—‘’“”‥‧⸺]")),
+  "New Computer Modern Math",
+  "Noto Serif CJK SC",
+))
+$
+  (a_1, ..., a_n) star b = b' star (a_n, ..., a_1).
+  quad "（“乘法”交换律）"
+$
 ```
 
 = Math module <math-module>
