@@ -73,7 +73,7 @@
   html.template(id: "flyout-template", html.div(class: "symbol-flyout", {
     html.div(class: "info", {
       html.button(class: "main", html.span(class: "sym"))
-      html.div({
+      html.div(class: "props", {
         html.h3(html.span(class: "unic-name"))
         html.p(class: "sym-deprecation", {
           use-icon(16, "warn", "Warning")
@@ -90,11 +90,11 @@
           copy-button()
           html.span(class: "remark")
         })
-        html.p(class: "codepoint", {
+        html.p(class: "escape", {
           [Escape: ]
           html.code(
             class: "typ-escape",
-            "\\u{" + html.span(class: "value") + "}",
+            html.span(class: "value"),
           )
           copy-button()
         })
