@@ -2,14 +2,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
 use comemo::{Tracked, TrackedMut};
+use ecow::EcoString;
 use typst_syntax::{FileId, RangeMapper, Span, SyntaxMode};
 use typst_utils::LazyHash;
 
-use crate::diag::SourceResult;
+use crate::diag::{LoadError, SourceResult};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
-    Args, Closure, Content, Context, Func, Module, NativeRuleMap, Scope, StyleChain,
-    Styles, Value,
+    Args, Closure, Content, Context, Dict, Func, Module, NativeRuleMap, Scope, Str,
+    StyleChain, Styles, Value,
 };
 use crate::introspection::{Introspector, Locator, SplitLocator};
 use crate::layout::{Frame, Region};
@@ -111,6 +112,27 @@ routines! {
     /// This is a temporary workaround until `TextElem::fill` is supported in
     /// HTML export.
     fn html_span_filled(content: Content, color: Color) -> Content
+
+    /// Decode CBOR data
+    fn cbor_decode(data: &[u8]) -> Result<Value, LoadError>
+
+    /// Encode CBOR data
+    fn cbor_encode(value: Value) -> Result<Vec<u8>, EcoString>
+
+    /// Get a builder for CSV readers
+    fn new_csv_reader_builder() -> Box<dyn CsvReaderBuilder>
+
+    /// Decode TOML data
+    fn toml_decode(data: &str) -> Result<Dict, LoadError>
+
+    /// Encode TOML data
+    fn toml_encode(value: Dict, pretty: bool) -> Result<Str, EcoString>
+
+    /// Decode JSON data
+    fn json_decode(data: &[u8]) -> Result<Value, LoadError>
+
+    /// Encode JSON data
+    fn json_encode(value: Value, pretty: bool) -> Result<Str, EcoString>
 }
 
 // The types below only live here to enable the routines to be defined here.
@@ -194,3 +216,27 @@ pub struct Arenas {
 
 /// A pair of content and a style chain that applies to it.
 pub type Pair<'a> = (&'a Content, StyleChain<'a>);
+
+/// A builder for a CSV reader.
+pub trait CsvReaderBuilder {
+    /// Set whether the first line of the input is parsed as a header.
+    fn has_headers(&mut self, has_headers: bool);
+    /// Set what the delimiter is that is used to separate columns.
+    fn delimiter(&mut self, delimiter: u8);
+    /// Create the actual reader.
+    fn create_reader<'a>(&self, data: &'a [u8]) -> Box<dyn CsvReader + 'a>;
+}
+
+/// A CSV reader.
+pub trait CsvReader {
+    /// Read the header of the csv file.
+    fn header(&mut self) -> Result<Box<dyn CsvRecords>, LoadError>;
+    fn records<'a>(
+        &'a mut self,
+    ) -> Box<dyn Iterator<Item = Result<Box<dyn CsvRecords + 'a>, LoadError>> + 'a>;
+}
+
+/// A single line of data from a CSV file.
+pub trait CsvRecords {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a str> + 'a>;
+}
