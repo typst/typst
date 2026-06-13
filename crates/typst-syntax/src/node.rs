@@ -1471,12 +1471,12 @@ mod tests {
 Markup: 14 [
     Heading: 6 [
         HeadingMarker: \"=\",
-        Space: \" \",
+        SpaceNoNewline: \" \",
         Markup: 4 [
             Text: \"Head\",
         ],
     ],
-    Space: \" \",
+    SpaceNoNewline: \" \",
     Label: \"<label>\",
 ]"
         );
@@ -1537,7 +1537,7 @@ Markup: 7 [
         hint: \"try equal equal space?\",
         Heading: 7 [
             HeadingMarker: \"=\",
-            Space: \" \",
+            SpaceNoNewline: \" \",
             Markup: 5 [
                 Text: \"=head\",
             ],
