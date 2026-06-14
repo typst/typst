@@ -421,7 +421,9 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) -> StrResult<Vec<Output>> {
 
     fs.par_iter()
         .map(|(path, data)| {
-            let realized = path.realize(root);
+            let realized = path
+                .realize(root)
+                .map_err(|err| eco_format!("failed to realize path ({err})"))?;
 
             if let Some(parent) = realized.parent() {
                 std::fs::create_dir_all(parent)

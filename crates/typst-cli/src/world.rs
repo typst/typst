@@ -150,8 +150,10 @@ impl DiagnosticWorld for SystemWorld {
         match id.root() {
             VirtualRoot::Project => {
                 // Try to express the path relative to the working directory.
-                let rooted = vpath.realize(self.root());
-                pathdiff::diff_paths(rooted, self.workdir())
+                vpath
+                    .realize(self.root())
+                    .ok()
+                    .and_then(|rooted| pathdiff::diff_paths(rooted, self.workdir()))
                     .map(|path| path.to_string_lossy().into_owned())
                     .unwrap_or_else(|| vpath.get_without_slash().into())
             }
@@ -243,7 +245,7 @@ impl SystemFiles {
 
     /// Resolves the file system path for the given `id`.
     pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     /// Resolves the root in which the given file ID resides.

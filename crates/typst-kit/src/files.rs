@@ -302,7 +302,7 @@ impl SystemFiles {
 
     /// Resolves the path of the given file `id` in the file system.
     pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     /// Resolves the root in which the given file ID resides.
@@ -341,15 +341,15 @@ impl FsRoot {
 
     /// Resolves the real file system path for the given virtual path in this
     /// root.
-    pub fn resolve(&self, path: &VirtualPath) -> PathBuf {
-        path.realize(&self.0)
+    pub fn resolve(&self, path: &VirtualPath) -> FileResult<PathBuf> {
+        path.realize(&self.0).map_err(Into::into)
     }
 
     /// Loads file data from the given virtual path in this root.
     pub fn load(&self, path: &VirtualPath) -> FileResult<Bytes> {
         // Join the path to the root. If it tries to escape, deny access. Note:
         // It can still escape via symlinks.
-        let path = self.resolve(path);
+        let path = self.resolve(path)?;
         let f = |e| FileError::from_io(e, &path);
         if fs::metadata(&path).map_err(f)?.is_dir() {
             Err(FileError::IsDirectory)

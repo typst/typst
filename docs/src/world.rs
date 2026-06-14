@@ -160,7 +160,7 @@ impl DocsFiles {
     }
 
     fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     fn root(&self, id: FileId) -> FileResult<FsRoot> {
