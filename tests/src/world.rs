@@ -114,7 +114,7 @@ pub struct TestFiles;
 
 impl TestFiles {
     /// Resolves the file system path for a file ID.
-    pub fn resolve(&self, id: FileId) -> PathBuf {
+    pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
         let root = match id.root() {
             VirtualRoot::Project => PathBuf::new(),
             VirtualRoot::Package(spec) => {
@@ -122,7 +122,7 @@ impl TestFiles {
                 format!("tests/packages/{}-{}", spec.name, spec.version).into()
             }
         };
-        id.vpath().realize(&root)
+        id.vpath().realize(&root).map_err(Into::into)
     }
 
     /// Get the rooted path for a loaded file.
@@ -148,7 +148,7 @@ impl TestFiles {
 
 impl FileLoader for TestFiles {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
-        let path = self.resolve(id);
+        let path = self.resolve(id)?;
 
         // Resolve asset.
         if let Ok(suffix) = path.strip_prefix("assets/") {

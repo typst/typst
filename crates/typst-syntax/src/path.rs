@@ -1,6 +1,7 @@
 //! Virtual, cross-platform reproducible path handling.
 
 use std::error;
+use std::ffi::OsStr;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU16;
 use std::ops::Deref;
@@ -229,17 +230,22 @@ impl VirtualPath {
     /// project or package resides). You need to provide the appropriate `root`
     /// path, relative to which this path will be resolved.
     ///
-    /// This can be used in the implementations of `World::source` and
-    /// `World::file`.
-    ///
     /// This is the single function that translates from a virtual path to a
     /// real path. Its counterpart is [`VirtualPath::virtualize`].
-    pub fn realize(&self, root: &Path) -> PathBuf {
+    ///
+    /// This function has platform-specific output and returns an error if the
+    /// path contains platform-specific syntax that could lexically escape the
+    /// `root`. Currently, no file system operations are performed, though this
+    /// may change in the future.
+    ///
+    /// This can be used in the implementations of `World::source` and
+    /// `World::file`.
+    pub fn realize(&self, root: &Path) -> Result<PathBuf, RealizeError> {
         let mut out = root.to_path_buf();
         for s in self.0.iter() {
-            out.push(s.get());
+            out.push(s.realize()?);
         }
-        out
+        Ok(out)
     }
 
     /// Extracts the path with a leading slash.
@@ -361,7 +367,7 @@ impl VirtualPath {
     /// (where the project or package resides).
     #[deprecated = "use `realize` instead"]
     pub fn resolve(&self, root: &Path) -> Option<PathBuf> {
-        Some(self.realize(root))
+        self.realize(root).ok()
     }
 
     /// Get the underlying path without a leading `/` or `\`.
@@ -456,6 +462,29 @@ impl<'a> Segment<'a> {
         let after = iter.next();
         let before = iter.next();
         if before == Some("") { (Some(self.0), None) } else { (before, after) }
+    }
+
+    /// Ensures that this segment can be joined to an existing platform-specific
+    /// path without lexically escaping the root formed by that path.
+    ///
+    /// Sanity-checked against <https://pkg.go.dev/path/filepath#IsLocal>.
+    fn realize(self) -> Result<&'a OsStr, RealizeError> {
+        // We ensure that this segment corresponds to exactly one platform-level
+        // path component. Drive letters on Windows are rejected since they are
+        // `Prefix` components.
+        let mut iter = Path::new(self.get()).components();
+        match (iter.next(), iter.next()) {
+            // Exactly one normal component.
+            (Some(path::Component::Normal(s)), None) => Ok(s),
+            // No or multiple components, starting with normal.
+            (None | Some(path::Component::Normal(_)), _) => {
+                Err(RealizeError::Invalid(self.get().into()))
+            }
+            // Non-normal component.
+            (Some(other), _) => {
+                Err(RealizeError::Invalid(other.as_os_str().to_string_lossy().into()))
+            }
+        }
     }
 }
 
@@ -552,7 +581,7 @@ impl Segments {
 
 /// An error that can occur on construction or modification of a
 /// [`VirtualPath`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PathError {
     /// The constructed or modified path would escape the root. This would
     /// for instance, when trying to join `..` to the path `/`.
@@ -577,7 +606,7 @@ impl fmt::Display for PathError {
 impl error::Error for PathError {}
 
 /// An error that can occur in [`VirtualPath::virtualize`].
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VirtualizeError {
     /// A normal path error.
     Path(PathError),
@@ -611,6 +640,33 @@ impl From<PathError> for VirtualizeError {
         Self::Path(err)
     }
 }
+
+/// An error that can occur in [`VirtualPath::realize`].
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum RealizeError {
+    /// A virtual path component was of a form that would be specially
+    /// interpreted on the current platform as opposed to designating just a
+    /// file or directory.
+    ///
+    /// For example, this occurs when a path segments contains a drive letter
+    /// prefix on Windows (i.e. the virtual path `/C:/System32/..`) as Windows
+    /// interprets interior drive letters as resetting the path to the cwd (if
+    /// the cwd is on the current drive) or resetting the path to root (if the
+    /// cwd is on another drive).
+    Invalid(EcoString),
+}
+
+impl fmt::Display for RealizeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Invalid(component) => {
+                write!(f, "path contains invalid component `{component:?}`")
+            }
+        }
+    }
+}
+
+impl error::Error for RealizeError {}
 
 #[cfg(test)]
 mod tests {
@@ -702,8 +758,21 @@ mod tests {
         let p = path("src/text/main.typ");
         assert_eq!(
             p.realize(Path::new("/home/users/typst")),
-            Path::new("/home/users/typst/src/text/main.typ")
+            Ok(PathBuf::from("/home/users/typst/src/text/main.typ")),
         );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_realize_windows() {
+        let root = Path::new("C:\\Users\\typst");
+        let invalid = |s: &str| RealizeError::Invalid(s.into());
+        assert_eq!(path("C:System32").realize(root), Err(invalid("C:")));
+        assert_eq!(path("D:Stuff").realize(root), Err(invalid("D:")));
+        assert_eq!(path("C:/System32").realize(root), Err(invalid("C:")));
+        assert_eq!(path("Foo/E:System").realize(root), Err(invalid("E:")));
+        assert_eq!(path("Foo/E:/System").realize(root), Err(invalid("E:")));
+        assert_eq!(path("F:").realize(root), Err(invalid("F:")));
     }
 
     #[test]
