@@ -591,8 +591,6 @@ pub enum VirtualizeError {
 
 impl fmt::Display for VirtualizeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "could not virtualize path, ")?;
-
         match self {
             Self::Path(inner) => fmt::Display::fmt(inner, f),
             Self::Invalid(component) => {
