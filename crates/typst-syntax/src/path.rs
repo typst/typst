@@ -475,7 +475,15 @@ impl<'a> Segment<'a> {
         let mut iter = Path::new(self.get()).components();
         match (iter.next(), iter.next()) {
             // Exactly one normal component.
-            (Some(path::Component::Normal(s)), None) => Ok(s),
+            (Some(path::Component::Normal(s)), None) => {
+                // Forbid access to reserved files on Windows as they are
+                // conceptually not part of any root.
+                #[cfg(windows)]
+                if is_windows_reserved(self.get()) {
+                    return Err(RealizeError::Invalid(self.get().into()));
+                }
+                Ok(s)
+            }
             // No or multiple components, starting with normal.
             (None | Some(path::Component::Normal(_)), _) => {
                 Err(RealizeError::Invalid(self.get().into()))
@@ -486,6 +494,31 @@ impl<'a> Segment<'a> {
             }
         }
     }
+}
+
+/// Whether the give file name is reserved on Windows.
+///
+/// Follows <https://cs.opensource.google/go/go/+/refs/tags/go1.26.4:src/internal/filepathlite/path_windows.go;l=98>.
+/// See also: <https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file>
+#[cfg(windows)]
+fn is_windows_reserved(name: &str) -> bool {
+    #[rustfmt::skip]
+    fn is_reserved_base(basename: &str) -> bool {
+        matches!(
+            basename,
+            "CON" | "PRN" | "AUX" | "NUL"
+                | "COM0" | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6"
+                | "COM7" | "COM8" | "COM9" | "COM¹" | "COM²" | "COM³"
+                | "LPT0" | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6"
+                | "LPT7" | "LPT8" | "LPT9" | "LPT¹" | "LPT²" | "LPT³"
+                | "CONIN$" | "CONOUT$"
+        )
+    }
+
+    // Some Windows versions also allow arbitrary characters after a dot or
+    // colon in device names (and trailing spaces before that suffix).
+    let base = name.split(['.', ':']).next().unwrap_or(name).trim_end_matches(' ');
+    base.len() <= 7 && is_reserved_base(&EcoString::from(base).to_ascii_uppercase())
 }
 
 /// Stores a sequence of path segments as a string.
@@ -773,6 +806,10 @@ mod tests {
         assert_eq!(path("Foo/E:System").realize(root), Err(invalid("E:")));
         assert_eq!(path("Foo/E:/System").realize(root), Err(invalid("E:")));
         assert_eq!(path("F:").realize(root), Err(invalid("F:")));
+        assert_eq!(path("CON").realize(root), Err(invalid("CON")));
+        assert_eq!(path("A/CON .txt").realize(root), Err(invalid("CON .txt")));
+        assert_eq!(path("A/CON:foo/bar").realize(root), Err(invalid("CON:foo")));
+        assert_eq!(path("a/LPT\u{00b2} .baz/b").realize(root), Err(invalid("LPT² .baz")));
     }
 
     #[test]
