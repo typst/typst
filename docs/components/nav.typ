@@ -72,7 +72,7 @@
 #let nav-folding(current) = html.nav(class: "folding", context {
   html.button(class: "close", icon(16, "close", "Close"))
   search-box(id: "docs-search", placeholder: "Search (S)")
-  html.ul(id: "search-results", class: "search-results hidden")
+  html.ul(id: "search-results", class: "search-results hidden", role: "listbox", tabindex: 0)
   let items = query(selector.or(
     <metadata-page>,
     <metadata-nav-separation>,

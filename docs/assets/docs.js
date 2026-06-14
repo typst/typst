@@ -743,6 +743,49 @@ async function setUpGlobalSearch() {
   const resultList = document.getElementById("search-results");
   if (!textBox || !resultList) return;
 
+  // Handle ARIA listbox keyboard navigation.
+  const getAriaActiveDescendant = (elem) => elem.querySelector("#" + elem.getAttribute("aria-activedescendant"));
+  resultList.addEventListener("keydown", (event) => {
+    const items = Array.from(resultList.children);
+    const currentElem = getAriaActiveDescendant(resultList);
+    const currentIndex = items.indexOf(currentElem);
+    const switchActive = (target) => {
+      event.preventDefault();
+      currentElem?.classList.remove("active-result");
+      target.classList.add("active-result");
+      resultList.setAttribute("aria-activedescendant", target.id);
+    };
+
+    if (currentIndex == -1) return;
+
+    switch (event.key) {
+      case "Enter":
+        currentElem?.querySelector("a")?.click();
+        break;
+      case "ArrowUp":
+        switchActive(items[currentIndex - 1] || items[items.length - 1]);
+        break;
+      case "ArrowDown":
+        switchActive(items[currentIndex + 1] || items[0]);
+        break;
+      case "Home":
+        switchActive(items[0]);
+        break;
+      case "End":
+        switchActive(items[items.length - 1]);
+        break;
+    }
+  });
+  resultList.addEventListener("click", (event) => {
+    const target = event.target.closest(".search-results [role=option]");
+    if (target?.id) {
+      const currentElem = getAriaActiveDescendant(resultList);
+      currentElem?.classList.remove("active-result");
+      target.classList.add("active-result");
+      resultList.setAttribute("aria-activedescendant", target.id)
+    }
+  });
+
   const index = await fetchSearchIndex();
   if (!index) return;
 
@@ -751,7 +794,7 @@ async function setUpGlobalSearch() {
     const matches = searchGlobally(index, query);
 
     // Generate a `li > a` for each match.
-    const items = matches.map((hit) => {
+    const items = matches.map((hit, i) => {
       const item = index.items[hit];
       let url = item.route;
       if (
@@ -766,6 +809,12 @@ async function setUpGlobalSearch() {
       const li = document.createElement("li");
       const a = document.createElement("a");
       const span = document.createElement("span");
+      li.id = "search-result-" + i;
+      li.role = "option";
+      if (i == 0) {
+        li.classList.add("active-result");
+        resultList.setAttribute("aria-activedescendant", li.id);
+      }
       a.href = url;
       a.textContent = item.title;
       span.classList.add("type");
@@ -779,7 +828,16 @@ async function setUpGlobalSearch() {
     resultList.classList.toggle("hidden", matches.length === 0);
   };
 
-  textBox.addEventListener("keyup", search);
+  textBox.addEventListener("keyup", (event) => {
+    if (event.key == "ArrowDown") {
+      resultList.focus();
+    } else if (event.key == "Enter") {
+      const active = getAriaActiveDescendant(resultList);
+      active?.querySelector("a")?.click();
+    } else {
+      search();
+    }
+  });
   document.addEventListener("keyup", (event) => {
     if (event.key && event.key.toLowerCase() == "s") {
       event.stopPropagation();
