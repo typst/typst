@@ -775,6 +775,11 @@ async function setUpGlobalSearch() {
         switchActive(items[items.length - 1]);
         break;
     }
+
+    // Send other events back to the search box for type-ahead like behavior.
+    if ([...event.key].length == 1 || event.key == "Backspace") {
+      textBox.focus();
+    }
   });
   resultList.addEventListener("click", (event) => {
     const target = event.target.closest(".search-results [role=option]");
