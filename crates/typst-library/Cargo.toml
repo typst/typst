@@ -43,6 +43,7 @@ lipsum = { workspace = true }
 memchr = { workspace = true }
 moxcms = { workspace = true }
 palette = { workspace = true }
+percent-encoding = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
 rayon = { workspace = true }
