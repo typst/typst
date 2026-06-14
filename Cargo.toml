@@ -61,7 +61,7 @@ flate2 = { version = "1", features = ["zlib-rs"] }
 fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 glidesort = "0.1.2"
-hayagriva = "0.10.0"
+hayagriva = "0.10.1"
 hayro = { version = "0.7.1", default-features = false }
 hayro-svg = { version = "0.7.0", default-features = false }
 hayro-syntax = "0.7.2"
