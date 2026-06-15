@@ -23,7 +23,7 @@ This section documents all changes to the Typst language and compiler between Ty
 - Layout @reference:context:compiler-iterations[convergence] issues now result in detailed diagnostics
 - Two long-standing list layout issues with marker alignment and centering were fixed
 - Paragraph handling in HTML export is improved, preventing unexpected paragraphs from appearing
-- This documentation now has a print version
+- This documentation now has a #link("https://github.com/typst/typst/releases/download/v0.15.0/typst-documentation.pdf")[print version]
 
 = Language <language>
 
