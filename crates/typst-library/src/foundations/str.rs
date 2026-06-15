@@ -677,7 +677,14 @@ impl Str {
         }
     }
 
-    /// Reverse the string.
+    /// Reverses the string.
+    ///
+    /// More specifically, this returns a string with the same grapheme
+    /// clusters, in reversed order.
+    ///
+    /// ```example
+    /// #"Pirate flag: 🏴‍☠️".rev()
+    /// ```
     #[func(title = "Reverse")]
     pub fn rev(&self) -> Str {
         let mut s = EcoString::with_capacity(self.0.len());
