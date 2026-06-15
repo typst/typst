@@ -1,14 +1,14 @@
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error, warning};
 use typst_library::foundations::{
-    Content, Func, NativeElement, Symbol, SymbolElem, Value,
+    Content, Func, NativeElement, Reflect, Symbol, SymbolElem, Value,
 };
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode};
-use typst_syntax::{SyntaxKind, SyntaxNode};
+use typst_syntax::{DiagSpan, SubRange, SyntaxKind, SyntaxNode};
 
 use crate::{Eval, Vm};
 
@@ -42,20 +42,27 @@ impl Eval for ast::Math<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut exprs = self.exprs();
+        let mut expr_offsets = self.expr_offsets();
         let iter = std::iter::from_fn(move || {
-            let expr = exprs.next()?;
+            let (expr, expr_start) = expr_offsets.next()?;
             Some(expr.eval_display(vm).map_err(|math_error| {
                 match math_error {
                     MathError::Normal(err) => err,
                     MathError::FuncLiteral { node, name } => {
                         // Add a custom hint if the error was due to a function
                         // literal followed by delimiters.
-                        let delims = exprs
-                            .find(|expr| !matches!(expr, ast::Expr::Space(_)))
-                            .and_then(|non_space| match non_space {
-                                ast::Expr::MathDelimited(delims) => Some(delims),
-                                _ => None,
+                        let delims = expr_offsets
+                            .find(|(expr, _)| !matches!(expr, ast::Expr::Space(_)))
+                            .and_then(|(non_space, offset)| {
+                                let ast::Expr::MathDelimited(delims) = non_space else {
+                                    return None;
+                                };
+                                let end = offset + delims.to_untyped().len();
+                                let overall_span = DiagSpan::from_span(
+                                    self.span(),
+                                    SubRange::new(expr_start, end),
+                                );
+                                Some((delims, overall_span))
                             });
                         eco_vec![func_literal_error(node, name, delims)]
                     }
@@ -255,12 +262,11 @@ impl<'a> ExprExt<'a> for ast::Expr<'a> {
         let value = self.eval(vm)?;
         // Symbols can cast to functions, but we don't error since they're also
         // valid as content.
-        if !matches!(value, Value::Symbol(_))
-            && let Ok(func_value) = value.clone().cast::<Func>()
-        {
+        if !matches!(value, Value::Symbol(_)) && Func::castable(&value) {
+            let func: Func = value.cast().unwrap();
             return Err(MathError::FuncLiteral {
                 node: self.to_untyped(),
-                name: func_value.name().map(|name| name.into()),
+                name: func.name().map(|name| name.into()),
             });
         }
         Ok(value.display().spanned(self.span()))
@@ -299,7 +305,7 @@ impl From<MathError<'_>> for EcoVec<SourceDiagnostic> {
 fn func_literal_error(
     node: &SyntaxNode,
     name: Option<EcoString>,
-    delims: Option<ast::MathDelimited>,
+    delims_and_overall_span: Option<(ast::MathDelimited, DiagSpan)>,
 ) -> SourceDiagnostic {
     let node_text = node.full_text();
     // FUTURE: When we add custom types, change to "cannot _show_ a function".
@@ -308,7 +314,12 @@ fn func_literal_error(
         // Identifier-like kinds that are reasonable to use as the "name" of the
         // function. Normal field access isn't worth handling.
         SyntaxKind::Ident | SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
-            error.hint(eco_format!("this does not call the `{node_text}` function"));
+            let hint = eco_format!("this does not call the `{node_text}` function");
+            if let Some((_, overall_span)) = delims_and_overall_span.as_ref() {
+                error.spanned_hint(hint, *overall_span);
+            } else {
+                error.hint(hint);
+            }
         }
         // Otherwise, tell what function was evaluated to.
         kind => {
@@ -325,25 +336,31 @@ fn func_literal_error(
         }
     }
 
-    match delims {
+    match delims_and_overall_span {
         None => error.hint(eco_format!(
             "to call the function, specify arguments in parentheses: `{node_text}()`"
         )),
-        Some(delims) => {
+        Some((delims, overall_span)) => {
             if delims.open().get() == '(' && delims.close().get() == ')' {
-                error.hint(eco_format!(
-                    "to call the function, write `{node_text}{}`",
-                    delims.to_untyped().full_text()
-                ));
+                error.spanned_hint(
+                    eco_format!(
+                        "to call the function, write `{node_text}{}`",
+                        delims.to_untyped().full_text()
+                    ),
+                    overall_span,
+                );
                 error.spanned_hint(
                     "the parentheses must directly follow the function",
                     delims.span(),
                 );
             } else {
-                error.hint(eco_format!(
-                    "to call the function, write `{node_text}({})`",
-                    delims.body().to_untyped().full_text()
-                ));
+                error.spanned_hint(
+                    eco_format!(
+                        "to call the function, write `{node_text}({})`",
+                        delims.body().to_untyped().full_text()
+                    ),
+                    overall_span,
+                );
                 error.spanned_hint(
                     "functions can only be called with matched parentheses",
                     delims.span(),
