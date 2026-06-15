@@ -90,10 +90,12 @@ impl Drop for LazySvgElem<'_, '_> {
 }
 
 pub trait SvgWrite: Sized {
-    /// Write a string, escaping is handled by [`xmlwriter`].
+    /// Write a string. When writing to an attribute value, XML metacharacters
+    /// are escaped.
     fn push_str(&mut self, value: &str);
 
-    /// Write a character, escaping is handled by [`xmlwriter`].
+    /// Write a character. When writing to an attribute value, XML
+    /// metacharacters are escaped.
     fn push_char(&mut self, value: char) {
         self.push_str(value.encode_utf8(&mut [0; 4]));
     }
@@ -151,7 +153,21 @@ impl<'a, T> SvgFormatter<'a, T> {
 
 impl SvgWrite for SvgFormatter<'_, Vec<u8>> {
     fn push_str(&mut self, value: &str) {
-        self.buf.extend_from_slice(value.as_bytes());
+        // `xmlwriter`'s raw attribute writer only escapes the quotation mark, so
+        // the remaining characters that are not permitted unescaped in an XML
+        // attribute value have to be escaped here. Otherwise a value such as a
+        // link URL containing `&` or `<` yields malformed SVG.
+        if value.bytes().any(|b| matches!(b, b'&' | b'<')) {
+            for b in value.bytes() {
+                match b {
+                    b'&' => self.buf.extend_from_slice(b"&amp;"),
+                    b'<' => self.buf.extend_from_slice(b"&lt;"),
+                    _ => self.buf.push(b),
+                }
+            }
+        } else {
+            self.buf.extend_from_slice(value.as_bytes());
+        }
     }
 }
 
@@ -248,6 +264,24 @@ impl SvgDisplay for SvgUrl<DedupId> {
         f.push_str("url(#");
         f.push(self.0);
         f.push_str(")");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_attribute_value_is_xml_escaped() {
+        let mut xml = XmlWriter::new(xmlwriter::Options::default());
+        {
+            let mut el = SvgElem::new(&mut xml, "a");
+            el.attr("href", "https://example.com/?a=1&b=2<c>\"d");
+        }
+        assert_eq!(
+            xml.end_document(),
+            "<a href=\"https://example.com/?a=1&amp;b=2&lt;c>&quot;d\"/>\n",
+        );
     }
 }
 
