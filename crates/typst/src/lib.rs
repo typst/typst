@@ -60,6 +60,73 @@ use typst_syntax::{FileId, Span};
 use typst_timing::{TimingScope, timed};
 use typst_utils::Protected;
 
+#[cfg(feature = "cbor")]
+mod cbor;
+#[cfg(feature = "csv")]
+mod csv;
+#[cfg(not(feature = "csv"))]
+mod csv {
+    use typst_library::{
+        diag::{LineCol, LoadError},
+        routines::{CsvReader, CsvReaderBuilder},
+    };
+
+    pub(crate) struct ErroringCsvReaderBuilder;
+    impl CsvReaderBuilder for ErroringCsvReaderBuilder {
+        fn has_headers(&mut self, _has_headers: bool) {
+            // do nothing
+        }
+
+        fn delimiter(&mut self, _delimiter: u8) {
+            // do nothing
+        }
+
+        fn create_reader<'a>(&self, _data: &'a [u8]) -> Box<dyn CsvReader + 'a> {
+            Box::new(ErroringCsvReader)
+        }
+    }
+
+    struct ErroringCsvReader;
+    impl CsvReader for ErroringCsvReader {
+        fn header(
+            &mut self,
+        ) -> Result<
+            Box<dyn typst_library::routines::CsvRecords>,
+            typst_library::diag::LoadError,
+        > {
+            Err(LoadError::text(
+                LineCol::one_based(1, 1),
+                "failed to parse CSV",
+                "CSV support not enabled",
+            ))
+        }
+
+        fn records<'a>(
+            &'a mut self,
+        ) -> Box<
+            dyn Iterator<
+                    Item = Result<
+                        Box<dyn typst_library::routines::CsvRecords + 'a>,
+                        typst_library::diag::LoadError,
+                    >,
+                > + 'a,
+        > {
+            Box::new(
+                [Err(LoadError::text(
+                    LineCol::one_based(1, 1),
+                    "failed to parse CSV",
+                    "CSV support not enabled",
+                ))]
+                .into_iter(),
+            )
+        }
+    }
+}
+#[cfg(feature = "json")]
+mod json;
+#[cfg(feature = "toml")]
+mod toml;
+
 /// Compiles sources into an output.
 ///
 /// Supported outputs are
@@ -322,4 +389,47 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     html_module: typst_html::module,
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
+    #[cfg(feature = "cbor")]
+    cbor_decode: cbor::decode,
+    #[cfg(not(feature = "cbor"))]
+    cbor_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to load CBOR",
+            "CBOR support not enabled",
+        ))
+    },
+    #[cfg(feature = "cbor")]
+    cbor_encode: cbor::encode,
+    #[cfg(not(feature = "cbor"))]
+    cbor_encode: |_| Err(ecow::EcoString::from("CBOR support not enabled")),
+    #[cfg(feature = "csv")]
+    new_csv_reader_builder: || Box::new(crate::csv::ReaderBuilder::new()),
+    #[cfg(not(feature = "csv"))]
+    new_csv_reader_builder: || Box::new(csv::ErroringCsvReaderBuilder),
+    #[cfg(feature = "toml")]
+    toml_decode: crate::toml::decode,
+    #[cfg(not(feature = "toml"))]
+    toml_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to parse TOML",
+            "TOML support not enabled",
+        ))
+    },
+    #[cfg(feature = "toml")]
+    toml_encode: crate::toml::encode,
+    #[cfg(not(feature = "toml"))]
+    toml_encode: |_, _| Err(ecow::EcoString::from("TOML support not enabled")),
+    #[cfg(feature = "json")]
+    json_decode: crate::json::decode,
+    #[cfg(not(feature = "json"))]
+    json_decode: |_| {
+        Err(typst_library::diag::LoadError::binary(
+            "failed to parse JSON",
+            "JSON support not enabled",
+        ))
+    },
+    #[cfg(feature = "json")]
+    json_encode: crate::json::encode,
+    #[cfg(not(feature = "json"))]
+    json_encode: |_, _| Err(ecow::EcoString::from("JSON support not enabled")),
 });
