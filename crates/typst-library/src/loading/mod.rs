@@ -1,27 +1,9 @@
 //! Data loading.
 
-#[path = "cbor.rs"]
-mod cbor_;
-#[path = "csv.rs"]
-mod csv_;
-#[path = "json.rs"]
-mod json_;
 #[path = "read.rs"]
 mod read_;
-#[path = "toml.rs"]
-mod toml_;
-#[path = "xml.rs"]
-mod xml_;
-#[path = "yaml.rs"]
-mod yaml_;
 
-pub use self::cbor_::*;
-pub use self::csv_::*;
-pub use self::json_::*;
 pub use self::read_::*;
-pub use self::toml_::*;
-pub use self::xml_::*;
-pub use self::yaml_::*;
 
 use comemo::Tracked;
 use typst_syntax::{FileId, Spanned};
@@ -34,12 +16,6 @@ use crate::foundations::{Bytes, OneOrMultiple, PathOrStr, Scope, Str, cast};
 pub(super) fn define(global: &mut Scope) {
     global.start_category(crate::Category::DataLoading);
     global.define_func::<read>();
-    global.define_func::<csv>();
-    global.define_func::<json>();
-    global.define_func::<toml>();
-    global.define_func::<yaml>();
-    global.define_func::<cbor>();
-    global.define_func::<xml>();
     global.reset_category();
 }
 

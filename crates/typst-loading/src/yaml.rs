@@ -1,10 +1,12 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult};
-use crate::engine::Engine;
-use crate::foundations::{Str, Value, func, scope};
-use crate::loading::{DataSource, Load};
+use typst_library::diag::{
+    At, LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult,
+};
+use typst_library::engine::Engine;
+use typst_library::foundations::{Str, Value, func, scope};
+use typst_library::loading::{DataSource, Load};
 
 /// Reads structured data from a YAML file.
 ///
@@ -121,7 +123,7 @@ impl yaml {
 }
 
 /// Format the user-facing YAML error message.
-pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
+fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
     let pos = error
         .location()
         .map(|loc| {

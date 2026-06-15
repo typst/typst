@@ -1,10 +1,12 @@
 use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult, bail};
-use crate::engine::Engine;
-use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
-use crate::loading::{DataSource, Load};
+use typst_library::diag::{
+    LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult, bail,
+};
+use typst_library::engine::Engine;
+use typst_library::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
+use typst_library::loading::{DataSource, Load};
 
 /// Reads structured data from a CSV file.
 ///
