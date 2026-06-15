@@ -249,6 +249,7 @@ This section documents all changes to the Typst language and compiler between Ty
 == SVG <svg-export>
 - SVGs are now minified by default; use the `--pretty` CLI flag or the checkbox in the web app to pretty-print them #pr(8371)
 - Somewhat reduced the size of generated SVGs #pr(7476) #pr(7680) #pr(7857)
+- SVG elements do not have the classes `typst-frame`, `typst-doc`, `typst-group`, `typst-shape`, and `typst-text` anymore #pr(7680) #minor-breaking
 - Graphics
   - Fixed a bug where @tiling[tilings] could be incorrectly reused in multiple places #pr(7837)
   - Fixed rendering of @gradient[gradients] in LinearRGB, CMYK, and Luma color spaces #pr(8149)
@@ -434,6 +435,9 @@ The typed HTML functions for the HTML @html.script[`script`] and @html.style[`st
   a { color: red }
 ]
 ````
+
+== #short-or-long[Classes in SVGs][Classes in SVG export] <classes-in-svgs>
+Typst 0.14 and below would generate the `class` attributes `typst-frame`, `typst-doc`, `typst-group`, `typst-shape`, and `typst-text` on SVG elements in SVG export. These are no longer emitted. If you are using the `typst-frame` class to style @html.frame elements in HTML export, you'll need to adapt your style sheet.
 
 == #short-or-long[Variable families][Variable font family names] <variable-families>
 Typst aims to unify different fonts from the same family under a single family name. To that effect, it automatically trims common style suffixes like "Bold" or "Condensed" from font family names. Instead of selecting these through the name, they should be accessed through Typst's built-in mechanisms (such as the @text.weight[`weight`] and @text.stretch[`stretch`] parameters).
