@@ -1,0 +1,282 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://jassielof.github.io/json-schemas/docs/typst.schema.json",
+    "title": "Typst Package Manifest",
+    "description": "(Community) Schema for typst.toml package manifest files, used by the Typst package manager and universe.\nhttps://github.com/typst/packages/blob/main/docs/manifest.md",
+    "type": "object",
+    "required": ["package"],
+    "properties": {
+        "package": {
+            "type": "object",
+            "description": "Contains metadata about the package.",
+            "required": ["name", "version", "entrypoint"],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The package's identifier in its namespace.\nSee [Naming rules](https://github.com/typst/packages/blob/main/docs/manifest.md#naming-rules).",
+                    "pattern": "^[a-z\\d]+(-[a-z\\d]+)*$",
+                    "examples": ["my-package", "example-template"]
+                },
+                "version": {
+                    "type": "string",
+                    "description": "The package's version as a full major-minor-patch triple (following SemVer, no pre-release or build tags).\nSee [SemVer](https://semver.org/).",
+                    "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                    "examples": ["1.0.0", "0.2.1"]
+                },
+                "entrypoint": {
+                    "type": "string",
+                    "description": "The path to the main Typst file (relative to the package root) that is evaluated when the package is imported.",
+                    "examples": ["lib.typ", "src/main.typ"]
+                },
+                "authors": {
+                    "type": "array",
+                    "description": "A list of the package's authors. Each author can provide an email address (<user@example.com>), homepage (<https://example.com>), or GitHub handle (<@typst>) in angle brackets.\nRequired for Typst Universe submission.",
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "examples": [
+                        [
+                            "Jane Doe <jane.doe@example.com>",
+                            "John Doe <@johndoe>"
+                        ],
+                        ["Typst GmbH <https://typst.app>"]
+                    ]
+                },
+                "license": {
+                    "type": "string",
+                    "description": "The package's license, specified as a valid SPDX license expression.\n\nMust be a valid SPDX license expression using identifiers from the SPDX License List, check:\n- <https://spdx.org/licenses/>\n- <https://opensource.org/licenses>\n\nAllowed license types:\n- OSI-approved licenses (MIT, Apache-2.0, GPL-3.0-or-later, BSD-3-Clause, etc.)\n- Creative Commons licenses: CC-BY, CC-BY-SA, or CC0 variants\n\nExpression syntax:\n- Single license: Use the SPDX short identifier (e.g., \"MIT\")\n- Multiple licenses (choice): Use OR operator (e.g., \"MIT OR Apache-2.0\")\n- Multiple licenses (all apply): Use AND operator (e.g., \"LGPL-2.1-only AND BSD-3-Clause\")\n- License with exception: Use WITH operator (e.g., \"GPL-2.0-or-later WITH Autoconf-exception-2.0\")\n- Version flexibility: Use \"-only\" or \"-or-later\" suffixes for versioned licenses\n- Grouping: Use parentheses to control precedence (e.g., \"(MIT OR Apache-2.0) AND CC0-1.0\")\n\nNote: Creative Commons licenses are recommended only for content/data packages or CC-BY-SA derivatives, not for code. For template packages where generated content should be freely distributable, consider permissive licenses like MIT-0 or 0BSD.\n\nRequired for Typst Universe submission. Must also include a LICENSE file or link to the license in README.md. See https://github.com/typst/packages/blob/main/docs/licensing.md",
+                    "examples": [
+                        "MIT",
+                        "MIT-0",
+                        "MPL-2.0",
+                        "EUPL-1.2",
+                        "Unlicense",
+                        "Apache-2.0",
+                        "GPL-3.0-or-later",
+                        "MIT OR Apache-2.0",
+                        "CC-BY-SA-4.0"
+                    ]
+                },
+                "description": {
+                    "type": "string",
+                    "description": "A short, clear description of the package (one sentence recommended). Required for Typst Universe submission.\nShould be 40-60 characters long, terminate with a full stop, avoid \"Typst\" unless relevant.\nSee [Writing a good description](https://github.com/typst/packages/blob/main/docs/manifest.md#writing-a-good-description).",
+                    "minLength": 10,
+                    "maxLength": 200
+                },
+                "homepage": {
+                    "type": "string",
+                    "description": "A link to the package's web presence, where there could be more details, an issue tracker, or something else. Will be linked to from the package list. If there is no dedicated web page for the package, don't link to its repository here. Omit this field and prefer `repository`.",
+                    "format": "uri",
+                    "examples": ["https://example.com/my-package-docs"]
+                },
+                "repository": {
+                    "type": "string",
+                    "description": "A link to the repository where this package is developed. Will be linked to from Typst Universe if there is no homepage.",
+                    "format": "uri",
+                    "examples": ["https://github.com/user/my-package"]
+                },
+                "keywords": {
+                    "type": "array",
+                    "description": "An array of search keywords for the package.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "examples": [
+                        ["chart", "plot", "data visualization"],
+                        ["ieee", "template", "paper"]
+                    ]
+                },
+                "categories": {
+                    "type": "array",
+                    "description": "An array with up to three categories from the official list to help users discover the package.\nSee [categories](https://github.com/typst/packages/blob/main/docs/CATEGORIES.md).\nRequired for template packages.",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "components",
+                            "visualization",
+                            "model",
+                            "layout",
+                            "text",
+                            "languages",
+                            "scripting",
+                            "integration",
+                            "utility",
+                            "fun",
+                            "book",
+                            "report",
+                            "paper",
+                            "thesis",
+                            "poster",
+                            "flyer",
+                            "presentation",
+                            "cv",
+                            "office"
+                        ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "examples": [
+                        ["visualization", "components"],
+                        ["paper", "layout"]
+                    ]
+                },
+                "disciplines": {
+                    "type": "array",
+                    "description": "An array of disciplines from the official list defining the target audience. Should be empty if generally applicable.\nSee [disciplines](https://github.com/typst/packages/blob/main/docs/DISCIPLINES.md).",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "agriculture",
+                            "anthropology",
+                            "archaeology",
+                            "architecture",
+                            "biology",
+                            "business",
+                            "chemistry",
+                            "communication",
+                            "computer-science",
+                            "design",
+                            "drawing",
+                            "economics",
+                            "education",
+                            "engineering",
+                            "fashion",
+                            "film",
+                            "geography",
+                            "geology",
+                            "history",
+                            "journalism",
+                            "law",
+                            "linguistics",
+                            "literature",
+                            "mathematics",
+                            "medicine",
+                            "music",
+                            "painting",
+                            "philosophy",
+                            "photography",
+                            "physics",
+                            "politics",
+                            "psychology",
+                            "sociology",
+                            "theater",
+                            "theology",
+                            "transportation"
+                        ]
+                    },
+                    "uniqueItems": true,
+                    "examples": [
+                        ["computer-science", "mathematics"],
+                        ["physics"],
+                        []
+                    ]
+                },
+                "compiler": {
+                    "type": "string",
+                    "description": "The minimum Typst compiler version required for this package to work (SemVer format).\nPartial versions like '0' or '0.13' are supported. Pre-release tags are not supported.",
+                    "pattern": "^(0|[1-9]\\d*)(\\.(0|[1-9]\\d*)){0,2}$",
+                    "examples": ["0", "0.13", "0.8.0", "1.0.0"]
+                },
+                "exclude": {
+                    "type": "array",
+                    "description": "An array of globs specifying files that should not be part of the published bundle that the compiler downloads when importing the package.\nTo be used for large support files like images or PDF documentation that would otherwise unnecessarily increase the bundle size.\nDon't exclude the README or the LICENSE. Template thumbnails are automatically excluded.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true,
+                    "examples": [["docs/", "*.pdf", "images/draft*.png"]]
+                }
+            },
+            "examples": [
+                {
+                    "name": "example",
+                    "version": "0.1.0",
+                    "entrypoint": "lib.typ",
+                    "authors": ["The Typst Project Developers"],
+                    "license": "MIT",
+                    "description": "Calculate elementary arithmetic with functions."
+                }
+            ],
+            "additionalProperties": false
+        },
+        "template": {
+            "type": "object",
+            "description": "If present, declares this package as a template.\nTemplate packages must specify at least one category.",
+            "required": ["path", "entrypoint", "thumbnail"],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "The directory within the package (relative to package root) containing files to be copied into the user's new project directory.",
+                    "minLength": 1,
+                    "examples": ["template", "skeleton"]
+                },
+                "entrypoint": {
+                    "type": "string",
+                    "description": "Path relative to the template 'path' directory pointing to the main file to be compiled after initialization.\nThis file will become the previewed file in the Typst web application.",
+                    "minLength": 1,
+                    "pattern": ".*\\.typ$",
+                    "examples": ["main.typ", "report.typ"]
+                },
+                "thumbnail": {
+                    "type": "string",
+                    "description": "Path relative to the package root pointing to a PNG or lossless WebP thumbnail.\nRequirements: min 1080px on longer edge, max 3 MiB file size.\n_The thumbnail will automatically be excluded from the package files._",
+                    "pattern": "^.*\\.(png|webp)$",
+                    "examples": ["thumbnail.png", "preview.webp"]
+                }
+            },
+            "additionalProperties": false
+        },
+        "tool": {
+            "type": "object",
+            "description": "Namespace for third-party tools to store their own Typst-specific configuration.\nEach tool should create its own entry under this section.",
+            "propertyNames": {
+                "type": "string",
+                "minLength": 1
+            },
+            "additionalProperties": {
+                "type": "object"
+            },
+            "examples": [
+                {
+                    "mytool": {
+                        "foo": "bar"
+                    }
+                }
+            ]
+        }
+    },
+    "additionalProperties": false,
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "template": {
+                        "type": "object"
+                    }
+                },
+                "required": ["template"]
+            },
+            "then": {
+                "properties": {
+                    "package": {
+                        "type": "object",
+                        "required": ["categories"],
+                        "properties": {
+                            "categories": {
+                                "type": "array",
+                                "minItems": 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
