@@ -274,6 +274,9 @@ This section documents all changes to the Typst language and compiler between Ty
 - Dependency output
   - When writing to stdout while using `--deps-format make` (which is incompatible and thus fails), no empty Make dependency file will be emitted anymore #pr(7246)
   - The JSON dependency format now includes information about outputs in addition to inputs #pr(7209)
+- Path handling fixes on Windows #pr(8508)
+  - Reading from a path that contains a drive letter now results in an explicit error instead of the drive letter being silently ignored
+  - Attempting to read from a path that contains a reserved filename (like `COM1`) now results in an explicit error
 - Non-Unicode input paths are not supported anymore #pr(7688) #breaking
 - The experimental `--timings` argument now requires an explicit file name instead of defaulting to `record-{n}.json` #pr(8119) #breaking
 - Added colors to `--help/-h` and `typst info` output #pr(7443) #pr(7500)
