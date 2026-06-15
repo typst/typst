@@ -1552,6 +1552,7 @@ e7e088c58f14dea7b7b61f53828b9a34 raw-empty
 0699bb31b5321ebf3ba3a762aee5c5bd raw-highlight-py
 b2912678dde1faa17644b690888aac2d raw-highlight-rust
 e9f30f8fd86c4ef0c485da402d80c1ad raw-highlight-typ
+6b69640379e8510ce7eeac2ccf736636 raw-highlight-typ-invalid-ints
 86e277f332abfe98969446179388de87 raw-highlight-typc
 d52c89959deb7b9ff9832af365ff1e79 raw-highlight-typm
 108b6b887dcdb403d2e8638701cf23e3 raw-highlight-typm-idents
