@@ -84,7 +84,7 @@ throughput at the cost of initial latency and development flexibility.
 // `AstNode::placeholder()` method.
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unreachable)]
 
-use std::num::NonZeroUsize;
+use std::num::{IntErrorKind, NonZeroUsize};
 use std::ops::Deref;
 use std::path::Path;
 use std::str::FromStr;
@@ -1344,18 +1344,71 @@ node! {
 
 impl Int<'_> {
     /// Get the integer value.
-    pub fn get(self) -> i64 {
-        let text = self.0.leaf_text();
-        if let Some(rest) = text.strip_prefix("0x") {
-            i64::from_str_radix(rest, 16)
-        } else if let Some(rest) = text.strip_prefix("0o") {
-            i64::from_str_radix(rest, 8)
-        } else if let Some(rest) = text.strip_prefix("0b") {
-            i64::from_str_radix(rest, 2)
-        } else {
-            text.parse()
+    ///
+    /// We return a result because we still want to highlight and treat invalid
+    /// values like `9223372036854775808` as integers in the IDE.
+    pub fn get(self) -> Result<i64, IntLiteralError> {
+        let (base, digits) = NonDecimalBase::strip_prefix(self.0.leaf_text());
+        match base {
+            Some(non_decimal) => i64::from_str_radix(digits, non_decimal.get()),
+            Option::None => digits.parse(),
         }
-        .unwrap_or_default()
+        .map_err(|err| match err.kind() {
+            // All error kinds are actually positive overflow for decimals.
+            IntErrorKind::PosOverflow    // Of course
+            | IntErrorKind::NegOverflow  // We don't have negative int literals
+            | IntErrorKind::Empty        // Handled in the lexer
+            | IntErrorKind::InvalidDigit // Handled in the lexer
+            | IntErrorKind::Zero         // Not relevant
+            | _ => IntLiteralError::PosOverflow,
+        })
+    }
+}
+
+/// Possible errors for integer literals in the AST. Other integer errors are
+/// handled in the lexer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum IntLiteralError {
+    PosOverflow,
+}
+
+/// Non-decimal bases available for integer syntax: hexademical, octal, or
+/// binary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum NonDecimalBase {
+    Hex = 16,
+    Octal = 8,
+    Binary = 2,
+}
+
+impl NonDecimalBase {
+    /// Get the value of the base.
+    pub fn get(self) -> u32 {
+        self as u32
+    }
+
+    /// The name of the non-decimal base.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Hex => "hexadecimal",
+            Self::Octal => "octal",
+            Self::Binary => "binary",
+        }
+    }
+
+    /// Try to strip a base prefix (`0x`, `0o`, `0b`) from the integer literal
+    /// and return the base and the remaining digits.
+    fn strip_prefix(text: &str) -> (Option<Self>, &str) {
+        if let Some(rest) = text.strip_prefix("0x") {
+            (Some(Self::Hex), rest)
+        } else if let Some(rest) = text.strip_prefix("0o") {
+            (Some(Self::Octal), rest)
+        } else if let Some(rest) = text.strip_prefix("0b") {
+            (Some(Self::Binary), rest)
+        } else {
+            (Option::None, text)
+        }
     }
 }
 
