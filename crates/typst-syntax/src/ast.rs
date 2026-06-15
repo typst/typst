@@ -924,8 +924,13 @@ node! {
 
 impl<'a> Math<'a> {
     /// The expressions the mathematical content consists of.
-    pub fn exprs(self) -> impl DoubleEndedIterator<Item = Expr<'a>> {
-        self.0.children().filter_map(Expr::cast_with_space)
+    pub fn expr_offsets(self) -> impl DoubleEndedIterator<Item = (Expr<'a>, usize)> {
+        let mut offset = 0;
+        self.0.children().filter_map(move |node| {
+            let node_start = offset;
+            offset += node.len();
+            Expr::cast_with_space(node).map(|e| (e, node_start))
+        })
     }
 
     /// Whether this `Math` node was originally parenthesized.

@@ -372,14 +372,14 @@ $ int(
 $ mat $
 
 --- math-func-literal-parens eval ---
-// Error: 3-6 this does not call the `mat` function
-// Hint: 3-6 to call the function, write `mat()`
+// Error: 3-9 this does not call the `mat` function
+// Hint: 3-9 to call the function, write `mat()`
 // Hint: 7-9 the parentheses must directly follow the function
 $ mat () $
 
 --- math-func-literal-parens-many-spaces eval ---
-// Error: 3-6 this does not call the `mat` function
-// Hint: 3-6 to call the function, write `mat(x)`
+// Error: 1:3-4:5 this does not call the `mat` function
+// Hint: 1:3-4:5 to call the function, write `mat(x)`
 $ mat /* block
  comment*/
  // line comment
@@ -387,26 +387,26 @@ $ mat /* block
  (x) $
 
 --- math-func-literal-brackets eval ---
-// Error: 3-6 this does not call the `mat` function
-// Hint: 3-6 to call the function, write `mat(x, y)`
+// Error: 3-12 this does not call the `mat` function
+// Hint: 3-12 to call the function, write `mat(x, y)`
 // Hint: 6-12 functions can only be called with matched parentheses
 $ mat[x, y] $
 
 --- math-func-literal-mismatched eval ---
-// Error: 3-6 this does not call the `mat` function
-// Hint: 3-6 to call the function, write `mat(x, y; z)`
+// Error: 3-15 this does not call the `mat` function
+// Hint: 3-15 to call the function, write `mat(x, y; z)`
 // Hint: 6-15 functions can only be called with matched parentheses
 $ mat[x, y; z) $
 
 --- math-func-literal-field eval ---
-// Error: 3-16 this does not call the `std.assert.eq` function
-// Hint: 3-16 to call the function, write `std.assert.eq(#3, #(1 + 2))`
+// Error: 3-31 this does not call the `std.assert.eq` function
+// Hint: 3-31 to call the function, write `std.assert.eq(#3, #(1 + 2))`
 // Hint: 17-31 the parentheses must directly follow the function
 $ std.assert.eq (#3, #(1 + 2)) $
 
 --- math-func-literal-delimited eval ---
-// Error: 4-6 this does not call the `lr` function
-// Hint: 4-6 to call the function, write `lr( |A| )`
+// Error: 4-14 this does not call the `lr` function
+// Hint: 4-14 to call the function, write `lr( |A| )`
 // Hint: 7-14 the parentheses must directly follow the function
 $ (lr ( |A| )) $
 
@@ -485,8 +485,8 @@ $ #func() $
 
 --- math-func-literal-embedded-code-ident-parens eval ---
 #let func = math.mat
-// Error: 4-8 this does not call the `func` function
-// Hint: 4-8 to call the function, write `func(none)`
+// Error: 4-15 this does not call the `func` function
+// Hint: 4-15 to call the function, write `func(none)`
 // Hint: 9-15 the parentheses must directly follow the function
 $ #func (none) $
 
@@ -507,7 +507,7 @@ $ #dictionary(std).at("assert") (false) $
 --- math-func-literal-embedded-code-ident-semicolon-parens eval ---
 // This one worked better than I expected with no effort!
 #let func = math.mat
-// Error: 4-8 this does not call the `func` function
-// Hint: 4-8 to call the function, write `func(none)`
+// Error: 4-16 this does not call the `func` function
+// Hint: 4-16 to call the function, write `func(none)`
 // Hint: 10-16 the parentheses must directly follow the function
 $ #func; (none) $

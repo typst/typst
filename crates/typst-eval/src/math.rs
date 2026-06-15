@@ -8,7 +8,7 @@ use typst_library::math::{
 };
 use typst_library::text::TextElem;
 use typst_syntax::ast::{self, AstNode, MathTextKind};
-use typst_syntax::{SyntaxKind, SyntaxNode};
+use typst_syntax::{DiagSpan, SubRange, SyntaxKind, SyntaxNode};
 
 use crate::{Eval, Vm};
 
@@ -42,22 +42,30 @@ impl Eval for ast::Math<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut exprs = self.exprs();
+        let mut expr_offsets = self.expr_offsets();
         let iter = std::iter::from_fn(move || {
-            let expr = exprs.next()?;
+            let (expr, expr_start) = expr_offsets.next()?;
             Some(expr.eval_display(vm).map_err(|math_error| {
                 match math_error {
                     MathError::Normal(err) => err,
                     MathError::FuncLiteral { node, name } => {
                         // Add a custom hint if the error was due to a function
                         // literal followed by delimiters.
-                        let delims = exprs
-                            .find(|expr| !matches!(expr, ast::Expr::Space(_)))
-                            .and_then(|non_space| match non_space {
-                                ast::Expr::MathDelimited(delims) => Some(delims),
-                                _ => None,
+                        let mut overall_span = None;
+                        let delims = expr_offsets
+                            .find(|(expr, _)| !matches!(expr, ast::Expr::Space(_)))
+                            .and_then(|(non_space, offset)| {
+                                let ast::Expr::MathDelimited(delims) = non_space else {
+                                    return None;
+                                };
+                                let end = offset + delims.to_untyped().len();
+                                overall_span = Some(DiagSpan::from_span(
+                                    self.span(),
+                                    SubRange::new(expr_start, end),
+                                ));
+                                Some(delims)
                             });
-                        eco_vec![func_literal_error(node, name, delims)]
+                        eco_vec![func_literal_error(node, name, delims, overall_span)]
                     }
                 }
             }))
@@ -250,7 +258,7 @@ impl From<MathError<'_>> for EcoVec<SourceDiagnostic> {
         match value {
             MathError::Normal(err) => err,
             MathError::FuncLiteral { node, name } => {
-                eco_vec![func_literal_error(node, name, None)]
+                eco_vec![func_literal_error(node, name, None, None)]
             }
         }
     }
@@ -263,6 +271,7 @@ fn func_literal_error(
     node: &SyntaxNode,
     name: Option<EcoString>,
     delims: Option<ast::MathDelimited>,
+    overall_span: Option<DiagSpan>,
 ) -> SourceDiagnostic {
     let func;
     let mut error;
@@ -271,7 +280,8 @@ fn func_literal_error(
         // Normal field access isn't worth handling.
         SyntaxKind::Ident | SyntaxKind::MathIdent | SyntaxKind::MathFieldAccess => {
             func = node.full_text();
-            error = error!(node.span(), "this does not call the `{func}` function");
+            let span = overall_span.unwrap_or(node.span().into());
+            error = error!(span, "this does not call the `{func}` function");
         }
         kind => {
             error = error!(node.span(), "expected content, found function");
