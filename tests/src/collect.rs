@@ -130,11 +130,12 @@ bitflags! {
     ///                  ╭─> render
     ///       ╭─> paged ─┼─> pdf ───> pdftags
     /// eval ─┤          ╰─> svg
-    ///       ├─> html -───> html
+    ///       ├─> html -─┬─> html
+    ///       │          ╰─> xhtml
     ///       ╰─> bundle ──> bundle
     /// ```
     #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
-    pub struct TestStages: u8 {
+    pub struct TestStages: u16 {
         const EVAL = 1 << 0;
         const PAGED = 1 << 1;
         const RENDER = 1 << 2;
@@ -143,6 +144,7 @@ bitflags! {
         const SVG = 1 << 5;
         const HTML = 1 << 6;
         const BUNDLE = 1 << 7;
+        const XHTML = 1 << 8;
     }
 }
 
@@ -162,6 +164,7 @@ impl TestStages {
                 TestStages::SVG => TestStages::empty(),
                 TestStages::HTML => TestStages::empty(),
                 TestStages::BUNDLE => TestStages::empty(),
+                TestStages::XHTML => TestStages::empty(),
                 _ => unreachable!(),
             });
         }
@@ -184,6 +187,7 @@ impl TestStages {
                 TestStages::SVG => TestStages::EVAL | TestStages::PAGED,
                 TestStages::HTML => TestStages::EVAL,
                 TestStages::BUNDLE => TestStages::EVAL,
+                TestStages::XHTML => TestStages::EVAL | TestStages::HTML,
                 _ => unreachable!(),
             });
         }
@@ -200,6 +204,7 @@ impl TestStages {
                 TestStages::PAGED => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
                 TestStages::HTML => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
                 TestStages::BUNDLE => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
+                TestStages::XHTML => TestStages::XHTML,
 
                 TestStages::RENDER => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
                 TestStages::PDF => TestStages::RENDER | TestStages::PDF | TestStages::SVG,
@@ -228,6 +233,7 @@ impl Display for TestStages {
                 TestStages::SVG => Display::fmt(&TestOutput::Svg, f),
                 TestStages::HTML => Display::fmt(&TestTarget::Html, f),
                 TestStages::BUNDLE => Display::fmt(&TestTarget::Bundle, f),
+                TestStages::XHTML => Display::fmt(&TestOutput::Xhtml, f),
                 _ => unreachable!(),
             })?;
         }
@@ -254,7 +260,7 @@ impl Display for TestEval {
 
 /// A compilation target, analog to [`typst::Target`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum TestTarget {
     Paged = TestStages::PAGED.bits(),
     Html = TestStages::HTML.bits(),
@@ -265,7 +271,7 @@ impl TestStage for TestTarget {}
 
 impl From<TestTarget> for TestStages {
     fn from(value: TestTarget) -> Self {
-        TestStages::from_bits(value as u8).unwrap()
+        TestStages::from_bits(value as u16).unwrap()
     }
 }
 
@@ -304,19 +310,27 @@ impl From<Target> for TestTarget {
 
 /// A test output format.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum TestOutput {
     Render = TestStages::RENDER.bits(),
     Pdf = TestStages::PDF.bits(),
     Pdftags = TestStages::PDFTAGS.bits(),
     Svg = TestStages::SVG.bits(),
     Html = TestStages::HTML.bits(),
+    Xhtml = TestStages::XHTML.bits(),
     Bundle = TestStages::BUNDLE.bits(),
 }
 
 impl TestOutput {
-    pub const ALL: [Self; 6] =
-        [Self::Render, Self::Svg, Self::Pdf, Self::Pdftags, Self::Html, Self::Bundle];
+    pub const ALL: [Self; 7] = [
+        Self::Render,
+        Self::Svg,
+        Self::Pdf,
+        Self::Pdftags,
+        Self::Html,
+        Self::Xhtml,
+        Self::Bundle,
+    ];
 
     fn from_sub_dir(dir: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|o| o.sub_dir() == dir)
@@ -330,6 +344,7 @@ impl TestOutput {
             Self::Pdftags => "pdftags",
             Self::Svg => "svg",
             Self::Html => "html",
+            Self::Xhtml => "xhtml",
             Self::Bundle => "bundle",
         }
     }
@@ -342,6 +357,7 @@ impl TestOutput {
             Self::Pdftags => "yml",
             Self::Svg => "svg",
             Self::Html => "html",
+            Self::Xhtml => "xhtml",
             Self::Bundle => "tar",
         }
     }
@@ -389,6 +405,7 @@ impl TestOutput {
             TestOutput::Pdftags => TestOutputKind::Hash(output::Pdftags::INDEX),
             TestOutput::Svg => TestOutputKind::Hash(output::Svg::INDEX),
             TestOutput::Html => TestOutputKind::Hash(output::Html::INDEX),
+            TestOutput::Xhtml => TestOutputKind::Hash(output::Xhtml::INDEX),
         }
     }
 }
@@ -397,7 +414,7 @@ impl TestStage for TestOutput {}
 
 impl From<TestOutput> for TestStages {
     fn from(value: TestOutput) -> Self {
-        TestStages::from_bits(value as u8).unwrap()
+        TestStages::from_bits(value as u16).unwrap()
     }
 }
 
@@ -737,6 +754,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
+                "xhtml" => self.set_attr(attr_name, &mut stages, TestStages::XHTML),
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
                 "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),

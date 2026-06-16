@@ -68,7 +68,7 @@ fn setup() {
     std::env::set_current_dir(workspace_dir).unwrap();
 
     // Create the storage.
-    for dir in ["render", "html", "pdf", "pdftags", "svg", "bundle", "by-hash"] {
+    for dir in ["render", "html", "xhtml", "pdf", "pdftags", "svg", "bundle", "by-hash"] {
         std::fs::create_dir_all(Path::new(STORE_PATH).join(dir)).unwrap();
     }
 
@@ -172,6 +172,7 @@ fn test() {
         run::update_hash_refs::<output::Pdftags>(&hashes);
         run::update_hash_refs::<output::Svg>(&hashes);
         run::update_hash_refs::<output::Html>(&hashes);
+        run::update_hash_refs::<output::Xhtml>(&hashes);
     }
 
     if let Err(err) = logger.into_inner().finish() {
