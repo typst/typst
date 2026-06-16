@@ -246,8 +246,8 @@ In addition to @text.font[`font`], the rule can also change OpenType @text.featu
   #show math.equation: set text(
     // Prefer upright integrals (ss02) and small capitals (ss05)
     stylistic-set: (2, 5),
-    // Use a slashed circle for ∅, replacing the default slashed zero
-    features: ("cv01",),
+    // Use a slashed zero for ∅, replacing the default slashed circle
+    features: ("cv02",),
   )
   // These features are defined by New Computer Modern Math.
   // Other fonts may not support them or map them to different features.
