@@ -69,7 +69,62 @@ use crate::visualize::{
 /// that determines how far along the gradient the stop is located. The stop's
 /// color is the color of the gradient at that position. You can choose to omit
 /// the offsets when defining a gradient. In this case, Typst will space all
-/// stops evenly.
+/// stops evenly which is a reasonable default in order to provide a smooth
+/// gradient.
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   height: 20pt,
+///   fill: gradient.linear(red, blue)
+/// )
+/// ```
+///
+/// We can use manually-defined stops in order to end the gradient early
+/// rather than in a smooth way.
+///
+/// ```example
+/// #block(
+///   width: 100%,
+///   inset: 4pt,
+///   fill: gradient.linear(
+///     (red, 0%),
+///     (blue, 50%),
+///     (blue, 100%)
+///   ),
+///   align(
+///     right,
+///     block(
+///       width: 50%,
+///       align(
+///         left
+///       )[I'm already fully blue]
+///     )
+///   )
+/// )
+/// ```
+///
+/// We can go even further.
+/// Sometimes it is preferable to have a gradient that is not smooth
+/// and instead blocky or stepwise. For example, you can display a progress
+/// bar using a simple linear gradient with manually defined stops.
+///
+/// ```example
+/// #block(
+///   width: 100%,
+///   inset: 4pt,
+///   fill: gradient.linear(
+///     (aqua, 0%), (aqua, 100%*2/3),
+///     (gray, 100%*2/3), (gray, 100%)
+///   ),
+/// )[We're 2/3 done!]
+/// ```
+///
+/// You could also use @stack[`stack`] (with `dir: ltr`) to make a progress
+/// bar (which is probably more sensible due to the
+/// @gradient:note-on-file-sizes[file size implications of using `gradient`]),
+/// but this at least helps display how
+/// to write custom stops.
 ///
 /// Typst predefines color maps that you can use as stops. See the
 /// @color:predefined-color-maps[`color`] documentation for more details.
@@ -213,7 +268,7 @@ impl Gradient {
     pub fn linear(
         args: &mut Args,
         span: Span,
-        /// The color @gradient:stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -302,7 +357,7 @@ impl Gradient {
     #[func(title = "Radial Gradient")]
     fn radial(
         span: Span,
-        /// The color @gradient:stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -419,7 +474,7 @@ impl Gradient {
     #[func(title = "Conic Gradient")]
     pub fn conic(
         span: Span,
-        /// The color @gradient:stops[stops] of the gradient.
+        /// The unnamed (positional) arguments are the color @gradient:stops[stops] of the gradient.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
