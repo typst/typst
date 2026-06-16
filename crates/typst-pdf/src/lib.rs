@@ -20,10 +20,10 @@ use std::hash::{Hash, Hasher};
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
-use krilla::configure::Validator;
+use krilla::configure::Accessibility;
 use serde::{Deserialize, Serialize};
 use typst_layout::PagedDocument;
-use typst_library::diag::{SourceResult, StrResult, bail};
+use typst_library::diag::{HintedStrResult, HintedString, SourceResult, StrResult, bail};
 use typst_library::foundations::Smart;
 use typst_library::introspection::Location;
 use typst_library::layout::PageRanges;
@@ -55,7 +55,7 @@ pub fn pdf_in_bundle(
 
 /// Settings for PDF export.
 #[derive(Debug, Hash)]
-pub struct PdfOptions<'a> {
+pub struct PdfOptions {
     /// If not `Smart::Auto`, shall be a string that uniquely and stably
     /// identifies the document. It should not change between compilations of
     /// the same document.  **If you cannot provide such a stable identifier,
@@ -67,7 +67,10 @@ pub struct PdfOptions<'a> {
     /// document identifier (the identifier itself is not leaked). If `ident` is
     /// `Auto`, a hash of the document's title and author is used instead (which
     /// is reasonably unique and stable).
-    pub ident: Smart<&'a str>,
+    pub ident: Smart<String>,
+    /// Configures the `/Creator` metadata in the resulting PDF. When set to
+    /// `Smart::Auto`, defaults to `Typst $version`.
+    pub creator: Smart<Option<String>>,
     /// If not `None`, shall be the creation timestamp of the document. It will
     /// only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Timestamp>,
@@ -81,24 +84,28 @@ pub struct PdfOptions<'a> {
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
     pub tagged: bool,
+    /// Whether to format the PDF in a human-readable way.
+    pub pretty: bool,
 }
 
-impl PdfOptions<'_> {
-    /// Whether the current export mode is PDF/UA-1, and in the future maybe
-    /// PDF/UA-2.
-    pub(crate) fn is_pdf_ua(&self) -> bool {
-        self.standards.config.validator() == Validator::UA1
+impl PdfOptions {
+    /// Returns the accessibility validator. Returns `Some` for PDF/UA-1, and in
+    /// the future maybe PDF/UA-2.
+    pub(crate) fn accessibility_validator(&self) -> Option<Accessibility> {
+        self.standards.config.validators().accessibility()
     }
 }
 
-impl Default for PdfOptions<'_> {
+impl Default for PdfOptions {
     fn default() -> Self {
         Self {
             ident: Smart::Auto,
+            creator: Smart::Auto,
             timestamp: None,
             page_ranges: None,
             standards: PdfStandards::default(),
             tagged: true,
+            pretty: false,
         }
     }
 }
@@ -112,8 +119,12 @@ pub struct PdfStandards {
 impl PdfStandards {
     /// Validates a list of PDF standards for compatibility and returns their
     /// encapsulated representation.
-    pub fn new(list: &[PdfStandard]) -> StrResult<Self> {
-        use krilla::configure::{Configuration, PdfVersion, Validator};
+    pub fn new(list: &[PdfStandard]) -> HintedStrResult<Self> {
+        use krilla::configure::{
+            Accessibility, Archival, ConfigurationBuilder, ConfigurationError, PdfVersion,
+        };
+
+        use crate::util::ValidatorsExt;
 
         let mut version: Option<PdfVersion> = None;
         let mut set_version = |v: PdfVersion| -> StrResult<()> {
@@ -128,12 +139,21 @@ impl PdfStandards {
             Ok(())
         };
 
-        let mut validator = None;
-        let mut set_validator = |v: Validator| -> StrResult<()> {
-            if validator.is_some() {
-                bail!("Typst currently only supports one PDF substandard at a time");
+        let mut archival_validator = None;
+        let mut set_archival_validator = |a: Archival| -> StrResult<()> {
+            if archival_validator.is_some() {
+                bail!("choose at most one PDF/A standard");
             }
-            validator = Some(v);
+            archival_validator = Some(a);
+            Ok(())
+        };
+
+        let mut accessibility_validator = None;
+        let mut set_accessibility_validator = |ua: Accessibility| -> StrResult<()> {
+            if accessibility_validator.is_some() {
+                bail!("choose at most one PDF/UA standard");
+            }
+            accessibility_validator = Some(ua);
             Ok(())
         };
 
@@ -144,37 +164,80 @@ impl PdfStandards {
                 PdfStandard::V_1_6 => set_version(PdfVersion::Pdf16)?,
                 PdfStandard::V_1_7 => set_version(PdfVersion::Pdf17)?,
                 PdfStandard::V_2_0 => set_version(PdfVersion::Pdf20)?,
-                PdfStandard::A_1b => set_validator(Validator::A1_B)?,
-                PdfStandard::A_1a => set_validator(Validator::A1_A)?,
-                PdfStandard::A_2b => set_validator(Validator::A2_B)?,
-                PdfStandard::A_2u => set_validator(Validator::A2_U)?,
-                PdfStandard::A_2a => set_validator(Validator::A2_A)?,
-                PdfStandard::A_3b => set_validator(Validator::A3_B)?,
-                PdfStandard::A_3u => set_validator(Validator::A3_U)?,
-                PdfStandard::A_3a => set_validator(Validator::A3_A)?,
-                PdfStandard::A_4 => set_validator(Validator::A4)?,
-                PdfStandard::A_4f => set_validator(Validator::A4F)?,
-                PdfStandard::A_4e => set_validator(Validator::A4E)?,
-                PdfStandard::Ua_1 => set_validator(Validator::UA1)?,
+                PdfStandard::A_1b => set_archival_validator(Archival::A1_B)?,
+                PdfStandard::A_1a => set_archival_validator(Archival::A1_A)?,
+                PdfStandard::A_2b => set_archival_validator(Archival::A2_B)?,
+                PdfStandard::A_2u => set_archival_validator(Archival::A2_U)?,
+                PdfStandard::A_2a => set_archival_validator(Archival::A2_A)?,
+                PdfStandard::A_3b => set_archival_validator(Archival::A3_B)?,
+                PdfStandard::A_3u => set_archival_validator(Archival::A3_U)?,
+                PdfStandard::A_3a => set_archival_validator(Archival::A3_A)?,
+                PdfStandard::A_4 => set_archival_validator(Archival::A4)?,
+                PdfStandard::A_4f => set_archival_validator(Archival::A4F)?,
+                PdfStandard::A_4e => set_archival_validator(Archival::A4E)?,
+                PdfStandard::Ua_1 => set_accessibility_validator(Accessibility::UA1)?,
             }
         }
 
-        let config = match (version, validator) {
-            (Some(version), Some(validator)) => {
-                Configuration::new_with(validator, version).ok_or_else(|| {
-                    eco_format!(
-                        "{} is not compatible with {}",
-                        version.as_str(),
-                        validator.as_str()
-                    )
-                })?
-            }
-            (Some(version), None) => Configuration::new_with_version(version),
-            (None, Some(validator)) => Configuration::new_with_validator(validator),
-            (None, None) => Configuration::new_with_version(PdfVersion::Pdf17),
-        };
+        let mut builder = ConfigurationBuilder::new();
+
+        if let Some(version) = version {
+            builder = builder.with_version(version)
+        }
+
+        if let Some(archival_validator) = archival_validator {
+            builder = builder.with_archival_validator(archival_validator)
+        }
+
+        if let Some(accessibility_validator) = accessibility_validator {
+            builder = builder.with_accessibility_validator(accessibility_validator)
+        }
+
+        let config = builder.finish().map_err(|e| {
+            let (message, validators) = match e {
+                ConfigurationError::NoOverlappingValidatorsRange(validators) => {
+                    let list = validators.to_and_list();
+                    let message = eco_format!(
+                        "{list} are mutually incompatible because \
+                         they do not have any overlapping PDF versions"
+                    );
+                    (message, validators)
+                }
+                ConfigurationError::VersionDoesNotMatchValidatorsRange(
+                    version,
+                    validators,
+                ) => {
+                    let list = validators.to_and_list();
+                    let message =
+                        eco_format!("{} is not compatible with {list}", version.as_str());
+                    (message, validators)
+                }
+            };
+            HintedString::new(message)
+                .with_hints(validators.into_iter().map(version_hint))
+        })?;
 
         Ok(Self { config })
+    }
+}
+
+/// A hint specifying which PDF version a validator is compatible with.
+fn version_hint(validator: krilla::configure::Validator) -> EcoString {
+    let min = validator.min();
+    let max = validator.max();
+    if let Some(min) = min {
+        if min == max {
+            eco_format!("{} requires version {}", validator.as_str(), min.as_str())
+        } else {
+            eco_format!(
+                "{} requires a version between {} and {}",
+                validator.as_str(),
+                min.as_str(),
+                max.as_str()
+            )
+        }
+    } else {
+        eco_format!("{} requires at least {}", validator.as_str(), max.as_str())
     }
 }
 
@@ -186,9 +249,12 @@ impl Debug for PdfStandards {
 
 impl Default for PdfStandards {
     fn default() -> Self {
-        use krilla::configure::{Configuration, PdfVersion};
+        use krilla::configure::{ConfigurationBuilder, PdfVersion};
         Self {
-            config: Configuration::new_with_version(PdfVersion::Pdf17),
+            config: ConfigurationBuilder::new()
+                .with_version(PdfVersion::Pdf17)
+                .finish()
+                .unwrap(),
         }
     }
 }
@@ -198,7 +264,9 @@ impl Default for PdfStandards {
 impl Hash for PdfStandards {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self.config.version() as usize).hash(state);
-        (self.config.validator() as usize).hash(state);
+        for validator in self.config.validators() {
+            validator.hash(state);
+        }
     }
 }
 

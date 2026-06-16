@@ -91,11 +91,16 @@ bitflags! {
 }
 
 /// The parsed and evaluated test attributes specified in the test header.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
-    pub pdf_standard: Option<PdfStandard>,
+    pub pdf_standard: Vec<PdfStandard>,
+    /// Tolerance for image comparisons. Render tests are not 100% reproducible.
+    /// By default, we allow a byte difference of 1, but in rare cases, we need
+    /// to increase it. This can for example happen due to cross-platform
+    /// differences in float and SIMD handling.
+    pub tolerance: Option<u8>,
     /// The test stages that are either directly specified or are implied by a
     /// test attribute. If not specified otherwise by the `--stages` flag a
     /// reference output will be generated.
@@ -641,7 +646,7 @@ impl<'a> Parser<'a> {
                 path: self.path.clone(),
                 line: self.test_start_line,
             };
-            self.collector.seen.insert(name.clone(), (pos.clone(), attrs));
+            self.collector.seen.insert(name.clone(), (pos.clone(), attrs.clone()));
 
             while !self.s.done() && !self.s.at("---") {
                 self.s.eat_until(is_newline);
@@ -683,7 +688,9 @@ impl<'a> Parser<'a> {
     fn parse_attrs(&mut self) -> Attrs {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
-        let mut pdf_standard = None;
+        let mut pdf_standard = Vec::new();
+        let mut tolerance = None;
+
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -707,11 +714,27 @@ impl<'a> Parser<'a> {
                         self.error("expected parameter for `pdfstandard`");
                         continue;
                     };
-                    pdf_standard = serde_yaml::from_str(param)
-                        .inspect_err(|e| {
-                            self.error(format!("unknown pdf standard `{param}`: {e}"))
+                    pdf_standard = param
+                        .split(',')
+                        .map(str::trim)
+                        .filter_map(|s| {
+                            serde_yaml::from_str(s)
+                                .inspect_err(|e| {
+                                    self.error(format!("unknown pdf standard `{s}`: {e}"))
+                                })
+                                .ok()
                         })
-                        .ok();
+                        .collect();
+                }
+                "tolerance" => {
+                    let Some(param) = attr_params.take() else {
+                        self.error("expected parameter for `tolerance`");
+                        continue;
+                    };
+                    match param.parse::<u8>() {
+                        Ok(value) => tolerance = Some(value),
+                        _ => self.error("expected integer for `tolerance`"),
+                    }
                 }
                 "html" => self.set_attr(attr_name, &mut stages, TestStages::HTML),
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
@@ -753,6 +776,7 @@ impl<'a> Parser<'a> {
             empty: flags.contains(AttrFlags::EMPTY),
             pdf_standard,
             stages,
+            tolerance,
         }
     }
 

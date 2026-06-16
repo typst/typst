@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportPos, SourceResult};
+use crate::diag::{At, LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Str, Value, func, scope};
 use crate::loading::{DataSource, Load};
@@ -127,8 +127,8 @@ pub fn format_yaml_error(error: serde_yaml::Error) -> LoadError {
         .map(|loc| {
             let line_col = LineCol::one_based(loc.line(), loc.column());
             let range = loc.index()..loc.index();
-            ReportPos::full(range, line_col)
+            ReportTextPos::full(range, line_col)
         })
         .unwrap_or_default();
-    LoadError::new(pos, "failed to parse YAML", error)
+    LoadError::text(pos, "failed to parse YAML", error)
 }

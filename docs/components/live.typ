@@ -15,11 +15,11 @@
   short-or-long: short-or-long,
 )
 
-// Returns a dictionary with all live-loaded docs in the Rust file at the given
+// Returns a dictionary with all live-loaded data in the Rust file at the given
 // path.
 //
 // This is a separate function so that it's memoized per path.
-#let live-docs-at-path(path) = stdx.docs-in-source(read(path))
+#let live-item-data-at-path(path) = stdx.live-item-data(read(path))
 
 // Processes docs content for a doc comment in the Rust sources.
 //
@@ -40,12 +40,12 @@
     return eval(markup, scope: scope, mode: "markup")
   }
 
-  let live = live-docs-at-path(def-site.path)
+  let live = live-item-data-at-path(def-site.path)
   if def-site.key not in live {
     panic("def site was not found:", def-site)
   }
 
-  let (markup, ranges) = live.at(def-site.key)
+  let (_, markup, ranges) = live.at(def-site.key)
   stdx.eval-mapped(
     markup,
     def-site.path,
@@ -53,4 +53,17 @@
     mode: "markup",
     scope: scope,
   )
+}
+
+// Returns a GitHub permalink to the source of an item, including the commit and
+// line number.
+#let item-source-link(def-site) = {
+  let live = live-item-data-at-path(def-site.path)
+  if def-site.key not in live {
+    panic("def site was not found:", def-site)
+  }
+
+  let (line, _, _) = live.at(def-site.key)
+  let file = stdx.str-from-path(def-site.path)
+  "https://github.com/typst/typst/blob/" + stdx.commit + file + "#L" + str(line)
 }

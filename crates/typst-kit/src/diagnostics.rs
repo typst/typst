@@ -9,11 +9,10 @@ use std::ops::Range;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::files::Files;
 use codespan_reporting::term;
-use ecow::eco_format;
 use termcolor::{Color, ColorSpec, WriteColor};
 use typst_library::World;
 use typst_library::diag::{FileError, Severity, SourceDiagnostic, Tracepoint};
-use typst_syntax::{FileId, Lines, Source, Span, Spanned};
+use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Lines, Source, Spanned};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -63,7 +62,7 @@ pub fn emit<'a>(
                 .hints
                 .iter()
                 .filter(|s| s.span.is_detached())
-                .map(|s| (eco_format!("hint: {}", s.v)).into())
+                .map(|s| format!("hint: {}", s.v))
                 .collect(),
         )
         .with_labels(
@@ -155,14 +154,17 @@ struct WorldFiles<'a> {
 impl WorldFiles<'_> {
     /// Determine the byte range of a span, also remembering the source file
     /// for future line / column lookups.
-    fn range(&mut self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| {
-            let id = span.id()?;
-            let source = self.world.source(id).ok()?;
-            let range = source.range(span);
-            self.sources.entry(id).or_insert(source);
-            range
-        })
+    fn range(&mut self, span: impl Into<DiagSpan>) -> Option<Range<usize>> {
+        match span.into().get() {
+            DiagSpanKind::Detached => None,
+            DiagSpanKind::Number { id, num, sub_range } => {
+                let source = self.world.source(id).ok()?;
+                let range = source.range(num, sub_range);
+                self.sources.entry(id).or_insert(source);
+                range
+            }
+            DiagSpanKind::Range { id: _, range } => Some(range),
+        }
     }
 
     /// Lookup line metadata for a file by id. If a source file was remembered,

@@ -282,7 +282,14 @@ fn resolve_text<'a, 'v, 'e>(
     // Create item with correct styles and properties.
     let local_styles = ctx.store_chain(styles).chain(&*TEXT_BASE_LOCAL_STYLES);
     let mut create_item = |text: &str| {
-        let num = text.chars().all(|c| c.is_ascii_digit() || c == '.');
+        let mut decimal_count = 0;
+        let num = text.chars().all(|c| {
+            if c == '.' {
+                decimal_count += 1;
+            }
+            c.is_ascii_digit() || c == '.'
+        }) && decimal_count != text.len() // at least one digit
+            && decimal_count <= 1; // at most one dot
         let styled_text: EcoString = text
             .chars()
             .flat_map(|c| to_style(c, MathStyle::select(c, variant, bold, italic)))
@@ -341,8 +348,7 @@ fn resolve_symbol<'a, 'v, 'e>(
         let item = GlyphItem::create(text, styles, elem.span());
 
         if item.class() == MathClass::Large && item.size().unwrap() == MathSize::Display {
-            let target = Rel::new(Ratio::one(), Abs::zero());
-            let stretch = Stretch::new().with_y(StretchInfo::new(target, Em::zero()));
+            let stretch = Stretch::new().with_y(StretchInfo::default());
             item.replace_stretch(stretch);
         }
 
@@ -1130,7 +1136,7 @@ fn resolve_cells<'a, 'v, 'e>(
             if processed.had_linebreaks {
                 ctx.engine.sink.warn(warning!(
                    cell.span(),
-                   "linebreaks are ignored in {}", children;
+                   "linebreaks are ignored in {children}";
                    hint: "use commas instead to separate each line";
                 ));
             }
@@ -1187,8 +1193,6 @@ fn resolve_class<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    let styles =
-        ctx.chain_styles(styles, EquationElem::class.set(Some(elem.class)).wrap());
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
     item.set_class(elem.class);
     item.set_limits(Limits::for_class(elem.class));

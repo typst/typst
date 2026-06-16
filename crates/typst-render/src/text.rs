@@ -5,7 +5,7 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Axes, Point, Size};
 use typst_library::text::color::{glyph_frame, should_outline};
-use typst_library::text::{Font, TextItem};
+use typst_library::text::{FontInstance, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
@@ -27,7 +27,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
             let upem = text.font.units_per_em();
             let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(x_offset, -y_offset - text.size))
+                .pre_translate(Point::new(x_offset, -y_offset))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
             if let Some(frame) = glyph_frame(&text.font, glyph.id) {
@@ -104,7 +104,7 @@ fn render_outline_glyph(
     // Rasterize the glyph with `pixglyph`.
     #[comemo::memoize]
     fn rasterize(
-        font: &Font,
+        font: &FontInstance,
         id: GlyphId,
         x: u32,
         y: u32,
@@ -132,7 +132,7 @@ fn render_outline_glyph(
                 canvas,
                 &bitmap,
                 &state,
-                paint::to_sk_color_u8(*color).premultiply(),
+                paint::to_sk_color_u8(color.to_process()).premultiply(),
             )?;
         }
         Paint::Tiling(tiling) => {

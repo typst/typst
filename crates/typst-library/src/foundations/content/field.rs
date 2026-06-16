@@ -256,7 +256,7 @@ pub struct SettableFieldData<E: SettableField<I>, const I: u8> {
 
 impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
     /// Creates the data from its parts. This is called in the `#[elem]` macro.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         docs: &'static str,
@@ -483,7 +483,7 @@ where
 
     /// Retrieves the value given styles. The styles are used if the value is
     /// unset.
-    pub fn get<'a>(&'a self, styles: StyleChain<'a>) -> E::Type
+    pub fn get(&self, styles: StyleChain) -> E::Type
     where
         E::Type: Copy,
     {
@@ -492,7 +492,7 @@ where
 
     /// Retrieves and clones the value given styles. The styles are used if the
     /// value is unset or if it needs folding.
-    pub fn get_cloned<'a>(&'a self, styles: StyleChain<'a>) -> E::Type {
+    pub fn get_cloned(&self, styles: StyleChain) -> E::Type {
         if let Some(fold) = E::FOLD {
             let mut res = styles.get_cloned::<E, I>(Field::new());
             if let Some(value) = &self.0 {
@@ -520,7 +520,7 @@ where
     }
 
     /// Retrieves the value and then immediately [resolves](Resolve) it.
-    pub fn resolve<'a>(&'a self, styles: StyleChain<'a>) -> <E::Type as Resolve>::Output
+    pub fn resolve(&self, styles: StyleChain) -> <E::Type as Resolve>::Output
     where
         E::Type: Resolve,
     {

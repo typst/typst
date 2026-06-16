@@ -3,10 +3,8 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use icu_properties::CanonicalCombiningClass;
-use icu_properties::maps::CodePointMapData;
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_blob::BlobDataProvider;
+use icu_properties::CodePointMapDataBorrowed;
+use icu_properties::props::CanonicalCombiningClass;
 
 use crate::engine::Engine;
 use crate::foundations::{
@@ -203,20 +201,10 @@ impl Accent {
             return true;
         }
 
-        static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
-            LazyLock::new(|| {
-                icu_properties::maps::load_canonical_combining_class(
-                    &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
-                        .unwrap()
-                        .as_deserializing(),
-                )
-                .unwrap()
-            });
+        const COMBINING_CLASS_DATA: CodePointMapDataBorrowed<CanonicalCombiningClass> =
+            CodePointMapDataBorrowed::new();
 
-        matches!(
-            COMBINING_CLASS_DATA.as_borrowed().get(self.0),
-            CanonicalCombiningClass::Below
-        )
+        matches!(COMBINING_CLASS_DATA.get(self.0), CanonicalCombiningClass::Below)
     }
 }
 

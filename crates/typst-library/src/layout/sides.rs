@@ -1,7 +1,7 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Add;
 
-use typst_utils::Get;
+use typst_utils::{Get, Numeric};
 
 use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{
@@ -138,7 +138,9 @@ impl Sides<Rel<Abs>> {
             bottom: self.bottom.relative_to(size.y),
         }
     }
+}
 
+impl<T: Numeric> Sides<T> {
     /// Whether all sides are zero.
     pub fn is_zero(&self) -> bool {
         self.left.is_zero()

@@ -30,6 +30,7 @@ native-tls = { workspace = true, optional = true }
 notify = { workspace = true, optional = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
+percent-encoding = { workspace = true, optional = true }
 rustc-hash = { workspace = true }
 same-file = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -84,7 +85,7 @@ watcher = ["dep:notify", "dep:same-file"]
 timer = []
 
 # Enables live-reloading HTTP serving via `server::HttpServer`.
-http-server = ["dep:tiny_http", "dep:infer"]
+http-server = ["dep:tiny_http", "dep:infer", "dep:percent-encoding"]
 
 # Whether to vendor OpenSSL for the `system-downloader`. Not applicable to
 # Windows and macOS build.

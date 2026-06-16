@@ -1,10 +1,11 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use ecow::EcoString;
 use serde::{Deserialize, Serialize};
 
 use crate::foundations::{Cast, IntoValue, Repr, cast};
 use crate::layout::Ratio;
+use crate::text::AxisValue;
 
 /// Properties that distinguish a font from other fonts in the same family.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -49,10 +50,13 @@ impl FontStyle {
     /// The conceptual distance between the styles, expressed as a number.
     pub fn distance(self, other: Self) -> u16 {
         if self == other {
+            // Both are the same.
             0
         } else if self != Self::Normal && other != Self::Normal {
+            // One is italic and one is oblique. Better than if one were normal.
             1
         } else {
+            // One is normal and one is italic or oblique.
             2
         }
     }
@@ -69,7 +73,7 @@ impl From<usvg::FontStyle> for FontStyle {
 }
 
 /// The weight of a font.
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct FontWeight(pub(super) u16);
@@ -110,9 +114,19 @@ impl FontWeight {
         Self(weight.clamp(100, 900))
     }
 
+    /// Maps an OpenType `wght` font variation value to a weight.
+    pub fn from_wght(value: AxisValue) -> Self {
+        Self::from_number(value.0 as u16)
+    }
+
     /// The number between 100 and 900.
     pub fn to_number(self) -> u16 {
         self.0
+    }
+
+    /// Maps a weight to an OpenType `wght` font variation value.
+    pub fn to_wght(self) -> AxisValue {
+        AxisValue(self.to_number() as f32)
     }
 
     /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
@@ -132,7 +146,7 @@ impl Default for FontWeight {
     }
 }
 
-impl Debug for FontWeight {
+impl Display for FontWeight {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -235,9 +249,19 @@ impl FontStretch {
         }
     }
 
+    /// Maps an OpenType `wdth` font variation value to a stretch.
+    pub fn from_wdth(value: AxisValue) -> Self {
+        Self::from_ratio(Ratio::new(value.0 as f64 / 100.0))
+    }
+
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
     pub fn to_ratio(self) -> Ratio {
         Ratio::new(self.0 as f64 / 1000.0)
+    }
+
+    /// Maps an OpenType `wdth` font variation value to a stretch.
+    pub fn to_wdth(self) -> AxisValue {
+        AxisValue(self.to_ratio().get() as f32 * 100.0)
     }
 
     /// Round to one of the pre-defined variants.
@@ -270,6 +294,18 @@ impl Default for FontStretch {
 impl Repr for FontStretch {
     fn repr(&self) -> EcoString {
         self.to_ratio().repr()
+    }
+}
+
+impl Display for FontStretch {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let int_part = self.0 / 10;
+        let dec_part = self.0 % 10;
+        if dec_part == 0 {
+            write!(f, "{int_part}%")
+        } else {
+            write!(f, "{int_part}.{dec_part}%")
+        }
     }
 }
 
@@ -311,5 +347,17 @@ mod tests {
     #[test]
     fn test_font_stretch_debug() {
         assert_eq!(FontStretch::EXPANDED.repr(), "125%")
+    }
+
+    #[test]
+    fn text_font_stretch_fmt() {
+        assert_eq!(format!("{}", FontStretch(0)), "0%");
+        assert_eq!(format!("{}", FontStretch(1)), "0.1%");
+        assert_eq!(format!("{}", FontStretch(10)), "1%");
+        assert_eq!(format!("{}", FontStretch(100)), "10%");
+        assert_eq!(format!("{}", FontStretch(666)), "66.6%");
+        assert_eq!(format!("{}", FontStretch(1000)), "100%");
+        assert_eq!(format!("{}", FontStretch(1120)), "112%");
+        assert_eq!(format!("{}", FontStretch(u16::MAX)), "6553.5%");
     }
 }

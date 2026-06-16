@@ -282,3 +282,20 @@ world
 #context {
   set document(author: "Changed") if "Normal" in document.author
 }
+
+--- issue-8163-document-path-state bundle ---
+// Test that it's possible to use state/context for determining a document's
+// file path.
+#let c = counter("doc-name")
+#let counted-document(body) = {
+  context {
+    let i = c.get().first() + 1
+    document("doc-"  + str(i) + ".html")[
+      This is document #i with content #body
+    ]
+  }
+  c.step()
+}
+
+#counted-document[A]
+#counted-document[B]

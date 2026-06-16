@@ -1,11 +1,12 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, deprecation, folding-details, heading-offset, labelled, oneliner,
-  paged-heading-offset, short-or-long, small, title-case, to-func, with-tooltip,
+  classnames, deprecation, folding-details, heading-offset, html-heading-n,
+  labelled, oneliner, paged-heading-offset, short-or-long, small, use-icon,
+  title-case, to-func, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
-#import "live.typ": live-docs
+#import "live.typ": live-docs, item-source-link
 #import "pill.typ": ty-pill
 #import "reflect.typ": cast-strings, flat-types, std-path-of
 #import "search.typ": register-index-item
@@ -77,8 +78,21 @@
   }
 }
 
+// Displays parameter modifiers.
+#let modifier-list(..modifiers) = {
+  let modifiers = modifiers.pos()
+  context if target() == "paged" {
+    let gap = h(1em)
+    text(style: "italic", modifiers.map(small).join(gap))
+  } else {
+    modifiers.map(modifier => html.small(modifier, class: "mod")).join()
+  }
+}
+
 // Displays the contents of a parameter heading, including the pills, parameter
 // attributes (named / variadic / ...), and default value.
+//
+// When this is changed, `docs/content/reference/index.typ` needs to be updated
 #let param-headline(param, input-types) = {
   let pills = input-types.map(ty-pill)
   let modifiers = ()
@@ -123,7 +137,7 @@
     gap
     pills.join[ #small[or] ]
     gap
-    text(style: "italic", modifiers.map(small).join(gap))
+    modifier-list(..modifiers)
     if default != none {
       // The following four lines ensure that there the default has a minimum
       // distances to the modifiers, while being flush-right even if it is alone
@@ -137,7 +151,7 @@
   } else {
     html.div(class: "additional-info", {
       html.div(pills.join[ #small[or] ])
-      modifiers.map(small).join()
+      modifier-list(..modifiers)
     })
     if default != none {
       html.small(class: "default", default)
@@ -152,7 +166,7 @@
 
   {
     show heading: it => {
-      // The expression `figure.caption` is ambigious. It's both an element and
+      // The expression `figure.caption` is ambiguous. It's both an element and
       // a contextual parameter access. This is really a language-level problem
       // but reflects in linking ambiguity in the docs. To avoid a linking
       // error, we simply prefer the element always.
@@ -233,7 +247,24 @@
   }
 }
 
+// Displays a link to the sources for an item.
+//
+// Requires context.
+#let sources-link(info) = {
+  if target() == "html" and info.def-site != none {
+    let url = item-source-link(info.def-site)
+    html.a(
+      href: url,
+      class: "sources-link",
+      use-icon(16, "code", "Go to source"),
+    )
+  }
+}
+
 // Displays additional details about a function.
+//
+// When the labels are changed here, `docs/content/reference/index.typ` needs to
+// change, too.
 #let func-subtitle(info, deprecation-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if info.element {
@@ -252,6 +283,13 @@
   }
   gap
   deprecation(deprecation-info)
+  sources-link(info)
+}
+
+// Displays additional details about a type.
+#let ty-subtitle(ty-info, deprecation-info) = context {
+  deprecation(deprecation-info)
+  sources-link(ty-info)
 }
 
 // Renders documentation for a function as part of a large documentation
@@ -280,9 +318,10 @@
       if target() == "paged" {
         it
       } else {
-        html.h3(
+        html-heading-n(
+          it.level + 1,
           class: classnames(
-            "scoped-function",
+            "scoped-definition",
             deprecated: deprecation-info != none,
           ),
           it.body,
@@ -323,17 +362,18 @@
     muted: muted,
   ))
 
-  definitions-section(
+  heading-offset(2, definitions-section(
     info.name,
     info.scope,
     base-label: label(str(base-label) + "-definitions"),
-  )
+  ))
 }
 
 // Documents the constructor of a type.
-#let constructor-section(func) = {
+#let constructor-section(func, path: none) = {
   let info = stdx.describe(func)
   let base-label = <constructor>
+  let path = if path != none { path } else { (info.name,) }
 
   let title = short-or-long(
     [Constructor],
@@ -358,11 +398,70 @@
 
   params-section(
     func,
-    (info.name,),
+    path,
     info.params,
     info.returns,
     base-label,
+    indent: true,
   )
+}
+
+// Renders documentation for a type as part of a large documentation section.
+#let ty-member(
+  ty,
+  base-label: none,
+  deprecation-info: none,
+  definitions-section: none,
+) = {
+  let info = stdx.describe(ty)
+  let base-label = label(str(base-label) + "-" + info.short-name)
+
+  {
+    show heading: it => {
+      register-def(ty, it.location())
+      register-index-item(
+        kind: "Type",
+        title: info.title,
+        dest: it.location(),
+        keywords: info.keywords,
+      )
+      if target() == "paged" {
+        it
+      } else {
+        html-heading-n(
+          it.level + 1,
+          class: classnames(
+            "scoped-definition",
+            deprecated: deprecation-info != none,
+          ),
+          it.body
+        )
+      }
+    }
+    let title = short-or-long(
+      info.title,
+      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, deprecation-info),
+    )
+    labelled(heading(depth: 2, title), base-label)
+  }
+
+  {
+    show raw.where(lang: "example"): example.with(folding: true, open: true)
+    prose-styling(live-docs(info.docs, info.def-site), base-target: ty)
+  }
+
+  if info.constructor != none {
+    heading-offset(2, constructor-section(
+      info.constructor,
+      path: std-path-of(ty).split("."),
+    ))
+  }
+
+  heading-offset(2, definitions-section(
+    info.short-name,
+    info.scope,
+    base-label: label(str(base-label) + "-definitions"),
+  ))
 }
 
 // Renders a section that documents definitions on a type or function.
@@ -392,6 +491,13 @@
         deprecation-info: stdx.binding(mod, name).deprecation,
         definitions-section: definitions-section,
       )
+    } else if type(value) == type {
+      ty-member(
+        value,
+        base-label: base-label,
+        deprecation-info: stdx.binding(mod, name).deprecation,
+        definitions-section: definitions-section,
+      )
     }
   }
 }
@@ -400,6 +506,7 @@
 // function to the other and here we're redefining the first function so that
 // it automatically gets the second one.
 #let func-member = func-member.with(definitions-section: definitions-section)
+#let ty-member = ty-member.with(definitions-section: definitions-section)
 
 // Heading styling shared by function and type docs.
 #let func-or-ty-section(..args) = {
@@ -448,7 +555,7 @@
     route: base-route + "/" + name,
     title: ty-info.title,
     title-fmt: ty-pill(ty, linked: false),
-    subtitle: deprecation(deprecation-info),
+    subtitle: ty-subtitle(ty-info, deprecation-info),
     has-summary: true,
     kind: "Type",
     keywords: ty-info.keywords,

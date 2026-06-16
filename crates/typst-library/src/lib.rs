@@ -29,7 +29,7 @@ pub mod visualize;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
-use typst_syntax::{FileId, Source, Span};
+use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
@@ -140,12 +140,18 @@ pub trait WorldExt {
     /// Get the byte range for a span.
     ///
     /// Returns `None` if the `Span` does not point into any file.
-    fn range(&self, span: Span) -> Option<Range<usize>>;
+    fn range(&self, span: impl Into<DiagSpan>) -> Option<Range<usize>>;
 }
 
 impl<T: World + ?Sized> WorldExt for T {
-    fn range(&self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
+    fn range(&self, span: impl Into<DiagSpan>) -> Option<Range<usize>> {
+        match span.into().get() {
+            DiagSpanKind::Detached => None,
+            DiagSpanKind::Number { id, num, sub_range } => {
+                self.source(id).ok()?.range(num, sub_range)
+            }
+            DiagSpanKind::Range { id: _, range } => Some(range),
+        }
     }
 }
 

@@ -77,7 +77,7 @@ impl Eval for ast::Expr<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
-            error!(span, "{} is only allowed directly in code and content blocks", name)
+            error!(span, "{name} is only allowed directly in code and content blocks")
         };
 
         let value = match self {
@@ -261,8 +261,7 @@ impl Eval for ast::Array<'_> {
                             ),
                         )) =>
                     {
-                        let fixed =
-                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        let fixed = self.to_untyped().full_text().replacen("(", "(: ", 1);
                         bail!(
                             spread.span(), "cannot spread {} into array", v.ty();
                             hint: "add a colon to create a dictionary instead: `{fixed}`";

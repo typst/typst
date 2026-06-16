@@ -51,9 +51,10 @@ use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
 use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
+use crate::util::ValidatorsExt;
 
 pub struct TreeBuilder<'a> {
-    options: &'a PdfOptions<'a>,
+    options: &'a PdfOptions,
 
     /// Each [`FrameItem::Tag`] and each [`FrameItem::Group`] with a parent
     /// will append a progression to this tree. This list of progressions is
@@ -201,8 +202,10 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             .expect_internal("parent group")
             .at(Span::detached())?;
 
-        if options.is_pdf_ua() && located.multiple_parents {
-            let validator = options.standards.config.validator().as_str();
+        if let Some(a11y) = options.standards.config.validators().accessibility()
+            && located.multiple_parents
+        {
+            let validator = a11y.as_str();
             let group = tree.groups.get(located.id);
             bail!(
                 group.span,
@@ -260,8 +263,9 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 
 /// Handle children frames logically belonging to another element, because
 /// [typst_library::layout::GroupItem::parent] has been set. All elements that
-/// can have children set by this mechanism must be handled in [`handle_start`]
-/// and must produce a located [`Group`], so the children can be inserted there.
+/// can have children set by this mechanism must be handled in
+/// [`crate::tags::handle_start`] and must produce a located
+/// [`crate::tags::groups::Group`], so the children can be inserted there.
 ///
 /// Currently the frame parent is only set for:
 /// - place elements [`PlaceElem`]
@@ -339,7 +343,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let kind = artifact.kind.val();
         push_artifact(tree, elem, kind.to_krilla())
     } else if let Some(_) = elem.to_packed::<RepeatElem>() {
-        push_artifact(tree, elem, ArtifactType::Other)
+        push_artifact(tree, elem, ArtifactType::Layout)
 
     // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
@@ -420,7 +424,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         // semantic meaning in the tag tree, which doesn't use page breaks for
         // it's semantic structure.
         let kind = if cell.is_repeated.val() {
-            GroupKind::Artifact(ArtifactType::Other)
+            GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
             let tag = tree.groups.tags.push(Tag::TD);
             GroupKind::TableCell(cell.clone(), tag, None)
@@ -443,7 +447,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             // times. Mark duplicate headers as artifacts, since they have no
             // semantic meaning in the tag tree, which doesn't use page breaks
             // for it's semantic structure.
-            GroupKind::Artifact(ArtifactType::Other)
+            GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
             GroupKind::GridCell(cell.clone(), None)
         };
@@ -451,14 +455,16 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let title = heading.body.plain_text().to_string();
-        if title.is_empty() && tree.options.is_pdf_ua() {
+        if title.is_empty()
+            && let Some(accessibility) = tree.options.accessibility_validator()
+        {
             let contains_context = heading.body.traverse(&mut |c| {
                 if c.is::<ContextElem>() {
                     return ControlFlow::Break(());
                 }
                 ControlFlow::Continue(())
             });
-            let validator = tree.options.standards.config.validator().as_str();
+            let validator = accessibility.as_str();
             tree.errors.push(if contains_context.is_break() {
                 error!(
                     heading.span(),
@@ -600,7 +606,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok, and how to do it.
-    let is_pdf_ua = tree.options.is_pdf_ua();
+    let is_pdf_ua = tree.options.accessibility_validator().is_some();
     let mut inner_break_priority = Some(BreakPriority::MAX);
     let mut inner_non_breakable_span = Span::detached();
     let mut inner_non_breakable_in_pdf_ua = false;
@@ -638,17 +644,14 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         (Some(_), None) => Ok(split_outer_group(tree, outer.parent, stack_idx)),
         (None, Some(_)) => Ok(split_inner_groups(tree, outer.parent, stack_idx)),
         (None, None) => {
-            let non_breakable_span = if inner_non_breakable_span.is_detached() {
-                outer.span
-            } else {
-                inner_non_breakable_span
-            };
+            let non_breakable_span = inner_non_breakable_span.or(outer.span);
 
             let non_breakable_in_pdf_ua = inner_non_breakable_in_pdf_ua
                 || matches!(outer_break_opportunity, BreakOpportunity::NoPdfUa(_));
 
             if non_breakable_in_pdf_ua {
-                let validator = tree.options.standards.config.validator().as_str();
+                let validator =
+                    tree.options.standards.config.validators().to_comma_list();
                 bail!(
                     non_breakable_span,
                     "{validator} error: invalid document structure, \

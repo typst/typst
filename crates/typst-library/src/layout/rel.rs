@@ -31,16 +31,22 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// #rect(width: 25% + 1cm)
 /// ```
 ///
+/// For contents in the page @page.background[`background`] and
+/// @page.foreground[`foreground`], relative lengths are resolved against the
+/// page size including @page.bleed[`bleed`]. This choice is made for
+/// convenience, as creating a proper bleed-aware background inherently requires
+/// extending it into the bleed area.
+///
 /// If you're trying to size an element so that it takes up the page's _full_
 /// width, you have a few options (this highly depends on your exact use case):
 ///
 /// + Set page margins to `{0pt}` (`[#set page(margin: 0pt)]`)
 /// + Multiply the ratio by the known full page width (`{21cm * 69%}`)
 /// + Use padding which will negate the margins (`[#pad(x: -2.5cm, ...)]`)
-/// + Use the page @page.background[background] or @page.foreground[foreground]
-///   field as those don't take margins into account (note that it will render
-///   the content outside of the document flow, see @place[place] to control the
-///   content position)
+/// + Use the page @page.background[`background`] or
+///   @page.foreground[`foreground`] field as those don't take margins into
+///   account (note that it will render the content outside of the document
+///   flow, see @place to control the content position)
 ///
 /// = Relative to a container <relative-to-a-container>
 /// When a layout element (e.g. a @rect[rect]) is nested in another layout
@@ -143,6 +149,20 @@ impl<T: NumericLength + Debug> Debug for Rel<T> {
 impl<T: NumericLength + Repr> Repr for Rel<T> {
     fn repr(&self) -> EcoString {
         eco_format!("{} + {}", self.rel.repr(), self.abs.repr())
+    }
+}
+
+impl<T: NumericLength> Numeric for Rel<T> {
+    fn zero() -> Self {
+        Self::zero()
+    }
+
+    fn is_zero(self) -> bool {
+        self.rel.is_zero() && self.abs.is_zero()
+    }
+
+    fn is_finite(self) -> bool {
+        self.rel.is_finite() && self.abs.is_finite()
     }
 }
 

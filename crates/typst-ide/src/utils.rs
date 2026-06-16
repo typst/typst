@@ -1,14 +1,19 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 use std::ops::ControlFlow;
 
 use comemo::Track;
-use ecow::{EcoString, eco_format};
+use ecow::EcoString;
+use indexmap::IndexMap;
 use typst::engine::{Engine, Route, Sink, Traced};
 use typst::foundations::{Scope, Value};
 use typst::introspection::EmptyIntrospector;
 use typst::syntax::{LinkedNode, SyntaxMode};
-use typst::text::{FontInfo, FontStyle};
+use typst::text::{
+    AxisValue, FontAxis, FontFlags, FontInfo, FontStretch, FontStyle, FontWeight,
+    StandardAxes,
+};
 use typst::utils::Protected;
+use typst_utils::Scalar;
 
 use crate::IdeWorld;
 
@@ -33,33 +38,137 @@ where
 }
 
 /// Create a short description of a font family.
-pub fn summarize_font_family(mut variants: Vec<&FontInfo>) -> EcoString {
-    variants.sort_by_key(|info| info.variant);
+pub fn summarize_font_family<'a>(
+    variants: impl IntoIterator<Item = &'a FontInfo>,
+) -> EcoString {
+    use typst::text::Tag;
 
-    let mut has_italic = false;
-    let mut min_weight = u16::MAX;
-    let mut max_weight = 0;
-    for info in &variants {
-        let weight = info.variant.weight.to_number();
-        has_italic |= info.variant.style == FontStyle::Italic;
-        min_weight = min_weight.min(weight);
-        max_weight = min_weight.max(weight);
+    let mut count = 0;
+    let mut variable = false;
+    let mut has_italics = false;
+    let mut has_obliques = false;
+    let mut supports_opsz = false;
+    let mut weight_range = MetricRange::default();
+    let mut stretch_range = MetricRange::default();
+    let mut variations = IndexMap::<Tag, MetricRange<Scalar>>::new();
+
+    for info in variants {
+        let axes = StandardAxes::parse(&info.axes);
+
+        variable |= info.flags.contains(FontFlags::VARIABLE);
+        has_italics |= info.variant.style == FontStyle::Italic || axes.ital.is_some();
+        has_obliques |= info.variant.style == FontStyle::Oblique || axes.slnt.is_some();
+        supports_opsz |= axes.opsz.is_some();
+
+        weight_range.expand(info.variant.weight);
+        stretch_range.expand(info.variant.stretch);
+
+        if let Some(axis) = axes.wght {
+            weight_range.expand_axis(axis, FontWeight::from_wght);
+        }
+
+        if let Some(axis) = axes.wdth {
+            stretch_range.expand_axis(axis, FontStretch::from_wdth);
+        }
+
+        for axis in &info.axes {
+            if !StandardAxes::knows(axis.tag) {
+                variations
+                    .entry(axis.tag)
+                    .or_default()
+                    .expand_axis(axis, |v| Scalar::new(v.0.into()));
+            }
+        }
+
+        count += 1;
     }
 
-    let count = variants.len();
-    let mut detail = eco_format!("{count} variant{}.", if count == 1 { "" } else { "s" });
+    let mut detail = EcoString::new();
 
-    if min_weight == max_weight {
-        write!(detail, " Weight {min_weight}.").unwrap();
+    if variable {
+        write!(detail, "Variable.").unwrap();
     } else {
-        write!(detail, " Weights {min_weight}–{max_weight}.").unwrap();
+        write!(detail, "{count} variant{}.", if count == 1 { "" } else { "s" }).unwrap();
     }
 
-    if has_italic {
+    if let Some(range) = weight_range.display_if_not_default() {
+        write!(detail, " Weight {range}.").unwrap();
+    }
+
+    if let Some(range) = stretch_range.display_if_not_default() {
+        write!(detail, " Stretch {range}.").unwrap();
+    }
+
+    if has_italics {
         detail.push_str(" Has italics.");
     }
 
+    if has_obliques {
+        detail.push_str(" Has obliques.");
+    }
+
+    if supports_opsz {
+        detail.push_str(" Supports optical sizing.");
+    }
+
+    for (tag, range) in variations {
+        if let Some(range) = range.display() {
+            write!(detail, " {} {range}.", tag.to_str_lossy()).unwrap();
+        }
+    }
+
     detail
+}
+
+/// A font metric with a minimum and maximum value. Internally tracks an
+/// uninitialized state.
+struct MetricRange<T>(Option<(T, T)>);
+
+impl<T> MetricRange<T>
+where
+    T: Display + Copy + Ord,
+{
+    /// Makes sure the range includes the value.
+    fn expand(&mut self, value: T) {
+        self.expand_range(value, value);
+    }
+
+    /// Makes sure the range includes all values from the given variation axis.
+    fn expand_axis(&mut self, axis: &FontAxis, f: impl Fn(AxisValue) -> T) {
+        self.expand_range(f(axis.min), f(axis.max));
+    }
+
+    /// Makes sure the range includes the minimum and maximum value.
+    fn expand_range(&mut self, min: T, max: T) {
+        self.0 = Some(match self.0 {
+            None => (min, max),
+            Some((prev_min, prev_max)) => (prev_min.min(min), prev_max.max(max)),
+        });
+    }
+
+    /// Displays the range if initialized and not the default for that metric.
+    fn display(self) -> Option<impl Display> {
+        self.0.map(|(min, max)| {
+            typst_utils::display(move |f| {
+                if min == max { write!(f, "{min}") } else { write!(f, "{min}–{max}") }
+            })
+        })
+    }
+
+    /// Displays the range if initialized and not the default for that metric.
+    fn display_if_not_default(self) -> Option<impl Display>
+    where
+        T: Default,
+    {
+        let default = T::default();
+        Self(self.0.filter(|&(min, max)| min != default || max != default)).display()
+    }
+}
+
+impl<T> Default for MetricRange<T> {
+    fn default() -> Self {
+        Self(None)
+    }
 }
 
 /// The global definitions at the given node.
@@ -132,5 +241,47 @@ where
             self.find(item)?;
         }
         ControlFlow::Continue(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use typst::text::{FontBook, FontInfo};
+
+    use super::*;
+
+    #[test]
+    fn test_summarize_font_family() {
+        let book = FontBook::from_infos(
+            typst_dev_assets::fonts().filter_map(|data| FontInfo::new(data, 0)),
+        );
+
+        let summarize = |family: &str| {
+            summarize_font_family(
+                book.select_family(&family.to_lowercase())
+                    .map(|id| book.info(id).unwrap()),
+            )
+        };
+
+        // Static.
+        assert_eq!(summarize("Cascadia Mono"), "2 variants. Weight 400–700.");
+        assert_eq!(summarize("HK Grotesk"), "16 variants. Weight 100–900. Has italics.");
+        assert_eq!(
+            summarize("IBM Plex Sans"),
+            "5 variants. Weight 300–700. Stretch 75%–100%."
+        );
+
+        // Variable.
+        assert_eq!(summarize("Cantarell"), "Variable. Weight 100–800.");
+        assert_eq!(
+            summarize("Fraunces"),
+            "Variable. Weight 100–900. Has italics. \
+             Supports optical sizing. SOFT 0–100. WONK 0–1."
+        );
+        assert_eq!(
+            summarize("Mona Sans"),
+            "Variable. Weight 200–900. Stretch 75%–125%. Has italics. \
+             Supports optical sizing."
+        );
     }
 }

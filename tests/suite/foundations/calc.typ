@@ -10,8 +10,8 @@
 
 --- calc-round-large-inputs eval ---
 #test(calc.round(31114, digits: 4000000000), 31114)
-#test(calc.round(9223372036854775807, digits: 12), 9223372036854775807)
-#test(calc.round(9223372036854775807, digits: -20), 0)
+#test(calc.round(int.max, digits: 12), int.max)
+#test(calc.round(int.max, digits: -20), 0)
 #test(calc.round(238959235.129590203, digits: 4000000000), 238959235.129590203)
 #test(calc.round(1.7976931348623157e+308, digits: 12), 1.7976931348623157e+308)
 #test(calc.round(1.7976931348623157e+308, digits: -308), float.inf)
@@ -38,6 +38,10 @@
 // Error: 11-22 expected integer, float, length, angle, ratio, fraction, or decimal, found string
 #calc.abs("no number")
 
+--- calc-abs-too-large eval ---
+// Error: 11-18 the result is too large
+#calc.abs(int.min)
+
 --- calc-even-and-odd eval ---
 // Test the `even` and `odd` functions.
 #test(calc.even(2), true)
@@ -61,8 +65,8 @@
 #test(calc.rem(decimal("-7"), decimal("-3")), decimal("-1"))
 
 // Ensure `i64::MIN % -1` will not overflow and panic.
-#test(calc.rem(int("-9223372036854775808"), -1), 0)
-#test(calc.rem(float("-9223372036854775808"), -1.0), 0.0)
+#test(calc.rem(int.min, -1), 0)
+#test(calc.rem(float(int.min), -1.0), 0.0)
 
 --- calc-rem-divisor-zero-1 eval ---
 // Error: 14-15 divisor must not be zero
@@ -102,8 +106,8 @@
 #calc.div-euclid(decimal("3.00"), decimal("0.00"))
 
 --- calc-div-euclid-too-large eval ---
-// Error: 2-50 the result is too large
-#calc.div-euclid(int("-9223372036854775808"), -1)
+// Error: 2-30 the result is too large
+#calc.div-euclid(int.min, -1)
 
 --- calc-rem-euclid eval ---
 // Test the `rem-euclid` function.
@@ -119,8 +123,8 @@
 #test(calc.rem-euclid(decimal("2.5"), decimal("2")), decimal("0.5"))
 
 // Ensure `i64::MIN % -1` will not overflow and panic.
-#test(calc.rem-euclid(int("-9223372036854775808"), -1), 0)
-#test(calc.rem-euclid(float("-9223372036854775808"), -1.0), 0.0)
+#test(calc.rem-euclid(int.min, -1), 0)
+#test(calc.rem-euclid(float(int.min), -1.0), 0.0)
 
 --- calc-rem-euclid-divisor-zero-1 eval ---
 // Error: 21-22 divisor must not be zero
@@ -163,8 +167,8 @@
 #calc.quo(decimal("4.0"), decimal("0.0"))
 
 --- calc-quo-too-large eval ---
-// Error: 2-43 the result is too large
-#calc.quo(int("-9223372036854775808"), -1)
+// Error: 2-23 the result is too large
+#calc.quo(int.min, -1)
 
 --- calc-min-and-max eval ---
 // Test the `min` and `max` functions.
@@ -328,8 +332,12 @@
 #test(calc.gcd(7, 0), 7)
 
 --- calc-gcd-too-large eval ---
-// Error: 2-43 the result is too large
-#calc.gcd(int("-9223372036854775808"), -1)
+// Error: 2-23 the result is too large
+#calc.gcd(int.min, -1)
+
+--- calc-gcd-min-int eval ---
+// Error: 2-22 the result is too large
+#calc.gcd(int.min, 0)
 
 --- calc-lcm eval ---
 // Test the `lcm` function.
@@ -344,6 +352,10 @@
 --- calc-lcm-too-large eval ---
 // Error: 2-41 the result is too large
 #calc.lcm(15486487489457, 4874879896543)
+
+--- calc-lcm-min-int eval ---
+// Error: 2-22 the result is too large
+#calc.lcm(int.min, 1)
 
 --- calc-round-larger-than-max-int eval ---
 #test(calc.round(decimal("9223372036854775809.5")), decimal("9223372036854775810"))
@@ -370,12 +382,12 @@
 #calc.floor(decimal("-9223372036854775809.5"))
 
 --- calc-round-int-too-large eval ---
-// Error: 2-45 the result is too large
-#calc.round(9223372036854775807, digits: -1)
+// Error: 2-33 the result is too large
+#calc.round(int.max, digits: -1)
 
 --- calc-round-int-negative-too-large eval ---
-// Error: 2-46 the result is too large
-#calc.round(-9223372036854775807, digits: -1)
+// Error: 2-34 the result is too large
+#calc.round(-int.max, digits: -1)
 
 --- calc-round-decimal-too-large eval ---
 // Error: 2-66 the result is too large
@@ -409,6 +421,9 @@
 #test(calc.norm(), 0.0)
 #test(calc.norm(p: 3, 1, -2), calc.pow(9, 1/3))
 #test(calc.norm(p: calc.inf, 1, -2), 2.0)
+#test(calc.norm(p: 309, 10), 10)
+#test(calc.norm(p: 2, 0), 0)
+#test(calc.norm(p: 100, 1210), 1210)
 
 --- calc-norm-negative-p eval ---
 // Error: 15-17 p must be greater than zero

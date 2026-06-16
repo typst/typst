@@ -342,6 +342,13 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
+        ///
+        /// ```example
+        /// #let values = (1, 7, 4, 6, 9)
+        /// #values.position(x => calc.even(x)) \
+        /// // Or equivalently:
+        /// #values.position(calc.even)
+        /// ```
         searcher: Func,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
@@ -380,9 +387,20 @@ impl Array {
         #[external]
         #[default]
         start: i64,
-        /// The end of the range (exclusive).
+        /// The end of the range.
         #[external]
         end: i64,
+        /// Whether `end` is inclusive.
+        ///
+        /// ```example
+        /// #range(0, inclusive: true) \
+        /// #range(7, 10, inclusive: true) \
+        /// #range(-8, -4, inclusive: true) \
+        /// #range(-6, step: -2, inclusive: true)
+        /// ```
+        #[named]
+        #[default(false)]
+        inclusive: bool,
         /// The distance between the generated numbers.
         #[named]
         #[default(NonZeroI64::new(1).unwrap())]
@@ -395,13 +413,30 @@ impl Array {
         };
 
         let step = step.get();
+        let step_dir = 0.cmp(&step);
 
         let mut x = start;
         let mut array = Self::new();
 
-        while x.cmp(&end) == 0.cmp(&step) {
+        let in_bounds = |x: i64| {
+            if inclusive {
+                // `x` must not exceed `end`.
+                x.cmp(&end) != step_dir.reverse()
+            } else {
+                // `x` must stay strictly before `end`.
+                x.cmp(&end) == step_dir
+            }
+        };
+
+        while in_bounds(x) {
             array.push(x.into_value());
-            x += step;
+
+            if let Some(next) = x.checked_add(step) {
+                x = next;
+            } else {
+                // `end` must have been exceeded this iteration, so we yield.
+                break;
+            }
         }
 
         Ok(array)
@@ -932,7 +967,9 @@ impl Array {
                     // Because we use booleans for the comparison function, in
                     // order to keep the sort stable, we need to compare in the
                     // right order.
-                    if i < j {
+                    if i == j {
+                        Ordering::Equal
+                    } else if i < j {
                         // If `x` and `y` appear in this order in the original
                         // array, then we should change their order (i.e.,
                         // return `Ordering::Greater`) iff `y` is strictly less
@@ -1083,7 +1120,7 @@ impl Array {
             .map(|value| {
                 let value_ty = value.ty();
                 let pair = value.cast::<Array>().map_err(|_| {
-                    eco_format!("expected (str, any) pairs, found {}", value_ty)
+                    eco_format!("expected (str, any) pairs, found {value_ty}")
                 })?;
                 if let [key, value] = pair.as_slice() {
                     let key = key.clone().cast::<Str>().map_err(|_| {

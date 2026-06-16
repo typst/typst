@@ -5,7 +5,7 @@ use typst_library::layout::{
     Abs, Angle, Axes, Frame, Point, Quadrant, Ratio, Size, Transform,
 };
 use typst_library::visualize::{
-    Color, FillRule, Gradient, GradientStop, Paint, RatioOrAngle, Tiling,
+    Color, FillRule, Gradient, GradientStop, Paint, ProcessColor, RatioOrAngle, Tiling,
 };
 use xmlwriter::XmlWriter;
 
@@ -86,15 +86,17 @@ impl SVGRenderer<'_> {
 
     pub(super) fn push_tiling(&mut self, tiling: &Tiling, ts: Transform) -> DedupId {
         let tiling_size = tiling.size() + tiling.spacing();
+        let tiling_offset = tiling.offset();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
         let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        // Use the rendered SVG and the tiling size as a key, since the `Tiling`
+        // Use the rendered SVG and the tiling's size and offset as a key, since the `Tiling`
         // itself includes `Location`s which aren't stable.
-        let tiling_id =
-            self.tilings.insert_with((tiling_size, rendered), || tiling.clone());
+        let tiling_id = self
+            .tilings
+            .insert_with((tiling_size, tiling_offset, rendered), || tiling.clone());
 
         if ts.is_identity() {
             return tiling_id;
@@ -234,24 +236,30 @@ impl SVGRenderer<'_> {
                 }
             };
 
-            for window in gradient.stops_ref().windows(2) {
-                let (start_c, start_t) = window[0];
-                let (end_c, end_t) = window[1];
+            // Unwraps of to_space with this and the stops are safe since the
+            // stops have been checked before to be compatible with the
+            // gradient.
+            let gradient_space = gradient.space();
 
-                svg.elem("stop")
-                    .attr("offset", start_t.repr())
-                    .attr("stop-color", start_c.to_space(gradient.space()).to_hex());
+            for window in gradient.stops_ref().windows(2) {
+                let (start_c, start_t) = &window[0];
+                let (end_c, end_t) = &window[1];
+
+                svg.elem("stop").attr("offset", start_t.repr()).attr(
+                    "stop-color",
+                    start_c.to_space(&gradient_space).unwrap().to_hex(),
+                );
 
                 // Generate intermediate stops between the two stops.
                 // This is a workaround for a bug in many readers:
                 // They tend to just ignore the color space of the gradient.
                 if end_t > start_t && gradient.anti_alias() {
-                    let start = GradientStop::new(start_c, start_t);
-                    let end = GradientStop::new(end_c, end_t);
+                    let start = GradientStop::new(start_c.clone(), *start_t);
+                    let end = GradientStop::new(end_c.clone(), *end_t);
                     gradient
-                        .generate_intermediate_stops_for_rgb_interpolation(start, end)
+                        .generate_intermediate_stops_for_rgb_interpolation(&start, &end)
                         .for_each(|(c, t)| {
-                            let c = c.to_space(gradient.space());
+                            let c = c.to_space(&gradient.space()).unwrap();
                             svg.elem("stop")
                                 .attr("offset", t.repr())
                                 .attr("stop-color", c.to_hex());
@@ -260,9 +268,10 @@ impl SVGRenderer<'_> {
             }
 
             if let Some((last_c, last_t)) = gradient.stops_ref().last() {
-                svg.elem("stop")
-                    .attr("offset", last_t.repr())
-                    .attr("stop-color", last_c.to_space(gradient.space()).to_hex());
+                svg.elem("stop").attr("offset", last_t.repr()).attr(
+                    "stop-color",
+                    last_c.to_space(&gradient.space()).unwrap().to_hex(),
+                );
             }
         }
     }
@@ -336,6 +345,8 @@ impl SVGRenderer<'_> {
                 .attr("id", id)
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
+                .attr("x", tiling.offset().x.to_pt())
+                .attr("y", tiling.offset().y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])
@@ -432,14 +443,14 @@ impl From<&Gradient> for GradientKind {
 
 impl SvgDisplay for Color {
     fn fmt(&self, f: &mut impl SvgWrite) {
-        match *self {
-            c @ Color::Rgb(_)
-            | c @ Color::Luma(_)
-            | c @ Color::Cmyk(_)
-            | c @ Color::Hsv(_) => {
+        match self.to_process() {
+            c @ ProcessColor::Rgb(_)
+            | c @ ProcessColor::Luma(_)
+            | c @ ProcessColor::Cmyk(_)
+            | c @ ProcessColor::Hsv(_) => {
                 f.push_str(&c.to_hex());
             }
-            Color::LinearRgb(rgb) => {
+            ProcessColor::LinearRgb(rgb) => {
                 f.push_str("color(srgb-linear ");
                 f.push_nums([rgb.red, rgb.green, rgb.blue].map(round::<5>));
                 if rgb.alpha != 1.0 {
@@ -448,7 +459,7 @@ impl SvgDisplay for Color {
                 }
                 f.push_str(")");
             }
-            Color::Oklab(oklab) => {
+            ProcessColor::Oklab(oklab) => {
                 f.push_str("oklab(");
                 f.push_num(round::<3>(100.0 * oklab.l));
                 f.push_str("% ");
@@ -459,7 +470,7 @@ impl SvgDisplay for Color {
                 }
                 f.push_str(")");
             }
-            Color::Oklch(oklch) => {
+            ProcessColor::Oklch(oklch) => {
                 f.push_str("oklch(");
                 f.push_num(round::<3>(100.0 * oklch.l));
                 f.push_str("% ");
@@ -472,7 +483,7 @@ impl SvgDisplay for Color {
                 }
                 f.push_str(")");
             }
-            Color::Hsl(hsl) => {
+            ProcessColor::Hsl(hsl) => {
                 if hsl.alpha != 1.0 {
                     f.push_str("hsla(");
                 } else {

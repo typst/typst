@@ -7,7 +7,7 @@
 // - `nav-prev-next`: The navigation buttons on the bottom
 
 #import "base.typ": (
-  icon, inline-style, labelled, search-box, with-short-versions,
+  icon, inline-style, insertion, labelled, search-box, with-short-versions,
 )
 
 // Registers a section (not a page!) in the nav.
@@ -78,6 +78,7 @@
     <metadata-nav-separation>,
   )).map(meta => meta.value)
   nav-items(items, current, true)
+  insertion("after-nav-items")
 })
 
 // Maps from page routes to their titles.

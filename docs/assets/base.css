@@ -153,6 +153,7 @@ The `url()` routes are replaced to include the docs base paths.
   --action-secondary-hover: rgba(228, 229, 234, 1);
   --brand: #239dad;
   --text-primary: rgba(25, 24, 31, 1);
+  --text-disabled: rgba(25, 24, 31, 0.5);
   --text-c-comment: #74747c;
   --text-c-monospace: #6b6b6f;
   --text-c-math-delim: #198810;
@@ -226,7 +227,9 @@ body > * {
 
 h2,
 h3,
-h4 {
+h4,
+h5,
+h6 {
   font-weight: 600;
 }
 
@@ -321,6 +324,10 @@ h1 small {
 
 h3 {
   font-size: inherit;
+}
+
+h6 {
+  font-size: 14px;
 }
 
 p {

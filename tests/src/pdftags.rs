@@ -103,22 +103,27 @@ pub fn format(doc: &[u8]) -> StrResult<String> {
         .zip(page_refs)
         .map(|((idx, page), page_ref)| {
             let page_ref = page_ref?;
-            let marked_content = page
-                .typed_operations()
-                .filter_map(|op| match op {
+            let mut marked_content = HashMap::new();
+            let mut ops = page.typed_operations();
+            while let Some(op) = ops.next() {
+                if let Some((mcid, mc)) = match op {
                     TypedInstruction::MarkedContentPointWithProperties(mc) => {
-                        let props = mc.1.into_dict()?;
-                        let mcid = props.get(keys::MCID)?;
-                        Some((mcid, MarkedContent { props }))
+                        mc.1.clone().into_dict().and_then(|props| {
+                            let mcid = props.get(keys::MCID)?;
+                            Some((mcid, MarkedContent { props }))
+                        })
                     }
                     TypedInstruction::BeginMarkedContentWithProperties(mc) => {
-                        let props = mc.1.into_dict()?;
-                        let mcid = props.get(keys::MCID)?;
-                        Some((mcid, MarkedContent { props }))
+                        mc.1.clone().into_dict().and_then(|props| {
+                            let mcid = props.get(keys::MCID)?;
+                            Some((mcid, MarkedContent { props }))
+                        })
                     }
                     _ => None,
-                })
-                .collect();
+                } {
+                    marked_content.insert(mcid, mc);
+                };
+            }
 
             Ok((page_ref, PageContent { idx, marked_content }))
         })
@@ -446,7 +451,7 @@ fn format_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     const UTF_16_BE_BOM: [u8; 2] = *b"\xFE\xFF";
 
     let Object::String(val) = val else { return Err(()) };
-    let bytes = val.get();
+    let bytes: &[u8] = val.as_ref();
 
     if let Some(data) = bytes.strip_prefix(&UTF_16_BE_BOM) {
         let code_units = data.chunks(2).map(|c| u16::from_be_bytes([c[0], c[1]]));
@@ -455,7 +460,7 @@ fn format_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
             .unwrap();
         write!(f, "{str:?}").ok();
     } else {
-        let str = std::str::from_utf8(&bytes).unwrap();
+        let str = std::str::from_utf8(bytes).unwrap();
         write!(f, "{str:?}").ok();
     }
     Ok(())
@@ -463,11 +468,11 @@ fn format_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
 
 fn format_byte_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     let Object::String(val) = val else { return Err(()) };
-    let bytes = val.get();
+    let bytes: &[u8] = val.as_ref();
     if bytes.iter().all(
         |b| matches!(b, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b' ' | b'-' | b'_'),
     ) {
-        let str = std::str::from_utf8(&bytes).unwrap();
+        let str = std::str::from_utf8(bytes).unwrap();
         write!(f, "{str:?}").ok();
     } else {
         write!(f, "0x").ok();

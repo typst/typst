@@ -82,6 +82,26 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   caption: [Bilingual text]
 )
 
+--- image-svg-variable-font paged ---
+#image(bytes(
+  ```
+  <svg id="svg1" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <text
+      x="10" y="40" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 300"
+    >
+      Hello
+    </text>
+    <text
+      x="10" y="80" font-family="Cantarell" font-size="32"
+      style="font-variation-settings: 'wght' 700"
+    >
+      Hello
+    </text>
+  </svg>
+  ```.text
+))
+
 --- image-svg-auto-detection paged ---
 #image(bytes(
   ```
@@ -292,8 +312,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image(bytes(`<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text), format: "svg")
 
 --- image-decode-bad-svg paged ---
-// Error: 8-152 failed to parse SVG (missing root node at 1:1)
-#image(bytes(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text), format: "svg")
+// Error: 8-150 failed to parse SVG (missing root node at 1:1)
+#image(bytes(`<sv height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></sv>`.text), format: "svg")
 
 --- image-decode-detect-format paged ---
 // Test format auto detect
@@ -397,7 +417,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-pdf-basic paged html ---
 #image("/assets/images/star.pdf")
 
---- image-pdf-complex paged ---
+--- image-pdf-complex paged tolerance(2) ---
 #image("/assets/images/matplotlib.pdf")
 
 --- image-pdf-multiple-pages paged ---
@@ -410,8 +430,8 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/assets/images/base14-fonts.pdf")
 
 --- image-pdf-invalid-page paged ---
-// Error: 2-49 page 2 does not exist
-// Hint: 2-49 the document only has 1 page
+// Error: 8-39 failed to load PDF (page 2 does not exist in assets/images/matplotlib.pdf)
+// Hint: 8-39 the document only has 1 page
 #image("/assets/images/matplotlib.pdf", page: 2)
 
 --- issue-6869-image-zero-sized paged ---

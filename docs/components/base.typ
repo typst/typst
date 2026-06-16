@@ -1,4 +1,4 @@
-// Definies utilites and basic components.
+// Defines utilities and basic components.
 
 #import "system.typ": colors, sizes
 
@@ -73,6 +73,13 @@
 
 #let is-short-state = state("is-short", false)
 
+#let html-headings = (html.h1, html.h2, html.h3, html.h4, html.h5, html.h6)
+#let html-heading-n(n, ..args) = {
+  assert(n > 0)
+  let fn = html-headings.at(n - 1, default: html.h6)
+  fn(..args)
+}
+
 // Takes two versions: A long one and a short one.
 //
 // Displays the long version by default, but the short one in content wrapped
@@ -96,7 +103,7 @@
   is-short-state.update(false)
 }
 
-// Contraints content to a maximum width and/or height.
+// Constrains content to a maximum width and/or height.
 #let constrain(width: none, height: none, body) = layout(size => block(
   ..if width != none { (width: calc.min(size.width, width)) },
   ..if height != none { (height: calc.min(size.height, height)) },
@@ -133,7 +140,8 @@
   }
 }
 
-// TODO: What's the difference compared to `icon`?
+// Similar to `icon` but ensures that the SVG will respect the current
+// foreground `color` by emitting an inline `<svg>` with a `<use>` element.
 #let use-icon(size, name, alt) = html.elem(
   "svg",
   attrs: {
@@ -290,4 +298,29 @@
   } else {
     html.kbd(shortcut)
   }
+}
+
+// Renders a list with checkmarks as markers.
+//
+// Browser support is not perfect, so this is a best effort in the web version.
+#let checked-list(body) = context {
+  if target() == "paged" {
+    // HK Grotesk does not have the checkmark ...
+    set list(marker: text(font: "Noto Sans", "✓"))
+    body
+  } else {
+    // Adding a class to a Typst-generated element will become cleaner in the
+    // future.
+    show html.elem.where(tag: "ul"): it => {
+      if "class" in it.attrs { return it }
+      html.elem("ul", attrs: (..it.attrs, class: "checked"), it.body)
+    }
+    body
+  }
+}
+
+// Use an insertion from the insertions parameter of the docs function, with a
+// possible fallback.
+#let insertion(name, fallback: none) = context {
+  stdx.config.insertions.at(name, default: fallback)
 }

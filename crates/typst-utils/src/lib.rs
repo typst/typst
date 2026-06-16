@@ -35,8 +35,8 @@ use std::hash::Hash;
 use std::iter::{Chain, Flatten, Rev};
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
+use smallvec::SmallVec;
 use unicode_math_class::MathClass;
 
 /// Turn a closure into a struct implementing [`Debug`].
@@ -89,22 +89,6 @@ impl NonZeroExt for NonZeroUsize {
 
 impl NonZeroExt for NonZeroU32 {
     const ONE: Self = Self::new(1).unwrap();
-}
-
-/// Extra methods for [`Arc`].
-pub trait ArcExt<T> {
-    /// Takes the inner value if there is exactly one strong reference and
-    /// clones it otherwise.
-    fn take(self) -> T;
-}
-
-impl<T: Clone> ArcExt<T> for Arc<T> {
-    fn take(self) -> T {
-        match Arc::try_unwrap(self) {
-            Ok(v) => v,
-            Err(rc) => (*rc).clone(),
-        }
-    }
 }
 
 /// Extra methods for [`Option`].
@@ -203,6 +187,40 @@ impl<T> SliceExt<T> for [T] {
             .rposition(|v| !f(v))
             .map_or(start, |i| start + i + 1);
         (start, end)
+    }
+}
+
+/// A variant of `dedup` that keeps the later value rather than the earlier one.
+pub trait Rdedup {
+    type Item;
+
+    /// Deduplicates values in a sorted sequence using a key function, but
+    /// unlike the standard version keeps the later one.
+    fn rdedup_by_key<K, F>(&mut self, key: F)
+    where
+        F: Fn(&mut Self::Item) -> K,
+        K: PartialEq<K>;
+}
+
+impl<T: Copy, const N: usize> Rdedup for SmallVec<[T; N]> {
+    type Item = T;
+
+    fn rdedup_by_key<K, F>(&mut self, mut key: F)
+    where
+        T: Copy,
+        K: PartialEq<K>,
+        F: FnMut(&mut T) -> K,
+    {
+        let mut k = 0;
+        for i in 1..self.len() {
+            if key(&mut self[i]) != key(&mut self[k]) {
+                k += 1;
+            }
+            if k < i {
+                self[k] = self[i];
+            }
+        }
+        self.truncate(k + 1);
     }
 }
 
@@ -471,4 +489,27 @@ macro_rules! display_possible_values {
             }
         }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rdedup() {
+        #[track_caller]
+        fn test(given: &[(char, i32)], expected: &[(char, i32)]) {
+            let mut vec: SmallVec<[(char, i32); 2]> = given.into();
+            vec.rdedup_by_key(|&mut (c, _)| c);
+            assert_eq!(vec.as_slice(), expected);
+        }
+
+        test(&[], &[]);
+        test(&[('a', 1), ('a', 2), ('a', 3), ('b', 2)], &[('a', 3), ('b', 2)]);
+        test(&[('b', 2), ('c', 3), ('c', 4)], &[('b', 2), ('c', 4)]);
+        test(
+            &[('a', 1), ('b', 1), ('c', 1), ('c', 2), ('d', 1)],
+            &[('a', 1), ('b', 1), ('c', 2), ('d', 1)],
+        );
+    }
 }

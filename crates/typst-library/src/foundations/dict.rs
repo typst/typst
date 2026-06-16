@@ -9,7 +9,6 @@ use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::is_ident;
-use typst_utils::ArcExt;
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -197,10 +196,14 @@ impl Dict {
     }
 
     /// Returns the value associated with the specified key in the dictionary.
+    ///
     /// May be used on the left-hand side of an assignment if the key is already
     /// present in the dictionary. Returns the default value if the key is not
     /// part of the dictionary or fails with an error if no default value was
     /// specified.
+    ///
+    /// Values may also be accessed with field syntax (e.g. `{(key: 42).key}`)
+    /// if no default is needed.
     #[func]
     pub fn at(
         &self,
@@ -220,7 +223,7 @@ impl Dict {
     /// Inserts a new pair into the dictionary. If the dictionary already
     /// contains this key, the value is updated.
     ///
-    /// To insert multiple pairs at once, you can just alternatively another
+    /// To insert multiple pairs at once, you can alternatively add another
     /// dictionary with the `+=` operator.
     #[func]
     pub fn insert(
@@ -444,7 +447,7 @@ impl IntoIterator for Dict {
     type IntoIter = indexmap::map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Arc::take(self.0).into_iter()
+        Arc::unwrap_or_clone(self.0).into_iter()
     }
 }
 

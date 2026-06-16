@@ -299,7 +299,7 @@ impl Delimiter {
             default_math_class(c),
             Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
         ) {
-            bail!("invalid delimiter: \"{}\"", c)
+            bail!("invalid delimiter: \"{c}\"")
         }
         Ok(Self(Some(c)))
     }

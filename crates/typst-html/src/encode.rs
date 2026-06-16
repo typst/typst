@@ -12,10 +12,17 @@ use crate::{
     tag,
 };
 
+/// Settings for HTML export.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct HtmlOptions {
+    /// Whether to format the HTML in a human-readable way.
+    pub pretty: bool,
+}
+
 /// Encodes an HTML document into a string.
-pub fn html(document: &HtmlDocument) -> SourceResult<String> {
+pub fn html(document: &HtmlDocument, options: &HtmlOptions) -> SourceResult<String> {
     let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
-    let w = Writer::new(link_resolver.track(), true);
+    let w = Writer::new(link_resolver.track(), options.pretty);
     html_impl(w, document.root())
 }
 
@@ -25,9 +32,10 @@ pub fn html(document: &HtmlDocument) -> SourceResult<String> {
 /// root element instead of the document.
 pub fn html_in_bundle(
     root: &HtmlElement,
+    options: &HtmlOptions,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<String> {
-    let w = Writer::new(link_resolver, true);
+    let w = Writer::new(link_resolver, options.pretty);
     html_impl(w, root)
 }
 
@@ -384,6 +392,7 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
     let svg = typst_svg::svg_in_html(
         &frame.inner,
         frame.text_size,
+        w.pretty,
         frame.id.as_deref(),
         &eco_format!("{}", frame.css.to_inline()),
         &frame.anchors,
