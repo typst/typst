@@ -399,7 +399,7 @@ impl Color {
                         err
                     })?;
                 let Component(alpha) = args.eat()?.unwrap_or(Component(Ratio::one()));
-                Luma::new(l.get() as f32, alpha.get() as f32)
+                Luma::new(l.get_f32(), alpha.get_f32())
             },
         )))
     }
@@ -487,7 +487,7 @@ impl Color {
                 let ChromaComponent(b) = args.expect("B component")?;
                 let RatioComponent(alpha) =
                     args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-                Oklab::new(l.get() as f32, a, b, alpha.get() as f32)
+                Oklab::new(l.get_f32(), a, b, alpha.get_f32())
             },
         )))
     }
@@ -576,10 +576,10 @@ impl Color {
                 let RatioComponent(alpha) =
                     args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
                 Oklch::new(
-                    l.get() as f32,
+                    l.get_f32(),
                     c,
                     OklabHue::from_degrees(h.to_deg() as f32),
-                    alpha.get() as f32,
+                    alpha.get_f32(),
                 )
             },
         )))
@@ -696,12 +696,7 @@ impl Color {
                 let Component(g) = args.expect("green component")?;
                 let Component(b) = args.expect("blue component")?;
                 let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-                LinearRgb::new(
-                    r.get() as f32,
-                    g.get() as f32,
-                    b.get() as f32,
-                    a.get() as f32,
-                )
+                LinearRgb::new(r.get_f32(), g.get_f32(), b.get_f32(), a.get_f32())
             },
         )))
     }
@@ -809,10 +804,10 @@ impl Color {
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Self::Process(ProcessColor::Rgb(Rgb::new(
-                r.get() as f32,
-                g.get() as f32,
-                b.get() as f32,
-                a.get() as f32,
+                r.get_f32(),
+                g.get_f32(),
+                b.get_f32(),
+                a.get_f32(),
             )))
         })
     }
@@ -902,7 +897,7 @@ impl Color {
                 let RatioComponent(m) = args.expect("magenta component")?;
                 let RatioComponent(y) = args.expect("yellow component")?;
                 let RatioComponent(k) = args.expect("key/black component")?;
-                Cmyk::new(c.get() as f32, m.get() as f32, y.get() as f32, k.get() as f32)
+                Cmyk::new(c.get_f32(), m.get_f32(), y.get_f32(), k.get_f32())
             },
         )))
     }
@@ -994,9 +989,9 @@ impl Color {
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Hsl::new(
                 RgbHue::from_degrees(h.to_deg() as f32),
-                s.get() as f32,
-                l.get() as f32,
-                a.get() as f32,
+                s.get_f32(),
+                l.get_f32(),
+                a.get_f32(),
             )
         })))
     }
@@ -1095,9 +1090,9 @@ impl Color {
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
             Hsv::new(
                 RgbHue::from_degrees(h.to_deg() as f32),
-                s.get() as f32,
-                v.get() as f32,
-                a.get() as f32,
+                s.get_f32(),
+                v.get_f32(),
+                a.get_f32(),
             )
         })))
     }
@@ -1667,7 +1662,7 @@ impl Color {
     pub fn to_vec4(&self) -> [f32; 4] {
         match self {
             Color::Process(c) => c.to_vec4(),
-            Color::Spot(c) => [c.tint.get() as f32; 4],
+            Color::Spot(c) => [c.tint.get_f32(); 4],
         }
     }
 
@@ -1935,7 +1930,7 @@ impl ProcessColor {
 
     /// Lightens a color by a given factor.
     pub fn lighten(self, factor: Ratio) -> ProcessColor {
-        let factor = factor.get() as f32;
+        let factor = factor.get_f32();
         match self {
             Self::Luma(c) => Self::Luma(c.lighten(factor)),
             Self::Oklab(c) => Self::Oklab(c.lighten(factor)),
@@ -1950,7 +1945,7 @@ impl ProcessColor {
 
     /// Darkens a color by a given factor.
     pub fn darken(self, factor: Ratio) -> ProcessColor {
-        let factor = factor.get() as f32;
+        let factor = factor.get_f32();
         match self {
             Self::Luma(c) => Self::Luma(c.darken(factor)),
             Self::Oklab(c) => Self::Oklab(c.darken(factor)),
@@ -1965,7 +1960,7 @@ impl ProcessColor {
 
     /// Increases the saturation of a color by a given factor.
     pub fn saturate(self, span: Span, factor: Ratio) -> SourceResult<ProcessColor> {
-        let f = factor.get() as f32;
+        let f = factor.get_f32();
         Ok(match self {
             Self::Luma(_) => bail!(
                 span, "cannot saturate grayscale color";
@@ -1985,7 +1980,7 @@ impl ProcessColor {
 
     /// Decreases the saturation of a color by a given factor.
     pub fn desaturate(self, span: Span, factor: Ratio) -> SourceResult<ProcessColor> {
-        let f = factor.get() as f32;
+        let f = factor.get_f32();
         Ok(match self {
             Self::Luma(_) => bail!(
                 span, "cannot desaturate grayscale color";
@@ -2097,7 +2092,7 @@ impl ProcessColor {
     fn scale_alpha(self, scale: Ratio) -> StrResult<Self> {
         #[inline]
         fn transform<C>(mut color: Alpha<C, f32>, scale: Ratio) -> Alpha<C, f32> {
-            let scale = scale.get() as f32;
+            let scale = scale.get_f32();
             let factor = if scale > 0.0 { 1.0 - color.alpha } else { color.alpha };
             color.alpha = (color.alpha + scale * factor).clamp(0.0, 1.0);
             color

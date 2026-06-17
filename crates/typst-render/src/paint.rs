@@ -164,8 +164,8 @@ pub fn to_sk_paint<'a>(
             for y in 0..height {
                 let color = gradient.sample_at(
                     (
-                        (x as f32 + offset.x.to_pt_f32()) * scale.x.get() as f32,
-                        (y as f32 + offset.y.to_pt_f32()) * scale.y.get() as f32,
+                        (x as f32 + offset.x.to_pt_f32()) * scale.x.get_f32(),
+                        (y as f32 + offset.y.to_pt_f32()) * scale.y.get_f32(),
                     ),
                     (width as f32, height as f32),
                 );

@@ -93,7 +93,7 @@ fn render_outline_glyph(
                 line_cap: shape::to_sk_line_cap(*cap),
                 line_join: shape::to_sk_line_join(*join),
                 dash,
-                miter_limit: miter_limit.get() as f32,
+                miter_limit: miter_limit.get_f32(),
             };
 
             canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);

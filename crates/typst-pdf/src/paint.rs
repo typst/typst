@@ -58,7 +58,7 @@ pub(crate) fn convert_stroke(
     Ok(Stroke {
         paint,
         width: stroke.thickness.to_pt_f32(),
-        miter_limit: stroke.miter_limit.get() as f32,
+        miter_limit: stroke.miter_limit.get_f32(),
         line_join: stroke.join.to_krilla(),
         line_cap: stroke.cap.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
@@ -251,12 +251,12 @@ fn convert_gradient(
         }
         Gradient::Radial(radial) => {
             let radial = RadialGradient {
-                fx: radial.focal_center.x.get() as f32,
-                fy: radial.focal_center.y.get() as f32,
-                fr: radial.focal_radius.get() as f32,
-                cx: radial.center.x.get() as f32,
-                cy: radial.center.y.get() as f32,
-                cr: radial.radius.get() as f32,
+                fx: radial.focal_center.x.get_f32(),
+                fy: radial.focal_center.y.get_f32(),
+                fr: radial.focal_radius.get_f32(),
+                cx: radial.center.x.get_f32(),
+                cy: radial.center.y.get_f32(),
+                cr: radial.radius.get_f32(),
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
@@ -273,8 +273,8 @@ fn convert_gradient(
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle.
-            let cx = size.x.to_pt_f32() * conic.center.x.get() as f32;
-            let cy = size.y.to_pt_f32() * conic.center.y.get() as f32;
+            let cx = size.x.to_pt_f32() * conic.center.x.get_f32();
+            let cy = size.y.to_pt_f32() * conic.center.y.get_f32();
             let actual_transform = base_transform
                 // Adjust for the angle.
                 .pre_concat(Transform::rotate_at(
@@ -307,7 +307,7 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
         let (color, opacity) = convert_solid(color);
 
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
-        let offset = NormalizedF32::new(offset.get() as f32).unwrap();
+        let offset = NormalizedF32::new(offset.get_f32()).unwrap();
         let stop = Stop { offset, color, opacity };
         stops.push(stop);
     };

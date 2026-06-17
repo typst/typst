@@ -74,7 +74,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
                 line_cap: to_sk_line_cap(*cap),
                 line_join: to_sk_line_join(*join),
                 dash,
-                miter_limit: miter_limit.get() as f32,
+                miter_limit: miter_limit.get_f32(),
             };
             canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
         }

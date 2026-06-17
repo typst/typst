@@ -87,10 +87,10 @@ pub(crate) trait TransformExt {
 impl TransformExt for Transform {
     fn to_krilla(&self) -> kg::Transform {
         kg::Transform::from_row(
-            self.sx.get() as f32,
-            self.ky.get() as f32,
-            self.kx.get() as f32,
-            self.sy.get() as f32,
+            self.sx.get_f32(),
+            self.ky.get_f32(),
+            self.kx.get_f32(),
+            self.sy.get_f32(),
             self.tx.to_pt_f32(),
             self.ty.to_pt_f32(),
         )

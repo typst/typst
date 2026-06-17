@@ -664,10 +664,10 @@ fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap, tolerance: u8) -> bool {
 fn to_sk_transform(transform: &Transform) -> sk::Transform {
     let Transform { sx, ky, kx, sy, tx, ty } = *transform;
     sk::Transform::from_row(
-        sx.get() as f32,
-        ky.get() as f32,
-        kx.get() as f32,
-        sy.get() as f32,
+        sx.get_f32(),
+        ky.get_f32(),
+        kx.get_f32(),
+        sy.get_f32(),
         tx.to_pt_f32(),
         ty.to_pt_f32(),
     )
