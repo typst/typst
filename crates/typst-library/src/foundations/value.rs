@@ -732,7 +732,7 @@ mod tests {
         test(Value::None.ty(), "type(none)");
         test(Value::Auto.ty(), "type(auto)");
         test(false, "false");
-        test(12i64, "12");
+        test(12_i64, "12");
         test(3.24, "3.24");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");

@@ -1188,7 +1188,7 @@ mod test {
             .rows
             .iter()
             .enumerate()
-            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2_u32.pow(y as u32))), y })
             .collect::<Vec<_>>();
         let expected_hline_splits = &[
             // top border
@@ -1295,7 +1295,7 @@ mod test {
             .rows
             .iter()
             .enumerate()
-            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2_u32.pow(y as u32))), y })
             .collect::<Vec<_>>();
         let expected_hline_splits = &[
             // top border
@@ -1484,7 +1484,7 @@ mod test {
             .iter()
             .enumerate()
             .filter(|(y, _)| *y != 3)
-            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2u32.pow(y as u32))), y })
+            .map(|(y, _)| RowPiece { height: Abs::pt(f64::from(2_u32.pow(y as u32))), y })
             .collect::<Vec<_>>();
 
         // Hline above row 4 is no longer blocked, since the rowspan is now

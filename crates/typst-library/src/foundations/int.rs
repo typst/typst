@@ -318,7 +318,7 @@ impl i64 {
         //
         // – big-endian: `decimal` will be the rightmost bytes of the buffer.
         // - little-endian: `decimal` will be the leftmost bytes of the buffer.
-        let mut buf = [0u8; 8];
+        let mut buf = [0_u8; 8];
         let (rest, decimal) = match endian {
             Endianness::Big => buf.split_at_mut(8 - len),
             Endianness::Little => {
@@ -387,7 +387,7 @@ impl i64 {
                 // Copy the bytes from the array to the buffer, starting from
                 // the end of the buffer.
                 let buf_start = size.saturating_sub(8);
-                let array_start = 8usize.saturating_sub(size);
+                let array_start = 8_usize.saturating_sub(size);
                 buf[buf_start..].copy_from_slice(&array[array_start..])
             }
             Endianness::Little => {
