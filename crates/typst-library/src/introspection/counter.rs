@@ -27,9 +27,16 @@ use crate::{Library, World};
 
 /// Counts through pages, elements, and more.
 ///
-/// With the counter function, you can access and modify counters for pages,
-/// headings, figures, and more. Moreover, you can define custom counters for
-/// other things you want to count.
+/// With the counter function, you can access and modify counters for the
+/// following built-in elements:
+/// - @page[`page`] — counts pages
+/// - @heading[`heading`] — counts headings (supports multi-level numbering)
+/// - @figure[`figure`] — counts figures
+/// - @math.equation[`equation`] — counts equations
+/// - @footnote[`footnote`] — counts footnotes
+///
+/// Moreover, you can define custom counters for other things you want to
+/// count by passing a string key to the `counter` function.
 ///
 /// Since counters change throughout the course of the document, their current
 /// value is _contextual._ It is recommended to read the chapter on
