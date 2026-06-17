@@ -114,8 +114,8 @@ pub fn tiling<T>(
         let bbox = kg::Rect::from_ltrb(
             0.0,
             0.0,
-            tiling_size.x.to_pt() as f32,
-            tiling_size.y.to_pt() as f32,
+            tiling_size.x.to_pt_f32(),
+            tiling_size.y.to_pt_f32(),
         );
         surface.start_tagged(ContentTag::Artifact(Artifact::new(
             if gc.options.version() == PdfVersion::Pdf17 && bbox.is_none() {

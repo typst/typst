@@ -72,6 +72,11 @@ impl Abs {
         self.to_unit(AbsUnit::Pt)
     }
 
+    /// Convert this to a number of points as an [`f32`].
+    pub fn to_pt_f32(self) -> f32 {
+        self.to_unit(AbsUnit::Pt) as f32
+    }
+
     /// Convert this to a number of millimeters.
     pub fn to_mm(self) -> f64 {
         self.to_unit(AbsUnit::Mm)

@@ -13,7 +13,6 @@ use crate::tags::groups::GroupKind;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
 use crate::tags::util::{Id, IdVec, PropertyOptRef};
-use crate::util::AbsExt;
 
 pub use crate::tags::context::figure::FigureCtx;
 pub use crate::tags::context::grid::GridCtx;
@@ -200,10 +199,10 @@ impl BBoxCtx {
     pub fn to_krilla(&self) -> Option<BBox> {
         let (page_idx, rect) = self.rect?;
         let rect = kg::Rect::from_ltrb(
-            rect.min.x.to_f32(),
-            rect.min.y.to_f32(),
-            rect.max.x.to_f32(),
-            rect.max.y.to_f32(),
+            rect.min.x.to_pt_f32(),
+            rect.min.y.to_pt_f32(),
+            rect.max.x.to_pt_f32(),
+            rect.max.y.to_pt_f32(),
         )
         .unwrap();
         Some(BBox::new(page_idx, rect))

@@ -38,8 +38,7 @@ use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
 use crate::util::{
-    AbsExt, SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path,
-    display_font,
+    SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path, display_font,
 };
 use crate::{PdfFormat, PdfOptions};
 
@@ -109,10 +108,10 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         // some viewers won't handle pages that have zero sized pages.
         let mut settings = PageSettings::from_wh(
             (typst_page.frame.width() + typst_page.bleed.left + typst_page.bleed.right)
-                .to_f32()
+                .to_pt_f32()
                 .max(3.0),
             (typst_page.frame.height() + typst_page.bleed.top + typst_page.bleed.bottom)
-                .to_f32()
+                .to_pt_f32()
                 .max(3.0),
         )
         .expect_internal("invalid page size")
@@ -120,10 +119,10 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         if !typst_page.bleed.is_zero() {
             settings = settings.with_trim_box(Rect::from_ltrb(
-                typst_page.bleed.left.to_f32(),
-                typst_page.bleed.top.to_f32(),
-                (typst_page.bleed.left + typst_page.frame.width()).to_f32(),
-                (typst_page.bleed.top + typst_page.frame.height()).to_f32(),
+                typst_page.bleed.left.to_pt_f32(),
+                typst_page.bleed.top.to_pt_f32(),
+                (typst_page.bleed.left + typst_page.frame.width()).to_pt_f32(),
+                (typst_page.bleed.top + typst_page.frame.height()).to_pt_f32(),
             ));
         }
 

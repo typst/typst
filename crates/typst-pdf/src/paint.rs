@@ -22,7 +22,7 @@ use typst_utils::Numeric;
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::tags;
 use crate::util::{
-    AbsExt, FillRuleExt, LineCapExt, LineJoinExt, SpotColorantToNameExt, TransformExt,
+    FillRuleExt, LineCapExt, LineJoinExt, SpotColorantToNameExt, TransformExt,
 };
 
 pub(crate) fn convert_fill(
@@ -57,7 +57,7 @@ pub(crate) fn convert_stroke(
 
     Ok(Stroke {
         paint,
-        width: stroke.thickness.to_f32(),
+        width: stroke.thickness.to_pt_f32(),
         miter_limit: stroke.miter_limit.get() as f32,
         line_join: stroke.join.to_krilla(),
         line_cap: stroke.cap.to_krilla(),
@@ -190,8 +190,8 @@ fn convert_pattern(
     let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
-        width: (pattern.size().x + pattern.spacing().x).to_pt() as f32,
-        height: (pattern.size().y + pattern.spacing().y).to_pt() as f32,
+        width: (pattern.size().x + pattern.spacing().x).to_pt_f32(),
+        height: (pattern.size().y + pattern.spacing().y).to_pt_f32(),
     };
 
     Ok((pattern.into(), 255))
@@ -238,8 +238,8 @@ fn convert_gradient(
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_f32() as f64),
-                        Ratio::new(size.y.to_f32() as f64),
+                        Ratio::new(size.x.to_pt_f32() as f64),
+                        Ratio::new(size.y.to_pt_f32() as f64),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -260,8 +260,8 @@ fn convert_gradient(
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_f32() as f64),
-                        Ratio::new(size.y.to_f32() as f64),
+                        Ratio::new(size.x.to_pt_f32() as f64),
+                        Ratio::new(size.y.to_pt_f32() as f64),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -273,8 +273,8 @@ fn convert_gradient(
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle.
-            let cx = size.x.to_f32() * conic.center.x.get() as f32;
-            let cy = size.y.to_f32() * conic.center.y.get() as f32;
+            let cx = size.x.to_pt_f32() * conic.center.x.get() as f32;
+            let cy = size.y.to_pt_f32() * conic.center.y.get() as f32;
             let actual_transform = base_transform
                 // Adjust for the angle.
                 .pre_concat(Transform::rotate_at(
@@ -403,8 +403,8 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
 
 fn convert_dash(dash: &DashPattern<Abs, Abs>) -> StrokeDash {
     StrokeDash {
-        array: dash.array.iter().map(|e| e.to_f32()).collect(),
-        offset: dash.phase.to_f32(),
+        array: dash.array.iter().map(|e| e.to_pt_f32()).collect(),
+        offset: dash.phase.to_pt_f32(),
     }
 }
 

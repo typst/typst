@@ -12,7 +12,7 @@ use typst_library::foundations::Smart;
 use typst_library::layout::Size;
 use typst_library::visualize::{Image, ImageKind, ImageScaling, PdfImage};
 
-use crate::{AbsExt, State};
+use crate::State;
 
 /// Render a raster or SVG image into the canvas.
 pub fn render_image(
@@ -22,8 +22,8 @@ pub fn render_image(
     size: Size,
 ) -> Option<()> {
     let ts = state.transform;
-    let view_width = size.x.to_f32();
-    let view_height = size.y.to_f32();
+    let view_width = size.x.to_pt_f32();
+    let view_height = size.y.to_pt_f32();
 
     // For better-looking output, resize `image` to its final size before
     // painting it to `canvas`. For the math, see:

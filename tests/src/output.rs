@@ -615,14 +615,14 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     let mut pixmap =
         typst_render::render_merged(document, &opts, gap, Some(Color::BLACK));
 
-    let gap = (pixel_per_pt * gap.to_pt() as f32).round();
+    let gap = (pixel_per_pt * gap.to_pt_f32()).round();
 
     let mut y = 0.0;
     for page in document.pages() {
         let ts =
             sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(0.0, y);
         render_links(&mut pixmap, ts, &page.frame);
-        y += (pixel_per_pt * page.frame.height().to_pt() as f32).round().max(1.0) + gap;
+        y += (pixel_per_pt * page.frame.height().to_pt_f32()).round().max(1.0) + gap;
     }
 
     pixmap
@@ -631,15 +631,15 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
 /// Draw extra boxes for links so we can see whether they are there.
 fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
     for (pos, item) in frame.items() {
-        let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
+        let ts = ts.pre_translate(pos.x.to_pt_f32(), pos.y.to_pt_f32());
         match *item {
             FrameItem::Group(ref group) => {
                 let ts = ts.pre_concat(to_sk_transform(&group.transform));
                 render_links(canvas, ts, &group.frame);
             }
             FrameItem::Link(_, size) => {
-                let w = size.x.to_pt() as f32;
-                let h = size.y.to_pt() as f32;
+                let w = size.x.to_pt_f32();
+                let h = size.y.to_pt_f32();
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();
                 let mut paint = sk::Paint::default();
                 paint.set_color_rgba8(40, 54, 99, 40);
@@ -668,8 +668,8 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         ky.get() as f32,
         kx.get() as f32,
         sy.get() as f32,
-        tx.to_pt() as f32,
-        ty.to_pt() as f32,
+        tx.to_pt_f32(),
+        ty.to_pt_f32(),
     )
 }
 

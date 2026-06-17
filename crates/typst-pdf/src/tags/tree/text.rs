@@ -13,7 +13,6 @@ use crate::PdfOptions;
 use crate::tags::tree::Tree;
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 use crate::tags::{GroupId, util};
-use crate::util::AbsExt;
 
 #[derive(Debug, Clone)]
 pub struct TextAttrs {
@@ -238,8 +237,8 @@ fn compute_script(
         .unwrap_or_else(|| script_metrics.height.at(text.size));
 
     ResolvedScript {
-        baseline_shift: baseline_shift.to_f32(),
-        lineheight: LineHeight::Custom(lineheight.to_f32()),
+        baseline_shift: baseline_shift.to_pt_f32(),
+        lineheight: LineHeight::Custom(lineheight.to_pt_f32()),
     }
 }
 
@@ -274,7 +273,7 @@ fn compute_deco<'a>(
                 .and_then(util::paint_to_color);
             let thickness = (stroke.as_ref().custom())
                 .and_then(|s| s.thickness.custom())
-                .map(|t| t.at(text.size).to_f32());
+                .map(|t| t.at(text.size).to_pt_f32());
             let deco = ResolvedTextDeco { kind, color, thickness };
             *resolved = Some((elem, deco));
         }
