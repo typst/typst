@@ -71,6 +71,33 @@ use crate::visualize::{
 /// the offsets when defining a gradient. In this case, Typst will space all
 /// stops evenly.
 ///
+/// There are two ways to specify stops:
+/// - **Without offset:** Just pass colors. Typst will space them evenly.
+/// - **With offset:** Pass an array of `(color, offset)` pairs for precise control.
+///
+/// ```example
+/// #set square(size: 50pt)
+/// #stack(
+///   dir: ltr,
+///   spacing: 1fr,
+///   // Without offsets - evenly spaced
+///   square(fill: gradient.linear(red, blue)),
+///   // With offsets - precise control
+///   square(fill: gradient.linear(
+///     (red, 0%),
+///     (blue, 50%),
+///     (red, 100%),
+///   )),
+/// )
+/// ```
+///
+/// You can also use a spread operator to pass a predefined color map as stops:
+///
+/// ```example
+/// #set square(size: 50pt)
+/// #square(fill: gradient.linear(..color.map.rainbow))
+/// ```
+///
 /// Typst predefines color maps that you can use as stops. See the
 /// @color:predefined-color-maps[`color`] documentation for more details.
 ///
