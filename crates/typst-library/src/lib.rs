@@ -182,7 +182,7 @@ pub struct Library {
     pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
-    // TODO: docs
+    /// Registered [export formats](crate::format).
     pub formats: Vec<Format>,
 }
 
@@ -223,12 +223,7 @@ impl LibraryBuilder {
         self
     }
 
-    /// Configure document format elements that should be defined in
-    /// `std.format` and whose set rules will store their [`FormatOptions`] in
-    /// the compiled document through [`RealizationKind::Document`].
-    ///
-    /// [`FormatOptions`]: crate::format::FormatOptions
-    /// [`RealizationKind::Document`]: crate::routines::RealizationKind::Document
+    /// Add document [export formats](crate::format).
     pub fn with_formats(mut self, formats: impl IntoIterator<Item = Format>) -> Self {
         self.formats.extend(formats);
         self
@@ -418,9 +413,13 @@ fn prelude(global: &mut Scope) {
     global.define("horizon", Alignment::HORIZON);
     global.define("bottom", Alignment::BOTTOM);
 
+    // If available, add the the HTML and PDF formats to the global prelude.
     let format = global.get("format").unwrap().read().scope().unwrap();
-    let pdf = format.get("pdf").unwrap().clone();
-    let html = format.get("html").unwrap().clone();
-    global.bind("pdf".into(), pdf);
-    global.bind("html".into(), html);
+    let format_binding = |name| (name, format.get(name).cloned());
+    let elems = [format_binding("pdf"), format_binding("html")];
+    for (name, elem) in elems {
+        if let Some(elem) = elem {
+            global.bind(name.into(), elem);
+        }
+    }
 }

@@ -32,7 +32,7 @@ use typst_library::model::{
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{ListSet, SliceExt, SmallBitSet};
 
 mod spaces;
@@ -602,12 +602,17 @@ fn visit_styled<'a>(
 
     // Check for document and page styles.
     let mut pagebreak = false;
+    let mut populated_document_info = false;
+    let mut populated_format_options = false;
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
             let local = StyleChain::new(&local);
             if let RealizationKind::Document { info, .. } = &mut s.kind {
-                info.populate(local);
+                if !populated_document_info {
+                    info.populate(local);
+                    populated_document_info = true;
+                }
             } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
                     style.span(),
@@ -652,7 +657,10 @@ fn visit_styled<'a>(
             }
         } else if s.engine.library.formats.iter().any(|f| f.elem == elem) {
             if let RealizationKind::Document { options, .. } = &mut s.kind {
-                options.populate(StyleChain::new(&local));
+                if !populated_format_options {
+                    options.populate(Spanned::new(StyleChain::new(&local), style.span()));
+                    populated_format_options = true;
+                }
             } else if !matches!(s.kind, RealizationKind::Bundle) {
                 bail!(
                     style.span(),

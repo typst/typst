@@ -146,18 +146,32 @@ impl CompileConfig {
             PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
         });
 
-        let tagged = (args.no_pdf_tags || pages.is_some()).then_some(false);
-        if output_format == OutputFormat::Pdf && pages.is_some() && !args.no_pdf_tags {
+        if args.no_pdf_tags {
             warnings.push(
-                HintedString::from("using --pages implies --no-pdf-tags").with_hints([
-                    "the resulting PDF will be inaccessible".into(),
-                    "add --no-pdf-tags to silence this warning".into(),
-                ]),
+                "`--no-pdf-tags` is deprecated, use `--pdf-tagged=false` instead".into(),
             );
         }
 
-        // TODO: A similar check should be present for PDFs exported in the
-        // bundle export.
+        let tagged = if let Some(tagged) = args.pdf_tagged {
+            if tagged && pages.is_some() {
+                bail!("cannot disable PDF tags when exporting a page range");
+            }
+            Some(tagged)
+        } else {
+            if output_format == OutputFormat::Pdf && pages.is_some() && !args.no_pdf_tags
+            {
+                warnings.push(
+                    HintedString::from("using `--pages` implies `--pdf-tagged=false`")
+                        .with_hints([
+                            "the resulting PDF will be inaccessible".into(),
+                            "add `--pdf-tagged=false` to silence this warning".into(),
+                        ]),
+                );
+            }
+
+            (args.no_pdf_tags || pages.is_some()).then_some(false)
+        };
+
         if tagged == Some(false) {
             const ACCESSIBLE: &[(args::PdfStandard, &str)] = &[
                 (args::PdfStandard::A_1a, "PDF/A-1a"),
@@ -173,7 +187,7 @@ impl CompileConfig {
                     } else {
                         bail!(
                             "cannot disable PDF tags when exporting a {name} document";
-                            hint: "using --pages implies --no-pdf-tags";
+                            hint: "using --pages implies --pdf-tagged=false";
                         );
                     }
                 }
@@ -633,7 +647,7 @@ fn pdf_options(config: &CompileConfig) -> PdfOptions {
         format: PdfFormatOptions {
             pages: config.pages.clone().map(Some),
             standard: config.pdf_standards.clone(),
-            tagged: config.tagged,
+            tagged: config.tagged.map(Smart::Custom),
             pretty: config.pretty,
         },
     }

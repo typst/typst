@@ -29,7 +29,7 @@ pub fn init(
     document: &PagedDocument,
     options: &PdfOptions<Complete>,
 ) -> SourceResult<Tags> {
-    let tree = if options.format.tagged {
+    let tree = if options.tagged() {
         tree::build(document, options)?
     } else {
         Tree::empty(document, options)
@@ -142,7 +142,7 @@ pub fn tiling<T>(
 /// disabled by the user using the [`crate::PdfFormatOptions::tagged`] flag, or
 /// we're inside a tiling.
 pub fn disabled(gc: &GlobalContext) -> bool {
-    !gc.options.format.tagged || gc.tags.in_tiling
+    !gc.options.tagged() || gc.tags.in_tiling
 }
 
 /// Add all annotations that were found in the page frame.
@@ -295,7 +295,11 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use ecow::eco_vec;
+    use typst_library::diag::error;
+    use typst_library::format::Complete;
+    use typst_library::foundations::Smart;
     use typst_library::layout::PageRanges;
+    use typst_syntax::Span;
     use typst_utils::NonZeroExt;
 
     use crate::PdfOptions;
@@ -303,13 +307,18 @@ mod tests {
 
     #[test]
     fn tagged_and_page_range() {
-        let doc_options = PdfFormatOptions {
-            tagged: true,
-            pages: Some(PageRanges::new(eco_vec![Some(NonZeroUsize::ONE)..=None])),
-            ..Default::default()
-        };
+        let mut doc_options = PdfFormatOptions::<Complete>::default();
+        doc_options.tagged.v = Smart::Custom(true);
+        doc_options.pages.v =
+            Some(PageRanges::new(eco_vec![Some(NonZeroUsize::ONE)..=None]));
         let options = PdfOptions::default();
         let res = options.resolve(&doc_options);
-        assert_eq!(res, Err("cannot enable tagged PDF and export a page range".into()));
+        assert_eq!(
+            res,
+            Err(eco_vec![error!(
+                Span::detached(),
+                "cannot enable tagged PDF and export a page range"
+            )])
+        );
     }
 }
