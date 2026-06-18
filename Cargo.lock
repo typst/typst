@@ -3475,6 +3475,7 @@ dependencies = [
  "typst-layout",
  "typst-library",
  "typst-macros",
+ "typst-syntax",
  "typst-timing",
  "typst-utils",
 ]
@@ -3499,6 +3500,7 @@ dependencies = [
  "typst-layout",
  "typst-library",
  "typst-macros",
+ "typst-syntax",
  "typst-timing",
  "typst-utils",
  "xmlwriter",

@@ -37,7 +37,7 @@ pub fn svg(page: &Page, opts: &SvgOptions<Complete>) -> String {
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty.v));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -62,7 +62,7 @@ pub fn svg_in_bundle(
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
-    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty.v));
     let mut svg = svg_header(&mut xml, size);
 
     let state = State::new(size);
@@ -137,7 +137,7 @@ pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> Stri
     }
 
     let mut renderer = SVGRenderer::new();
-    let mut xml = XmlWriter::new(xml_options(opts.format.pretty));
+    let mut xml = XmlWriter::new(xml_options(opts.format.pretty.v));
     let mut svg = svg_header(&mut xml, size);
 
     let mut y = Abs::zero();

@@ -26,7 +26,7 @@ pub fn render(page: &Page, opts: &RenderOptions<Complete>) -> sk::Pixmap {
     let bleed = if opts.render_bleed { page.bleed } else { Sides::default() };
 
     let size = page.frame.size() + bleed.sum_by_axis();
-    let pixel_per_pt = opts.format.pixel_per_pt.get() as f32;
+    let pixel_per_pt = opts.format.pixel_per_pt.v.get() as f32;
     let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
     let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
 
@@ -62,7 +62,7 @@ pub fn render_merged(
     let pixmaps: Vec<_> =
         document.pages().iter().map(|page| render(page, &opts)).collect();
 
-    let pixel_per_pt = opts.format.pixel_per_pt.get() as f32;
+    let pixel_per_pt = opts.format.pixel_per_pt.v.get() as f32;
     let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
