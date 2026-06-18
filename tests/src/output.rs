@@ -251,7 +251,7 @@ impl OutputType for Pdf {
         let default_pdf = generate_pdf(doc, Some(&[]));
         let ua1_pdf = generate_pdf(doc, Some(&[PdfStandard::UA_1]));
         let doc_opts = doc.options().get::<typst_pdf::Pdf>();
-        let standards = doc_opts.standard.standards().collect::<Vec<_>>();
+        let standards = doc_opts.standard.v.standards().collect::<Vec<_>>();
         match *standards.as_slice() {
             [] => default_pdf,
             [PdfStandard::V_1_7, PdfStandard::UA_1] => ua1_pdf,

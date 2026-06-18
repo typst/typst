@@ -11,7 +11,7 @@ use typst_library::math::EquationElem;
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::{Library, World};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
@@ -161,7 +161,7 @@ fn html_document_common(
     info.populate(styles);
     info.populate_locale(styles);
     let mut options = FormatOptions::new(&library.formats);
-    options.populate(styles);
+    options.populate(Spanned::detached(styles));
 
     let children = (engine.library.routines.realize)(
         RealizationKind::Document { info: &mut info, options: &mut options },

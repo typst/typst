@@ -184,7 +184,7 @@ pub struct Library {
     pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
-    // TODO: docs
+    /// Registered [export formats](crate::format).
     pub formats: Vec<Format>,
 }
 
@@ -225,12 +225,7 @@ impl LibraryBuilder {
         self
     }
 
-    /// Configure document format elements that should be defined in
-    /// `std.format` and whose set rules will store their [`FormatOptions`] in
-    /// the compiled document through [`RealizationKind::Document`].
-    ///
-    /// [`FormatOptions`]: crate::format::FormatOptions
-    /// [`RealizationKind::Document`]: crate::routines::RealizationKind::Document
+    /// Add document [export formats](crate::format).
     pub fn with_formats(mut self, formats: impl IntoIterator<Item = Format>) -> Self {
         self.formats.extend(formats);
         self

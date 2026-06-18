@@ -354,7 +354,7 @@ pub struct CompileArgs {
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances (for example when trying to reduce the size of a document)
     /// it can be desirable to disable tagged PDF.
-    // TODO: Add deprecation warning and unify handling with `--pdf-tagged`
+    // TODO: Remove deprecated flag in the 0.16 release cycle.
     #[arg(long = "no-pdf-tags", hide = true)]
     pub no_pdf_tags: bool,
 
