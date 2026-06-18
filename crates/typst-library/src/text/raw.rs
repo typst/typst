@@ -589,17 +589,27 @@ impl Packed<RawElem> {
             for (i, (line, line_span)) in lines.into_iter().enumerate() {
                 let mut line_content = vec![];
                 let mut span_offset = 0;
-                for (style, piece) in highlighter
+                // Merge adjacent tokens with identical styles so that
+                // OpenType ligatures can form across token boundaries
+                // (e.g. `|>` in R with Fira Code / Cascadia Code).
+                let tokens = highlighter
                     .highlight_line(line.as_str(), syntax_set)
                     .into_iter()
                     .flatten()
-                {
+                    .fold(Vec::<(synt::Style, String)>::new(), |mut acc, (style, piece)| {
+                        match acc.last_mut() {
+                            Some(last) if last.0 == style => last.1.push_str(piece),
+                            _ => acc.push((style, piece.to_owned())),
+                        }
+                        acc
+                    });
+                for (style, piece) in &tokens {
                     line_content.push(styled(
                         routines,
                         target,
                         piece,
                         foreground,
-                        style,
+                        *style,
                         line_span,
                         span_offset,
                     ));
