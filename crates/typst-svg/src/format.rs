@@ -3,6 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
 use typst_library::foundations::{Args, Construct, Content, StyleChain};
 use typst_macros::elem;
+use typst_syntax::Spanned;
 
 pub fn format() -> Format {
     Format::new::<Svg>()
@@ -29,26 +30,22 @@ impl Construct for Svg {
 /// Document settings for PNG  export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct SvgFormatOptions<F: Fields = Complete> {
-    pub pretty: F::Value<bool>,
-}
-
-impl SvgFormatOptions {
-    /// Retrieve SVG format options from the style chain.
-    pub fn get_in(styles: StyleChain) -> Self {
-        Self { pretty: styles.get(Svg::pretty) }
-    }
+    pub pretty: F::Value<Svg, { Svg::pretty.index() }>,
 }
 
 impl SvgFormatOptions<Partial> {
     /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
     pub fn resolve(&self, default: &SvgFormatOptions) -> SvgFormatOptions {
-        SvgFormatOptions { pretty: self.pretty.unwrap_or(default.pretty) }
+        SvgFormatOptions {
+            pretty: Partial::resolve(self.pretty, default.pretty),
+        }
     }
 }
 
 impl Populate for SvgFormatOptions {
-    fn populate(&mut self, styles: StyleChain) {
-        *self = Self::get_in(styles);
+    fn populate(&mut self, styles: Spanned<StyleChain>) {
+        // VOLATILE: This must be updated when adding more fields.
+        self.pretty.populate(styles);
     }
 
     fn dyn_clone(&self) -> Box<dyn Populate> {

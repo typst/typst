@@ -29,7 +29,7 @@ impl HtmlOptions {
 pub fn html(document: &HtmlDocument, options: &HtmlOptions) -> SourceResult<String> {
     let options = options.resolve(document.options().get::<Html>());
     let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
-    let w = Writer::new(link_resolver.track(), options.format.pretty);
+    let w = Writer::new(link_resolver.track(), options.format.pretty.v);
     html_impl(w, document.root())
 }
 
@@ -42,7 +42,7 @@ pub fn html_in_bundle(
     options: &HtmlOptions<Complete>,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<String> {
-    let w = Writer::new(link_resolver, options.format.pretty);
+    let w = Writer::new(link_resolver, options.format.pretty.v);
     html_impl(w, root)
 }
 

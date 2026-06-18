@@ -44,12 +44,13 @@ pub struct Pdf {
     /// A list of PDF standards that Typst will enforce conformance with.
     #[default]
     pub standard: PdfStandards,
-    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
-    /// document is written to provide a baseline of accessibility. In some
-    /// circumstances, for example when trying to reduce the size of a document,
-    /// it can be desirable to disable tagged PDF.
-    #[default(true)]
-    pub tagged: bool,
+    /// Whether to produce a tagged PDF document.
+    ///
+    /// Tagging is enabled by default to provide a baseline of accessibility.
+    /// It can be turned off manually, e.g. to reduce the size of the document,
+    /// and will be disabled automatically when exporting a specific page range.
+    #[default]
+    pub tagged: Smart<bool>,
     /// Wether to format the PDF in a human readable way.
     #[default(false)]
     pub pretty: bool,
@@ -542,45 +543,25 @@ impl From<Validator> for PdfStandard {
 pub struct PdfFormatOptions<F: Fields = Complete> {
     /// Specifies which ranges of pages should be exported in the PDF. When
     /// `None`, all pages should be exported.
-    pub pages: F::Value<Option<PageRanges>>,
+    pub pages: F::Value<Pdf, { Pdf::pages.index() }>,
     /// A list of PDF standards that Typst will enforce conformance with.
-    pub standard: F::Value<PdfStandards>,
+    pub standard: F::Value<Pdf, { Pdf::standard.index() }>,
     /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances, for example when trying to reduce the size of a document,
     /// it can be desirable to disable tagged PDF.
-    pub tagged: F::Value<bool>,
+    pub tagged: F::Value<Pdf, { Pdf::tagged.index() }>,
     /// Wether to format the PDF in a human readable way.
-    pub pretty: F::Value<bool>,
-}
-
-impl PdfFormatOptions {
-    /// Retrieve PDF format options from the style chain.
-    pub fn get_in(styles: StyleChain) -> Self {
-        Self {
-            pages: styles.get_cloned(Pdf::pages),
-            standard: styles.get_cloned(Pdf::standard),
-            tagged: styles.get(Pdf::tagged),
-            pretty: styles.get(Pdf::pretty),
-        }
-    }
-}
-
-impl PdfFormatOptions<Partial> {
-    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
-    pub fn resolve(&self, default: &PdfFormatOptions) -> PdfFormatOptions {
-        PdfFormatOptions {
-            pages: self.pages.clone().unwrap_or_else(|| default.pages.clone()),
-            standard: self.standard.clone().unwrap_or_else(|| default.standard.clone()),
-            tagged: self.tagged.unwrap_or(default.tagged),
-            pretty: self.pretty.unwrap_or(default.pretty),
-        }
-    }
+    pub pretty: F::Value<Pdf, { Pdf::pretty.index() }>,
 }
 
 impl Populate for PdfFormatOptions {
-    fn populate(&mut self, styles: typst_library::foundations::StyleChain) {
-        *self = Self::get_in(styles);
+    fn populate(&mut self, styles: Spanned<StyleChain>) {
+        // VOLATILE: This must be updated when adding more fields.
+        self.pages.populate(styles);
+        self.standard.populate(styles);
+        self.tagged.populate(styles);
+        self.pretty.populate(styles);
     }
 
     fn dyn_clone(&self) -> Box<dyn Populate> {
@@ -589,6 +570,18 @@ impl Populate for PdfFormatOptions {
 
     fn describe(&self) -> (&'static str, &'static str) {
         (std::any::type_name::<Pdf>(), std::any::type_name::<PdfFormatOptions>())
+    }
+}
+
+impl PdfFormatOptions<Partial> {
+    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
+    pub fn resolve(&self, default: &PdfFormatOptions) -> PdfFormatOptions {
+        PdfFormatOptions {
+            pages: Partial::resolve_cloned(&self.pages, &default.pages),
+            standard: Partial::resolve_cloned(&self.standard, &default.standard),
+            tagged: Partial::resolve(self.tagged, default.tagged),
+            pretty: Partial::resolve(self.pretty, default.pretty),
+        }
     }
 }
 

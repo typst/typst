@@ -12,7 +12,7 @@ use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
 use typst_library::model::{Document, DocumentInfo};
 use typst_library::text::TextElem;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::document::HtmlOutput;
@@ -109,29 +109,13 @@ impl Output for HtmlDocument {
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlFormatOptions<F: Fields = Complete> {
-    pub pretty: F::Value<bool>,
-}
-
-impl HtmlFormatOptions {
-    /// Retrieve HTML format options from the style chain.
-    pub fn get_in(styles: StyleChain) -> Self {
-        Self { pretty: styles.get(Html::pretty) }
-    }
-}
-
-impl HtmlFormatOptions<Partial> {
-    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
-    pub fn resolve(
-        &self,
-        default: &HtmlFormatOptions<Complete>,
-    ) -> HtmlFormatOptions<Complete> {
-        HtmlFormatOptions { pretty: self.pretty.unwrap_or(default.pretty) }
-    }
+    pub pretty: F::Value<Html, { Html::pretty.index() }>,
 }
 
 impl Populate for HtmlFormatOptions {
-    fn populate(&mut self, styles: StyleChain) {
-        *self = Self::get_in(styles);
+    fn populate(&mut self, styles: Spanned<StyleChain>) {
+        // VOLATILE: This must be updated when adding more fields.
+        self.pretty.populate(styles);
     }
 
     fn dyn_clone(&self) -> Box<dyn Populate> {
@@ -140,6 +124,15 @@ impl Populate for HtmlFormatOptions {
 
     fn describe(&self) -> (&'static str, &'static str) {
         (std::any::type_name::<Html>(), std::any::type_name::<HtmlFormatOptions>())
+    }
+}
+
+impl HtmlFormatOptions<Partial> {
+    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
+    pub fn resolve(&self, default: &HtmlFormatOptions) -> HtmlFormatOptions {
+        HtmlFormatOptions {
+            pretty: Partial::resolve(self.pretty, default.pretty),
+        }
     }
 }
 

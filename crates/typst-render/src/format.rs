@@ -3,6 +3,7 @@ use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
 use typst_library::foundations::{Args, Construct, Content, StyleChain};
 use typst_macros::elem;
+use typst_syntax::Spanned;
 use typst_utils::Scalar;
 
 pub fn format() -> Format {
@@ -31,28 +32,13 @@ impl Construct for Png {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct PngFormatOptions<F: Fields = Complete> {
     /// The number of pixels per point to render at when exporting a PNG.
-    pub pixel_per_pt: F::Value<Scalar>,
-}
-
-impl PngFormatOptions {
-    /// Retrieve PNG format options from the style chain.
-    pub fn get_in(styles: StyleChain) -> Self {
-        Self { pixel_per_pt: styles.get(Png::ppi) / 144.0 }
-    }
-}
-
-impl PngFormatOptions<Partial> {
-    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
-    pub fn resolve(&self, default: &PngFormatOptions) -> PngFormatOptions {
-        PngFormatOptions {
-            pixel_per_pt: self.pixel_per_pt.unwrap_or(default.pixel_per_pt),
-        }
-    }
+    pub pixel_per_pt: F::Value<Png, { Png::ppi.index() }>,
 }
 
 impl Populate for PngFormatOptions {
-    fn populate(&mut self, styles: typst_library::foundations::StyleChain) {
-        *self = Self::get_in(styles);
+    fn populate(&mut self, styles: Spanned<StyleChain>) {
+        // VOLATILE: This must be updated when adding more fields.
+        self.pixel_per_pt.populate(styles);
     }
 
     fn dyn_clone(&self) -> Box<dyn Populate> {
@@ -61,5 +47,14 @@ impl Populate for PngFormatOptions {
 
     fn describe(&self) -> (&'static str, &'static str) {
         (std::any::type_name::<Png>(), std::any::type_name::<PngFormatOptions>())
+    }
+}
+
+impl PngFormatOptions<Partial> {
+    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
+    pub fn resolve(&self, default: &PngFormatOptions) -> PngFormatOptions {
+        PngFormatOptions {
+            pixel_per_pt: Partial::resolve(self.pixel_per_pt, default.pixel_per_pt),
+        }
     }
 }
