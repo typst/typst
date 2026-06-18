@@ -655,7 +655,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
 
             if non_breakable_in_pdf_ua {
                 let validator =
-                    tree.options.format.standard.config.validators().to_comma_list();
+                    tree.options.format.standard.v.config.validators().to_comma_list();
                 bail!(
                     non_breakable_span,
                     "{validator} error: invalid document structure, \

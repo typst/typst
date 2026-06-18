@@ -6,6 +6,7 @@ use comemo::Tracked;
 use either::Either;
 use typst::diag::{At, FileError, FileResult, SourceResult, Trace, Tracepoint, bail};
 use typst::engine::Engine;
+use typst::format::{Complete, SpannedValue};
 use typst::foundations::{
     Args, Array, Bytes, Construct, Content, Context, Datetime, Derived, Duration,
     NativeElement, Packed, Resolve, ShowFn, Smart, StyleChain, Target, TargetElem, array,
@@ -157,9 +158,11 @@ fn trim_page(page: &mut Page, Zoom { x, y, w, h }: &Zoom, styles: StyleChain) {
 /// Turns a compiled `Page` into a Typst `image` element by rendering it.
 fn page_to_image(page: Page) -> Content {
     // NOTE: This discards format options set by the document.
-    let opts = RenderOptions {
+    let opts = RenderOptions::<Complete> {
         render_bleed: false,
-        format: PngFormatOptions { pixel_per_pt: Scalar::new(2.0) },
+        format: PngFormatOptions {
+            pixel_per_pt: SpannedValue::detached(Scalar::new(2.0)),
+        },
     };
     let pixmap = typst_render::render(&page, &opts);
     let format = ImageFormat::Raster(RasterFormat::Pixel(PixelFormat {

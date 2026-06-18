@@ -17,6 +17,7 @@ use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::{Library, World};
+use typst_syntax::Spanned;
 use typst_utils::{LazyHash, Protected};
 
 use self::collect::{Item, collect};
@@ -159,7 +160,7 @@ fn layout_document_common(
     info.populate_locale(styles);
 
     let mut options = FormatOptions::new(&library.formats);
-    options.populate(styles);
+    options.populate(Spanned::detached(styles));
 
     let mut children = (engine.library.routines.realize)(
         RealizationKind::Document { info: &mut info, options: &mut options },
