@@ -2,17 +2,18 @@ use std::sync::LazyLock;
 
 use comemo::Track;
 use ecow::eco_format;
-use typst::Library;
 use typst::diag::{FileResult, HintedStrResult, SourceResult, Warned, bail};
+use typst::engine::Sink;
 use typst::foundations::{
     Bytes, Context, Datetime, Duration, Output, Scope, StyleChain, Value,
 };
+use typst::introspection::Introspector;
 use typst::routines::SpanMode;
 use typst::syntax::{
     FileId, RangeMapper, RootedPath, Source, Span, SyntaxMode, VirtualPath, VirtualRoot,
 };
 use typst::text::{Font, FontBook};
-use typst::{World, engine::Sink, introspection::Introspector};
+use typst::{Library, World};
 use typst_bundle::Bundle;
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
