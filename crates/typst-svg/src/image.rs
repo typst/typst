@@ -5,7 +5,8 @@ use ecow::{EcoString, eco_format};
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
 use hayro_svg::{RenderCache, SvgRenderSettings};
-use image::{ImageEncoder, codecs::png::PngEncoder};
+use image::ImageEncoder;
+use image::codecs::png::PngEncoder;
 use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{

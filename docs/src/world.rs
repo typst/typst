@@ -372,7 +372,8 @@ const PATCHED_LINK_RULE: ShowFn<LinkElem> = |elem, engine, _| {
 /// real asset. The paths are auto-generated based on hashes of the images.
 const PATCHED_IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     fn encode_hash(hash: u128) -> String {
-        use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+        use base64::Engine;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
         URL_SAFE_NO_PAD.encode(hash.to_be_bytes())
     }
 
