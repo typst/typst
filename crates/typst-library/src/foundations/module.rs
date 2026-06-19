@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::{EcoString, eco_format};
@@ -45,7 +46,7 @@ use crate::foundations::{Content, Repr, Scope, Value, ty};
 /// therefore access its contents dynamically, using the
 /// @dictionary.constructor[dictionary constructor].
 #[ty(cast)]
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Module {
     /// The module's name.
     name: Option<EcoString>,
@@ -176,6 +177,27 @@ impl Repr for Module {
 
 impl PartialEq for Module {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && Arc::ptr_eq(&self.inner, &other.inner)
+        if self.name != other.name {
+            return false;
+        }
+
+        if Arc::ptr_eq(&self.inner, &other.inner) {
+            return true;
+        }
+
+        matches!(
+            (self.inner.file_id, other.inner.file_id),
+            (Some(self_id), Some(other_id)) if self_id == other_id
+        )
+    }
+}
+
+impl Hash for Module {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        match self.inner.file_id {
+            Some(file_id) => file_id.hash(state),
+            None => self.inner.hash(state),
+        }
     }
 }
