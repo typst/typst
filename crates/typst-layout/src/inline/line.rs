@@ -483,7 +483,6 @@ pub fn apply_shift<'a>(
 }
 
 /// Commit to a line and build its frame.
-#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,

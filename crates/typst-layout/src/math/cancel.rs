@@ -70,7 +70,7 @@ pub fn layout_cancel(
 }
 
 /// Draws a cancel line.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn draw_cancel_line(
     engine: &mut Engine,
     length_scale: Rel<Abs>,

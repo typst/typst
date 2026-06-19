@@ -655,7 +655,7 @@ display_possible_values!(Feature);
 
 /// A PDF standard that Typst can enforce conformance with.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub enum PdfStandard {
     /// PDF 1.4.
     #[value(name = "1.4")]

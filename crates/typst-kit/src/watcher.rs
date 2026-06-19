@@ -76,7 +76,7 @@ impl Watcher {
     pub fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
-        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for seen in self.watched.values_mut() {
             *seen = false;
         }

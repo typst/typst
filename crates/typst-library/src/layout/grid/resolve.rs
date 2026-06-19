@@ -504,7 +504,7 @@ pub trait ResolvableCell {
     /// fill, align, inset and stroke properties, plus the expected value of
     /// the `breakable` field.
     /// Returns a final Cell.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn resolve_cell(
         self,
         x: usize,
@@ -904,7 +904,7 @@ impl CellGrid {
 /// Cells must implement Clone as they will be owned. Additionally, they
 /// must implement Default in order to fill positions in the grid which
 /// weren't explicitly specified by the user with empty cells.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn resolve_cellgrid<'a, T, C, I>(
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
@@ -1137,7 +1137,7 @@ impl CellGridResolver<'_, '_> {
     /// appropriate positions in the resolved grid. This is mostly relevant for
     /// items without fixed positions, such that they must be placed after the
     /// previous one, perhaps skipping existing cells along the way.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn resolve_grid_child<T, I>(
         &mut self,
         columns: usize,
@@ -1710,7 +1710,7 @@ impl CellGridResolver<'_, '_> {
     /// For example, an hline above the second row (y = 1) is inside the inner
     /// vector at position 1 of the first vector (hlines) returned by this
     /// function.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn collect_lines(
         &self,
         pending_hlines: Vec<(Span, Line, bool)>,
@@ -1812,7 +1812,6 @@ impl CellGridResolver<'_, '_> {
     ///    an adjacent gutter row to be repeated alongside that header or
     ///    footer, if there is gutter;
     /// 3. Wrap headers and footers in the correct [`Repeatable`] variant.
-    #[allow(clippy::type_complexity)]
     fn finalize_headers_and_footers(
         &self,
         has_gutter: bool,
@@ -2157,7 +2156,7 @@ fn check_for_conflicting_cell_row(
 /// indicate the first empty row available. Any rows before those should
 /// not be picked by cells with `auto` row positioning, since headers and
 /// footers occupy entire rows, and may not conflict with cells outside them.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn resolve_cell_position(
     cell_x: Smart<usize>,
     cell_y: Smart<usize>,

@@ -204,7 +204,7 @@ fn undangle() {
             }
 
             // Remove dangling hashes from file.
-            #[allow(clippy::iter_over_hash_type)]
+            #[expect(clippy::iter_over_hash_type)]
             for (path, names) in dangling_hashes {
                 let text = std::fs::read_to_string(path).unwrap();
                 let mut hashed_refs = HashedRefs::from_str(&text).unwrap();
