@@ -365,3 +365,149 @@ $ int(
   // Error: 3-8 missing argument: value
   int()
 ) $
+
+--- math-func-literal-basic eval ---
+// Error: 3-6 this does not call the `mat` function
+// Hint: 3-6 to call the function, specify arguments in parentheses: `mat()`
+$ mat $
+
+--- math-func-literal-parens eval ---
+// Error: 3-9 this does not call the `mat` function
+// Hint: 3-9 to call the function, write `mat()`
+// Hint: 7-9 the parentheses must directly follow the function
+$ mat () $
+
+--- math-func-literal-parens-many-spaces eval ---
+// Error: 1:3-4:5 this does not call the `mat` function
+// Hint: 1:3-4:5 to call the function, write `mat(x)`
+$ mat /* block
+ comment*/
+ // line comment
+ // Hint: 2-5 the parentheses must directly follow the function
+ (x) $
+
+--- math-func-literal-brackets eval ---
+// Error: 3-12 this does not call the `mat` function
+// Hint: 3-12 to call the function, write `mat(x, y)`
+// Hint: 6-12 functions can only be called with matched parentheses
+$ mat[x, y] $
+
+--- math-func-literal-mismatched eval ---
+// Error: 3-15 this does not call the `mat` function
+// Hint: 3-15 to call the function, write `mat(x, y; z)`
+// Hint: 6-15 functions can only be called with matched parentheses
+$ mat[x, y; z) $
+
+--- math-func-literal-field eval ---
+// Error: 3-31 this does not call the `std.assert.eq` function
+// Hint: 3-31 to call the function, write `std.assert.eq(#3, #(1 + 2))`
+// Hint: 17-31 the parentheses must directly follow the function
+$ std.assert.eq (#3, #(1 + 2)) $
+
+--- math-func-literal-delimited eval ---
+// Error: 4-14 this does not call the `lr` function
+// Hint: 4-14 to call the function, write `lr( |A| )`
+// Hint: 7-14 the parentheses must directly follow the function
+$ (lr ( |A| )) $
+
+--- math-func-literal-attach eval ---
+// Error: 5-11 this does not call the `attach` function
+// Hint: 5-11 to call the function, specify arguments in parentheses: `attach()`
+$ a_attach (b, t: c) $
+
+--- math-func-literal-frac eval ---
+// Error: 7-11 this does not call the `frac` function
+// Hint: 7-11 to call the function, specify arguments in parentheses: `frac()`
+$ 1 / frac (1,2) $
+
+--- math-func-literal-root eval ---
+// Error: 4-8 this does not call the `sqrt` function
+// Hint: 4-8 to call the function, specify arguments in parentheses: `sqrt()`
+$ √sqrt (3) $
+
+--- math-func-literal-arg paged html ---
+// We can use function literals in arguments ...
+$ std.repr(mat) $
+
+--- math-func-literal-arg-expected-content eval ---
+// ... but not if those arguments expect content.
+// Error: 12-15 expected content, found function
+$ overline(mat) $
+
+--- math-func-literal-renamed eval ---
+#let func = math.mat
+// Error: 3-7 this does not call the `func` function
+// Hint: 3-7 to call the function, specify arguments in parentheses: `func()`
+$ func $
+
+--- math-func-literal-from-call eval ---
+#let func() = math.mat
+// Error: 3-9 expected content, found function
+// Hint: 3-9 evaluated to the `mat` function
+$ func() $
+
+--- math-func-literal-from-call-unnamed eval ---
+#let func = () => () => ()
+// Error: 3-9 expected content, found function
+$ func() $
+
+--- math-func-literal-from-call-parens eval ---
+#let func() = math.mat
+// Error: 3-9 expected content, found function
+// Hint: 3-9 evaluated to the `mat` function
+$ func()() $
+// TODO: Maybe add a hint for this one.
+
+--- math-func-literal-embedded-code-ident eval ---
+#let func = math.mat
+// Error: 4-8 this does not call the `func` function
+// Hint: 4-8 to call the function, specify arguments in parentheses: `func()`
+$ #func $
+
+--- math-func-literal-embedded-code-ident-unnamed eval ---
+#let func = () => none
+// Error: 4-8 this does not call the `func` function
+// Hint: 4-8 to call the function, specify arguments in parentheses: `func()`
+$ #func $
+
+--- math-func-literal-embedded-code-non-ident eval ---
+#let func() = math.mat
+// Error: 4-10 expected content, found function
+// Hint: 4-10 evaluated to the `mat` function
+// Hint: 4-10 to call the function, specify arguments in parentheses: `func()()`
+$ #func() $
+
+--- math-func-literal-embedded-code-non-ident-unnamed eval ---
+#let func() = () => none
+// Error: 4-10 expected content, found function
+// Hint: 4-10 to call the function, specify arguments in parentheses: `func()()`
+$ #func() $
+
+--- math-func-literal-embedded-code-ident-parens eval ---
+#let func = math.mat
+// Error: 4-15 this does not call the `func` function
+// Hint: 4-15 to call the function, write `func(none)`
+// Hint: 9-15 the parentheses must directly follow the function
+$ #func (none) $
+
+--- math-func-literal-embedded-code-field-parens eval ---
+// Error: 4-35 expected content, found function
+// Hint: 4-35 evaluated to the `eq` function
+// Hint: 4-35 to call the function, write `dictionary(std).at("assert").eq(3, (1 + 2))`
+// Hint: 36-48 the parentheses must directly follow the function
+$ #dictionary(std).at("assert").eq (3, (1 + 2)) $
+
+--- math-func-literal-embedded-code-non-ident-parens eval ---
+// Error: 4-32 expected content, found function
+// Hint: 4-32 evaluated to the `assert` function
+// Hint: 4-32 to call the function, write `dictionary(std).at("assert")(false)`
+// Hint: 33-40 the parentheses must directly follow the function
+$ #dictionary(std).at("assert") (false) $
+
+--- math-func-literal-embedded-code-ident-semicolon-parens eval ---
+// This one worked better than I expected with no effort!
+#let func = math.mat
+// Error: 4-16 this does not call the `func` function
+// Hint: 4-16 to call the function, write `func(none)`
+// Hint: 10-16 the parentheses must directly follow the function
+$ #func; (none) $
