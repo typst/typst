@@ -154,7 +154,7 @@ pub fn add_link_annotations(
     page: &mut Page,
     annotations: impl IntoIterator<Item = LinkAnnotation>,
 ) {
-    for a in annotations.into_iter() {
+    for a in annotations {
         let link_annotation = if let [rect] = a.rects.as_slice() {
             krilla::annotation::LinkAnnotation::new(*rect, a.target)
         } else {

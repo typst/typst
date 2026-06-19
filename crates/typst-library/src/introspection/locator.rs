@@ -206,7 +206,7 @@ impl<'a> Locator<'a> {
 }
 
 #[comemo::track]
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> Locator<'a> {
     /// Resolves the locator based on its local and the outer information.
     fn resolve(&self) -> Resolved {
@@ -292,7 +292,7 @@ impl<'a> SplitLocator<'a> {
             Resolved::Hash(hash) => Location::new(hash),
             Resolved::Measure(base, measure_span) => {
                 let introspection =
-                    MeasureIntrospection { key, base, elem_span, measure_span };
+                    MeasureIntrospection { key, base, measure_span, elem_span };
 
                 // If we aren't able to find a matching element in the document,
                 // default to the base location, so that it's at least remotely

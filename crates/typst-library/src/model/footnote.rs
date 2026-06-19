@@ -129,7 +129,7 @@ impl FootnoteElem {
     pub fn body_content(&self) -> Option<&Content> {
         match &self.body {
             FootnoteBody::Content(content) => Some(content),
-            _ => None,
+            FootnoteBody::Reference(_) => None,
         }
     }
 }
@@ -166,7 +166,7 @@ impl Packed<FootnoteElem> {
                 }
                 footnote.declaration_location(engine)
             }
-            _ => Ok(self.location().unwrap()),
+            FootnoteBody::Content(_) => Ok(self.location().unwrap()),
         }
     }
 }

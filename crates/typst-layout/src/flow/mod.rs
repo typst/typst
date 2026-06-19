@@ -106,7 +106,7 @@ pub fn layout_columns(
 
 /// The cached, internal implementation of [`layout_fragment`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_fragment_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -187,7 +187,7 @@ impl From<FragmentKind> for FlowMode {
 }
 
 /// Lays out realized content into regions, potentially with columns.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],

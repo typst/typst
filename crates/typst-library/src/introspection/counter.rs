@@ -292,24 +292,17 @@ impl Counter {
                 .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
                 .and_then(|content| {
                     if func == HeadingElem::ELEM {
-                        content
-                            .to_packed::<HeadingElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<HeadingElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FigureElem::ELEM {
-                        content
-                            .to_packed::<FigureElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<FigureElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == EquationElem::ELEM {
-                        content
-                            .to_packed::<EquationElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<EquationElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FootnoteElem::ELEM {
-                        content
-                            .to_packed::<FootnoteElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
+                        let elem = content.to_packed::<FootnoteElem>()?;
+                        elem.numbering.as_option().clone()
                     } else {
                         None
                     }
@@ -607,7 +600,7 @@ impl CounterState {
                 *self = func
                     .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
-                    .at(func.span())?
+                    .at(func.span())?;
             }
         }
         Ok(())
@@ -907,7 +900,7 @@ fn sequence(
 
 /// Memoized implementation of `sequence`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,

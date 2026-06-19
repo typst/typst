@@ -63,8 +63,6 @@ impl TestBody {
                 {
                     best = Some((i, pos.clone()));
                     break;
-                } else {
-                    continue;
                 }
             } else if same_range && same_message {
                 // A perfect match! Mark as seen and return.
@@ -354,7 +352,7 @@ impl Display for NoteRange {
             Self::Some { external_file, positions: Range { start, end }, .. } => {
                 let mut buffer = String::new();
                 if let Some(file) = external_file {
-                    let path = TestFiles.resolve(*file).unwrap();
+                    let path = TestFiles::resolve(*file).unwrap();
                     write!(buffer, "\"{}\" ", path.display())?;
                 }
                 let must_print_lines = f.alternate() || external_file.is_some();

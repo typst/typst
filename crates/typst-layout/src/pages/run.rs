@@ -75,7 +75,7 @@ pub fn layout_page_run(
 
 /// The internal implementation of `layout_page_run`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_page_run_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

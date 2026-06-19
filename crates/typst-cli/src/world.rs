@@ -214,7 +214,7 @@ impl SystemFiles {
             let path = world_args
                 .root
                 .as_deref()
-                .or_else(|| input_path.as_deref().and_then(|i| i.parent()))
+                .or_else(|| input_path.as_deref()?.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {

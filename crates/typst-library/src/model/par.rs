@@ -648,7 +648,7 @@ pub struct FirstLineIndent {
 cast! {
     FirstLineIndent,
     self => Value::Dict(self.into()),
-    amount: Length => Self { amount: Some(amount), all: Default::default() },
+    amount: Length => Self { amount: Some(amount), all: None },
     mut dict: Dict => {
         // Get a value by key, accepting either non-existence or something
         // convertible to type T.
@@ -691,10 +691,7 @@ impl FirstLineIndent {
 
 impl Default for FirstLineIndent {
     fn default() -> Self {
-        Self {
-            amount: Some(Default::default()),
-            all: Some(Default::default()),
-        }
+        Self { amount: Some(Length::default()), all: Some(false) }
     }
 }
 

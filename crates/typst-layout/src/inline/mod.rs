@@ -68,7 +68,7 @@ pub fn layout_par(
 
 /// The internal, memoized implementation of `layout_par`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_par_impl(
     elem: &Packed<ParElem>,
     world: Tracked<dyn World + '_>,
@@ -149,7 +149,7 @@ pub fn layout_inline<'a>(
 }
 
 /// The internal implementation of [`layout_inline`].
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_inline_impl<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
