@@ -21,8 +21,7 @@ use unicode_math_class::MathClass;
 
 use crate::HtmlElem;
 use crate::attr::mathml as attr;
-use crate::css;
-use crate::css::ToCss;
+use crate::css::{self, ToCss};
 use crate::tag::mathml as tag;
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].
