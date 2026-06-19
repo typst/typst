@@ -89,10 +89,7 @@ pub fn svg_in_html(
     link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
-    let mut xml = XmlWriter::new(xmlwriter::Options {
-        indent: xmlwriter::Indent::None,
-        ..xml_options(pretty)
-    });
+    let mut xml = XmlWriter::new(xml_options(pretty));
     let mut svg = svg_header_with_custom_attrs(&mut xml, frame.size(), |svg| {
         if let Some(id) = id {
             svg.attr("id", id);
