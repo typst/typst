@@ -20,9 +20,10 @@ use typst_utils::Numeric;
 use unicode_math_class::MathClass;
 
 use crate::HtmlElem;
+use crate::attr::mathml as attr;
+use crate::css;
 use crate::css::ToCss;
 use crate::tag::mathml as tag;
-use crate::{attr::mathml as attr, css};
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].
 ///
