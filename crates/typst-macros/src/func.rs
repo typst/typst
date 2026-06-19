@@ -182,11 +182,11 @@ fn parse_param(
             let mut binding = Binding::Owned;
             if recv.reference.is_some() {
                 if recv.mutability.is_some() {
-                    binding = Binding::RefMut
+                    binding = Binding::RefMut;
                 } else {
-                    binding = Binding::Ref
+                    binding = Binding::Ref;
                 }
-            };
+            }
 
             special.self_ = Some(Param {
                 binding,
@@ -263,7 +263,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
         let ident_data = quote::format_ident!("{ident}_data");
         quote! {
             #[doc(hidden)]
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             #vis fn #ident_data() -> &'static #foundations::NativeFuncData {
                 static DATA: #foundations::NativeFuncData = #data;
                 &DATA
@@ -273,8 +273,8 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
 
     quote! {
         #[doc = #oneliner]
-        #[allow(dead_code)]
-        #[allow(rustdoc::broken_intra_doc_links)]
+        #[expect(dead_code)]
+        #[expect(rustdoc::broken_intra_doc_links)]
         #item
 
         #[doc(hidden)]
@@ -352,7 +352,7 @@ fn create_func_ty(func: &Func) -> Option<TokenStream> {
     let Func { vis, ident, .. } = func;
     Some(quote! {
         #[doc(hidden)]
-        #[allow(non_camel_case_types)]
+        #[expect(non_camel_case_types)]
         #vis enum #ident {}
     })
 }

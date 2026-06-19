@@ -530,7 +530,6 @@ fn linebreak_optimized_approximate(
 }
 
 /// Compute the stretch ratio and cost of a line.
-#[allow(clippy::too_many_arguments)]
 fn ratio_and_cost(
     p: &Preparation,
     metrics: &CostMetrics,
@@ -961,7 +960,7 @@ impl Estimates {
         let mut shrinkability = CumulativeVec::with_capacity(cap);
         let mut justifiables = CumulativeVec::with_capacity(cap);
 
-        for (range, item) in p.items.iter() {
+        for (range, item) in &p.items {
             if let Item::Text(shaped) = item {
                 for g in shaped.glyphs.iter() {
                     let byte_len = g.range.len();

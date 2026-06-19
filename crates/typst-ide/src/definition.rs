@@ -43,7 +43,7 @@ pub fn definition(
                 (*item.name() == name).then(|| Definition::Span(item.span()))
             }) {
                 return Some(src);
-            };
+            }
 
             if let Some((value, _)) = analyze_expr(world, &node).first() {
                 let span = match value {
@@ -135,7 +135,7 @@ mod tests {
         fn must_be_value(&self, expected: impl IntoValue) -> &Self {
             match &self.1 {
                 Some(Definition::Std(value)) => {
-                    assert_eq!(*value, expected.into_value())
+                    assert_eq!(*value, expected.into_value());
                 }
                 _ => panic!("expected std definition"),
             }

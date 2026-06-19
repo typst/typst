@@ -81,7 +81,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
     let mut accum = Accumulator::root();
     accum.reserve(root.nodes().len());
 
-    for child in root.nodes().iter() {
+    for child in root.nodes() {
         resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
     }
 
@@ -153,12 +153,12 @@ fn resolve_group_node(
         // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
         // this might become an `Artifact` tag.
         if group.kind.is_artifact() {
-            for child in group.nodes().iter() {
+            for child in group.nodes() {
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
             children.reserve(group.nodes().len());
-            for child in group.nodes().iter() {
+            for child in group.nodes() {
                 resolve_node(rs, lang, bbox, children, child);
             }
         }
@@ -259,7 +259,7 @@ fn resolve_artifact_node(
 
             {
                 let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
-                for child in group.nodes().iter() {
+                for child in group.nodes() {
                     resolve_artifact_node(rs, bbox, child);
                 }
             }
@@ -441,7 +441,7 @@ fn validate_children(rs: &mut Resolver, tag: &TagKind, children: &[Node]) {
         TagKind::THead(_) | TagKind::TBody(_) | TagKind::TFoot(_) => {
             validate_children_groups(rs, tag, children, |child| {
                 matches!(child, TagKind::TR(_))
-            })
+            });
         }
         TagKind::TR(_) => validate_children_groups(rs, tag, children, |child| {
             matches!(child, TagKind::TD(_) | TagKind::TH(_))

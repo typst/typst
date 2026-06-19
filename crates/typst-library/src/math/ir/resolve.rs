@@ -1109,7 +1109,7 @@ fn resolve_cases<'a, 'v, 'e>(
 /// Resolves the inner contents of a matrix, vector, or cases.
 ///
 /// The contents of the cells are resolved in denominator style.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn resolve_cells<'a, 'v, 'e>(
     ctx: &mut MathResolver<'a, 'v, 'e>,
     styles: StyleChain<'a>,

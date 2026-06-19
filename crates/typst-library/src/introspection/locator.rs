@@ -292,7 +292,7 @@ impl<'a> SplitLocator<'a> {
             Resolved::Hash(hash) => Location::new(hash),
             Resolved::Measure(base, measure_span) => {
                 let introspection =
-                    MeasureIntrospection { key, base, elem_span, measure_span };
+                    MeasureIntrospection { key, base, measure_span, elem_span };
 
                 // If we aren't able to find a matching element in the document,
                 // default to the base location, so that it's at least remotely

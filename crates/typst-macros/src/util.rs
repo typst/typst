@@ -215,7 +215,7 @@ impl<T: Parse> Parse for Array<T> {
 }
 
 /// Shorthand for `::typst_library::foundations`.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub struct foundations;
 
 impl quote::ToTokens for foundations {
@@ -246,7 +246,7 @@ impl Parse for BlockWithReturn {
 }
 
 /// Parse a bare `type Name;` item.
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct BareType {
     pub attrs: Vec<Attribute>,
     pub type_token: Token![type],

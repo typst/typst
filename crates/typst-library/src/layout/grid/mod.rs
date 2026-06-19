@@ -882,7 +882,6 @@ impl Default for Packed<GridCell> {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

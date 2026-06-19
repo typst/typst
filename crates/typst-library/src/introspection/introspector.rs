@@ -544,7 +544,7 @@ impl<P> ElementIntrospectorBuilder<P> {
         for (i, (elem, q)) in elements.elems.iter().enumerate() {
             let loc = elem.location().unwrap();
             if self.seen.insert(loc) {
-                let range = elements.locations.get(&loc).unwrap();
+                let range = &elements.locations[&loc];
                 let position = map_position(q);
                 self.sink.push(BuilderItem::Start(elem.clone(), position));
                 debug_assert_eq!(range.start, i);

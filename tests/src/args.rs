@@ -107,7 +107,7 @@ impl CliArguments {
                     TestStages::all()
                 } else {
                     let mut stages = TestStages::empty();
-                    for &s in self.stages.iter() {
+                    for &s in &self.stages {
                         stages |= s.into();
                     }
                     stages

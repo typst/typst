@@ -2254,7 +2254,7 @@ pub struct SpotColor {
 
 impl SpotColor {
     pub fn new(colorant: Arc<SpotColorant>, tint: Ratio) -> Self {
-        Self { tint, colorant }
+        Self { colorant, tint }
     }
 }
 

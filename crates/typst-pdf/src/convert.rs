@@ -363,10 +363,10 @@ pub(crate) fn handle_frame(
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
             FrameItem::Shape(s, span) => {
-                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?
+                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?;
             }
             FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?
+                handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
@@ -462,7 +462,7 @@ fn finish(
                 bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
-                let span = gc.image_to_spans.get(&image).unwrap();
+                let span = &gc.image_to_spans[&image];
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
                     hint: "convert the image to 8 bit instead";

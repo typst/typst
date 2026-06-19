@@ -155,7 +155,7 @@ fn has_attr(attrs: &[syn::Attribute], ident: &str) -> bool {
 }
 
 /// Parse a bare `type Name;` item.
-#[allow(dead_code)]
+#[expect(dead_code)]
 struct BareType {
     attrs: Vec<syn::Attribute>,
     type_token: syn::Token![type],

@@ -48,7 +48,7 @@ impl TextItem {
         let mut max = Point::splat(-Abs::inf());
         let mut cursor = Point::zero();
 
-        for glyph in self.glyphs.iter() {
+        for glyph in &self.glyphs {
             let advance =
                 Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
             let offset =

@@ -131,7 +131,7 @@ impl Docs {
                         s.eat_until(']');
                         s.eat();
                     }
-                    link = false
+                    link = false;
                 }
                 '*' | '_' => {}
                 '.' => {
