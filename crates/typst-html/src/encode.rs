@@ -398,5 +398,17 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
         &frame.anchors,
         w.link_resolver,
     );
-    w.buf.push_str(&svg);
+
+    if w.pretty {
+        // Indent the SVG after generation. This ensures the frame is cached no
+        // matter the current indentation of the outer HTML.
+        for (i, line) in svg.lines().enumerate() {
+            if i != 0 {
+                write_indent(w);
+            }
+            w.buf.push_str(line);
+        }
+    } else {
+        w.buf.push_str(&svg);
+    }
 }
