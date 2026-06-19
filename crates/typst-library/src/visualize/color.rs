@@ -2337,7 +2337,7 @@ impl SpotColorant {
         /// use of this colorant will result in the specified tint being applied
         /// equally to all plates. If you choose `{none}`, no colorant will be
         /// applied when using this color. Instead, you can use a spot color
-        /// with the name `{none}` to indicate cuts or varnishes. Be sure to
+        /// with the name `{"none"}` to indicate cuts or varnishes. Be sure to
         /// discuss this with your production printer!
         ///
         /// We do not recommend using the names `{"Cyan"}`, `{"Magenta"}`,
