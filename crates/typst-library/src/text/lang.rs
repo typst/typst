@@ -3,7 +3,7 @@ use std::str::FromStr;
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
 
-use crate::diag::Hint;
+use crate::diag::Hint as _;
 use crate::foundations::{StyleChain, cast};
 use crate::layout::Dir;
 use crate::text::TextElem;
@@ -646,7 +646,7 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
         return str;
     }
     let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
-    english_bundle.get(key).unwrap()
+    english_bundle[key]
 }
 
 /// Parses the translation file for a given language and region.

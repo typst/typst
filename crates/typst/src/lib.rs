@@ -42,7 +42,7 @@ pub use typst_utils as utils;
 use std::sync::LazyLock;
 
 use arrayvec::ArrayVec;
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_library::diag::{
@@ -233,7 +233,7 @@ fn hint_invalid_main_file(
                 diagnostic
                     .hint("a file without an extension is not usually a Typst file");
             }
-        };
+        }
 
         if world.source(input.map(|p| p.with_extension("typ")).intern()).is_ok() {
             diagnostic.hint("check if you meant to use the `.typ` extension instead");

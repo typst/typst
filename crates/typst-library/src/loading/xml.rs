@@ -1,10 +1,10 @@
 use roxmltree::ParsingOptions;
 use typst_syntax::Spanned;
 
-use crate::diag::{LoadError, LoadedWithin, SourceResult, format_xml_like_error};
+use crate::diag::{LoadError, LoadedWithin as _, SourceResult, format_xml_like_error};
 use crate::engine::Engine;
-use crate::foundations::{Array, Dict, IntoValue, Str, Value, dict, func};
-use crate::loading::{DataSource, Load};
+use crate::foundations::{Array, Dict, IntoValue as _, Str, Value, dict, func};
+use crate::loading::{DataSource, Load as _};
 
 /// Reads structured data from an XML file.
 ///

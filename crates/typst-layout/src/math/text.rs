@@ -10,7 +10,7 @@ use unicode_math_class::MathClass;
 
 use super::MathContext;
 use super::fragment::{FrameFragment, GlyphFragment};
-use super::run::MathFragmentsExt;
+use super::run::MathFragmentsExt as _;
 
 /// Lays out a [`TextItem`].
 #[typst_macros::time(name = "math text layout", span = props.span)]

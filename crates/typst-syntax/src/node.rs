@@ -577,7 +577,7 @@ impl SyntaxNode {
         new_descendants: usize,
     ) {
         if let Some((inner, _)) = self.inner_and_span_mut() {
-            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants)
+            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants);
         }
     }
 
@@ -1268,7 +1268,7 @@ impl LinkedNode<'_> {
 }
 
 /// Indicates whether the cursor is before the related byte index, or after.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Side {
     Before,
     After,

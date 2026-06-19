@@ -2,12 +2,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Arc, OnceLock};
 
 use ecow::eco_format;
-use image::{DynamicImage, EncodableLayout, GenericImageView, Rgba};
+use image::{DynamicImage, EncodableLayout as _, GenericImageView as _, Rgba};
 use krilla::image::{BitsPerComponent, CustomImage, ImageColorspace};
 use krilla::pdf::PdfDocument;
 use krilla::surface::Surface;
-use krilla_svg::{SurfaceExt, SvgSettings};
-use typst_library::diag::{At, SourceResult};
+use krilla_svg::{SurfaceExt as _, SvgSettings};
+use typst_library::diag::{At as _, SourceResult};
 use typst_library::foundations::Smart;
 use typst_library::layout::{Abs, Angle, Ratio, Size, Transform};
 use typst_library::visualize::{
@@ -18,7 +18,7 @@ use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
 use crate::tags;
-use crate::util::{SizeExt, TransformExt};
+use crate::util::{SizeExt as _, TransformExt as _};
 
 #[typst_macros::time(name = "handle image")]
 pub(crate) fn handle_image(
@@ -229,7 +229,7 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
             base_ts = base_ts.pre_concat(
                 Transform::scale(-Ratio::one(), Ratio::one())
                     .pre_concat(Transform::translate(-size.x, Abs::zero())),
-            )
+            );
         }
 
         if vp {
@@ -237,7 +237,7 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
             base_ts = base_ts.pre_concat(
                 Transform::scale(Ratio::one(), -Ratio::one())
                     .pre_concat(Transform::translate(Abs::zero(), -size.y)),
-            )
+            );
         }
 
         base_ts

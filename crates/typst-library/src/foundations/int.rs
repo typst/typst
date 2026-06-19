@@ -6,7 +6,7 @@ use ecow::{EcoString, eco_format};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, HintedString, SourceResult, StrResult, bail, error};
+use crate::diag::{At as _, HintedString, SourceResult, StrResult, bail, error};
 use crate::foundations::{
     Base, Bytes, Cast, Decimal, Repr, Str, Value, cast, func, repr, scope, ty,
 };
@@ -82,7 +82,7 @@ impl i64 {
         Ok(match value.v {
             ToInt::Int(n) => match base.v {
                 Base::User(_) => bail!(base.span, "base is only supported for strings"),
-                _ => n,
+                Base::Default => n,
             },
             ToInt::Str(s) => {
                 let base_value = base.v.value();
@@ -97,23 +97,20 @@ impl i64 {
                         // Parse the digits part into u64
                         //  => abs(i64::MIN) fits into u64
                         let bigger = u64::from_str_radix(s, radix)
-                            .map_err(|e| parse_str_error(e.kind(), base))
+                            .map_err(|e| parse_str_error(*e.kind(), base))
                             .at(value.span)?;
 
                         // Number wouldn't fit into i64
                         if bigger > i64::MIN.unsigned_abs() {
-                            return Err(parse_str_error(
-                                &IntErrorKind::NegOverflow,
-                                base,
-                            ))
-                            .at(value.span);
+                            return Err(parse_str_error(IntErrorKind::NegOverflow, base))
+                                .at(value.span);
                         }
 
                         bigger.wrapping_neg() as i64
                     }
                     // Positive
                     None => i64::from_str_radix(&s, radix)
-                        .map_err(|e| parse_str_error(e.kind(), base))
+                        .map_err(|e| parse_str_error(*e.kind(), base))
                         .at(value.span)?,
                 }
             }
@@ -318,7 +315,7 @@ impl i64 {
         //
         // – big-endian: `decimal` will be the rightmost bytes of the buffer.
         // - little-endian: `decimal` will be the leftmost bytes of the buffer.
-        let mut buf = [0u8; 8];
+        let mut buf = [0_u8; 8];
         let (rest, decimal) = match endian {
             Endianness::Big => buf.split_at_mut(8 - len),
             Endianness::Little => {
@@ -387,14 +384,14 @@ impl i64 {
                 // Copy the bytes from the array to the buffer, starting from
                 // the end of the buffer.
                 let buf_start = size.saturating_sub(8);
-                let array_start = 8usize.saturating_sub(size);
-                buf[buf_start..].copy_from_slice(&array[array_start..])
+                let array_start = 8_usize.saturating_sub(size);
+                buf[buf_start..].copy_from_slice(&array[array_start..]);
             }
             Endianness::Little => {
                 // Copy the bytes from the array to the buffer, starting from
                 // the beginning of the buffer.
                 let end = size.min(8);
-                buf[..end].copy_from_slice(&array[..end])
+                buf[..end].copy_from_slice(&array[..end]);
             }
         }
 
@@ -444,7 +441,7 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
 }
 
 #[cold]
-fn parse_str_error(kind: &IntErrorKind, base: Spanned<Base>) -> HintedString {
+fn parse_str_error(kind: IntErrorKind, base: Spanned<Base>) -> HintedString {
     let base = base.v.value();
     match kind {
         IntErrorKind::Empty => error!("string must not be empty"),
@@ -479,7 +476,7 @@ macro_rules! signed_int {
                     // Some numbers (i128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| "number too large")?,
@@ -499,7 +496,7 @@ macro_rules! unsigned_int {
                     // Some numbers (u64, u128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| {
@@ -518,7 +515,7 @@ unsigned_int! { u8 u16 u32 u64 u128 usize }
 
 cast! {
     NonZeroI64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get()),
     v: i64 => v.try_into()
         .map_err(|_| if v == 0 {
             "number must not be zero"
@@ -529,7 +526,7 @@ cast! {
 
 cast! {
     NonZeroIsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: isize| v.try_into())
@@ -542,7 +539,7 @@ cast! {
 
 cast! {
     NonZeroU64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u64| v.try_into())
@@ -555,7 +552,7 @@ cast! {
 
 cast! {
     NonZeroUsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: usize| v.try_into())
@@ -568,7 +565,7 @@ cast! {
 
 cast! {
     NonZeroU32,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u32| v.try_into())

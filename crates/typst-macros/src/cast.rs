@@ -1,4 +1,4 @@
-use heck::ToKebabCase;
+use heck::ToKebabCase as _;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
@@ -185,7 +185,7 @@ struct Cast {
 }
 
 /// A pattern in a cast, e.g.`"ascender"` or `v: i64`.
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 enum Pattern {
     Str(syn::LitStr),
     Ty(syn::Pat, syn::Type),

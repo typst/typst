@@ -3,12 +3,14 @@
 use std::cmp;
 use std::cmp::Ordering;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use typst_syntax::{Span, Spanned};
 use typst_utils::{Scalar, round_int_with_precision, round_with_precision};
 
-use crate::diag::{At, HintedString, SourceResult, StrResult, bail};
-use crate::foundations::{Decimal, IntoValue, Module, Scope, Value, cast, func, ops};
+use crate::diag::{At as _, HintedString, SourceResult, StrResult, bail};
+use crate::foundations::{
+    Decimal, IntoValue as _, Module, Scope, Value, cast, func, ops,
+};
 use crate::layout::{Angle, Fr, Length, Ratio};
 
 /// A module with calculation definitions.
@@ -120,7 +122,7 @@ pub fn pow(
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
-    };
+    }
 
     match (base, exponent.v) {
         (DecNum::Int(a), Num::Int(b)) if b >= 0 => a

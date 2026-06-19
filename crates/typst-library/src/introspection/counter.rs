@@ -1,19 +1,21 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::num::NonZeroUsize;
-use std::str::FromStr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Span;
-use typst_utils::{LazyHash, NonZeroExt, Protected};
+use typst_utils::{LazyHash, NonZeroExt as _, Protected};
 
-use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
+use crate::diag::{
+    At as _, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning,
+};
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Args, Array, Construct, Content, Context, Element, Func, IntoValue, Label,
-    LocatableSelector, NativeElement, Packed, Repr, Selector, ShowFn, Smart, Str,
+    LocatableSelector, NativeElement as _, Packed, Repr, Selector, ShowFn, Smart, Str,
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{
@@ -292,24 +294,17 @@ impl Counter {
                 .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
                 .and_then(|content| {
                     if func == HeadingElem::ELEM {
-                        content
-                            .to_packed::<HeadingElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<HeadingElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FigureElem::ELEM {
-                        content
-                            .to_packed::<FigureElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<FigureElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == EquationElem::ELEM {
-                        content
-                            .to_packed::<EquationElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<EquationElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FootnoteElem::ELEM {
-                        content
-                            .to_packed::<FootnoteElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
+                        let elem = content.to_packed::<FootnoteElem>()?;
+                        elem.numbering.as_option().clone()
                     } else {
                         None
                     }
@@ -607,7 +602,7 @@ impl CounterState {
                 *self = func
                     .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
-                    .at(func.span())?
+                    .at(func.span())?;
             }
         }
         Ok(())
@@ -907,7 +902,7 @@ fn sequence(
 
 /// Memoized implementation of `sequence`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,

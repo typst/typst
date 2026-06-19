@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Construct, Content, NativeElement, Packed, Unlabellable, elem,
+    Args, Construct, Content, NativeElement as _, Packed, Unlabellable, elem,
 };
 use crate::introspection::Location;
 

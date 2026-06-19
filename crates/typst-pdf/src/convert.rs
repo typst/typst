@@ -19,10 +19,10 @@ use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{
-    At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
+    At as _, ExpectInternal as _, SourceDiagnostic, SourceResult, bail, error,
 };
-use typst_library::foundations::{NativeElement, Repr};
-use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
+use typst_library::foundations::{NativeElement as _, Repr as _};
+use typst_library::introspection::{Introspector as _, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
 use typst_library::text::FontInstance;
@@ -35,13 +35,13 @@ use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
 use crate::outline::build_outline;
-use crate::page::PageLabelExt;
+use crate::page::PageLabelExt as _;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
 use crate::util::{
-    AbsExt, SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path,
-    display_font,
+    AbsExt as _, SpotColorantFromNameExt as _, TransformExt as _, ValidatorsExt as _,
+    convert_path, display_font,
 };
 
 #[typst_macros::time(name = "convert document")]
@@ -219,7 +219,7 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     /// The logical page index. This might be `None` if the page isn't exported,
-    /// of if the FrameContext has been built to convert a pattern.
+    /// of if the [`FrameContext`] has been built to convert a pattern.
     pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
@@ -363,10 +363,10 @@ pub(crate) fn handle_frame(
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
             FrameItem::Shape(s, span) => {
-                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?
+                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?;
             }
             FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?
+                handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
@@ -462,7 +462,7 @@ fn finish(
                 bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
-                let span = gc.image_to_spans.get(&image).unwrap();
+                let span = &gc.image_to_spans[&image];
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
                     hint: "convert the image to 8 bit instead";

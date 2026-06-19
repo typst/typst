@@ -1,10 +1,10 @@
-use comemo::Track;
+use comemo::Track as _;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At as _, SourceResult, bail};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, dict,
+    Content, Context, NativeElement as _, NativeRuleMap, Packed, Resolve as _, ShowFn,
+    Smart, StyleChain, Synthesize as _, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -24,7 +24,7 @@ use typst_library::model::{
 };
 use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
-    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
+    DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName as _,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
     SmartQuoteElem, SmartQuotes, SpaceElem, StrikeElem, SubElem, SuperElem, TextElem,
     TextSize, UnderlineElem, WeightDelta,
@@ -33,7 +33,7 @@ use typst_library::visualize::{
     CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
     SquareElem, Stroke,
 };
-use typst_utils::{Get, Numeric};
+use typst_utils::{Get as _, Numeric as _};
 
 /// Register show rules for the [paged target](Target::Paged).
 pub fn register(rules: &mut NativeRuleMap) {
@@ -175,7 +175,7 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
         .then(|| HElem::new((-hanging_indent).into()).pack().spanned(span));
 
     let mut children = vec![];
-    for child in elem.children.iter() {
+    for child in &elem.children {
         let mut seq = vec![];
         seq.extend(unpad.clone());
         seq.push(PdfMarkerTag::TermsItemLabel(child.term.clone().strong()));

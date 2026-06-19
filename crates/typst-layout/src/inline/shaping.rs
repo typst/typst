@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use comemo::Tracked;
 use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
 use ttf_parser::Tag;
@@ -18,12 +18,12 @@ use typst_library::text::{
     ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
     is_default_ignorable, language, variant,
 };
-use typst_utils::SliceExt;
+use typst_utils::SliceExt as _;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
-use unicode_script::{Script, UnicodeScript};
+use unicode_script::{Script, UnicodeScript as _};
 
 use super::{Item, Range, SpanMapper, decorate};
-use crate::modifiers::FrameModifyText;
+use crate::modifiers::FrameModifyText as _;
 
 const SHY: char = '\u{ad}';
 const SHY_STR: &str = "\u{ad}";
@@ -119,7 +119,7 @@ impl<'a> Glyphs<'a> {
     }
 }
 
-impl<'a> Deref for Glyphs<'a> {
+impl Deref for Glyphs<'_> {
     type Target = [ShapedGlyph];
 
     /// Returns only the kept (untrimmed) glyphs.
@@ -382,7 +382,7 @@ impl<'a> ShapedText<'a> {
                             adjustability_right * justification_ratio;
                         if shaped.is_justifiable() {
                             justification_right +=
-                                Em::from_abs(extra_justification, glyph_size)
+                                Em::from_abs(extra_justification, glyph_size);
                         }
 
                         frame.size_mut().x += justification_left.at(glyph_size)
@@ -782,7 +782,6 @@ fn is_compatible(a: Script, b: Script) -> bool {
 }
 
 /// Shape text into [`ShapedText`].
-#[allow(clippy::too_many_arguments)]
 fn shape<'a>(
     engine: &Engine,
     base: usize,
@@ -982,7 +981,7 @@ fn shape_segment<'a>(
     if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
     }) {
-        buffer.set_script(script)
+        buffer.set_script(script);
     }
     buffer.set_direction(match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
@@ -1006,7 +1005,7 @@ fn shape_segment<'a>(
     let has_shift_feature = shift_feature.is_some();
     if let Some(feat) = shift_feature {
         // Temporarily push the feature.
-        ctx.features.push(feat)
+        ctx.features.push(feat);
     }
 
     // Prepare the shape plan. This plan depends on direction, script, language,
@@ -1184,7 +1183,7 @@ fn determine_shift(
                     let Some(i) = font.rusty().glyph_index(c) else { return false };
                     lookups
                         .into_iter()
-                        .flat_map(|i| gsub.lookups.get(i))
+                        .filter_map(|i| gsub.lookups.get(i))
                         .flat_map(|lookup| {
                             lookup.subtables.into_iter::<SubstitutionSubtable>()
                         })

@@ -1,6 +1,6 @@
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
+use typst_library::foundations::Resolve as _;
 use typst_library::layout::grid::resolve::Repeatable;
 use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
 
@@ -608,7 +608,7 @@ impl GridLayouter<'_> {
     /// Returns `true` if we'll need to run a simulation to more accurately
     /// expand the auto row based on the rowspan's demanded size, or `false`
     /// otherwise.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn prepare_rowspan_sizes(
         &self,
         auto_row_y: usize,
@@ -698,7 +698,7 @@ impl GridLayouter<'_> {
     /// auto row will have to expand, given the current sizes of the auto row
     /// in each region and the pending rowspans' data (parent Y, rowspan amount
     /// and vector of requested sizes).
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn simulate_and_measure_rowspans_in_auto_row(
         &self,
         y: usize,
@@ -865,8 +865,8 @@ impl GridLayouter<'_> {
     /// (consider it stabilized) and return the result.
     ///
     /// Tries up to 5 times. If two consecutive simulations stabilize, then
-    /// we subtract the predicted expansion height ('amount_to_grow') from the
-    /// total height requested by rowspans (the 'requested_rowspan_height') to
+    /// we subtract the predicted expansion height (`amount_to_grow`) from the
+    /// total height requested by rowspans (the `requested_rowspan_height`) to
     /// obtain how much height is covered by upcoming rows, according to our
     /// simulation, and the result of that operation is used to reduce or
     /// remove heights from the end of the vector of simulated sizes, such that
@@ -875,7 +875,7 @@ impl GridLayouter<'_> {
     ///
     /// If the simulations don't stabilize (they return 5 different and
     /// successively larger values), aborts and returns `false`.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn run_rowspan_simulation(
         &self,
         y: usize,
@@ -1055,7 +1055,7 @@ impl<'a> RowspanSimulator<'a> {
     /// `total_spanned_height + amount_to_grow` becomes larger than
     /// `requested_rowspan_height`, as the results are not going to become any
     /// more useful after that point.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn simulate_rowspan_layout(
         mut self,
         y: usize,

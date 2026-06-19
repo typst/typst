@@ -61,7 +61,7 @@ impl Groups {
     /// See [`util::propagate_lang`].
     pub fn propagate_lang(&mut self, id: GroupId, lang: Locale) -> Option<Locale> {
         // TODO: walk up to the first parent that has a language.
-        let group = &mut self.get_mut(id);
+        let group = self.get_mut(id);
 
         let Some(parent) = group.kind.lang_mut() else { return Some(lang) };
 

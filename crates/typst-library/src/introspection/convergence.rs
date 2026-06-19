@@ -1,9 +1,9 @@
 use std::any::{Any, TypeId};
-use std::fmt::{Debug, Write};
+use std::fmt::{Debug, Write as _};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_syntax::Span;
 use typst_utils::Protected;
@@ -142,7 +142,7 @@ pub trait Introspect: Debug + PartialEq + Hash + Send + Sync + Sized + 'static {
 /// A type-erased representation of an [introspection](Introspect) that was
 /// recorded during compilation.
 #[derive(Debug, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
+#[expect(clippy::derived_hash_with_manual_eq)]
 pub struct Introspection(Arc<dyn Bounds>);
 
 impl Introspection {

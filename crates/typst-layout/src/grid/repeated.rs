@@ -1,11 +1,11 @@
-use std::ops::Deref;
+use std::ops::Deref as _;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::{GridLayouter, RowState};
+use super::layouter::{FinishedHeaderRowInfo, GridLayouter, RowState};
 use super::rowspans::UnbreakableRowGroup;
 
 impl<'a> GridLayouter<'a> {
@@ -228,7 +228,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Default::default(),
+                FinishedHeaderRowInfo::default(),
             );
 
             // TODO(layout model): re-calculate heights of headers and footers
@@ -353,7 +353,7 @@ impl<'a> GridLayouter<'a> {
 
     /// Lays out headers found for the first time during row layout.
     ///
-    /// If 'short_lived' is true, these headers are immediately followed by
+    /// If `short_lived` is true, these headers are immediately followed by
     /// a conflicting header, so it is assumed they will not be pushed to
     /// pending headers.
     ///
@@ -487,7 +487,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Default::default(),
+                FinishedHeaderRowInfo::default(),
             );
             skipped_region = true;
         }

@@ -6,7 +6,7 @@ use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, families, variant};
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::*;
 use crate::inline::linebreak::Trim;
@@ -274,7 +274,7 @@ where
     // Call `f` for each run.
     for run in runs {
         let rtl = levels[run.start].is_rtl();
-        f(run, rtl)
+        f(run, rtl);
     }
 }
 
@@ -483,7 +483,6 @@ pub fn apply_shift<'a>(
 }
 
 /// Commit to a line and build its frame.
-#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -745,7 +744,7 @@ impl<'a> Items<'a> {
 
     /// Reorder the items starting at the given index to RTL.
     pub fn reorder(&mut self, from: usize) {
-        self.0[from..].reverse()
+        self.0[from..].reverse();
     }
 }
 
@@ -814,7 +813,7 @@ impl<'a> ItemEntry<'a> {
                 *self = Self::Box(Box::new(Item::Text(text.clone())));
                 match self {
                     Self::Box(item) => item.text_mut(),
-                    _ => unreachable!(),
+                    Self::Ref(_) => unreachable!(),
                 }
             }
             Self::Box(item) => item.text_mut(),

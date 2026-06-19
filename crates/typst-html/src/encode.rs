@@ -1,9 +1,9 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, eco_format};
-use typst_library::diag::{At, SourceResult, StrResult, bail};
-use typst_library::foundations::Repr;
+use typst_library::diag::{At as _, SourceResult, StrResult, bail};
+use typst_library::foundations::Repr as _;
 use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 
@@ -274,7 +274,7 @@ fn walk_raw_text(
 ) -> SourceResult<()> {
     for c in &element.children {
         match c {
-            HtmlNode::Tag(_) => continue,
+            HtmlNode::Tag(_) => {}
             HtmlNode::Text(text, span) => f(text, *span)?,
             HtmlNode::Element(HtmlElement { span, .. })
             | HtmlNode::Frame(HtmlFrame { span, .. }) => {
@@ -374,7 +374,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         '"' => w.buf.push_str("&quot;"),
         '\'' => w.buf.push_str("&apos;"),
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
-            write!(w.buf, "&#x{:x};", c as u32).unwrap()
+            write!(w.buf, "&#x{:x};", c as u32).unwrap();
         }
         _ => return Err(unencodable(c)),
     }

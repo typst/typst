@@ -1,8 +1,8 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
+use typst_library::foundations::{Content, NativeElement as _, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
 };
@@ -41,7 +41,7 @@ pub fn html_document(
 
 /// The internal implementation of `html_document`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -96,7 +96,7 @@ pub fn html_document_for_bundle(
 
 /// The internal implementation of `html_document_for_bundle`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_for_bundle_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -124,7 +124,7 @@ fn html_document_for_bundle_impl(
 
 /// The shared, unmemoized implementation of `html_document` and
 /// `html_document_for_bundle`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_common(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -346,7 +346,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::name, "authors")
                 .with_attr(attr::content, info.author.join(", "))
                 .into(),
-        )
+        );
     }
 
     if !info.keywords.is_empty() {
@@ -355,7 +355,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
                 .into(),
-        )
+        );
     }
 
     HtmlElement::new(tag::head).with_children(children)

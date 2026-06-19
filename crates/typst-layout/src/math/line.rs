@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::layout::{Abs, Frame, FrameItem, Point, Size};
 use typst_library::math::ir::{LineItem, MathProperties, Position};
 use typst_library::text::TextElem;

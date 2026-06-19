@@ -21,8 +21,8 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use typst_layout::PagedDocument;
 use typst_library::diag::{
-    At, ExpectInternal, SourceDiagnostic, SourceResult, assert_internal, bail, error,
-    panic_internal,
+    At as _, ExpectInternal as _, SourceDiagnostic, SourceResult, assert_internal, bail,
+    error, panic_internal,
 };
 use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
@@ -32,9 +32,9 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    Document as _, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
+    FootnoteEntry, HeadingElem, LinkMarker, ListElem, Outlinable as _, OutlineEntry,
+    ParElem, QuoteElem, StrongElem, TableCell, TableElem, TermsElem, TitleElem,
 };
 use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
@@ -50,8 +50,8 @@ use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCt
 use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
-use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
-use crate::util::ValidatorsExt;
+use crate::tags::util::{ArtifactKindExt as _, PropertyValCopied as _};
+use crate::util::ValidatorsExt as _;
 
 pub struct TreeBuilder<'a> {
     options: &'a PdfOptions,
@@ -196,8 +196,8 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
     .at(Span::detached())?;
 
     // Insert logical children into the tree.
-    #[allow(clippy::iter_over_hash_type)]
-    for (loc, children) in tree.logical_children.iter() {
+    #[expect(clippy::iter_over_hash_type)]
+    for (loc, children) in &tree.logical_children {
         let located = (tree.groups.by_loc(loc))
             .expect_internal("parent group")
             .at(Span::detached())?;
@@ -214,7 +214,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             );
         }
 
-        for child in children.iter() {
+        for child in children {
             let child = tree.groups.get_mut(*child);
 
             let GroupKind::LogicalChild(inherit, logical_parent) = &mut child.kind else {
@@ -262,7 +262,7 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
 }
 
 /// Handle children frames logically belonging to another element, because
-/// [typst_library::layout::GroupItem::parent] has been set. All elements that
+/// [`typst_library::layout::GroupItem::parent`] has been set. All elements that
 /// can have children set by this mechanism must be handled in
 /// [`crate::tags::handle_start`] and must produce a located
 /// [`crate::tags::groups::Group`], so the children can be inserted there.
@@ -336,7 +336,7 @@ fn visit_end_tag(tree: &mut TreeBuilder, loc: Location) -> SourceResult<()> {
 
 fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     // Artifacts
-    #[allow(clippy::redundant_pattern_matching)]
+    #[expect(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
     } else if let Some(artifact) = elem.to_packed::<ArtifactElem>() {
@@ -625,7 +625,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
         };
 
         if let Some(inner) = &mut inner_break_priority {
-            *inner = (*inner).min(priority)
+            *inner = (*inner).min(priority);
         }
     }
 
@@ -773,7 +773,7 @@ fn split_outer_group(
 
         // Update progressions to jump into the inner entry instead.
         let prev = tree.progressions[entry.prog_idx as usize];
-        for prog in tree.progressions[entry.prog_idx as usize..].iter_mut() {
+        for prog in &mut tree.progressions[entry.prog_idx as usize..] {
             if *prog == prev {
                 *prog = nested;
             }

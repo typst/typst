@@ -1,4 +1,4 @@
-use heck::ToKebabCase;
+use heck::ToKebabCase as _;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
@@ -298,7 +298,7 @@ fn create_struct(element: &Elem) -> TokenStream {
     quote! {
         #[doc = #oneliner]
         #[derive(Hash, #debug Clone)]
-        #[allow(rustdoc::broken_intra_doc_links)]
+        #[expect(rustdoc::broken_intra_doc_links)]
         #vis struct #ident {
             #(#fields,)*
         }
@@ -337,7 +337,7 @@ fn create_inherent_impl(element: &Elem) -> TokenStream {
             #new_func
             #(#with_field_methods)*
         }
-        #[allow(non_upper_case_globals)]
+        #[expect(non_upper_case_globals)]
         impl #ident {
             #(#style_consts)*
         }

@@ -3,11 +3,11 @@ pub mod resolve;
 use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
-use comemo::Track;
+use comemo::Track as _;
 use smallvec::{SmallVec, smallvec};
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
+use crate::diag::{At as _, HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
@@ -882,7 +882,6 @@ impl Default for Packed<GridCell> {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

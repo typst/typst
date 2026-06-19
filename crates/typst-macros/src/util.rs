@@ -1,4 +1,4 @@
-use heck::{ToKebabCase, ToTitleCase};
+use heck::{ToKebabCase as _, ToTitleCase as _};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use syn::parse::{Parse, ParseStream};
@@ -215,7 +215,7 @@ impl<T: Parse> Parse for Array<T> {
 }
 
 /// Shorthand for `::typst_library::foundations`.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub struct foundations;
 
 impl quote::ToTokens for foundations {
@@ -225,11 +225,13 @@ impl quote::ToTokens for foundations {
 }
 
 /// For parsing attributes of the form:
+/// ```ignore
 /// #[attr(
 ///   statement;
 ///   statement;
 ///   returned_expression
 /// )]
+/// ```
 pub struct BlockWithReturn {
     pub prefix: Vec<syn::Stmt>,
     pub expr: syn::Stmt,
@@ -246,7 +248,7 @@ impl Parse for BlockWithReturn {
 }
 
 /// Parse a bare `type Name;` item.
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct BareType {
     pub attrs: Vec<Attribute>,
     pub type_token: Token![type],

@@ -2,11 +2,11 @@ use std::cell::LazyCell;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Packed, Resolve as _, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{BoxElem, Frame, FrameKind, Size};
 use typst_library::visualize::Stroke;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::flow::unbreakable_pod;
 use crate::shapes::{clip_rect, fill_and_stroke};

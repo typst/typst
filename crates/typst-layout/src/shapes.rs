@@ -1,9 +1,9 @@
 use std::f64::consts::SQRT_2;
 
-use kurbo::{CubicBez, ParamCurveExtrema};
+use kurbo::{CubicBez, ParamCurveExtrema as _};
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Packed, Resolve, Smart, StyleChain};
+use typst_library::foundations::{Content, Packed, Resolve as _, Smart, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Corner, Corners, Frame, FrameItem, Point, Ratio, Region, Rel, Sides, Size,
@@ -14,7 +14,7 @@ use typst_library::visualize::{
     SquareElem, Stroke,
 };
 use typst_syntax::Span;
-use typst_utils::{Get, Numeric};
+use typst_utils::{Get as _, Numeric as _};
 
 /// Layout the line.
 #[typst_macros::time(span = elem.span())]
@@ -483,7 +483,7 @@ impl ShapeKind {
 }
 
 /// Layout a shape.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_shape(
     engine: &mut Engine,
     locator: Locator,
@@ -650,7 +650,7 @@ pub fn clip_rect(
                 corner.start_inner(),
                 corner.center_inner(),
                 corner.end_inner(),
-            )
+            );
         } else {
             curve.line(corner.center_inner());
         }
@@ -689,7 +689,7 @@ pub fn styled_rect(
     fill: Option<Paint>,
     stroke: &Sides<Option<FixedStroke>>,
 ) -> Vec<Shape> {
-    if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
+    if stroke.is_uniform() && radius.iter().copied().all(Rel::is_zero) {
         simple_rect(size, fill, stroke.top.clone())
     } else {
         segmented_rect(size, radius, fill, stroke)
@@ -782,7 +782,7 @@ fn segmented_rect(
             curve.arc_move(c.start(), c.center(), c.end());
         } else {
             curve.move_(c.center());
-        };
+        }
 
         for corner in [Corner::TopRight, Corner::BottomRight, Corner::BottomLeft] {
             let c = corners.get_ref(corner);

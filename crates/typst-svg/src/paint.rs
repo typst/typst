@@ -1,6 +1,6 @@
 use std::f64::consts::TAU;
 
-use typst_library::foundations::Repr;
+use typst_library::foundations::Repr as _;
 use typst_library::layout::{
     Abs, Angle, Axes, Frame, Point, Quadrant, Ratio, Size, Transform,
 };
@@ -349,7 +349,7 @@ impl SVGRenderer<'_> {
                 .attr("y", tiling.offset().y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
-                    attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])
+                    attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
                 })
                 .with(|pattern| {
                     // Render the frame.
@@ -444,10 +444,10 @@ impl From<&Gradient> for GradientKind {
 impl SvgDisplay for Color {
     fn fmt(&self, f: &mut impl SvgWrite) {
         match self.to_process() {
-            c @ ProcessColor::Rgb(_)
-            | c @ ProcessColor::Luma(_)
-            | c @ ProcessColor::Cmyk(_)
-            | c @ ProcessColor::Hsv(_) => {
+            c @ (ProcessColor::Rgb(_)
+            | ProcessColor::Luma(_)
+            | ProcessColor::Cmyk(_)
+            | ProcessColor::Hsv(_)) => {
                 f.push_str(&c.to_hex());
             }
             ProcessColor::LinearRgb(rgb) => {

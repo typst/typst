@@ -5,11 +5,11 @@ use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
-    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
+    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement as _, NoneValue, Output,
+    ParamInfo, Repr as _, StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
-use typst::syntax::ast::AstNode;
+use typst::syntax::ast::AstNode as _;
 use typst::syntax::{
     FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
     is_id_start, is_ident,
@@ -219,12 +219,12 @@ fn field_access_completions(
             }
         }
         Value::Dict(dict) => {
-            for (name, value) in dict.iter() {
+            for (name, value) in dict {
                 ctx.value_completion(name.clone(), value);
             }
         }
         Value::Args(args) => {
-            for (name, value) in args.to_named().iter() {
+            for (name, value) in &args.to_named() {
                 ctx.value_completion(name.clone(), value);
             }
         }
@@ -516,7 +516,7 @@ fn param_completions<'a>(
             ast::Arg::Named(named) => {
                 existing_named.insert(named.name().as_str());
             }
-            _ => {}
+            ast::Arg::Spread(_) => {}
         }
     }
 
@@ -563,8 +563,8 @@ fn param_completions<'a>(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
+fn named_param_value_completions(
+    ctx: &mut CompletionContext,
     callee: &LinkedNode,
     name: &str,
 ) {
@@ -584,11 +584,7 @@ fn named_param_value_completions<'a>(
 }
 
 /// Add completions for the values of a parameter.
-fn param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
-    func: &Func,
-    param: &ParamInfo,
-) {
+fn param_value_completions(ctx: &mut CompletionContext, func: &Func, param: &ParamInfo) {
     if param.name() == Some("font") {
         ctx.font_completions();
     } else if let Some(extensions) = path_completion(func, param) {
@@ -1351,7 +1347,7 @@ impl<'a> CompletionContext<'a> {
             }
             CastInfo::Type(ty) => {
                 if *ty == Type::of::<NoneValue>() {
-                    self.snippet_completion("none", "none", "Nothing.")
+                    self.snippet_completion("none", "none", "Nothing.");
                 } else if *ty == Type::of::<AutoValue>() {
                     self.snippet_completion("auto", "auto", "A smart default.");
                 } else if *ty == Type::of::<bool>() {
@@ -1400,7 +1396,7 @@ impl<'a> CompletionContext<'a> {
                     );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Label>() {
-                    self.label_completions()
+                    self.label_completions();
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
                         "function",
@@ -1501,7 +1497,7 @@ impl BracketMode {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
     use std::collections::BTreeSet;
 
     use typst::foundations::AsOutput;

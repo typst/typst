@@ -1,7 +1,7 @@
 //! Handles special built-in methods on values.
 
 use ecow::{EcoString, eco_format};
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::{At as _, SourceResult};
 use typst_library::foundations::{Args, Str, Type, Value};
 use typst_syntax::Span;
 
@@ -36,12 +36,12 @@ pub(crate) fn call_method_mut(
             "push" => array.push(args.expect("value")?),
             "pop" => output = array.pop().at(span)?,
             "insert" => {
-                array.insert(args.expect("index")?, args.expect("value")?).at(span)?
+                array.insert(args.expect("index")?, args.expect("value")?).at(span)?;
             }
             "remove" => {
                 output = array
                     .remove(args.expect("index")?, args.named("default")?)
-                    .at(span)?
+                    .at(span)?;
             }
             _ => return missing(),
         },
@@ -50,7 +50,7 @@ pub(crate) fn call_method_mut(
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =
-                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?;
             }
             _ => return missing(),
         },

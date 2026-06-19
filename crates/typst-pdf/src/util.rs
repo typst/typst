@@ -10,7 +10,7 @@ use krilla::geom::PathBuilder;
 use krilla::paint as kp;
 use krilla::tagging as kt;
 use smallvec::SmallVec;
-use typst_library::foundations::Repr;
+use typst_library::foundations::Repr as _;
 use typst_library::layout::{Abs, Point, Sides, Size, Transform};
 use typst_library::text::FontInstance;
 use typst_library::visualize::SpotColorantName;
@@ -151,7 +151,7 @@ impl ValidatorsExt for Validators {
                 [a] => f.write_str(a),
                 [a, b] => write!(f, "{a} and {b}"),
                 [rest @ .., last] => {
-                    for v in rest.iter() {
+                    for v in rest {
                         write!(f, "{v}, ")?;
                     }
                     write!(f, "and {last}")

@@ -1,6 +1,6 @@
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At as _, SourceResult, warning};
 use typst_library::foundations::{
-    Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
+    Content, Label, NativeElement as _, Repr as _, Smart, Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -9,7 +9,7 @@ use typst_library::model::{
 use typst_library::text::{
     LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
 };
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_utils::PicoStr;
 
 use crate::{Eval, Vm};
@@ -38,7 +38,7 @@ fn eval_markup<'a>(
                     break;
                 }
 
-                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
+                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles));
             }
             ast::Expr::ShowRule(show) => {
                 let recipe = show.eval(vm)?;
@@ -47,7 +47,7 @@ fn eval_markup<'a>(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?)
+                seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?);
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {

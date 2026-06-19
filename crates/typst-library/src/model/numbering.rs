@@ -1,4 +1,4 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
 use std::str::FromStr;
 
 use codex::numeral_systems::{NamedNumeralSystem, RepresentationError};
@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
 use typst_syntax::Span;
 
-use crate::diag::{At, SourceResult, StrResult, bail, warning};
+use crate::diag::{At as _, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{Context, Func, Str, Value, cast, func};
 
@@ -239,7 +239,7 @@ impl NumberingPattern {
         {
             let represented_number =
                 apply_system_with_fallback(engine, span, *system, number);
-            write!(fmt, "{represented_number}").unwrap()
+            write!(fmt, "{represented_number}").unwrap();
         }
         fmt.push_str(&self.suffix);
         fmt

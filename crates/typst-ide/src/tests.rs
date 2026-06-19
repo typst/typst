@@ -10,7 +10,7 @@ use typst::syntax::package::{PackageSpec, PackageVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
-use typst::{Features, Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt as _, World};
 
 use crate::IdeWorld;
 

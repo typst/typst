@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use ecow::{EcoString, eco_format};
 use serde::Serialize;
-use typst::diag::{At, Hint, HintedStrResult, SourceResult, bail};
+use typst::diag::{At as _, Hint as _, HintedStrResult, SourceResult, bail};
 use typst::foundations::{Dict, Label, Selector, Value, cast};
 use typst::introspection::{Introspector, Location, MetadataElem, Tag};
 use typst::syntax::VirtualPath;
@@ -81,7 +81,7 @@ pub fn build_search_index(bundle: &Bundle) -> SourceResult<SearchIndex> {
 /// `stdx.config.asset-base` configuration from the top level. So we do it in
 /// Typst code instead and leave the result in `metadata`.
 pub fn index_path(bundle: &Bundle) -> HintedStrResult<VirtualPath> {
-    bundle
+    let path = bundle
         .introspector
         .query_unique(&Selector::Label(
             Label::new(PicoStr::intern("search-index-path")).unwrap(),
@@ -90,8 +90,9 @@ pub fn index_path(bundle: &Bundle) -> HintedStrResult<VirtualPath> {
         .ok_or("expected metadata element")?
         .value
         .clone()
-        .cast::<EcoString>()
-        .and_then(|s| VirtualPath::new(&s).map_err(|_| "invalid path".into()))
+        .cast::<EcoString>()?;
+
+    VirtualPath::new(&path).map_err(|_| "invalid path".into())
 }
 
 /// Indexes the contents of a single HTML element, recursively.

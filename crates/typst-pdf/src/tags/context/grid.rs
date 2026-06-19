@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use az::SaturatingAs;
+use az::SaturatingAs as _;
 use typst_library::foundations::Packed;
 use typst_library::layout::resolve::CellGrid;
 use typst_library::layout::{GridCell, GridElem};
@@ -8,13 +8,13 @@ use typst_library::layout::{GridCell, GridElem};
 use crate::tags::context::GridId;
 use crate::tags::groups::GroupId;
 use crate::tags::tree::Tree;
-use crate::tags::util::PropertyValCopied;
+use crate::tags::util::PropertyValCopied as _;
 
 pub(super) trait GridExt {
     /// Convert from "effective" positions inside the cell grid, which may
     /// include gutter tracks in addition to the cells, to conventional
     /// positions.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(clippy::wrong_self_convention)]
     fn from_effective(&self, i: usize) -> u32;
 
     /// Convert from conventional positions to "effective" positions inside the

@@ -2,7 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use ecow::EcoString;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
@@ -799,7 +799,6 @@ impl Default for Packed<TableCell> {
 
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

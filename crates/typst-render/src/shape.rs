@@ -5,7 +5,7 @@ use typst_library::visualize::{
     Paint, Shape,
 };
 
-use crate::{AbsExt, State, paint};
+use crate::{AbsExt as _, State, paint};
 
 /// Render a geometrical shape into the canvas.
 pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<()> {
@@ -107,7 +107,7 @@ pub fn convert_curve(curve: &Curve) -> Option<sk::Path> {
             CurveItem::Close => {
                 builder.close();
             }
-        };
+        }
     }
     builder.finish()
 }

@@ -1,6 +1,6 @@
 use kurbo::Shape as _;
 use typst_macros::{Cast, scope};
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::diag::{HintedStrResult, HintedString, bail};
 use crate::foundations::{Content, Packed, Smart, cast, elem};
@@ -461,7 +461,7 @@ impl Curve {
         if offset.is_zero() {
             return;
         }
-        for item in self.0.iter_mut() {
+        for item in &mut self.0 {
             match item {
                 CurveItem::Move(p) => *p += offset,
                 CurveItem::Line(p) => *p += offset,

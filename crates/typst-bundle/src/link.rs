@@ -1,6 +1,6 @@
 use ecow::EcoString;
 use either::Either;
-use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefMutIterator as _, ParallelIterator as _};
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst_layout::PagedDocument;
 use typst_library::introspection::Location;

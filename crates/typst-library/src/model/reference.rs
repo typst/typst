@@ -1,11 +1,11 @@
-use comemo::Track;
+use comemo::Track as _;
 use ecow::eco_format;
 
-use crate::diag::{At, Hint, SourceResult, bail};
+use crate::diag::{At as _, Hint as _, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
-    StyleChain, Synthesize, cast, elem,
+    Cast, Content, Context, Func, IntoValue, Label, NativeElement as _, Packed,
+    Repr as _, Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{
     Counter, CounterKey, Locatable, PageNumberingIntrospection,

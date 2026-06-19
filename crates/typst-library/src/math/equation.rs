@@ -2,12 +2,13 @@ use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
 use ecow::EcoString;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
+    Content, NativeElement as _, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize,
+    elem,
 };
 use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
 use crate::layout::{

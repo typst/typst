@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use std::time::Duration;
 
-use base64::Engine;
+use base64::Engine as _;
 use ecow::EcoString;
 use similar::{ChangeTag, InlineChange, TextDiff};
 use smallvec::SmallVec;
@@ -51,9 +51,9 @@ pub enum Diff {
 impl Diff {
     pub fn missing_old(&self) -> Option<HashedRef> {
         match self {
-            Diff::Text(diff) => diff.left().and_then(|old| old.missing()),
-            Diff::Image(diff) => diff.left().and_then(|old| old.missing()),
-            Diff::Html(diff) => diff.left().and_then(|old| old.missing()),
+            Diff::Text(diff) => diff.left()?.missing(),
+            Diff::Image(diff) => diff.left()?.missing(),
+            Diff::Html(diff) => diff.left()?.missing(),
         }
     }
 
@@ -227,7 +227,7 @@ pub fn text_diff(a: Option<Old<&str>>, b: Result<&str, ()>) -> FileDiff<Lines> {
             right.push(line_gap());
         }
 
-        for op in group.iter() {
+        for op in group {
             for change in diff.iter_inline_changes(op) {
                 match change.tag() {
                     ChangeTag::Equal => {

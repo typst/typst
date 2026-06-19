@@ -1,6 +1,7 @@
 use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Array, Content, NativeElement as _, Packed, Reflect as _, Smart, Styles, cast, elem,
+    scope,
 };
 use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
@@ -99,7 +100,7 @@ pub struct TermsElem {
     /// ```
     #[variadic]
     #[parse(
-        for item in args.items.iter() {
+        for item in &args.items {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,

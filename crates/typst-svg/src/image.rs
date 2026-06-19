@@ -1,24 +1,24 @@
 use std::sync::Arc;
 
-use base64::Engine;
+use base64::Engine as _;
 use ecow::{EcoString, eco_format};
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
 use hayro_svg::{RenderCache, SvgRenderSettings};
-use image::{ImageEncoder, codecs::png::PngEncoder};
+use image::ImageEncoder as _;
+use image::codecs::png::PngEncoder;
 use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
 use typst_library::visualize::{
     ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
 };
 
-use crate::write::{SvgElem, SvgTransform, SvgWrite};
+use crate::write::{SvgElem, SvgTransform, SvgWrite as _};
 use crate::{SVGRenderer, State};
 
 impl SVGRenderer<'_> {
     /// Render an image element.
     pub(super) fn render_image(
-        &mut self,
         svg: &mut SvgElem,
         state: &State,
         image: &Image,
@@ -75,7 +75,7 @@ pub enum WebImageFormat {
 
 impl WebImageFormat {
     /// The mime type for this format.
-    pub fn mime(&self) -> &'static str {
+    pub fn mime(self) -> &'static str {
         match self {
             Self::Png => "image/png",
             Self::Jpg => "image/jpeg",
@@ -86,7 +86,7 @@ impl WebImageFormat {
     }
 
     /// The canonical extension used for this format.
-    pub fn extension(&self) -> &'static str {
+    pub fn extension(self) -> &'static str {
         match self {
             Self::Png => "png",
             Self::Jpg => "jpg",

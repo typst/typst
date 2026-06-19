@@ -3,14 +3,14 @@ use std::cell::LazyCell;
 use smallvec::SmallVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Packed, Resolve, StyleChain};
+use typst_library::foundations::{Packed, Resolve as _, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, BlockBody, BlockElem, Fragment, Frame, FrameKind, Region, Regions, Rel,
     Sides, Size, Sizing,
 };
 use typst_library::visualize::Stroke;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::shapes::{clip_rect, fill_and_stroke};
 
@@ -334,7 +334,7 @@ fn breakable_pod<'a>(
             // region.
             last = None;
         }
-    };
+    }
 
     // Resolve the horizontal sizing to a concrete width and combine
     // `width` and `first` into `size`.

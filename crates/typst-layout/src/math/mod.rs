@@ -13,9 +13,11 @@ mod text;
 
 use comemo::Tracked;
 use typst_library::World;
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At as _, SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{NativeElement, Packed, Resolve, Style, StyleChain};
+use typst_library::foundations::{
+    NativeElement as _, Packed, Resolve as _, Style, StyleChain,
+};
 use typst_library::introspection::{Counter, Locator};
 use typst_library::layout::{
     Abs, AlignElem, Axes, BlockElem, Em, FixedAlignment, Fragment, Frame, InlineItem,
@@ -32,7 +34,7 @@ use typst_library::text::{
     Font, FontFlags, FontInstance, TextEdgeBounds, TextElem, variant,
 };
 use typst_syntax::Span;
-use typst_utils::{LazyHash, Numeric};
+use typst_utils::{LazyHash, Numeric as _};
 
 use self::accent::layout_accent;
 use self::cancel::layout_cancel;
@@ -41,7 +43,7 @@ use self::fraction::{layout_fraction, layout_skewed_fraction};
 use self::fragment::{FrameFragment, MathFragment};
 use self::line::layout_line;
 use self::radical::layout_radical;
-use self::run::{MathFragmentsExt, MathRun, MathRunFrameBuilder, layout_multiline};
+use self::run::{MathFragmentsExt as _, MathRun, MathRunFrameBuilder, layout_multiline};
 use self::scripts::{layout_primes, layout_scripts};
 use self::table::layout_table;
 use self::text::{layout_glyph, layout_number, layout_text};
@@ -294,7 +296,7 @@ fn add_equation_number(
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
-        _ => unreachable!(),
+        FixedAlignment::Center => unreachable!(),
     };
     let y = {
         let align_baselines = |(_, pos, baseline): (_, Point, Abs), number: &Frame| {
@@ -513,7 +515,7 @@ fn layout_realized(
         MathKind::Table(item) => layout_table(item, ctx, styles, props)?,
         MathKind::Fraction(item) => layout_fraction(item, ctx, styles, props)?,
         MathKind::SkewedFraction(item) => {
-            layout_skewed_fraction(item, ctx, styles, props)?
+            layout_skewed_fraction(item, ctx, styles, props)?;
         }
         MathKind::Text(item) => layout_text(item, ctx, styles, props)?,
         MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
@@ -643,6 +645,6 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
             span,
             "current font is not designed for math";
             hint: "rendering may be poor";
-        ))
+        ));
     }
 }

@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::{Arc, LazyLock};
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use hayagriva::archive::ArchivedStyle;
 use hayagriva::io::BibLaTeXError;
@@ -17,26 +17,26 @@ use rustc_hash::{FxBuildHasher, FxHashMap};
 use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use typst_utils::{
-    LazyHash, ManuallyHash, NonZeroExt, PicoStr, Protected, ResolvedPicoStr,
+    LazyHash, ManuallyHash, NonZeroExt as _, PicoStr, Protected, ResolvedPicoStr,
 };
 
 use crate::World;
 use crate::diag::{
-    At, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin,
+    At as _, HintedStrResult, HintedString, LoadError, LoadResult, LoadedWithin as _,
     ReportTextPos, SourceDiagnostic, SourceResult, StrResult, bail, error, warning,
 };
 use crate::engine::{Engine, Route, Sink, Traced};
 use crate::foundations::{
     Bytes, CastInfo, Content, Context, Derived, FromValue, IntoValue, Label,
-    LocatableSelector, NativeElement, OneOrMultiple, Packed, Reflect, Repr, Scope,
-    Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
+    LocatableSelector, NativeElement as _, OneOrMultiple, Packed, Reflect, Repr as _,
+    Scope, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
     EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
     QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
-use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
+use crate::loading::{DataSource, Load as _, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
     HeadingElem, LinkElem, Url,
@@ -297,11 +297,11 @@ impl BibliographyElem {
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::ELEM.select()).iter() {
+        for elem in &introspector.query(&Self::ELEM.select()) {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
-                vec.push((key, detail))
+                vec.push((key, detail));
             }
         }
         vec
@@ -373,7 +373,7 @@ impl Bibliography {
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for d in data.iter() {
+        for d in data {
             let library = decode_library(d)?;
             for entry in library {
                 let label = Label::new(PicoStr::intern(entry.key()))
@@ -535,7 +535,9 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependent styles"),
+            citationberg::Style::Dependent(_) => {
+                unreachable!("archive should not contain dependent styles")
+            }
         }
     }
 
@@ -1410,7 +1412,7 @@ fn show_elem_child(
         hayagriva::ElemChild::Markup(markup) => show_math(ctx, markup),
         hayagriva::ElemChild::Link { text, url } => show_link(ctx, text, url)?,
         hayagriva::ElemChild::Transparent { cite_idx, format } => {
-            show_transparent(ctx, *cite_idx, format)
+            show_transparent(ctx, *cite_idx, *format)
         }
     })
 }
@@ -1497,7 +1499,7 @@ fn show_link(
 }
 
 /// Displays transparent pass-through content.
-fn show_transparent(ctx: &ShowCtx, i: usize, format: &hayagriva::Formatting) -> Content {
+fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
     let content = (ctx.supplement)(i).unwrap_or_default();
     show_with_formatting(content, format)
 }
@@ -1512,11 +1514,11 @@ fn show_formatted(
         if trim_start { formatted.text.trim_start() } else { formatted.text.as_str() };
 
     let content = TextElem::packed(formatted_text).spanned(ctx.span);
-    show_with_formatting(content, &formatted.formatting)
+    show_with_formatting(content, formatted.formatting)
 }
 
 /// Applies hayagriva formatting to content.
-fn show_with_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+fn show_with_formatting(mut content: Content, format: hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
@@ -1574,7 +1576,7 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     value.push_str(lang.as_str());
     if let Some(region) = region {
         value.push('-');
-        value.push_str(region.as_str())
+        value.push_str(region.as_str());
     }
     citationberg::LocaleCode(value)
 }

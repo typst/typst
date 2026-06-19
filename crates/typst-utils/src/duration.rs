@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter, Write};
+use std::fmt::{self, Display, Formatter, Write as _};
 use std::time::Duration;
 
 use super::round_with_precision;
@@ -45,7 +45,7 @@ impl Display for DurationDisplay {
             return Ok(());
         }
 
-        let order = |exp| 1000u64.pow(exp);
+        let order = |exp| 1000_u64.pow(exp);
         let nanos = secs * order(3) + self.0.subsec_nanos() as u64;
         let fract = |exp| round_with_precision(nanos as f64 / order(exp) as f64, 2);
 

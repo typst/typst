@@ -1,14 +1,15 @@
 use std::fs;
-use std::io::Write;
+use std::io::Write as _;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use comemo::Tracked;
-use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
+use typst::diag::{At as _, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, NativeElement,
-    NoneValue, Packed, Repr, Smart, StyleChain, Value, elem, func,
+    Array, Bytes, Content, Context, Datetime, Duration, IntoValue as _,
+    NativeElement as _, NoneValue, Packed, Repr as _, Smart, StyleChain, Value, elem,
+    func,
 };
 use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
@@ -17,7 +18,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
-use typst::{Features, Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt as _, World};
 use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
 use typst_layout::layout_fragment;
@@ -114,7 +115,7 @@ pub struct TestFiles;
 
 impl TestFiles {
     /// Resolves the file system path for a file ID.
-    pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
+    pub fn resolve(id: FileId) -> FileResult<PathBuf> {
         let root = match id.root() {
             VirtualRoot::Project => PathBuf::new(),
             VirtualRoot::Package(spec) => {
@@ -148,7 +149,7 @@ impl TestFiles {
 
 impl FileLoader for TestFiles {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
-        let path = self.resolve(id)?;
+        let path = Self::resolve(id)?;
 
         // Resolve asset.
         if let Ok(suffix) = path.strip_prefix("assets/") {

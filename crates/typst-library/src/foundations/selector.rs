@@ -6,7 +6,7 @@ use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 use typst_syntax::Span;
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{At as _, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
@@ -424,7 +424,7 @@ impl FromValue for LocatableSelector {
             match selector {
                 Selector::Elem(elem, _) => {
                     if !elem.can::<dyn Locatable>() || elem.can::<dyn Unqueriable>() {
-                        Err(eco_format!("{} is not locatable", elem.name()))?
+                        Err(eco_format!("{} is not locatable", elem.name()))?;
                     }
                 }
                 Selector::Location(_) => {}

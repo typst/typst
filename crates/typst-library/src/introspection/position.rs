@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoVec;
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::foundations::{Dict, Value, cast, dict};
 use crate::layout::{Length, Point};
@@ -25,7 +25,7 @@ impl DocumentPosition {
     pub fn as_paged(self) -> Option<PagedPosition> {
         match self {
             DocumentPosition::Paged(position) => Some(position),
-            _ => None,
+            DocumentPosition::Html(_) => None,
         }
     }
 
@@ -39,7 +39,7 @@ impl DocumentPosition {
     pub fn as_html(self) -> Option<HtmlPosition> {
         match self {
             DocumentPosition::Html(position) => Some(position),
-            _ => None,
+            DocumentPosition::Paged(_) => None,
         }
     }
 }

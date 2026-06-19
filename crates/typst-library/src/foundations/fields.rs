@@ -3,7 +3,7 @@
 use ecow::{EcoString, eco_format};
 
 use crate::diag::StrResult;
-use crate::foundations::{IntoValue, Type, Value, Version};
+use crate::foundations::{IntoValue as _, Type, Value, Version};
 use crate::layout::{Alignment, Length, Rel};
 use crate::visualize::Stroke;
 

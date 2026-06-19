@@ -3,7 +3,7 @@
 pub use typst_macros::{cast, Cast};
 
 use std::borrow::Cow;
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::hash::Hash;
 use std::ops::Add;
 
@@ -12,9 +12,9 @@ use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned, SyntaxMode};
 use unicode_math_class::MathClass;
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, StrResult};
+use crate::diag::{At as _, HintedStrResult, HintedString, SourceResult, StrResult};
 use crate::foundations::{
-    Fold, NativeElement, Packed, Repr, Str, Type, Value, array, repr,
+    Fold, NativeElement, Packed, Repr as _, Str, Type, Value, array, repr,
 };
 
 /// Determine details of a type.
@@ -268,7 +268,7 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
                 Ok(packed) => return Ok(packed),
                 Err(content) => {
                     span = content.span();
-                    value = Value::Content(content)
+                    value = Value::Content(content);
                 }
             }
         }
@@ -382,7 +382,7 @@ impl CastInfo {
             }
         }
 
-        inner(self, &mut f)
+        inner(self, &mut f);
     }
 }
 
