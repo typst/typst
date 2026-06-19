@@ -19,7 +19,7 @@ use typst_kit::files::{FileLoader, FileStore, FsRoot};
 use typst_kit::fonts::FontStore;
 use typst_kit::packages::SystemPackages;
 
-use crate::args::{Feature, Input, ProcessArgs, WorldArgs};
+use crate::args::{Feature, FontArgs, Input, ProcessArgs, WorldArgs};
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
@@ -29,6 +29,8 @@ pub struct SystemWorld {
     library: LazyHash<Library>,
     /// Metadata about discovered fonts and lazily loaded fonts.
     fonts: LazyLock<FontStore, Box<dyn Fn() -> FontStore + Send + Sync>>,
+    /// The font arguments, kept so that fonts can be re-scanned in watch mode.
+    font_args: &'static FontArgs,
     /// Maps file ids to source files and buffers.
     files: FileStore<SystemFiles>,
     /// The current datetime if requested. This is stored here to ensure it is
@@ -79,6 +81,7 @@ impl SystemWorld {
             fonts: LazyLock::new(Box::new(|| {
                 crate::fonts::discover_fonts(&world_args.font)
             })),
+            font_args: &world_args.font,
             files: FileStore::new(SystemFiles::new(input, world_args)?),
             now,
         })
@@ -110,6 +113,17 @@ impl SystemWorld {
     ///
     /// Does nothing if the fonts were already scanned.
     pub fn scan_fonts(&mut self) {
+        LazyLock::force(&self.fonts);
+    }
+
+    /// Discards the cached fonts and re-scans all configured font sources.
+    ///
+    /// This is used in watch mode to pick up fonts that were installed after the session started.
+    pub fn reload_fonts(&mut self) {
+        let font_args = self.font_args;
+        self.fonts =
+            LazyLock::new(Box::new(move || crate::fonts::discover_fonts(font_args)));
+
         LazyLock::force(&self.fonts);
     }
 }

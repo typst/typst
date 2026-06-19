@@ -264,7 +264,16 @@ pub fn compile_once(
         Status::Compiling.print(config).unwrap();
     }
 
-    let Warned { output, mut warnings } = compile_and_export(world, config);
+    let mut warned = compile_and_export(world, config);
+
+    // In watch mode, a font referenced by the document may have been installed after the session started, so it isn't in the cached system font list.
+    // Before reporting it as unknown, re-scan the fonts and recompile once to pick up any newly installed fonts.
+    if config.watching && has_unknown_font_warning(&warned.warnings) {
+        world.reload_fonts();
+        warned = compile_and_export(world, config);
+    }
+
+    let Warned { output, mut warnings } = warned;
 
     // Add static warnings (for deprecated CLI flags and such).
     for warning in config.warnings.iter() {
@@ -311,6 +320,13 @@ pub fn compile_once(
     }
 
     Ok(())
+}
+
+/// Whether any of the given warnings reports an unknown font family.
+fn has_unknown_font_warning(warnings: &[SourceDiagnostic]) -> bool {
+    warnings
+        .iter()
+        .any(|warning| warning.message.starts_with("unknown font family"))
 }
 
 /// Compile and then export the document.
