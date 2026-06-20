@@ -43,6 +43,11 @@ use crate::text::{LocalName, TextElem};
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///
+/// To avoid turning into a link, you can put the text in a @str[string] like
+/// `[#"https://*.com"]`, or a @raw[`raw` element] like #raw("[`https://*.com`]").
+/// Note that the text may still be clickable in PDF, because some PDF readers
+/// add additional links.
+///
 /// = Hyphenation <hyphenation>
 /// If you enable hyphenation or justification, by default, it will not apply to
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
