@@ -1194,7 +1194,7 @@ fn resolve_class<'a, 'v, 'e>(
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
     let mut item = ctx.resolve_into_item(&elem.body, styles)?;
-    item.set_class(elem.class);
+    item.set_explicit_class(elem.class);
     item.set_limits(Limits::for_class(elem.class));
     ctx.push(item);
     Ok(())
