@@ -784,7 +784,7 @@ fn handle_glyph(
         MathClass::Punctuation => separator = true,
         MathClass::Fence => fence = true,
         MathClass::Large => {
-            largeop = true;
+            largeop = item.class == MathClass::Large;
             form = Some(Form::Prefix);
         }
         MathClass::Opening => {
