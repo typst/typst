@@ -256,8 +256,7 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
->>> // (skipped)
-<<<   ...
+  // ...
 
   place(
     top + center,

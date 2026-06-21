@@ -35,7 +35,7 @@ use crate::text::{Lang, Region, TextElem};
 /// ```typ
 /// Computer Modern is an example of a modernist serif typeface.
 /// #cite(label("DBLP:books/lib/Knuth86a")).
-/// >>> #bibliography("works.bib")
+/// #bibliography("works.bib")
 /// ```
 ///
 /// = Syntax <syntax>
