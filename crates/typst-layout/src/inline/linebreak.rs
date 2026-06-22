@@ -707,11 +707,18 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 
     let mut last = 0;
     let mut iter = segmenter.segment_str(text).peekable();
+    let mut next_url = next_url_start(text);
 
     loop {
         // Special case for links. UAX #14 doesn't handle them well.
         let (head, tail) = text.split_at(last);
-        if head.ends_with("://") || tail.starts_with("www.") {
+
+        if next_url.map(|next| next < last).unwrap_or(false) {
+            next_url = next_url_start(&text[last..]).map(|x| x + last);
+        }
+        // For URLs with domains as host, UAX #14 typically places a breakpoint after the `://`
+        // For heuristically detected URLs, we compare the next found URL with the current position.
+        if head.ends_with("://") || tail.starts_with("www.") || Some(last) == next_url {
             let (link, _) = link_prefix(tail);
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
             last += link.len();
@@ -779,6 +786,25 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         f(point, breakpoint);
         last = point;
     }
+}
+
+/// Heuristically guess where the next URL in the given text starts.
+/// This method uses the scheme grammar from <https://www.rfc-editor.org/info/rfc3986/#section-3.1>.
+/// Anything matching this grammar rule, that is also followed by '://', is treated as a potential
+/// URL.
+fn next_url_start(text: &str) -> Option<usize> {
+    // scan to the right
+    // keep position of last non-allowed char
+    // try to end up at a `://`
+    let next_separator = text.find("://")?;
+
+    // Scheme grammar from RFC
+    //   scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    let first_invalid = text[..next_separator]
+        .rfind(|c| !(matches!(c, '+' | '-' | '.') || c.is_ascii_alphanumeric()));
+    let scheme_start = first_invalid.map(|x| x + 1).unwrap_or(0);
+
+    Some(scheme_start)
 }
 
 /// Generate breakpoints for hyphenations within a word.
