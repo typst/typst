@@ -707,11 +707,18 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 
     let mut last = 0;
     let mut iter = segmenter.segment_str(text).peekable();
+    let mut next_url = next_url_start(text);
 
     loop {
         // Special case for links. UAX #14 doesn't handle them well.
         let (head, tail) = text.split_at(last);
-        if might_be_link(head, tail) {
+
+        if next_url.map(|next| next < last).unwrap_or(false) {
+            next_url = next_url_start(&text[last..]).map(|x| x + last);
+        }
+        // For URLs with domains as host, UAX #14 typically places a breakpoint after the `://`
+        // For heuristically detected URLs, we compare the next found URL with the current position.
+        if head.ends_with("://") || tail.starts_with("www.") || Some(last) == next_url {
             let (link, _) = link_prefix(tail);
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
             last += link.len();
@@ -781,50 +788,23 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
     }
 }
 
-/// Tries to detect URLs for applying a special line-breaking algorithm. UAX #14 otherwise does
-/// not handle URLs well.
-///
-/// This function takes in a proposed breakpoint from UAX #14 (`head` and `tail` are the text
-/// before and after the breakpoint) and heuristically guesses whether the special link
-/// line-breaking algorithm should be employed.
-fn might_be_link(head: &str, tail: &str) -> bool {
-    // For URLs with domains as host, UAX #14 typically places a breakpoint after the `://`
-    if head.ends_with("://") || tail.starts_with("www.") {
-        return true;
-    }
-
-    // For URLs with IPs or domains starting with a digit this is not the case.
-    // UAX #14 does not produce a break, as it tries to keep fractions (1/2, 2/5, ...) together.
-    // In these cases, we manually need to check if tail looks like a URL.
-    // See https://www.unicode.org/reports/tr14/#SY
-    starts_with_url_scheme(tail)
-}
-
-/// Guesses whether the passed in text starts with a URL scheme followed by `://`, as defined by
-/// https://www.rfc-editor.org/rfc/rfc3986#section-3.1.
-fn starts_with_url_scheme(text: &str) -> bool {
-    // We set a max length for the tail to avoid quadratic complexity in the worst case
-    // (i.e. prevent every step from scanning the whole text for the separating colon).
-    // Most URL schemes are very short, 40 was chosen as it contains all current schemes
-    // https://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml.
-    let end = match text.char_indices().nth(40) {
-        Some((index, _)) => index,
-        None => text.len(),
-    };
-    let text = &text[..end];
-
-    let Some((scheme, _)) = text.split_once("://") else {
-        return false;
-    };
+/// Heuristically guess where the next URL in the given text starts.
+/// This method uses the scheme grammar from <https://www.rfc-editor.org/info/rfc3986/#section-3.1>.
+/// Anything matching this grammar rule, that is also followed by '://', is treated as a potential
+/// URL.
+fn next_url_start(text: &str) -> Option<usize> {
+    // scan to the right
+    // keep position of last non-allowed char
+    // try to end up at a `://`
+    let next_separator = text.find("://")?;
 
     // Scheme grammar from RFC
     //   scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-    if scheme.is_empty() || !scheme.chars().next().unwrap().is_alphabetic() {
-        return false;
-    }
-    scheme
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+    let first_invalid = text[..next_separator]
+        .rfind(|c| !(matches!(c, '+' | '-' | '.') || c.is_ascii_alphanumeric()));
+    let scheme_start = first_invalid.map(|x| x + 1).unwrap_or(0);
+
+    Some(scheme_start)
 }
 
 /// Generate breakpoints for hyphenations within a word.
