@@ -47,13 +47,15 @@ pub use self::terms::*;
 pub use self::title::*;
 
 use crate::Feature;
-use crate::foundations::Scope;
+use crate::foundations::{BindingInfo, Scope};
 
 /// Hook up all `model` definitions.
 pub fn define(global: &mut Scope) {
     global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
-    global.define_elem::<AssetElem>().feature(Feature::Bundle);
+    global
+        .define_elem::<AssetElem>()
+        .with_info(BindingInfo::new().feature(Feature::Bundle));
     global.define_elem::<ParElem>();
     global.define_elem::<ParbreakElem>();
     global.define_elem::<StrongElem>();
