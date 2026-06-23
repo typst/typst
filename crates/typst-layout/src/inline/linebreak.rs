@@ -707,18 +707,19 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 
     let mut last = 0;
     let mut iter = segmenter.segment_str(text).peekable();
-    let mut next_url = next_url_start(text);
+    let mut next_url = next_url_start(text, 0);
 
     loop {
         // Special case for links. UAX #14 doesn't handle them well.
         let (head, tail) = text.split_at(last);
 
-        if next_url.map(|next| next < last).unwrap_or(false) {
-            next_url = next_url_start(&text[last..]).map(|x| x + last);
+        if next_url.as_ref().is_some_and(|next| next.end < last) {
+            next_url = next_url_start(text, last);
         }
+        let heuristic_start = next_url.as_ref().is_some_and(|it| it.contains(&last));
         // For URLs with domains as host, UAX #14 typically places a breakpoint after the `://`
         // For heuristically detected URLs, we compare the next found URL with the current position.
-        if head.ends_with("://") || tail.starts_with("www.") || Some(last) == next_url {
+        if head.ends_with("://") || tail.starts_with("www.") || heuristic_start {
             let (link, _) = link_prefix(tail);
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
             last += link.len();
@@ -792,7 +793,8 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 /// This method uses the scheme grammar from <https://www.rfc-editor.org/info/rfc3986/#section-3.1>.
 /// Anything matching this grammar rule, that is also followed by '://', is treated as a potential
 /// URL.
-fn next_url_start(text: &str) -> Option<usize> {
+fn next_url_start(full_text: &str, offset: usize) -> Option<Range> {
+    let text = &full_text[offset..];
     // scan to the right
     // keep position of last non-allowed char
     // try to end up at a `://`
@@ -804,7 +806,7 @@ fn next_url_start(text: &str) -> Option<usize> {
         .rfind(|c| !(matches!(c, '+' | '-' | '.') || c.is_ascii_alphanumeric()));
     let scheme_start = first_invalid.map(|x| x + 1).unwrap_or(0);
 
-    Some(scheme_start)
+    Some(offset + scheme_start..offset + next_separator)
 }
 
 /// Generate breakpoints for hyphenations within a word.
