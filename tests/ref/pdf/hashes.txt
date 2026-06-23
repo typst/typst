@@ -198,7 +198,7 @@ ff94e7f7cf42b37f1a62f506c9832d9a enum-number-align-unfolded
 24c8180d9dd6eaad1eeab8cb488dead8 enum-number-override-nested
 4c9396c92d8291d798093fd1265ad52b enum-numbering-closure
 116e2351c4a42b9179acb79966fa28b7 enum-numbering-closure-nested
-e84e580d1f47ee9623e1a7124b6b979d enum-numbering-closure-nested-complex
+177b992e20fe7b1706886889464bfc31 enum-numbering-closure-nested-complex
 e1fce5d40853990b285d7cdc0ebf545f enum-numbering-full
 9c185b19dab3539232064d54aa2056ea enum-numbering-huge
 f4c188464cbd39788a87b8c4ad63da18 enum-numbering-pattern
@@ -876,7 +876,7 @@ f8bae545470546b0bafb957e32bf649e issues-7168-linebreak-whitespace-trimming-justi
 3cbc943e5fcff8fe54d3459213f9819e justify-code-blocks
 65748e27f0b3c92406f8a359220fa2c1 justify-japanese
 04ac1e822780320bc53bead97d7bb57d justify-justified-linebreak
-e7eef4bb99fa095011944129a0f7b842 justify-knuth-story
+3d715ee2392c77233a25d59d9c19ad3b justify-knuth-story
 899c7a76b188a3ef60076241cd82a4e0 justify-limits-glyph-grow-only
 28667329d2809042f491e3ebc347ab90 justify-limits-glyph-shrink-only
 f79ea90c11d3c9e5040e07373b3b51c6 justify-limits-tight-overstretch

@@ -3077,7 +3077,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.15.0"
-source = "git+https://github.com/typst/typst-assets?rev=c0ae970#c0ae970f64413cf8e39cecd56d15ee50de42eaf4"
+source = "git+https://github.com/mkorje/typst-assets?rev=aedf85a#aedf85a99f1efcf7808e9d875c3d86327e408ea9"
 dependencies = [
  "bitflags 2.11.1",
 ]
