@@ -14,6 +14,7 @@ use typst_library::text::{
 use typst_syntax::Span;
 use typst_utils::SliceExt;
 
+use crate::css::ToCss;
 use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{
     FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
@@ -453,9 +454,14 @@ fn handle_columns(
         converter.whitespace,
     )?;
     let count = elem.count.get(styles);
+    let gutter = elem.gutter.get(styles);
     converter.push(
         HtmlElement::new(tag::div)
-            .with_css(css::Properties::new().with("column-count", count.to_string()))
+            .with_css(
+                css::Properties::new()
+                    .with("column-count", count.to_string())
+                    .with("column-gap", gutter.to_css(())),
+            )
             .with_children(children)
             .spanned(elem.span()),
     );
