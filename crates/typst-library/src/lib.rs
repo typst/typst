@@ -35,7 +35,8 @@ use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{
-    Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
+    Array, Binding, BindingInfo, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap,
+    Scope, Styles,
 };
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
@@ -351,7 +352,9 @@ fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
 
     global.define("math", math);
     global.define("pdf", self::pdf::module());
-    global.define("html", (routines.html_module)()).feature(Feature::Html);
+    global
+        .define("html", (routines.html_module)())
+        .with_info(BindingInfo::new().feature(Feature::Html));
 
     prelude(&mut global);
 
