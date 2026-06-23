@@ -1,10 +1,12 @@
 use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
+use std::num::NonZeroU16;
+use std::sync::{LazyLock, RwLock};
 
 use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
-use rustc_hash::FxBuildHasher;
+use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_syntax::Span;
 
 use crate::diag::{BindingSink, HintedStrResult, HintedString, StrResult, bail};
@@ -253,11 +255,21 @@ pub struct Binding {
     /// A span associated with the binding.
     span: Span,
     /// The category of the binding.
+    ///
+    /// This lives on the binding directly and not in the [`BindingInfo`],
+    /// because it is automatically set during definition, currently doesn't
+    /// increase the size of the binding, and would require re-interning the
+    /// information when other properties are set.
     category: Option<Category>,
-    /// A feature required to access this binding.
-    feature: Option<Feature>,
-    /// The deprecation information if this item is deprecated.
-    deprecation: Option<Box<Deprecation>>,
+    /// Whether this binding has additional checks that should be performed
+    /// before accessing it. This boolean is just an optimization, so the happy
+    /// path stays fast. The concrete checks are performed on the properties of
+    /// additional binding information in [`Self::info`].
+    check_access: bool,
+    /// Infrequently accessed properties of the binding that are stored out of
+    /// band. These should only ever be set for built-in bindings in the
+    /// standard library.
+    info: Option<InfoId>,
 }
 
 /// The different kinds of slots.
@@ -277,8 +289,8 @@ impl Binding {
             span,
             kind: BindingKind::Normal,
             category: None,
-            feature: None,
-            deprecation: None,
+            check_access: false,
+            info: None,
         }
     }
 
@@ -287,15 +299,12 @@ impl Binding {
         Self::new(value, Span::detached())
     }
 
-    /// Gates this binding behind the given [`Feature`].
-    pub fn feature(&mut self, feature: Feature) -> &mut Self {
-        self.feature = Some(feature);
-        self
-    }
-
-    /// Marks this binding as deprecated, with the given `message`.
-    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
-        self.deprecation = Some(Box::new(deprecation));
+    /// Add more information to this binding.
+    pub fn with_info(&mut self, info: BindingInfo) -> &mut Self {
+        if !info.is_empty() {
+            self.check_access = info.has_checked_access();
+            self.info = Some(InfoId::new(info));
+        }
         self
     }
 
@@ -309,19 +318,28 @@ impl Binding {
     /// As the `sink`
     /// - pass `()` to ignore the message.
     /// - pass `(&mut engine, span)` to emit a warning into the engine.
-    pub fn read_checked(
-        &self,
-        mut sink: impl BindingSink,
-    ) -> Result<&Value, FeatureError> {
-        if let Some(feature) = self.feature
+    pub fn read_checked(&self, sink: impl BindingSink) -> Result<&Value, FeatureError> {
+        if self.check_access {
+            self.check_access(sink)?;
+        }
+        Ok(&self.value)
+    }
+
+    #[cold]
+    fn check_access(&self, mut sink: impl BindingSink) -> Result<(), FeatureError> {
+        let Some(info) = self.info() else { return Ok(()) };
+
+        if let Some(feature) = info.feature
             && !sink.features().is_enabled(feature)
         {
             return Err(FeatureError(feature));
         }
-        if let Some(message) = &self.deprecation {
-            sink.emit((**message).into());
+
+        if let Some(message) = info.deprecation {
+            sink.emit(message.into());
         }
-        Ok(&self.value)
+
+        Ok(())
     }
 
     /// Try to write to the value.
@@ -354,14 +372,108 @@ impl Binding {
         self.span
     }
 
-    /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&Deprecation> {
-        self.deprecation.as_deref()
-    }
-
     /// The category of the value, if any.
     pub fn category(&self) -> Option<Category> {
         self.category
+    }
+
+    /// Get additional information about this binding.
+    pub fn info(&self) -> Option<&BindingInfo> {
+        Some(self.info?.get())
+    }
+}
+
+/// The global interner for rooted paths.
+static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
+    RwLock::new(Interner { to_id: FxHashMap::default(), from_id: Vec::new() })
+});
+
+/// An interner for rooted paths.
+struct Interner {
+    to_id: FxHashMap<&'static BindingInfo, InfoId>,
+    from_id: Vec<&'static BindingInfo>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+struct InfoId(NonZeroU16);
+
+impl InfoId {
+    /// Create new interned binding information.
+    fn new(info: BindingInfo) -> Self {
+        // Try to find an existing entry that we can reuse.
+        //
+        // We could check with just a read lock, but if the pair is not yet
+        // present, we would then need to recheck after acquiring a write lock,
+        // which is probably not worth it.
+        let mut interner = INTERNER.write().unwrap();
+        if let Some(&id) = interner.to_id.get(&info) {
+            return id;
+        }
+
+        // Create a new entry forever by leaking the pair. We can't leak more
+        // than 2^16 pair (and typically will leak a lot less), so its not a
+        // big deal.
+        let num = u16::try_from(interner.from_id.len() + 1)
+            .and_then(NonZeroU16::try_from)
+            .expect("out of file ids");
+
+        let id = InfoId(num);
+        let leaked = Box::leak(Box::new(info));
+        interner.to_id.insert(leaked, id);
+        interner.from_id.push(leaked);
+        id
+    }
+
+    fn get(self) -> &'static BindingInfo {
+        INTERNER.read().unwrap().from_id[usize::from(self.0.get() - 1)]
+    }
+}
+
+impl Debug for InfoId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+/// Infrequently accessed information related to a binding.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct BindingInfo {
+    /// A feature required to access this binding.
+    pub feature: Option<Feature>,
+    /// The deprecation information if this item is deprecated.
+    pub deprecation: Option<Deprecation>,
+}
+
+impl BindingInfo {
+    /// Empty binding information.
+    pub const EMPTY: Self = Self { feature: None, deprecation: None };
+
+    /// Create new empty binding information.
+    pub const fn new() -> Self {
+        Self::EMPTY
+    }
+
+    /// Whether this binding is empty.
+    pub fn is_empty(self) -> bool {
+        self == Self::EMPTY
+    }
+
+    /// Whether the binding info has a property set that requires checking
+    /// it when it's accessed.
+    pub fn has_checked_access(self) -> bool {
+        self.feature.is_some() || self.deprecation.is_some()
+    }
+
+    /// Gates this binding behind the given [`Feature`].
+    pub fn feature(mut self, feature: Feature) -> Self {
+        self.feature = Some(feature);
+        self
+    }
+
+    /// Marks this binding as deprecated, with the given `message`.
+    pub fn deprecated(mut self, deprecation: Deprecation) -> Self {
+        self.deprecation = Some(deprecation);
+        self
     }
 }
 
