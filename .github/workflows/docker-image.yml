@@ -85,7 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-
     permissions:
       contents: read
       packages: write
@@ -128,3 +127,78 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+
+  docs:
+    name: Build Documentation Images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
+
+      - name: Compile documentation
+        run: cargo docit compile --format website
+
+      - name: Prepare Docker build
+        run: |
+          echo "IMAGE_NAME=${REGISTRY}/${GITHUB_REPOSITORY@L}-docs" >> $GITHUB_ENV
+
+      - name: Get current date
+        run: echo "TYPST_BUILD_DATE=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" >> $GITHUB_ENV"
+
+      - name: Setup Docker buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ env.IMAGE_NAME }}
+
+      - name: Log into registry ${{ env.REGISTRY }}
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build amd64 Docker image
+        id: build-amd64
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: docs
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            REVISION=${{ github.sha }}
+            CREATED=${{ env.TYPST_BUILD_DATE }}
+
+      - name: Build arm64 Docker image
+        id: build-arm64
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: docs
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/arm64
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            REVISION=${{ github.sha }}
+            CREATED=${{ env.TYPST_BUILD_DATE }}
+
+      - name: Create manifest list and push
+        run: |
+          docker buildx imagetools create -t ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}@${{ steps.build-amd64.outputs.digest }} ${{ env.IMAGE_NAME }}@${{ steps.build-arm64.outputs.digest }}
