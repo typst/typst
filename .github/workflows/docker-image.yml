@@ -144,7 +144,7 @@ jobs:
         uses: dtolnay/rust-toolchain@e081816240890017053eacbb1bdf337761dc5582 # 1.95.0
 
       - name: Compile documentation
-        run: cargo docit compile --format html
+        run: cargo docit compile --format website
 
       - name: Prepare Docker build
         run: |
