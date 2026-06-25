@@ -180,20 +180,19 @@ pub trait FormatElement: NativeElement {
 pub trait Populate: Bounds {
     /// Populate this type with details from the given local styles.
     fn populate(&mut self, styles: Spanned<StyleChain>);
-
-    // TODO: Can this be moved to `Bounds` somehow?
-    fn dyn_clone(&self) -> Box<dyn Populate>;
-
-    fn describe(&self) -> (&'static str, &'static str);
 }
 
 trait Bounds: Send + Sync + Any + 'static {
+    fn dyn_clone(&self) -> Box<dyn Any>;
     fn dyn_hash(&self, state: &mut dyn std::hash::Hasher);
-
     fn dyn_debug(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result;
 }
 
-impl<T: Hash + Debug + Send + Sync + 'static> Bounds for T {
+impl<T: Clone + Hash + Debug + Send + Sync + 'static> Bounds for T {
+    fn dyn_clone(&self) -> Box<dyn Any> {
+        Box::new(self.clone())
+    }
+
     fn dyn_hash(&self, mut state: &mut dyn std::hash::Hasher) {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
@@ -232,22 +231,11 @@ impl FormatOptions {
             .iter()
             .find_map(FormatOption::downcast::<T>)
             .unwrap_or_else(|| {
-                let list = typst_utils::display(|f| {
-                    if self.0.is_empty() {
-                        f.write_str("  none")?;
-                    }
-                    for o in &self.0 {
-                        let (format, options) = o.0.describe();
-                        writeln!(f, "- Format `{format}` with options `{options:?}`")?;
-                    }
-                    Ok(())
-                });
                 let format = std::any::type_name::<T>();
                 let options = std::any::type_name::<T::Options>();
                 panic!(
-                    "Format `{format}` with type `{options}` not found, \
-                    available are:\n{list}\n \
-                    hint: if you're a developer, you need to register `Library::formats`"
+                    "format `{format}` with options `{options}` not found\n\
+                     hint: if you're a developer, you need to register `Library::formats`"
                 );
             })
     }
@@ -283,7 +271,12 @@ impl<T: Populate> From<T> for FormatOption {
 
 impl Clone for FormatOption {
     fn clone(&self) -> Self {
-        Self(self.0.dyn_clone())
+        let reference: &(dyn Populate + 'static) = &*self.0;
+        let cloned = self.dyn_clone();
+        // SAFETY: `self.0` is required to implement `Populate`, thus the cloned
+        // `Box<dyn Any>` can be transformed into a `Box<dyn Populate>` using
+        // the vtable of `self.0`.
+        Self(unsafe { typst_utils::fat::cast_box(reference, cloned) })
     }
 }
 

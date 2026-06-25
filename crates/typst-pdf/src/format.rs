@@ -560,14 +560,6 @@ impl Populate for PdfFormatOptions {
         self.tagged.populate(styles);
         self.pretty.populate(styles);
     }
-
-    fn dyn_clone(&self) -> Box<dyn Populate> {
-        Box::new(self.clone())
-    }
-
-    fn describe(&self) -> (&'static str, &'static str) {
-        (std::any::type_name::<Pdf>(), std::any::type_name::<PdfFormatOptions>())
-    }
 }
 
 impl PdfFormatOptions<Partial> {
