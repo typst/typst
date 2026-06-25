@@ -1182,6 +1182,7 @@ c5d46840b2b49795d2f4946339dd0ef5 math-lr-mid-size-nested-equation
 5ca1e9153bcadb34996e90cd67aa4825 math-lr-nested-mid
 e1616e53951c56ef25ac860b6e7475c3 math-lr-scripts
 132fbf6159c3d140e0c79d7396bdaadc math-lr-shorthands
+dabf3a8c1c605f7046212f77c3121775 math-lr-single-line-align
 b0d9ab17d3487865e644ba277c78a6da math-lr-size
 d3166d4a9ca0dae845bd9b4b223870b0 math-lr-sym-call
 89c0eeb93e9f8536d5712b41a75501e3 math-lr-sym-call-size

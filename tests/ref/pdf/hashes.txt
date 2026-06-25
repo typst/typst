@@ -1186,6 +1186,7 @@ c36949b9de20318bc36bd1822b40d20f math-lr-multiline
 ed7d216099e152c24df8e6b059dbbc89 math-lr-nested-mid
 eb26b267876181dcfb0eb46409d6e7d4 math-lr-scripts
 f796f48872aa8dfdd363f549e454c3ed math-lr-shorthands
+b61017d9e07e5ee94e2fb0041c252a53 math-lr-single-line-align
 b1bd345f3354c5e1b374ab5171aa143b math-lr-size
 7a2c791f3f1cdc5ed3d1c4e4f3dafcaa math-lr-sym-call
 a12c3c57b2b97a99f9eb5f3f6c4a6261 math-lr-sym-call-size
