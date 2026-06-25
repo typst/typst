@@ -346,7 +346,8 @@ fn collect_range<'a>(
 fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items) {
     let text = &p.text[range];
 
-    if text.starts_with(BEGIN_PUNCT_PAT)
+    // Ignore leading whitespace (e.g., indents) to properly detect beginning punctuation.
+    if text.trim_start().starts_with(BEGIN_PUNCT_PAT)
         || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
     {
         adjust_cj_at_line_start(p, items);
@@ -377,7 +378,9 @@ fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
 fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.leading_text_mut() else { return };
+    let Some(shaped) = items.leading_visible_text_mut() else {
+        return;
+    };
     let Some(glyph) = shaped.glyphs.first() else { return };
 
     if glyph.is_cjk_right_aligned_punctuation() {
@@ -764,9 +767,10 @@ impl<'a> Items<'a> {
         Some((*idx, text))
     }
 
-    /// Access the first unskippable item mutably, if it is text.
-    pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        let (_, item) = self.0.iter_mut().find(|(_, item)| !item.is_skippable())?;
+    /// Access the first text item mutably.
+    pub fn leading_visible_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
+        let (_, item) =
+            self.0.iter_mut().find(|(_, item)| matches!(**item, Item::Text(_)))?;
         item.text_mut()
     }
 
