@@ -10,7 +10,7 @@ use typst::diag::{
     bail,
 };
 use typst::foundations::{Datetime, Smart};
-use typst::layout::PageRanges;
+use typst::layout::{PageRange, PageRanges};
 use typst::model::Document;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
@@ -143,7 +143,12 @@ impl CompileConfig {
         });
 
         let pages = args.pages.as_ref().map(|export_ranges| {
-            PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
+            PageRanges::new(
+                export_ranges
+                    .iter()
+                    .map(|r| PageRange::new(*r.0.start(), *r.0.end()))
+                    .collect(),
+            )
         });
 
         if args.no_pdf_tags {
