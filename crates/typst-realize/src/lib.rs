@@ -21,9 +21,7 @@ use typst_library::foundations::{
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
     Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
 };
-use typst_library::introspection::{
-    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
-};
+use typst_library::introspection::{LocationKey, SplitLocator, Tag, TagElem, TagFlags};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -520,8 +518,8 @@ fn verdict<'a>(
             elem.label().is_none()
                 && elem.location().is_none()
                 && !elem.can::<dyn ShowSet>()
-                && !elem.can::<dyn Locatable>()
-                && !elem.can::<dyn Tagged>()
+                && !elem.is_locatable()
+                && !elem.is_tagged()
                 && !elem.can::<dyn Synthesize>()
         })
     {
@@ -547,10 +545,10 @@ fn prepare(
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
     let flags = TagFlags {
-        introspectable: elem.can::<dyn Locatable>()
+        introspectable: elem.is_locatable()
             || elem.label().is_some()
             || elem.location().is_some(),
-        tagged: elem.can::<dyn Tagged>(),
+        tagged: elem.is_tagged(),
     };
     if elem.location().is_none() && flags.any() {
         let loc = locator.next_location(engine, key, elem.span());

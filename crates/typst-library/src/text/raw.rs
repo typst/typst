@@ -20,7 +20,6 @@ use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};

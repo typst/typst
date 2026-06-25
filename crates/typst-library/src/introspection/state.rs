@@ -9,7 +9,7 @@ use crate::foundations::{
     Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Repr,
     Selector, Str, Value, cast, elem, func, scope, select_where, ty,
 };
-use crate::introspection::{History, Introspect, Introspector, Locatable, Location};
+use crate::introspection::{History, Introspect, Introspector, Location};
 use crate::{Library, World};
 
 /// Manages stateful parts of your document.

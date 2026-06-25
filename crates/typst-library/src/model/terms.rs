@@ -2,7 +2,6 @@ use crate::diag::{bail, warning};
 use crate::foundations::{
     Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};
 

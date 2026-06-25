@@ -1,5 +1,4 @@
 use crate::foundations::{Value, elem};
-use crate::introspection::Locatable;
 
 /// Exposes a value to the query system without producing visible content.
 ///

@@ -8,8 +8,8 @@ use crate::foundations::{
     StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, Locatable, PageNumberingIntrospection,
-    PageSupplementIntrospection, QueryLabelIntrospection, Tagged,
+    Counter, CounterKey, PageNumberingIntrospection, PageSupplementIntrospection,
+    QueryLabelIntrospection,
 };
 use crate::math::EquationElem;
 use crate::model::{
