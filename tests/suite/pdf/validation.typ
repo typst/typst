@@ -38,6 +38,10 @@ Hello
 // Hint: select a version between PDF 1.5 and PDF 1.7
 https://typst.app/
 
+--- pdf-validation-page-range-and-tagged pdf ---
+// Error: 2-33 cannot enable tagged PDF and export a page range
+#set pdf(pages: 1, tagged: true)
+
 --- pdf-validation-tofu pdf ---
 #set pdf(standard: "ua-1")
 // Error: 1-2 PDF/UA-1 error: the text `"ግ"` could not be displayed with font `"Libertinus Serif"`
