@@ -47,10 +47,10 @@ impl Debug for Tag {
 pub struct TagFlags {
     /// Whether the element will be inserted into the
     /// [`Introspector`](super::Introspector).
-    /// Either because it is [`Locatable`](super::Locatable), has been labelled,
-    /// or a location has been manually set.
+    /// Either because it is `Locatable`, has been labelled, or a location has
+    /// been manually set.
     pub introspectable: bool,
-    /// Whether the element is [`Tagged`](super::Tagged).
+    /// Whether the element is `Tagged`.
     pub tagged: bool,
 }
 

@@ -32,8 +32,7 @@ use crate::foundations::{
     Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
-    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
-    QueryIntrospection,
+    EmptyIntrospector, History, Introspect, Introspector, Location, QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};

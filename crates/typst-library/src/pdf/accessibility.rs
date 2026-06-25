@@ -8,7 +8,6 @@ use crate::diag::SourceResult;
 use crate::diag::bail;
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
-use crate::introspection::Tagged;
 use crate::model::{TableCell, TableElem};
 
 /// Marks content as a PDF artifact.

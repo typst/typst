@@ -1,5 +1,4 @@
 use crate::foundations::{Cast, Content, Smart, elem, scope};
-use crate::introspection::{Locatable, Tagged, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content relatively to its parent container.

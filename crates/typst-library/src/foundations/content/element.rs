@@ -81,6 +81,21 @@ impl Element {
         self.can_type_id(TypeId::of::<C>())
     }
 
+    /// Whether the element is locatable.
+    pub fn is_locatable(self) -> bool {
+        self.vtable().introspection.locatable
+    }
+
+    /// Whether the element is unqueriable.
+    pub fn is_unqueriable(self) -> bool {
+        self.vtable().introspection.unqueriable
+    }
+
+    /// Whether the element is tagged in PDF files.
+    pub fn is_tagged(self) -> bool {
+        self.vtable().introspection.tagged
+    }
+
     /// Whether the element has the given capability where the capability is
     /// given by a `TypeId`.
     pub fn can_type_id(self, type_id: TypeId) -> bool {

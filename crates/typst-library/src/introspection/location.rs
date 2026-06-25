@@ -15,15 +15,6 @@ use crate::introspection::{
 use crate::layout::Abs;
 use crate::model::Numbering;
 
-/// Makes an element available in the introspector.
-pub trait Locatable {}
-
-/// Marks an element as not queriable for the user.
-pub trait Unqueriable: Locatable {}
-
-/// Marks an element as tagged in PDF files.
-pub trait Tagged {}
-
 /// Identifies an element in the document.
 ///
 /// A location uniquely identifies an element in the document and lets you
