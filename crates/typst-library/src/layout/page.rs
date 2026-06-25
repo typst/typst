@@ -8,8 +8,8 @@ use typst_utils::{NonZeroExt, Scalar, singleton};
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue, IntoValue,
-    NativeElement, Reflect, Set, Smart, Value, cast, elem,
+    Args, Array, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue, IntoValue,
+    NativeElement, Reflect, Set, Smart, Value, cast, dict, elem,
 };
 use crate::layout::{
     Abs, Alignment, FlushElem, HAlignment, Length, OuterVAlignment, Ratio, Rel, Sides,
@@ -762,37 +762,17 @@ cast! {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PageRanges(EcoVec<PageRange>);
 
-// TODO: Maybe just accept an array of page numbers?
-// This would allow using the `range()` function and just joining the resulting
-// arrays: `set pdf(pages: range(1, 5, inclusive: true) + (8,))`
-// FIXME: This doesn't work, because half-open ranges at the end would need to
-// know how many pages the document will have...
 cast! {
     PageRanges,
-    self => {
-        todo!()
-        // let mut start = 0;
-        // Value::Array(self.iter().map(|r| {
-        //     todo!()
-        // }).flatten().map(Value::Int).collect())
+    self => Value::Array(self.0.iter().copied().map(IntoValue::into_value).collect()),
+    range: PageRange => {
+        Self(eco_vec![range])
     },
-    nr: i64 => {
-        if nr < 1 {
-            bail!("page numbers start at one");
-        }
-        let Some(nr) = usize::try_from(nr).ok().and_then(NonZeroUsize::new) else {
-            bail!("not a valid page number");
-        };
-        Self(eco_vec![Some(nr)..=Some(nr)])
-    },
-    // array: Array => todo!(),
+    array: Array => Self(array
+        .into_iter()
+        .map(Value::cast)
+        .collect::<HintedStrResult<_>>()?),
 }
-
-/// A range of pages to export.
-///
-/// The range is one-indexed. For example, `1..=3` indicates the first, second
-/// and third pages should be exported.
-pub type PageRange = RangeInclusive<Option<NonZeroUsize>>;
 
 impl PageRanges {
     /// Create new page ranges.
@@ -800,16 +780,16 @@ impl PageRanges {
         Self(ranges)
     }
 
-    /// Returns an iterator over the page ranges.
-    pub fn iter(&self) -> impl Iterator<Item = PageRange> {
-        self.0.iter().cloned()
-    }
-
     /// Check if a page, given its number, should be included when exporting the
     /// document while restricting the exported pages to these page ranges.
     /// This is the one-indexed version of 'includes_page_index'.
     pub fn includes_page(&self, page: NonZeroUsize) -> bool {
-        self.includes_page_index(page.get() - 1)
+        self.0.iter().any(|range| match (range.start, range.end) {
+            (Some(start), Some(end)) => (start..=end).contains(&page),
+            (Some(start), None) => (start..).contains(&page),
+            (None, Some(end)) => (..=end).contains(&page),
+            (None, None) => true,
+        })
     }
 
     /// Check if a page, given its index, should be included when exporting the
@@ -817,12 +797,94 @@ impl PageRanges {
     /// This is the zero-indexed version of 'includes_page'.
     pub fn includes_page_index(&self, page: usize) -> bool {
         let page = NonZeroUsize::try_from(page + 1).unwrap();
-        self.0.iter().any(|range| match (range.start(), range.end()) {
-            (Some(start), Some(end)) => (start..=end).contains(&&page),
-            (Some(start), None) => (start..).contains(&&page),
-            (None, Some(end)) => (..=end).contains(&&page),
-            (None, None) => true,
+        self.includes_page(page)
+    }
+}
+
+/// A range of pages to export.
+///
+/// The range is one-indexed. For example, `1..=3` indicates the first, second
+/// and third pages should be exported.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct PageRange {
+    /// An inclusive start bound.
+    pub start: Option<NonZeroUsize>,
+    /// An inclusive end bound.
+    pub end: Option<NonZeroUsize>,
+}
+
+cast! {
+    PageRange,
+    self => {
+        Value::Dict(dict! {
+            "from" => self.start.into_value(),
+            "to" => self.end.into_value(),
         })
+    },
+    nr: i64 => {
+        let nr = parse_page_number(nr)?;
+        Self::splat(nr)
+    },
+    mut dict: Dict => {
+        let parse_nr = |val: Value| {
+            let nr = val.cast::<i64>()?;
+            parse_page_number(nr)
+        };
+        let start = dict.take("from").ok().map(parse_nr).transpose()?;
+        let end =  dict.take("to").ok().map(parse_nr).transpose()?;
+        dict.finish(&[])?;
+        if start.is_none() && end.is_none() {
+            bail!("page export range must not be empty");
+        }
+        if let Some((start, end)) = start.zip(end)
+            && start > end
+        {
+            bail!("page export range start cannot be larger than end");
+        }
+        Self::new(start, end)
+    }
+}
+
+fn parse_page_number(nr: i64) -> HintedStrResult<NonZeroUsize> {
+    if nr < 1 {
+        bail!("page numbers start at one");
+    }
+    let Some(nr) = usize::try_from(nr).ok().and_then(NonZeroUsize::new) else {
+        bail!("not a valid page number");
+    };
+    Ok(nr)
+}
+
+impl PageRange {
+    /// Constructs a page range with optional start and end bounds.
+    pub fn new(start: Option<NonZeroUsize>, end: Option<NonZeroUsize>) -> Self {
+        Self { start, end }
+    }
+
+    /// Constructs a page range with one page.
+    pub fn splat(nr: NonZeroUsize) -> Self {
+        Self { start: Some(nr), end: Some(nr) }
+    }
+
+    /// Constructs a fully specified page range with both start and end bounds.
+    pub fn full(start: NonZeroUsize, end: NonZeroUsize) -> Self {
+        Self { start: Some(start), end: Some(end) }
+    }
+
+    /// Constructs a page range without an end bound.
+    pub fn open_start(end: NonZeroUsize) -> Self {
+        Self { start: None, end: Some(end) }
+    }
+
+    /// Constructs a page range without a start bound.
+    pub fn open_end(start: NonZeroUsize) -> Self {
+        Self { start: Some(start), end: None }
+    }
+}
+
+impl From<RangeInclusive<Option<NonZeroUsize>>> for PageRange {
+    fn from(value: RangeInclusive<Option<NonZeroUsize>>) -> Self {
+        Self::new(*value.start(), *value.end())
     }
 }
 
