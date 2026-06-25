@@ -8,7 +8,6 @@ use bitflags::{Flags, bitflags};
 use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Target;
-use typst_pdf::PdfStandard;
 use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
@@ -95,7 +94,6 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
-    pub pdf_standard: Vec<PdfStandard>,
     /// Tolerance for image comparisons. Render tests are not 100% reproducible.
     /// By default, we allow a byte difference of 1, but in rare cases, we need
     /// to increase it. This can for example happen due to cross-platform
@@ -688,9 +686,7 @@ impl<'a> Parser<'a> {
     fn parse_attrs(&mut self) -> Attrs {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
-        let mut pdf_standard = Vec::new();
         let mut tolerance = None;
-
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -709,23 +705,6 @@ impl<'a> Parser<'a> {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
                 "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
-                "pdfstandard" => {
-                    let Some(param) = attr_params.take() else {
-                        self.error("expected parameter for `pdfstandard`");
-                        continue;
-                    };
-                    pdf_standard = param
-                        .split(',')
-                        .map(str::trim)
-                        .filter_map(|s| {
-                            serde_yaml::from_str(s)
-                                .inspect_err(|e| {
-                                    self.error(format!("unknown pdf standard `{s}`: {e}"))
-                                })
-                                .ok()
-                        })
-                        .collect();
-                }
                 "tolerance" => {
                     let Some(param) = attr_params.take() else {
                         self.error("expected parameter for `tolerance`");
@@ -774,7 +753,6 @@ impl<'a> Parser<'a> {
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
             empty: flags.contains(AttrFlags::EMPTY),
-            pdf_standard,
             stages,
             tolerance,
         }

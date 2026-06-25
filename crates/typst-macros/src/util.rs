@@ -132,6 +132,13 @@ pub fn parse_key_value_array<K: Token + Default + Parse, V: Parse>(
     Ok(parse_key_value::<K, Array<V>>(input)?.map_or(vec![], |array| array.0))
 }
 
+/// Parse an metadata key-identifier pair, separated by `=`.
+pub fn parse_ident<K: Token + Default + Parse>(
+    input: ParseStream,
+) -> Result<Option<syn::Ident>> {
+    parse_key_value::<K, syn::Ident>(input)
+}
+
 /// Parse a metadata key-string pair, separated by `=`.
 pub fn parse_string<K: Token + Default + Parse>(
     input: ParseStream,
@@ -147,6 +154,13 @@ pub fn parse_string_array<K: Token + Default + Parse>(
         .into_iter()
         .map(|lit| lit.value())
         .collect())
+}
+
+/// Parse an metadata key-expr pair, separated by `=`.
+pub fn parse_expr<K: Token + Default + Parse>(
+    input: ParseStream,
+) -> Result<Option<syn::Expr>> {
+    parse_key_value::<K, syn::Expr>(input)
 }
 
 /// Parse a metadata flag that can be present or not.
@@ -270,9 +284,12 @@ pub mod kw {
     syn::custom_keyword!(span);
     syn::custom_keyword!(title);
     syn::custom_keyword!(scope);
-    syn::custom_keyword!(contextual);
+    syn::custom_keyword!(category);
     syn::custom_keyword!(cast);
+    syn::custom_keyword!(contextual);
     syn::custom_keyword!(constructor);
+    syn::custom_keyword!(custom);
+    syn::custom_keyword!(feature);
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);
     syn::custom_keyword!(ext);
