@@ -40,14 +40,6 @@ impl Populate for PngFormatOptions {
         // VOLATILE: This must be updated when adding more fields.
         self.pixel_per_pt.populate(styles);
     }
-
-    fn dyn_clone(&self) -> Box<dyn Populate> {
-        Box::new(self.clone())
-    }
-
-    fn describe(&self) -> (&'static str, &'static str) {
-        (std::any::type_name::<Png>(), std::any::type_name::<PngFormatOptions>())
-    }
 }
 
 impl PngFormatOptions<Partial> {

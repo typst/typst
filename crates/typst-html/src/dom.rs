@@ -117,14 +117,6 @@ impl Populate for HtmlFormatOptions {
         // VOLATILE: This must be updated when adding more fields.
         self.pretty.populate(styles);
     }
-
-    fn dyn_clone(&self) -> Box<dyn Populate> {
-        Box::new(self.clone())
-    }
-
-    fn describe(&self) -> (&'static str, &'static str) {
-        (std::any::type_name::<Html>(), std::any::type_name::<HtmlFormatOptions>())
-    }
 }
 
 impl HtmlFormatOptions<Partial> {
