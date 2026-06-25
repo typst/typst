@@ -31,6 +31,11 @@ $ P = Q
   U stretch(equiv)^(forall i)_"Chern-Weil" V
     stretch(equiv, size: #(120% + 2mm))^(forall i)_"Chern-Weil" W $
 
+--- math-stretch-horizontal-attach-constants paged html ---
+#show math.equation: set text(font: "Asana Math")
+$ a stretch(->)^a b ->^a c $
+$ a stretch(->)_p b ->_p c $
+
 --- math-stretch-vertical-attach paged html ---
 // Test vertical stretch interactions with attachments.
 $arrow.t$
