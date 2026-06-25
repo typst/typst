@@ -11,7 +11,7 @@ use crate::foundations::{
     elem, scope,
 };
 use crate::introspection::{
-    Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
+    Count, Counter, CounterUpdate, Location, QueryLabelIntrospection,
 };
 use crate::layout::{Em, Length, Ratio};
 use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};

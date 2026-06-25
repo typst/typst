@@ -6,7 +6,6 @@ use crate::foundations::{
     Array, Content, Context, Depth, Func, NativeElement, Packed, Smart, StyleChain,
     Styles, Value, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::text::TextElem;
 

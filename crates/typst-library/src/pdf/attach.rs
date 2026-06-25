@@ -4,7 +4,6 @@ use typst_syntax::Spanned;
 use crate::World;
 use crate::diag::At;
 use crate::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
-use crate::introspection::Locatable;
 
 /// A file that will be attached to the output PDF.
 ///

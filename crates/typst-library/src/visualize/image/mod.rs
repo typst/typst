@@ -24,7 +24,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Loaded};
 use crate::model::Figurable;

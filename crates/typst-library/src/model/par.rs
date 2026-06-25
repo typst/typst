@@ -8,7 +8,7 @@ use crate::foundations::{
     IntoValue, NativeElement, Packed, Reflect, Smart, Unlabellable, Value, cast, dict,
     elem, scope,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable, Tagged, Unqueriable};
+use crate::introspection::{Count, CounterUpdate};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
 use crate::model::Numbering;
 
