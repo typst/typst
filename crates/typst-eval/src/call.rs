@@ -5,8 +5,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
+    Arg, Args, Binding, BindingAccess, Capturer, Closure, ClosureNode, Content, Context,
+    Func, NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -244,17 +244,26 @@ fn eval_field_callee<'a, 'b>(
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let sink = (&mut vm.engine, field_span);
+    let sink = vm.engine.sink(field_span);
 
     let mut is_method_call = false;
     let callee_value = if let Some(method) = target.ty().scope().get(field) {
         is_method_call = true;
-        method.read_checked(sink).clone()
+        let ty = target.ty().short_name();
+        method
+            .read_checked(sink)
+            .what(format_args!("cannot call method `{field}` on value of type `{ty}`"))
+            .at(field_span)?
+            .clone()
     } else if let Value::Content(content) = &target
         && let Some(method) = content.elem().scope().get(field)
     {
         is_method_call = true;
-        method.read_checked(sink).clone()
+        method
+            .read_checked(sink)
+            .what(format_args!("cannot call method `{field}` on content"))
+            .at(field_span)?
+            .clone()
     } else if matches!(
         target,
         Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)

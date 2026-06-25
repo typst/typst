@@ -790,7 +790,7 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
     attrs.push(attr::width, cast(image.width()));
     attrs.push(attr::height, cast(image.height()));
 
-    let mut css = css::Properties::build((engine, elem.span()));
+    let mut css = css::Properties::build(engine.sink(elem.span()));
 
     // TODO: Exclude in semantic profile.
     if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {

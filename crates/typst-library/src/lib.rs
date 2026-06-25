@@ -26,6 +26,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use std::fmt::Display;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
@@ -34,7 +35,8 @@ use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{
-    Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
+    Array, Binding, BindingInfo, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap,
+    Scope, Styles,
 };
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
@@ -221,7 +223,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(self.routines, math.clone(), inputs, &self.features);
+        let global = global(self.routines, math.clone(), inputs);
         Library {
             routines: self.routines,
             global: global.clone(),
@@ -283,6 +285,16 @@ impl Feature {
     }
 }
 
+impl Display for Feature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Feature::Html => "html",
+            Feature::Bundle => "bundle",
+            Feature::A11yExtras => "a11y-extras",
+        })
+    }
+}
+
 /// A group of related standard library definitions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -326,16 +338,11 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(
-    routines: &Routines,
-    math: Module,
-    inputs: Dict,
-    features: &Features,
-) -> Module {
+fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs);
-    self::model::define(&mut global, features);
+    self::model::define(&mut global);
     self::text::define(&mut global);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
@@ -344,10 +351,10 @@ fn global(
     self::symbols::define(&mut global);
 
     global.define("math", math);
-    global.define("pdf", self::pdf::module(features));
-    if features.is_enabled(Feature::Html) {
-        global.define("html", (routines.html_module)());
-    }
+    global.define("pdf", self::pdf::module());
+    global
+        .define("html", (routines.html_module)())
+        .with_info(BindingInfo::new().feature(Feature::Html));
 
     prelude(&mut global);
 
