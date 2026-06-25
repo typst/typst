@@ -143,7 +143,7 @@ impl CompileConfig {
         });
 
         let pages = args.pages.as_ref().map(|export_ranges| {
-            PageRanges::new(export_ranges.iter().map(|r| r.0.clone()).collect())
+            PageRanges::new(export_ranges.iter().map(|r| r.0.clone().into()).collect())
         });
 
         if args.no_pdf_tags {
