@@ -4,7 +4,6 @@ use crate::foundations::{
     Content, Depth, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles,
     cast, elem,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{BlockElem, Em, PadElem};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuotes, SpaceElem, TextElem};

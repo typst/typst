@@ -6,7 +6,6 @@ use crate::foundations::{
     Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, ShowSet,
     Smart, StyleChain, Styles, Target, Value, cast, elem,
 };
-use crate::introspection::Locatable;
 use crate::text::{Locale, TextElem};
 
 /// Manages metadata and is used to add a document file to a bundle.

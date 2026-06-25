@@ -2,7 +2,6 @@ use typst_macros::elem;
 
 use crate::diag::bail;
 use crate::foundations::{BundlePath, Bytes, ShowFn, Str, cast};
-use crate::introspection::Locatable;
 
 /// Adds a custom file to a bundle.
 ///

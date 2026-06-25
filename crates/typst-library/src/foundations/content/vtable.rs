@@ -109,6 +109,8 @@ pub struct ContentVtable<T: 'static = RawContent> {
     /// pointer to a native Rust vtable of `Packed<Self>` w.r.t to the trait `C`
     /// where `capability` is `TypeId::of::<dyn C>()`.
     pub(super) capability: fn(capability: TypeId) -> Option<NonNull<()>>,
+    /// Introspection capabilities of the type.
+    pub(super) introspection: IntrospectionCapabilities,
 
     /// The `Drop` impl (for the whole raw content). The content must have a
     /// reference count of zero and may not be used anymore after `drop` was
@@ -147,6 +149,7 @@ impl ContentVtable {
         fields: &'static [FieldVtable<Packed<E>>],
         field_id: fn(name: &str) -> Option<u8>,
         capability: fn(TypeId) -> Option<NonNull<()>>,
+        introspection: IntrospectionCapabilities,
         store: fn() -> &'static LazyElementStore,
     ) -> ContentVtable<Packed<E>> {
         ContentVtable {
@@ -162,6 +165,7 @@ impl ContentVtable {
             local_name: None,
             scope: || Scope::new(),
             capability,
+            introspection,
             drop: RawContent::drop_impl::<E>,
             clone: RawContent::clone_impl::<E>,
             hash: |elem| typst_utils::hash128(elem.as_ref()),
@@ -305,6 +309,16 @@ impl ContentHandle<(&RawContent, &RawContent)> {
         let (a, b) = self.0;
         unsafe { self.1.eq.map(|f| f(a, b)) }
     }
+}
+
+/// A set of introspection capabilties available for the element.
+pub struct IntrospectionCapabilities {
+    /// Makes an element available in the introspector.
+    pub locatable: bool,
+    /// Marks an element as not queriable for the user.
+    pub unqueriable: bool,
+    /// Marks an element as tagged in PDF files.
+    pub tagged: bool,
 }
 
 /// A vtable for performing field-specific actions on type-erased

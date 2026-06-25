@@ -17,8 +17,7 @@ use crate::foundations::{
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{
-    History, Introspect, Introspector, Locatable, Location, QueryFirstIntrospection, Tag,
-    Unqueriable,
+    History, Introspect, Introspector, Location, QueryFirstIntrospection, Tag,
 };
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
