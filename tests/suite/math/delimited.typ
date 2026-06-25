@@ -223,3 +223,11 @@ $ abs(x + y & 1 & 2 & a + b \ 3 &&& 4, size: #200%) $
 --- math-lr-multiline-align paged html ---
 $ (a & b \ c) $
 $ (a \ b & c) $
+
+--- math-lr-single-line-align paged html ---
+$   & x \
+    & x ) $
+$   & x \
+  ( & x ) $
+$   & x \
+  ( & x   $
