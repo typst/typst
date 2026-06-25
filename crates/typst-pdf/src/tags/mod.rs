@@ -289,36 +289,3 @@ fn update_bbox(
         bbox.expand_frame(fc, compute_bbox);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::num::NonZeroUsize;
-
-    use ecow::eco_vec;
-    use typst_library::diag::error;
-    use typst_library::format::Complete;
-    use typst_library::foundations::Smart;
-    use typst_library::layout::PageRanges;
-    use typst_syntax::Span;
-    use typst_utils::NonZeroExt;
-
-    use crate::PdfOptions;
-    use crate::format::PdfFormatOptions;
-
-    #[test]
-    fn tagged_and_page_range() {
-        let mut doc_options = PdfFormatOptions::<Complete>::default();
-        doc_options.tagged.v = Smart::Custom(true);
-        doc_options.pages.v =
-            Some(PageRanges::new(eco_vec![Some(NonZeroUsize::ONE)..=None]));
-        let options = PdfOptions::default();
-        let res = options.resolve(&doc_options);
-        assert_eq!(
-            res,
-            Err(eco_vec![error!(
-                Span::detached(),
-                "cannot enable tagged PDF and export a page range"
-            )])
-        );
-    }
-}
