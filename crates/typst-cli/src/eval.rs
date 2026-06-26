@@ -24,6 +24,7 @@ use crate::args::{
     self, EvalCommand, EvalSerializationFormat, SerializationFormat, Target,
 };
 use crate::compile::print_diagnostics;
+use crate::deps::write_deps;
 use crate::set_failed;
 use crate::world::SystemWorld;
 
@@ -53,6 +54,15 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
         EvalSerializationFormat::default()
     };
 
+    if command.output.is_stdout()
+        && command.deps.deps.as_ref().is_some_and(args::Output::is_stdout)
+    {
+        bail!(
+            "can't write both the eval result and dependencies to stdout.\n\
+            either specify a file output with `-o/--output` or a file output for dependencies with `--deps`"
+        );
+    }
+
     let mut world =
         SystemWorld::new(command.r#in.as_ref(), &command.world, &command.process)?;
 
@@ -70,7 +80,7 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             .map(|output| Box::new(output) as Box<dyn Output>),
     };
 
-    match output {
+    match output.as_deref() {
         // The target compiled successfully, continue with evaluating the input
         // expression.
         Ok(output) => {
@@ -110,6 +120,8 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                 command.process.diagnostic_format,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+            world = expr_world.world;
         }
 
         // The target failed, print its diagnostics.
@@ -117,12 +129,22 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             set_failed();
             print_diagnostics(
                 &world,
-                &errors,
+                errors,
                 &warnings,
                 command.process.diagnostic_format,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
+    }
+
+    if let Some(dest) = &command.deps.deps {
+        write_deps(
+            &mut world,
+            dest,
+            command.deps.deps_format,
+            Some(std::slice::from_ref(&command.output)),
+        )
+        .map_err(|err| eco_format!("failed to create dependency file ({err})"))?;
     }
 
     Ok(())
