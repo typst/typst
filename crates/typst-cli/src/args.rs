@@ -7,7 +7,7 @@ use std::fmt::{self, Display, Formatter};
 use std::io::Write;
 use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use clap::builder::styling::{AnsiColor, Effects};
@@ -207,9 +207,18 @@ pub struct EvalCommand {
     #[clap(long, default_value_t)]
     pub target: Target,
 
+    /// Path to output file. Use `-` to write output to stdout.
+    #[clap(
+         long, short,
+         default_value = "-",
+         value_parser = output_value_parser(),
+         value_hint = ValueHint::FilePath,
+     )]
+    pub output: Output,
+
     /// The format to serialize in.
-    #[clap(long = "format", default_value_t)]
-    pub format: SerializationFormat,
+    #[clap(long = "format")]
+    pub format: Option<SerializationFormat>,
 
     /// Whether to pretty-print the serialized output.
     ///
@@ -550,6 +559,14 @@ impl Output {
         match self {
             Self::Stdout => Ok(OpenOutput::Stdout(std::io::stdout().lock())),
             Self::Path(path) => std::fs::File::create(path).map(OpenOutput::File),
+        }
+    }
+
+    /// Get the path if the output if a path was specified.
+    pub fn as_path(&self) -> Option<&Path> {
+        match self {
+            Self::Stdout => None,
+            Self::Path(path) => Some(path),
         }
     }
 }
