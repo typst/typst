@@ -148,6 +148,96 @@ fn test_eval_infer_format() {
 }
 
 #[test]
+fn test_eval_deps() {
+    let project = tempfs();
+
+    let main = project.write("main.typ", "#image(\"tiger.jpg\")");
+    project.write("tiger.jpg", typst_dev_assets::get_by_name("tiger.jpg").unwrap());
+
+    // Output result to file and deps to stdout.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "--deps-format=make", "--in"])
+        .arg(&main)
+        .arg("-o")
+        .arg(project.resolve("foo.json"))
+        .arg("--deps=-")
+        .must_succeed();
+    output
+        .stdout
+        .must_contain("foo.json:") // Input
+        .must_contain("main.typ")
+        .must_contain("tiger.jpg");
+    output.stderr.must_be_empty();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // Output result to stdout and deps to file.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "--in"])
+        .arg(&main)
+        .arg("--deps")
+        .arg(project.resolve("main.d"))
+        .must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+    output.stderr.must_be_empty();
+    project
+        .read("main.d")
+        .must_not_contain("\"-\"")
+        .must_contain("main.typ\"")
+        .must_contain("tiger.jpg\"");
+
+    // Output both result and deps to file.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "--deps-format=make", "--in"])
+        .arg(&main)
+        .arg("-o")
+        .arg(project.resolve("foo.json"))
+        .arg("--deps")
+        .arg(project.resolve("main.d"))
+        .must_succeed();
+    output.stdout.must_be_empty();
+    output.stderr.must_be_empty();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+    project
+        .read("main.d")
+        .must_contain("foo.json:")
+        .must_contain("main.typ")
+        .must_contain("tiger.jpg");
+
+    // Output both result and deps to stdout (should fail).
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "--deps=-", "--in"])
+        .arg(&main)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("can't write both the eval result and depdendencies to stdout");
+    output.stdout.must_be_empty();
+}
+
+#[test]
+fn test_eval_deps_incomplete() {
+    let project = tempfs();
+
+    let main = project.write("main.typ", "#image(\"tiger.jpg\") #thisisinvalid");
+    project.write("tiger.jpg", typst_dev_assets::get_by_name("tiger.jpg").unwrap());
+
+    // Output result to stdout and deps to file.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "--in"])
+        .arg(&main)
+        .arg("--deps")
+        .arg(project.resolve("main.d"))
+        .must_fail();
+    output.stdout.must_match_lines([]);
+    output.stderr.must_contain("error: unknown variable");
+    project
+        .read("main.d")
+        .must_not_contain("\"-\"")
+        .must_contain("main.typ\"")
+        .must_contain("tiger.jpg\"");
+}
+
+#[test]
 fn test_fonts_embedded() {
     let output = exec().arg("fonts").arg("--ignore-system-fonts").must_succeed();
     output.stdout.must_match_lines([
@@ -438,6 +528,12 @@ impl<T: AsRef<[u8]>> Stream<T> {
     #[track_caller]
     fn must_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
         assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}",);
+        self
+    }
+
+    #[track_caller]
+    fn must_not_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
+        assert!(!self.contains(data.as_ref()), "{self:?} contained {data:?}",);
         self
     }
 
