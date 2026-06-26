@@ -231,10 +231,10 @@ fn field_access_completions(
         Value::Func(func) => {
             // Autocomplete get rules.
             if let Some((elem, styles)) = func.to_element().zip(styles.as_ref()) {
-                for param in elem.params().iter().filter(|param| !param.required) {
-                    if let Some(value) = elem.field_id(param.name).and_then(|id| {
-                        elem.field_from_styles(id, StyleChain::new(styles)).ok()
-                    }) {
+                for param in elem.params() {
+                    if let Some(field_accessor) = elem.settable_field_accessor(param.name)
+                    {
+                        let value = field_accessor(StyleChain::new(styles));
                         ctx.value_completion(param.name, &value);
                     }
                 }
