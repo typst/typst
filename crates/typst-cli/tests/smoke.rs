@@ -48,6 +48,106 @@ fn test_eval() {
 }
 
 #[test]
+fn test_eval_format() {
+    // Default format (JSON).
+    let output = exec().arg("eval").arg("(1, 2, 3, 4)").must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // JSON manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "json"])
+        .must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // YAML manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "yaml"])
+        .must_succeed();
+    output.stdout.must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+}
+
+#[test]
+fn test_eval_output() {
+    let project = tempfs();
+
+    // Named path.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo"))
+        .must_succeed();
+    output.stdout.must_be_empty();
+    output.stderr.must_be_empty();
+    project.read("foo").must_match_lines(["[1,2,3,4]"]);
+
+    // Output to stdout.
+    let output = exec().args(["eval", "(1, 2, 3, 4)", "-o", "-"]).must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+    output.stderr.must_be_empty();
+}
+
+#[test]
+fn test_eval_infer_format() {
+    let project = tempfs();
+
+    // Unknown extension (default format).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_succeed();
+    project.read("foo.extension").must_match_lines(["[1,2,3,4]"]);
+
+    // Unknown extension, default format overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_succeed();
+    project
+        .read("foo.extension")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON inferred.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // YAML inferred (1).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yaml"))
+        .must_succeed();
+    project
+        .read("foo.yaml")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML inferred (2).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project
+        .read("foo.json")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format=json", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["[1,2,3,4]"]);
+}
+
+#[test]
 fn test_fonts_embedded() {
     let output = exec().arg("fonts").arg("--ignore-system-fonts").must_succeed();
     output.stdout.must_match_lines([
@@ -356,6 +456,12 @@ impl<T: AsRef<[u8]>> Stream<T> {
             self.lines().collect::<Vec<_>>(),
             lines.into_iter().collect::<Vec<_>>(),
         );
+        self
+    }
+
+    #[track_caller]
+    fn must_be_empty(&self) -> &Self {
+        assert!(self.0.as_ref().is_empty(), "{self:?} is not empty");
         self
     }
 
