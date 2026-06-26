@@ -1,9 +1,10 @@
+use std::path::Path;
 use std::sync::LazyLock;
 
 use comemo::Track;
 use ecow::eco_format;
 use typst::Library;
-use typst::diag::{FileResult, HintedStrResult, SourceResult, Warned};
+use typst::diag::{At, FileResult, HintedStrResult, SourceResult, Warned, bail};
 use typst::foundations::{
     Bytes, Context, Datetime, Duration, Output, Scope, StyleChain, Value,
 };
@@ -20,8 +21,9 @@ use typst_kit::diagnostics::DiagnosticWorld;
 use typst_layout::PagedDocument;
 use typst_utils::LazyHash;
 
-use crate::args::{EvalCommand, Target};
+use crate::args::{self, EvalCommand, SerializationFormat, Target};
 use crate::compile::print_diagnostics;
+use crate::deps::write_deps;
 use crate::set_failed;
 use crate::world::SystemWorld;
 
@@ -35,6 +37,14 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
+    if command.output.is_stdout()
+        && command.deps.deps.as_ref().is_some_and(args::Output::is_stdout)
+    {
+        bail!(
+            "can't write both the eval result and depdendencies to stdout.\neither specify a file output with `-o/--output` or a file output for dependencies with `--deps`."
+        );
+    }
+
     // Compile the main file and get the introspector.
     let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
@@ -45,7 +55,22 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
     };
 
-    match output {
+    let output_format = if let Some(specified) = command.format {
+        specified
+    } else {
+        match command.output.as_path().and_then(Path::extension) {
+            Some(ext) if ext.eq_ignore_ascii_case("json") => SerializationFormat::Json,
+            Some(ext)
+                if ext.eq_ignore_ascii_case("yaml")
+                    || ext.eq_ignore_ascii_case("yml") =>
+            {
+                SerializationFormat::Yaml
+            }
+            _ => SerializationFormat::default(),
+        }
+    };
+
+    match output.as_deref() {
         // The target compiled successfully, continue with evaluating the input
         // expression.
         Ok(output) => {
@@ -60,13 +85,21 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                 &expr_world,
                 output.introspector(),
             );
-            let errors = match &eval_result {
-                Err(errors) => errors.as_slice(),
+            let errors = match eval_result {
+                Err(errors) => errors,
                 Ok(value) => {
-                    let serialized =
-                        crate::serialize(value, command.format, command.pretty)?;
-                    println!("{serialized}");
-                    &[]
+                    let mut serialized =
+                        crate::serialize(&value, output_format, command.pretty)?;
+                    if !serialized.ends_with('\n') {
+                        serialized.push('\n');
+                    }
+                    command
+                        .output
+                        .write(serialized.as_bytes())
+                        .map_err(|err| eco_format!("failed to write output file ({err})"))
+                        .at(Span::detached())
+                        .err()
+                        .unwrap_or_default()
                 }
             };
             // Collect additional warnings from evaluating the expression.
@@ -74,11 +107,13 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
 
             print_diagnostics(
                 &expr_world,
-                errors,
+                &errors,
                 &warnings,
                 command.process.diagnostic_format,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
+
+            world = expr_world.world;
         }
 
         // The target failed, print its diagnostics.
@@ -86,12 +121,22 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             set_failed();
             print_diagnostics(
                 &world,
-                &errors,
+                errors,
                 &warnings,
                 command.process.diagnostic_format,
             )
             .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
+    }
+
+    if let Some(dest) = &command.deps.deps {
+        write_deps(
+            &mut world,
+            dest,
+            command.deps.deps_format,
+            Some(std::slice::from_ref(&command.output)),
+        )
+        .map_err(|err| eco_format!("failed to create dependency file ({err})"))?;
     }
 
     Ok(())
