@@ -142,6 +142,37 @@ $ pi.alt() $
 // Hint: 3-9 named arguments cannot be used with method syntax as argument names could conflict with built-in method names
 $ pi.alt() $
 
+--- field-call-no-context eval ---
+#set heading(numbering: (..n) => none)
+// Error: 10-19 function `heading` does not contain field `numbering`
+#heading.numbering(1)
+
+--- math-field-call-no-context eval ---
+#set heading(numbering: (..n) => none)
+// Error: 14-23 function `heading` does not contain field `numbering`
+$std.heading.numbering(#1)$
+
+--- field-call-contextual-invalid paged empty ---
+// Test calling a contextual field as a function.
+#set heading(numbering: (..n) => none)
+// Error: 18-27 function `heading` does not contain field `numbering`
+#context heading.numbering(1)
+
+--- math-field-call-contextual-invalid paged empty ---
+#set heading(numbering: (..n) => none)
+// Error: 23-32 function `heading` does not contain field `numbering`
+#context $std.heading.numbering(#1)$
+
+--- field-call-contextual-non-func paged empty ---
+#set heading(numbering: "1.")
+// Error: 18-27 function `heading` does not contain field `numbering`
+#context heading.numbering(1)
+
+--- math-field-call-contextual-non-func paged empty ---
+#set heading(numbering: "1.")
+// Error: 23-32 function `heading` does not contain field `numbering`
+#context $std.heading.numbering(#1)$
+
 --- field-call-mut-basic eval ---
 // Mutating methods mutate a variable.
 #let numbers = (1, 2, 3)
