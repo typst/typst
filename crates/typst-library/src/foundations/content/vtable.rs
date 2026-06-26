@@ -358,8 +358,12 @@ pub struct FieldVtable<T: 'static = RawContent> {
     /// element, the style chain, or a mix (if it's a
     /// [`Fold`](crate::foundations::Fold) field).
     pub(super) get_with_styles: unsafe fn(elem: &T, StyleChain) -> Option<Value>,
-    /// Retrieves the field just from the styles.
-    pub(super) get_from_styles: fn(StyleChain) -> Option<Value>,
+    /// Retrieves the field just from the styles, falling back to the default
+    /// value if not manually set.
+    ///
+    /// Note that this is currently `Some` when the field is settable and `None`
+    /// otherwise.
+    pub(super) get_from_styles: Option<fn(StyleChain) -> Value>,
     /// Sets the field from the styles if it is currently unset. (Or merges
     /// with the style data in case of a `Fold` field).
     pub(super) materialize: unsafe fn(elem: &mut T, styles: StyleChain),
