@@ -366,18 +366,14 @@ pub(crate) fn access_field(
         Err(err) => err,
     };
 
-    // Check whether this is a get rule field access.
+    // Missing fields may actually be present if they are settable parameters
+    // on elements accessed with context, e.g. `block.stroke`.
     if let Value::Func(func) = &target
         && let Some(element) = func.to_element()
-        && let Some(id) = element.field_id(field)
-        && let styles = vm.context.styles().at(field_span)
-        && let Ok(value) =
-            element.field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
+        && let Some(field_accessor) = element.settable_field_accessor(field)
     {
-        // Only validate the contextual styles once we know that this is indeed
-        // a field from the style chain.
-        let _ = styles?;
-        return Ok(value);
+        let styles = vm.context.styles().at(field_span)?;
+        return Ok(field_accessor(styles));
     }
 
     Err(err)
