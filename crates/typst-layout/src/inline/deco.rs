@@ -289,14 +289,17 @@ pub fn deco_intersect(
         // TODO: what about infinity?
         dbg!(transform);
         dbg!(text.bbox());
-        dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
+        let parallelogram = dbg!(transform_rect(text.bbox(), transform));
+        parallelogram_width(parallelogram)
     } else {
         // Cheaper...
         text.width()
     };
+    let affine = affine_from_transform(&transform.unwrap_or_default());
+    let inv_affine = affine.inverse();
     let line = Line::new(
-        kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-        kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+        inv_affine * kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
+        inv_affine * kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
     );
     let mut x = pos.x;
     let font_metrics = text.font.metrics();
@@ -319,12 +322,13 @@ pub fn deco_intersect(
             offset >= y_min && offset <= y_max
         });
 
-        if intersect {
+        // TODO: can we check intersections with transforms cheaply above as well?
+        if intersect || transform.is_some() {
             // Find all intersections of segments with the line.
             intersections.extend(
                 path.segments()
                     .flat_map(|seg| seg.intersect_line(line))
-                    .map(|is| Abs::raw(line.eval(is.line_t).x)),
+                    .map(|is| Abs::raw((affine * line.eval(is.line_t)).x)),
             );
         }
     }
