@@ -442,7 +442,18 @@ impl Array {
             0
         };
 
-        Ok(Self::from_iter((0..size_estimate).map(|i| (start + step * i).into_value())))
+        let mut x = start;
+        let mut array = Self::with_capacity(size_estimate);
+
+        for _ in 0..size_estimate {
+            array.push(x.into_value());
+
+            if let Some(next) = x.checked_add(step) {
+                x = next;
+            }
+        }
+
+        Ok(array)
     }
 
     /// Produces a new array with only the items from the original one for which
