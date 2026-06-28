@@ -427,8 +427,17 @@ impl Array {
 
         let size_estimate = if in_bounds(start) {
             // The addition and ceil account for `start` being inclusive.
-            let breadth = start.abs_diff(end).saturating_add(inclusive.into());
-            breadth.div_ceil(step.unsigned_abs()).try_into().unwrap_or_default()
+            let breadth = start.abs_diff(end).checked_add(inclusive.into());
+            let estimate = breadth.map(|b| b.div_ceil(step.unsigned_abs()));
+
+            if let Some(v) = estimate
+                .filter(|&v| v < i64::MAX as u64)
+                .and_then(|v| v.try_into().ok())
+            {
+                v
+            } else {
+                bail!(args.span, "range is too large")
+            }
         } else {
             0
         };
