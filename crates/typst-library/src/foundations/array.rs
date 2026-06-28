@@ -445,13 +445,28 @@ impl Array {
         let mut x = start;
         let mut array = Self::with_capacity(size_estimate);
 
-        for _ in 0..size_estimate {
+        while in_bounds(x) {
             array.push(x.into_value());
 
             if let Some(next) = x.checked_add(step) {
                 x = next;
+            } else {
+                // `end` must have been exceeded this iteration, so we yield.
+                break;
             }
         }
+
+        // Failing this check in release is sub-optimal, but not a hard error.
+        // Developers should be aware of the issue though!
+        debug_assert!(
+            size_estimate == array.len(),
+            "Range size estimate was off; \
+            we computed: {size_estimate}, but got: {}.\
+            \n\
+            With start: {start}, end: {end}, step: {step}, \
+            inclusive: {inclusive}.",
+            array.len(),
+        );
 
         Ok(array)
     }
