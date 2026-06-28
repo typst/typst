@@ -14,22 +14,22 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, warning};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, ColumnsElem, Dir, Em, Fr, Fragment, Frame, PageElem, PlacementScope, Region,
+    Regions, Size, Sizing, TrackSizings,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
 use typst_library::{Library, World};
-use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
+use typst_utils::{LazyHash, Numeric, Protected};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
@@ -71,8 +71,8 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        vec![],
+        Abs::zero(),
     )
 }
 
@@ -88,6 +88,24 @@ pub fn layout_columns(
     styles: StyleChain,
     regions: Regions,
 ) -> SourceResult<Fragment> {
+    let width_spec = elem.widths.get_ref(styles);
+    if !width_spec.0.is_empty() && elem.count.get(styles).get() != width_spec.0.len() {
+        engine.sink.warn(warning!(
+            elem.span(),
+            "`count` is ignored when `widths` is specified";
+            hint: "the number of columns is determined by the number of widths";
+        ));
+    }
+
+    let gutter = elem.gutter.resolve(styles).relative_to(regions.base().x);
+    let widths = resolve_column_widths(
+        styles,
+        regions.base().x,
+        regions.size.x,
+        elem.count.get(styles),
+        gutter,
+        elem.widths.get_ref(styles),
+    );
     layout_fragment_impl(
         engine.world,
         engine.library,
@@ -99,8 +117,8 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        widths,
+        gutter,
     )
 }
 
@@ -118,8 +136,8 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    widths: Vec<Abs>,
+    gutter: Abs,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -159,8 +177,8 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
-        column_gutter,
+        widths,
+        gutter,
         kind.into(),
     )
 }
@@ -186,6 +204,68 @@ impl From<FragmentKind> for FlowMode {
     }
 }
 
+/// Resolves track sizing specifications into concrete column widths.
+fn resolve_column_widths(
+    styles: StyleChain,
+    base: Abs,
+    region_width: Abs,
+    count: NonZeroUsize,
+    gutter: Abs,
+    widths: &TrackSizings,
+) -> Vec<Abs> {
+    if widths.0.is_empty() {
+        let count = count.get();
+        if !region_width.is_finite() {
+            return vec![Abs::inf()];
+        }
+        let w = (region_width - gutter * (count - 1) as f64) / count as f64;
+        return vec![w.max(Abs::zero()); count];
+    }
+
+    let ncols = widths.0.len();
+    let total_gutters = gutter * (ncols - 1) as f64;
+    let available = region_width - total_gutters;
+
+    let mut col_widths = vec![Abs::zero(); ncols];
+    let mut auto_count = 0usize;
+    let mut fr_total = Fr::zero();
+    let mut rel_total = Abs::zero();
+
+    for sizing in &widths.0 {
+        match sizing {
+            Sizing::Auto => auto_count += 1,
+            Sizing::Rel(v) => {
+                let w = v.resolve(styles).relative_to(base);
+                rel_total += w;
+            }
+            Sizing::Fr(v) => fr_total += *v,
+        }
+    }
+
+    let remaining = (available - rel_total).max(Abs::zero());
+
+    // Auto columns are sized from leftover space; they get zero width
+    // when `fr` columns consume the remaining space.
+    let (auto_width, fr_space) = if fr_total.is_zero() {
+        let aw = if auto_count > 0 { remaining / auto_count as f64 } else { Abs::zero() };
+        (aw.max(Abs::zero()), remaining)
+    } else {
+        (Abs::zero(), remaining)
+    };
+
+    for (i, sizing) in widths.0.iter().enumerate() {
+        match sizing {
+            Sizing::Auto => col_widths[i] = auto_width,
+            Sizing::Rel(v) => col_widths[i] = v.resolve(styles).relative_to(base),
+            Sizing::Fr(v) => {
+                col_widths[i] = v.share(fr_total, fr_space);
+            }
+        }
+    }
+
+    col_widths
+}
+
 /// Lays out realized content into regions, potentially with columns.
 #[allow(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
@@ -194,12 +274,12 @@ pub fn layout_flow<'a>(
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    widths: Vec<Abs>,
+    gutter: Abs,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, &widths, gutter, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -209,7 +289,7 @@ pub fn layout_flow<'a>(
         &bump,
         children,
         locator.next(&()),
-        Size::new(config.columns.width, regions.full),
+        Size::new(widths.first().copied().unwrap_or(regions.size.x), regions.full),
         regions.expand.x,
         mode,
     )?;
@@ -238,23 +318,22 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    widths: &[Abs],
+    gutter: Abs,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
         mode,
         shared,
         columns: {
-            let mut count = columns.get();
-            if !regions.size.x.is_finite() {
-                count = 1;
-            }
+            let (count, widths) = if widths.is_empty() {
+                (1, vec![regions.size.x])
+            } else {
+                (widths.len(), widths.to_vec())
+            };
 
-            let gutter = column_gutter.relative_to(regions.base().x);
-            let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+            ColumnConfig { count, widths, gutter, dir }
         },
         footnote: FootnoteConfig {
             separator: shared
@@ -384,8 +463,8 @@ struct FootnoteConfig {
 struct ColumnConfig {
     /// The number of columns.
     count: usize,
-    /// The width of each column.
-    width: Abs,
+    /// The resolved width of every column.
+    widths: Vec<Abs>,
     /// The amount of space between columns.
     gutter: Abs,
     /// The horizontal direction in which columns progress. Defined by

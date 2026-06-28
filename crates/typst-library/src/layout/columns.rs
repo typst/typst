@@ -1,9 +1,9 @@
 use std::num::NonZeroUsize;
 
 use crate::foundations::{Content, elem};
-use crate::layout::{Length, Ratio, Rel};
+use crate::layout::{Length, Ratio, Rel, TrackSizings};
 
-/// Separates a region into multiple equally sized columns.
+/// Separates a region into multiple columns.
 ///
 /// The `column` function lets you separate the interior of any container into
 /// multiple columns. It will currently not balance the height of the columns.
@@ -63,6 +63,13 @@ pub struct ColumnsElem {
     #[positional]
     #[default(NonZeroUsize::new(2).unwrap())]
     pub count: NonZeroUsize,
+
+    /// The column widths.
+    ///
+    /// A track size array (e.g. `{(1fr, 2fr)}`). The array length
+    /// determines the number of columns, overriding `count`.
+    /// Accepts `{auto}`, relative lengths, and fractional units.
+    pub widths: TrackSizings,
 
     /// The size of the gutter space between each column.
     #[default(Ratio::new(0.04).into())]

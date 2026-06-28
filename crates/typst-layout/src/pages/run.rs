@@ -186,15 +186,26 @@ fn layout_page_run_impl(
     };
 
     // Layout the children.
+    // Page-level columns only support a uniform count.
     let area = size - margin.sum_by_axis();
+    let gutter = styles.get(ColumnsElem::gutter).resolve(styles).relative_to(area.x);
+    let count = styles.get(PageElem::columns).get();
+    let widths = if area.x.is_finite() {
+        vec![
+            ((area.x - gutter * (count - 1) as f64) / count as f64).max(Abs::zero());
+            count
+        ]
+    } else {
+        vec![Abs::inf()]
+    };
     let fragment = layout_flow(
         &mut engine,
         children,
         &mut locator,
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
-        styles.get(PageElem::columns),
-        styles.get(ColumnsElem::gutter).resolve(styles),
+        widths,
+        gutter,
         FlowMode::Root,
     )?;
 
