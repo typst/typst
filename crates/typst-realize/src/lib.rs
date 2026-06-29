@@ -158,14 +158,6 @@ struct Grouping<'a> {
     interrupted: bool,
     /// Whether the group contains neutral elements.
     contains_neutral: bool,
-    /// Only applies to `PAR` grouping: Whether this paragraph group was started
-    /// by a single inlinable block.
-    ///
-    /// A tentative group becomes a real paragraph when a second trigger element
-    /// is added. If the group finishes while still tentative, its elements
-    /// remain in the sink as standalone block-level elements rather than
-    /// forming a paragraph.
-    tentative: bool,
     /// The rule used for this grouping.
     rule: &'a GroupingRule,
 }
@@ -687,17 +679,9 @@ fn visit_styled<'a>(
         visit(s, PagebreakElem::shared_weak(), outer.chain(relevant))?;
     }
 
-    // Show-set styles from an inlinable block's show rule are internal to the
-    // block and should not interrupt the surrounding paragraph grouping. E.g.
-    // `AlignElem` from `#show math.equation: set align(left)`.
-    let is_inlinable_block = is_inlinable_block(content);
-    if !is_inlinable_block {
-        finish_interrupted(s, local)?;
-    }
+    finish_interrupted(s, content, local)?;
     visit(s, content, outer.chain(local))?;
-    if !is_inlinable_block {
-        finish_interrupted(s, local)?;
-    }
+    finish_interrupted(s, content, local)?;
 
     // Generate a weak "boundary" pagebreak at the end. In comparison to a
     // normal weak pagebreak, the styles of this are ignored during layout, so
@@ -733,13 +717,6 @@ fn visit_grouping_rules<'a>(
         let effect = (active.rule.effect)(content);
         if !active.interrupted && effect != GroupingEffect::Interrupt {
             active.contains_neutral |= effect == GroupingEffect::Neutral;
-
-            // Turn a tentative PAR group into a real paragraph if a second
-            // trigger is added.
-            if active.tentative && effect == GroupingEffect::Trigger {
-                s.groupings.last_mut().unwrap().tentative = false;
-            }
-
             s.sink.push((content, styles));
             return Ok(true);
         }
@@ -760,13 +737,11 @@ fn visit_grouping_rules<'a>(
     // Start a new grouping.
     if let Some(rule) = matching {
         let start = s.sink.len();
-        let tentative = std::ptr::eq(*rule, &PAR) && is_inlinable_block(content);
         s.groupings.push(Grouping {
             start,
             rule,
             interrupted: false,
             contains_neutral: false,
-            tentative,
         });
         s.sink.push((content, styles));
         return Ok(true);
@@ -837,7 +812,18 @@ fn finish(s: &mut State) -> SourceResult<()> {
 }
 
 /// Finishes groupings while any active group is interrupted by the styles.
-fn finish_interrupted(s: &mut State, local: &Styles) -> SourceResult<()> {
+fn finish_interrupted(
+    s: &mut State,
+    content: &Content,
+    local: &Styles,
+) -> SourceResult<()> {
+    // Show-set styles from an inlinable block's show rule are internal to the
+    // block and should not interrupt the surrounding paragraph grouping. E.g.
+    // `AlignElem` from `#show math.equation: set align(left)`.
+    if is_inlinable_block(content) {
+        return Ok(());
+    }
+
     let mut last = None;
     for elem in local.iter().filter_map(|style| style.element()) {
         if last == Some(elem) {
@@ -879,8 +865,7 @@ where
 /// Finishes the currently innermost grouping.
 fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
     // The grouping we are interrupting.
-    let Grouping { start, rule, contains_neutral, tentative, .. } =
-        s.groupings.pop().unwrap();
+    let Grouping { start, rule, contains_neutral, .. } = s.groupings.pop().unwrap();
     if contains_neutral {
         // If the grouping collected neutral elements, we segment them out and
         // then finish the individual subgroups separately.
@@ -911,13 +896,13 @@ fn finish_innermost_grouping(s: &mut State) -> SourceResult<()> {
                 if !trimmed.is_empty() {
                     let start = s.sink.len();
                     s.sink.extend_from_slice(trimmed);
-                    finish_grouping(s, rule, start, tentative)?;
+                    finish_grouping(s, rule, start)?;
                 }
             }
         }
         Ok(())
     } else {
-        finish_grouping(s, rule, start, tentative)
+        finish_grouping(s, rule, start)
     }
 }
 
@@ -927,7 +912,6 @@ fn finish_grouping(
     s: &mut State,
     rule: &GroupingRule,
     mut start: usize,
-    tentative: bool,
 ) -> SourceResult<()> {
     // Trim trailing non-trigger elements. At the start, they are already not
     // included precisely because they are not triggers.
@@ -1000,7 +984,7 @@ fn finish_grouping(
 
     // Execute the grouping's finisher rule, unless this is a tentative PAR
     // grouping so that a paragraph isn't formed.
-    if !tentative {
+    if !is_tentative_par(rule, &s.sink[start..]) {
         (rule.finish)(Grouped { s, start })?;
     }
 
@@ -1177,18 +1161,6 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
         s.sink.extend(elems);
     }
 
-    // If textual content is added to a tentative PAR group, that becomes a
-    // second trigger and should turn it into a real paragraph.
-    if s.sink[start..]
-        .iter()
-        .any(|(c, _)| (PAR.effect)(c) == GroupingEffect::Trigger)
-        && s.groupings.last().is_some_and(|grouping| {
-            std::ptr::eq(grouping.rule, &PAR) && grouping.tentative
-        })
-    {
-        s.groupings.last_mut().unwrap().tentative = false;
-    }
-
     // Now, there are only two options:
     // 1. We are already in a paragraph group. In this case, the elements just
     //    transparently become part of it.
@@ -1199,7 +1171,6 @@ fn finish_textual(Grouped { s, mut start }: Grouped) -> SourceResult<()> {
             rule: &PAR,
             interrupted: false,
             contains_neutral: false,
-            tentative: false,
         });
     }
 
@@ -1229,6 +1200,23 @@ fn is_fully_inline_or_neutral(s: &State) -> bool {
         true
     } else {
         false
+    }
+}
+
+/// Whether finishing this grouping should be suppressed so that no paragraph
+/// is formed.
+///
+/// A `PAR` grouping whose only trigger is a single inlinable block stays
+/// block-level rather than being wrapped in a paragraph. It only becomes a
+/// paragraph once a second trigger joins it (e.g. adjacent text or another
+/// inlinable block).
+fn is_tentative_par(rule: &GroupingRule, group: &[Pair]) -> bool {
+    std::ptr::eq(rule, &PAR) && {
+        let mut triggers = group
+            .iter()
+            .filter(|(c, _)| (PAR.effect)(c) == GroupingEffect::Trigger);
+        triggers.next().is_some_and(|(c, _)| is_inlinable_block(c))
+            && triggers.next().is_none()
     }
 }
 
