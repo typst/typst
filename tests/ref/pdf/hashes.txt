@@ -952,6 +952,7 @@ d1178fbcd79a21782aa1279d5f6348dd link-to-label
 cd337be24b51dceb0460c4dde2307b1f link-to-page
 0388a6126d167f18dfd0556c758ac92e link-trailing-period
 fca251f69334ee095b338330e1839b1e link-transformed
+c9d307f6eff5463d6d3c9c8e8dedda96 link-url-svg-escape
 da43f42b62580f4870ea61b5fc63a648 list-attached
 7a2ba6da6fbe5ccae2cf33c7d203832f list-attached-above-spacing
 d50762fbb69a74768eae7cf9c5da10a0 list-baseline-big-marker

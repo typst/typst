@@ -153,27 +153,60 @@ impl<'a, T> SvgFormatter<'a, T> {
 
 impl SvgWrite for SvgFormatter<'_, Vec<u8>> {
     fn push_str(&mut self, value: &str) {
-        // `xmlwriter`'s raw attribute writer only escapes the quotation mark, so
-        // the remaining characters that are not permitted unescaped in an XML
-        // attribute value have to be escaped here. Otherwise a value such as a
-        // link URL containing `&` or `<` yields malformed SVG.
-        if value.bytes().any(|b| matches!(b, b'&' | b'<')) {
-            for b in value.bytes() {
-                match b {
-                    b'&' => self.buf.extend_from_slice(b"&amp;"),
-                    b'<' => self.buf.extend_from_slice(b"&lt;"),
-                    _ => self.buf.push(b),
-                }
-            }
-        } else {
-            self.buf.extend_from_slice(value.as_bytes());
-        }
+        escape_str(value, |str| self.buf.extend_from_slice(str.as_bytes()));
     }
 }
 
 impl SvgWrite for SvgFormatter<'_, EcoString> {
     fn push_str(&mut self, value: &str) {
-        self.buf.push_str(value);
+        escape_str(value, |str| self.buf.push_str(str));
+    }
+}
+
+/// Append `value` to a buffer, escaping the XML metacharacters that
+/// `xmlwriter`'s raw attribute writer leaves untouched (it only escapes the
+/// quotation mark). Otherwise a value such as a link URL containing `&` or `<`
+/// yields malformed SVG. Runs of non-escaped characters are appended in one go.
+fn escape_str(mut value: &str, mut append: impl FnMut(&str)) {
+    while let Some((i, c)) = value
+        .bytes()
+        .enumerate()
+        .find_map(|(i, b)| EscapedChar::from_byte(b).map(|c| (i, c)))
+    {
+        append(&value[..i]);
+        append(c.escape_sequence());
+
+        // Escaped characters are always one byte.
+        value = &value[i + 1..];
+    }
+    if !value.is_empty() {
+        append(value);
+    }
+}
+
+/// A character that should be escaped in XML attribute values.
+#[derive(Copy, Clone)]
+enum EscapedChar {
+    /// `&`
+    Amp,
+    /// `<`
+    Lt,
+}
+
+impl EscapedChar {
+    const fn from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            b'&' => Some(Self::Amp),
+            b'<' => Some(Self::Lt),
+            _ => None,
+        }
+    }
+
+    const fn escape_sequence(self) -> &'static str {
+        match self {
+            Self::Amp => "&amp;",
+            Self::Lt => "&lt;",
+        }
     }
 }
 
@@ -264,24 +297,6 @@ impl SvgDisplay for SvgUrl<DedupId> {
         f.push_str("url(#");
         f.push(self.0);
         f.push_str(")");
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_attribute_value_is_xml_escaped() {
-        let mut xml = XmlWriter::new(xmlwriter::Options::default());
-        {
-            let mut el = SvgElem::new(&mut xml, "a");
-            el.attr("href", "https://example.com/?a=1&b=2<c>\"d");
-        }
-        assert_eq!(
-            xml.end_document(),
-            "<a href=\"https://example.com/?a=1&amp;b=2&lt;c>&quot;d\"/>\n",
-        );
     }
 }
 
