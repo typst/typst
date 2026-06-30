@@ -242,7 +242,7 @@ Our paper in the previous chapter had a title and an author list. We can keep th
 ...
 ```
 
-Let's build this new template function. The title can be displayed with the `title` function and accessed through `document.title`, so the template only needs named `authors` and `abstract` parameters with empty defaults. Next, we copy the code that generates title, abstract and authors from the previous chapter into the template, replacing the fixed details with the parameters.
+Let's build this new template function. The title can be displayed with the @title function and accessed through `document.title`, so the template only needs named `authors` and `abstract` parameters with empty defaults. Next, we copy the code that generates title, abstract and authors from the previous chapter into the template, replacing the fixed details with the parameters.
 
 The new `authors` parameter expects an @array[array] of @dictionary[dictionaries] with the keys `name`, `affiliation` and `email`. Because we can have an arbitrary number of authors, we dynamically determine if we need one, two or three columns for the author list. First, we determine the number of authors using the @array.len[`.len()`] method on the `authors` array. Then, we set the number of columns as the minimum of this count and three, so that we never create more than three columns. If there are more than three authors, a new row will be inserted instead. For this purpose, we have also added a `row-gutter` parameter to the `grid` function. Otherwise, the rows would be too close together. To extract the details about the authors from the dictionary, we use the @reference:scripting:fields[field access syntax].
 
