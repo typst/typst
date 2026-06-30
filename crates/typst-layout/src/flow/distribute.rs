@@ -606,14 +606,30 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     output.push_frame(pos, frame);
                 }
                 Item::Placed(frame, placed) => {
-                    let x = placed.align_x.position(size.x - frame.width());
+                    let container_x = if region.expand.x || used.x.is_zero() {
+                        region.size.x
+                    } else {
+                        size.x
+                    };
+                    let x = placed.align_x.position(container_x - frame.width());
+                    let container_y = if used.y.is_zero() && !region.expand.y {
+                        self.regions.full
+                    } else {
+                        size.y
+                    };
                     let y = match placed.align_y.unwrap_or_default() {
-                        Some(align) => align.position(size.y - frame.height()),
+                        Some(align) => align.position(container_y - frame.height()),
                         _ => offset + ruler.position(free),
                     };
 
                     let pos = Point::new(x, y)
-                        + placed.delta.zip_map(size, Rel::relative_to).to_point();
+                        + placed
+                            .delta
+                            .zip_map(
+                                Size::new(container_x, container_y),
+                                Rel::relative_to,
+                            )
+                            .to_point();
 
                     output.push_frame(pos, frame);
                 }
