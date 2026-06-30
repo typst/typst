@@ -408,15 +408,15 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             {
                 self.sticky = Some(self.snapshot());
             }
-        } else if !frame.is_empty() {
-            // If the frame isn't sticky, we can forget a previous snapshot. We
-            // interrupt a group of sticky blocks, if there was one, so we reset
-            // the saved stickable check for the next group of sticky blocks.
-            self.sticky = None;
-            self.stickable = None;
         }
 
         // Handle footnotes.
+        //
+        // This must happen before we forget a previous sticky snapshot below.
+        // If a non-sticky frame's footnote doesn't fit, the frame and any
+        // preceding sticky blocks attached to it need to migrate to the next
+        // region together. Resetting the sticky state first would then strand
+        // those sticky blocks in this region.
         self.composer.footnotes(
             &self.regions,
             &frame,
@@ -424,6 +424,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             breakable,
             true,
         )?;
+
+        if !sticky && !frame.is_empty() {
+            // If the frame isn't sticky, we can forget a previous snapshot. We
+            // interrupt a group of sticky blocks, if there was one, so we reset
+            // the saved stickable check for the next group of sticky blocks.
+            self.sticky = None;
+            self.stickable = None;
+        }
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
