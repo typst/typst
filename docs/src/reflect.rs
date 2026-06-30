@@ -39,7 +39,7 @@ pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
 pub fn describe(value: Value) -> Option<Dict> {
     match &value {
         Value::Func(func) => Some(describe_func(func)),
-        Value::Type(ty) => Some(describe_ty(ty)),
+        Value::Type(ty) => Some(describe_ty(*ty)),
         Value::Symbol(symbol) => Some(describe_symbol(symbol)),
         _ => None,
     }
@@ -83,13 +83,13 @@ fn describe_param(param: &NativeParamInfo) -> Dict {
     // indicate the absence of a default with absence from the dictionary rather
     // than `none`.
     if let Some(f) = param.default {
-        dict.insert("default".into(), f())
+        dict.insert("default".into(), f());
     }
     dict
 }
 
 /// Provides details about a native type.
-fn describe_ty(ty: &Type) -> Dict {
+fn describe_ty(ty: Type) -> Dict {
     dict! {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),

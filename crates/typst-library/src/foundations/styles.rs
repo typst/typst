@@ -95,7 +95,7 @@ impl Styles {
             match &mut **entry {
                 Style::Property(property) => property.outside = true,
                 Style::Recipe(recipe) => recipe.outside = true,
-                _ => {}
+                Style::Revocation(_) => {}
             }
         }
         self
@@ -1112,7 +1112,7 @@ mod rule {
                 // `&Content`. `Packed<T>` is a transparent wrapper around
                 // `Content`. The resulting function is unsafe to call because
                 // content of the correct type must be passed to it.
-                #[allow(clippy::missing_transmute_annotations)]
+                #[expect(clippy::missing_transmute_annotations)]
                 f: unsafe { std::mem::transmute(f) },
             }
         }

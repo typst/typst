@@ -392,7 +392,7 @@ fn resolve_cell_headers<F>(
     );
 
     if let Some(header) = cell_ids {
-        for id in header.cell_ids.iter() {
+        for id in &header.cell_ids {
             if !cell.data.headers.contains(id) {
                 cell.data.headers.push(id.clone());
             }
@@ -483,7 +483,7 @@ fn place_explicit_lines<F>(
             pos = LinePosition::After;
         } else if line.index + 1 == block_end as usize {
             pos = LinePosition::Before;
-        };
+        }
 
         let block_idx = match pos {
             LinePosition::Before => (line.index - 1) as u32,

@@ -342,7 +342,7 @@ macro_rules! pdf_marker_tag {
         impl PdfMarkerTag {
             $(
                 #[doc = $doc]
-                #[allow(non_snake_case)]
+                #[expect(non_snake_case)]
                 pub fn $variant($($($name: $ty,)+)? body: Content) -> Content {
                     let span = body.span();
                     Self {

@@ -5,7 +5,7 @@ use typst_library::engine::Engine;
 use typst_library::layout::grid::resolve::{Footer, Header, Repeatable};
 use typst_library::layout::{Abs, Axes, Frame, Regions};
 
-use super::layouter::{GridLayouter, RowState};
+use super::layouter::{FinishedHeaderRowInfo, GridLayouter, RowState};
 use super::rowspans::UnbreakableRowGroup;
 
 impl<'a> GridLayouter<'a> {
@@ -228,7 +228,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Default::default(),
+                FinishedHeaderRowInfo::default(),
             );
 
             // TODO(layout model): re-calculate heights of headers and footers
@@ -487,7 +487,7 @@ impl<'a> GridLayouter<'a> {
             self.finish_region_internal(
                 Frame::soft(Axes::splat(Abs::zero())),
                 vec![],
-                Default::default(),
+                FinishedHeaderRowInfo::default(),
             );
             skipped_region = true;
         }

@@ -153,7 +153,7 @@ impl<'a> CssWriter<'a> {
     }
 
     fn emit(&mut self, value: impl ToCss) {
-        value.emit(self)
+        value.emit(self);
     }
 
     fn write(&mut self, value: &str) {
@@ -399,7 +399,7 @@ impl ToCss for Color {
         let process = self.to_process();
         match process {
             ProcessColor::Rgb(_) | ProcessColor::Cmyk(_) | ProcessColor::Luma(_) => {
-                w.emit(process.to_rgb())
+                w.emit(process.to_rgb());
             }
             ProcessColor::Oklab(v) => w.emit(v),
             ProcessColor::Oklch(v) => w.emit(v),

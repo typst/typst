@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{self, IsTerminal, StderrLock, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -72,7 +72,7 @@ pub struct Logger {
     pub reports: Vec<TestReport>,
     /// Updates to error annotations per file (so we can write each file
     /// atomically).
-    pub test_updates: FxHashMap<Arc<PathBuf>, Vec<(usize, String)>>,
+    pub test_updates: FxHashMap<Arc<Path>, Vec<(usize, String)>>,
 }
 
 impl Logger {

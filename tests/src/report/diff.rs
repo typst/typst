@@ -227,7 +227,7 @@ pub fn text_diff(a: Option<Old<&str>>, b: Result<&str, ()>) -> FileDiff<Lines> {
             right.push(line_gap());
         }
 
-        for op in group.iter() {
+        for op in group {
             for change in diff.iter_inline_changes(op) {
                 match change.tag() {
                     ChangeTag::Equal => {

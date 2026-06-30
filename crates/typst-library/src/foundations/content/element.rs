@@ -38,22 +38,22 @@ impl Element {
 
     /// The element's title case name, for use in documentation
     /// (e.g. `Numbered List`).
-    pub fn title(&self) -> &'static str {
+    pub fn title(self) -> &'static str {
         self.vtable().title
     }
 
     /// Documentation for the element (as Markdown).
-    pub fn docs(&self) -> &'static str {
+    pub fn docs(self) -> &'static str {
         self.vtable().docs
     }
 
     /// Where the element is defined in the Rust source code.
-    pub fn def_site(&self) -> DefSite {
+    pub fn def_site(self) -> DefSite {
         self.vtable().def_site
     }
 
     /// Search keywords for the element.
-    pub fn keywords(&self) -> &'static [&'static str] {
+    pub fn keywords(self) -> &'static [&'static str] {
         self.vtable().keywords
     }
 
@@ -114,12 +114,12 @@ impl Element {
     }
 
     /// The element's associated scope of sub-definition.
-    pub fn scope(&self) -> &'static Scope {
+    pub fn scope(self) -> &'static Scope {
         (self.vtable().store)().scope.get_or_init(|| (self.vtable().scope)())
     }
 
     /// Details about the element's fields.
-    pub fn params(&self) -> &'static [NativeParamInfo] {
+    pub fn params(self) -> &'static [NativeParamInfo] {
         (self.vtable().store)().params.get_or_init(|| {
             self.vtable()
                 .fields
@@ -142,7 +142,7 @@ impl Element {
     }
 
     /// Extract the field ID for the given field name.
-    pub fn field_id(&self, name: &str) -> Option<u8> {
+    pub fn field_id(self, name: &str) -> Option<u8> {
         if name == "label" {
             return Some(255);
         }
@@ -150,7 +150,7 @@ impl Element {
     }
 
     /// Extract the field name for the given field ID.
-    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+    pub fn field_name(self, id: u8) -> Option<&'static str> {
         if id == 255 {
             return Some("label");
         }
@@ -159,7 +159,7 @@ impl Element {
 
     /// Extract the value of the field for the given field ID and style chain.
     pub fn field_from_styles(
-        &self,
+        self,
         id: u8,
         styles: StyleChain,
     ) -> Result<Value, FieldAccessError> {
@@ -170,12 +170,12 @@ impl Element {
     }
 
     /// The element's local name, if any.
-    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
+    pub fn local_name(self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
         self.vtable().local_name.map(|f| f(lang, region))
     }
 
     /// Retrieves the element's vtable for dynamic dispatch.
-    pub(super) fn vtable(&self) -> &'static ContentVtable {
+    pub(super) fn vtable(self) -> &'static ContentVtable {
         (self.0).0
     }
 }

@@ -75,7 +75,7 @@ fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
 
 /// Produce the output of the macro.
 fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
-    let Type { ident, name, long, title, docs, meta, .. } = ty;
+    let Type { ident, name, long, title, docs, meta } = ty;
     let Meta { keywords, .. } = meta;
     let def_site_key = ident.to_string();
     let oneliner = oneliner(docs);

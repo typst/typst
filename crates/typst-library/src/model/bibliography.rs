@@ -296,11 +296,11 @@ impl BibliographyElem {
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::ELEM.select()).iter() {
+        for elem in &introspector.query(&Self::ELEM.select()) {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
-                vec.push((key, detail))
+                vec.push((key, detail));
             }
         }
         vec
@@ -372,7 +372,7 @@ impl Bibliography {
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for d in data.iter() {
+        for d in data {
             let library = decode_library(d)?;
             for entry in library {
                 let label = Label::new(PicoStr::intern(entry.key()))
@@ -534,7 +534,9 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependent styles"),
+            citationberg::Style::Dependent(_) => {
+                unreachable!("archive should not contain dependent styles")
+            }
         }
     }
 
@@ -1409,7 +1411,7 @@ fn show_elem_child(
         hayagriva::ElemChild::Markup(markup) => show_math(ctx, markup),
         hayagriva::ElemChild::Link { text, url } => show_link(ctx, text, url)?,
         hayagriva::ElemChild::Transparent { cite_idx, format } => {
-            show_transparent(ctx, *cite_idx, format)
+            show_transparent(ctx, *cite_idx, *format)
         }
     })
 }
@@ -1496,7 +1498,7 @@ fn show_link(
 }
 
 /// Displays transparent pass-through content.
-fn show_transparent(ctx: &ShowCtx, i: usize, format: &hayagriva::Formatting) -> Content {
+fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
     let content = (ctx.supplement)(i).unwrap_or_default();
     show_with_formatting(content, format)
 }
@@ -1511,11 +1513,11 @@ fn show_formatted(
         if trim_start { formatted.text.trim_start() } else { formatted.text.as_str() };
 
     let content = TextElem::packed(formatted_text).spanned(ctx.span);
-    show_with_formatting(content, &formatted.formatting)
+    show_with_formatting(content, formatted.formatting)
 }
 
 /// Applies hayagriva formatting to content.
-fn show_with_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+fn show_with_formatting(mut content: Content, format: hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
@@ -1573,7 +1575,7 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     value.push_str(lang.as_str());
     if let Some(region) = region {
         value.push('-');
-        value.push_str(region.as_str())
+        value.push_str(region.as_str());
     }
     citationberg::LocaleCode(value)
 }
