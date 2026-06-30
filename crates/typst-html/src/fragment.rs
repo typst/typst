@@ -1,6 +1,6 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use ecow::EcoVec;
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::{At as _, SourceResult};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
@@ -38,7 +38,7 @@ pub fn html_block_fragment(
 
 /// The cached, internal implementation of [`html_block_fragment`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_block_fragment_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

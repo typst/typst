@@ -3,11 +3,11 @@
 use std::cmp::Ordering;
 
 use ecow::eco_format;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, IntoValue as _, Regex, Repr, SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;

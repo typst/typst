@@ -23,10 +23,12 @@ use self::access::*;
 use self::binding::*;
 use self::methods::*;
 
-use comemo::{Track, Tracked, TrackedMut};
-use typst_library::diag::{At, SourceResult, bail};
+use comemo::{Track as _, Tracked, TrackedMut};
+use typst_library::diag::{At as _, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
-use typst_library::foundations::{Context, Module, NativeElement, Scope, Scopes, Value};
+use typst_library::foundations::{
+    Context, Module, NativeElement as _, Scope, Scopes, Value,
+};
 use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
@@ -99,7 +101,7 @@ pub fn eval(
 /// Evaluates a string in the given syntax `mode` and returns the resulting
 /// value.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_string(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

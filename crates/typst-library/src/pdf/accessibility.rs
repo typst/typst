@@ -2,12 +2,12 @@ use std::num::NonZeroU32;
 
 use ecow::EcoString;
 use typst_macros::{Cast, elem, func};
-use typst_utils::NonZeroExt;
+use typst_utils::NonZeroExt as _;
 
 use crate::diag::SourceResult;
 use crate::diag::bail;
 use crate::engine::Engine;
-use crate::foundations::{Args, Construct, Content, NativeElement, Smart};
+use crate::foundations::{Args, Construct, Content, NativeElement as _, Smart};
 use crate::model::{TableCell, TableElem};
 
 /// Marks content as a PDF artifact.
@@ -342,7 +342,7 @@ macro_rules! pdf_marker_tag {
         impl PdfMarkerTag {
             $(
                 #[doc = $doc]
-                #[allow(non_snake_case)]
+                #[expect(non_snake_case)]
                 pub fn $variant($($($name: $ty,)+)? body: Content) -> Content {
                     let span = body.span();
                     Self {

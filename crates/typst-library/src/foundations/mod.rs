@@ -78,7 +78,7 @@ pub use {
     smallvec::SmallVec,
 };
 
-use comemo::{Track, TrackedMut};
+use comemo::{Track as _, TrackedMut};
 use ecow::EcoString;
 use typst_syntax::{RootedPath, Spanned, SyntaxMode};
 

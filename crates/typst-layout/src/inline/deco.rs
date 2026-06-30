@@ -1,4 +1,4 @@
-use kurbo::{BezPath, Line, ParamCurve};
+use kurbo::{BezPath, Line, ParamCurve as _};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
@@ -45,7 +45,7 @@ pub fn decorate(
         DecoLine::Underline { stroke, offset, evade, background } => {
             (stroke, font_metrics.underline, offset, *evade, *background)
         }
-        _ => return,
+        DecoLine::Highlight { .. } => return,
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
@@ -88,7 +88,7 @@ pub fn decorate(
     let mut x = pos.x;
     let mut intersections = vec![];
 
-    for glyph in text.glyphs.iter() {
+    for glyph in &text.glyphs {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
@@ -130,9 +130,8 @@ pub fn decorate(
         // If we are too close, don't draw the segment
         if r - l < gap_padding {
             continue;
-        } else {
-            push_segment(l + gap_padding, r - gap_padding, background);
         }
+        push_segment(l + gap_padding, r - gap_padding, background);
     }
 }
 
@@ -145,7 +144,7 @@ fn determine_edges(
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
-    for g in text.glyphs.iter() {
+    for g in &text.glyphs {
         let (t, b) = text.font.edges(
             top_edge,
             bottom_edge,

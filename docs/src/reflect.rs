@@ -6,17 +6,17 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
-use heck::ToTitleCase;
+use heck::ToTitleCase as _;
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
-    Array, CastInfo, Dict, Func, IntoValue, Module, NativeParamInfo, Repr, Str, Symbol,
-    Type, Value, cast, dict, func,
+    Array, CastInfo, Dict, Func, IntoValue as _, Module, NativeParamInfo, Repr as _, Str,
+    Symbol, Type, Value, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;
@@ -39,7 +39,7 @@ pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
 pub fn describe(value: Value) -> Option<Dict> {
     match &value {
         Value::Func(func) => Some(describe_func(func)),
-        Value::Type(ty) => Some(describe_ty(ty)),
+        Value::Type(ty) => Some(describe_ty(*ty)),
         Value::Symbol(symbol) => Some(describe_symbol(symbol)),
         _ => None,
     }
@@ -83,13 +83,13 @@ fn describe_param(param: &NativeParamInfo) -> Dict {
     // indicate the absence of a default with absence from the dictionary rather
     // than `none`.
     if let Some(f) = param.default {
-        dict.insert("default".into(), f())
+        dict.insert("default".into(), f());
     }
     dict
 }
 
 /// Provides details about a native type.
-fn describe_ty(ty: &Type) -> Dict {
+fn describe_ty(ty: Type) -> Dict {
     dict! {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),

@@ -6,10 +6,10 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::Spanned;
 use wasmi::Memory;
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At as _, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Binding, Bytes, Func, Module, Scope, Value, cast, func, scope};
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load as _};
 
 /// Loads a WebAssembly module.
 ///
@@ -296,7 +296,7 @@ impl Plugin {
             )
             .unwrap();
 
-        let base = Arc::new(PluginBase { bytes, linker, module });
+        let base = Arc::new(PluginBase { bytes, module, linker });
         let instance = PluginInstance::new(&base, None)?;
 
         Ok(Self {
@@ -514,7 +514,7 @@ impl PluginInstance {
                 }
             },
             _ => bail!("plugin did not respect the protocol"),
-        };
+        }
 
         Ok(Bytes::new(output))
     }
@@ -603,7 +603,7 @@ fn wasm_minimal_protocol_send_result_to_host(
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let mut buffer = std::mem::take(&mut caller.data_mut().output);
     buffer.resize(len as usize, 0);
-    if memory.read(&caller, ptr as _, &mut buffer).is_err() {
+    if memory.read(&caller, ptr as usize, &mut buffer).is_err() {
         caller.data_mut().memory_error =
             Some(MemoryError { offset: ptr, length: len, write: false });
         return;

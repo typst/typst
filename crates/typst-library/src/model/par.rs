@@ -4,9 +4,9 @@ use typst_utils::singleton;
 use crate::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    AlternativeFold, Args, Cast, CastInfo, Construct, Content, Dict, Fold, FromValue,
-    IntoValue, NativeElement, Packed, Reflect, Smart, Unlabellable, Value, cast, dict,
-    elem, scope,
+    AlternativeFold as _, Args, Cast, CastInfo, Construct, Content, Dict, Fold,
+    FromValue, IntoValue, NativeElement as _, Packed, Reflect, Smart, Unlabellable,
+    Value, cast, dict, elem, scope,
 };
 use crate::introspection::{Count, CounterUpdate};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
@@ -648,7 +648,7 @@ pub struct FirstLineIndent {
 cast! {
     FirstLineIndent,
     self => Value::Dict(self.into()),
-    amount: Length => Self { amount: Some(amount), all: Default::default() },
+    amount: Length => Self { amount: Some(amount), all: None },
     mut dict: Dict => {
         // Get a value by key, accepting either non-existence or something
         // convertible to type T.
@@ -691,10 +691,7 @@ impl FirstLineIndent {
 
 impl Default for FirstLineIndent {
     fn default() -> Self {
-        Self {
-            amount: Some(Default::default()),
-            all: Some(Default::default()),
-        }
+        Self { amount: Some(Length::default()), all: Some(false) }
     }
 }
 

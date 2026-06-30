@@ -5,7 +5,7 @@ use ecow::{EcoString, eco_format, eco_vec};
 use typst_assets::mathml::*;
 use typst_library::diag::{SourceResult, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, StyleChain, StyledElem};
+use typst_library::foundations::{Content, NativeElement as _, StyleChain, StyledElem};
 use typst_library::introspection::TagElem;
 use typst_library::layout::{Axis, Em, FixedAlignment};
 use typst_library::math::ir::{
@@ -16,13 +16,14 @@ use typst_library::math::ir::{
 use typst_library::math::{FRAC_PADDING, LeftRightAlternator, MathSize};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 use unicode_math_class::MathClass;
 
 use crate::HtmlElem;
-use crate::css::ToCss;
+use crate::attr::mathml as attr;
+use crate::css;
+use crate::css::ToCss as _;
 use crate::tag::mathml as tag;
-use crate::{attr::mathml as attr, css};
 
 /// How Typst overrides the [MathML Core User Agent Stylesheet][UA].
 ///
@@ -234,7 +235,7 @@ enum NodePosition {
 }
 
 impl NodePosition {
-    fn get_form(&self) -> Form {
+    fn get_form(self) -> Form {
         match self {
             Self::Start => Form::Prefix,
             Self::Middle => Form::Infix,
@@ -630,7 +631,7 @@ fn handle_realized(
                 .with_optional_attr(attr::displaystyle, displaystyle)
                 .with_css(properties)
         });
-        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node })
+        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node });
     }
 
     // Push explicit rspace if it won't be added to the attributes of an `mo`.
@@ -1082,7 +1083,7 @@ fn handle_mathml(
 }
 
 /// Creates an `mo` element.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn make_mo(
     text: &str,
     span: Span,
@@ -1115,7 +1116,7 @@ fn make_mo(
     let info = OperatorInfo::of(
         text,
         form.unwrap_or(initial_form),
-        form.filter(|f| *f != initial_form).is_some(),
+        form.is_some_and(|f| f != initial_form),
     );
 
     // We force emitting `lspace` and `rspace` for a fraction slash (for
@@ -1311,7 +1312,7 @@ fn is_space_like(item: &MathItem) -> bool {
                 .all(is_space_like),
             _ => false,
         },
-        _ => false,
+        MathItem::Tag(_) => false,
     }
 }
 

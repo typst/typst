@@ -13,7 +13,7 @@ use typst_syntax::{Span, ast};
 use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
 use crate::foundations::{
     Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
-    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
+    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement as _, NativeType,
     NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol, SymbolElem, Type,
     Version, fields, ops, repr,
 };
@@ -732,7 +732,7 @@ mod tests {
         test(Value::None.ty(), "type(none)");
         test(Value::Auto.ty(), "type(auto)");
         test(false, "false");
-        test(12i64, "12");
+        test(12_i64, "12");
         test(3.24, "3.24");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");

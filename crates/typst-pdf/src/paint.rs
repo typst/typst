@@ -17,12 +17,13 @@ use typst_library::visualize::{
     Color, ColorSpace, DashPattern, FillRule, FixedStroke, Geometry, Gradient, Paint,
     ProcessColor, ProcessColorSpace, RelativeTo, Shape, SpotColor, Tiling, WeightedColor,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::tags;
 use crate::util::{
-    AbsExt, FillRuleExt, LineCapExt, LineJoinExt, SpotColorantToNameExt, TransformExt,
+    AbsExt as _, FillRuleExt as _, LineCapExt as _, LineJoinExt as _,
+    SpotColorantToNameExt as _, TransformExt as _,
 };
 
 pub(crate) fn convert_fill(
@@ -190,8 +191,8 @@ fn convert_pattern(
     let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
-        width: (pattern.size().x + pattern.spacing().x).to_pt() as _,
-        height: (pattern.size().y + pattern.spacing().y).to_pt() as _,
+        width: (pattern.size().x + pattern.spacing().x).to_pt() as f32,
+        height: (pattern.size().y + pattern.spacing().y).to_pt() as f32,
     };
 
     Ok((pattern.into(), 255))

@@ -1,5 +1,5 @@
 use std::fmt::{self, Display, Formatter};
-use std::io::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -13,7 +13,7 @@ use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
 use crate::notes::{TestBody, parse_test_body};
-use crate::output::{self, HashOutputType, HashStore, HashedRef, HashedRefs};
+use crate::output::{self, HashOutputType as _, HashStore, HashedRef, HashedRefs};
 use crate::{ARGS, REF_PATH, STORE_PATH, SUITE_PATH};
 
 /// Collects all tests from all files.
@@ -62,10 +62,10 @@ impl Display for Test {
 }
 
 /// A position in a file. This allows us to print errors that point to specific
-/// line numbers and create a clickable link in editors like VSCode.
+/// line numbers and create a clickable link in editors like VS Code.
 #[derive(Clone)]
 pub struct FilePos {
-    pub path: Arc<PathBuf>,
+    pub path: Arc<Path>,
     /// Line numbers are 1-indexed, so if this is zero we treat it as pointing
     /// to the file as a whole.
     pub line: usize,
@@ -150,8 +150,8 @@ impl TestStages {
     /// The union of the supplied stages and their implied stages.
     ///
     /// The `paged` target will test `render`, `pdf`, and `svg` by default.
-    pub fn with_implied(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_implied(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::EVAL => TestStages::empty(),
@@ -172,8 +172,8 @@ impl TestStages {
     ///
     /// For example, the `pdf` output requires the `paged` target.
     /// And the `pdftags` output requires both `pdf` and `paged`.
-    pub fn with_required(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_required(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::EVAL => TestStages::empty(),
@@ -193,8 +193,8 @@ impl TestStages {
     /// The union of the supplied stages and their sibling stages.
     ///
     /// See the tree in [`TestStages`].
-    pub fn with_siblings(&self) -> TestStages {
-        let mut res = *self;
+    pub fn with_siblings(self) -> TestStages {
+        let mut res = self;
         for flag in self.iter() {
             res |= bitflags::bitflags_match!(flag, {
                 TestStages::PAGED => TestStages::PAGED | TestStages::HTML | TestStages::BUNDLE,
@@ -323,7 +323,7 @@ impl TestOutput {
     }
 
     /// The sub directory inside the [`REF_PATH`] and [`STORE_PATH`].
-    pub const fn sub_dir(&self) -> &'static str {
+    pub const fn sub_dir(self) -> &'static str {
         match self {
             Self::Render => "render",
             Self::Pdf => "pdf",
@@ -335,7 +335,7 @@ impl TestOutput {
     }
 
     /// The file extension used for live output.
-    pub const fn live_extension(&self) -> &'static str {
+    pub const fn live_extension(self) -> &'static str {
         match self {
             Self::Render => "png",
             Self::Pdf => "pdf",
@@ -347,7 +347,7 @@ impl TestOutput {
     }
 
     /// The file extension used for file references.
-    pub const fn ref_extension(&self) -> &'static str {
+    pub const fn ref_extension(self) -> &'static str {
         match self {
             Self::Bundle => "txt",
             _ => self.live_extension(),
@@ -355,21 +355,21 @@ impl TestOutput {
     }
 
     /// The path at which the live output will be stored.
-    pub fn hash_path(&self, hash: HashedRef, name: &str) -> PathBuf {
+    pub fn hash_path(self, hash: HashedRef, name: &str) -> PathBuf {
         let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
     }
 
     /// The path at which a symlink to the [`Self::hash_path`] will be created
     /// for inspection.
-    pub fn live_path(&self, name: &str) -> PathBuf {
+    pub fn live_path(self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.live_extension();
         PathBuf::from(format!("{STORE_PATH}/{dir}/{name}.{ext}"))
     }
 
     /// The path at which file references will be saved.
-    pub fn file_ref_path(&self, name: &str) -> PathBuf {
+    pub fn file_ref_path(self, name: &str) -> PathBuf {
         let dir = self.sub_dir();
         let ext = self.ref_extension();
         PathBuf::from(format!("{REF_PATH}/{dir}/{name}.{ext}"))
@@ -382,7 +382,7 @@ impl TestOutput {
     }
 
     /// The output kind.
-    pub fn kind(&self) -> TestOutputKind {
+    pub fn kind(self) -> TestOutputKind {
         match self {
             TestOutput::Render | TestOutput::Bundle => TestOutputKind::File,
             TestOutput::Pdf => TestOutputKind::Hash(output::Pdf::INDEX),
@@ -578,7 +578,6 @@ impl Collector {
                     path,
                     line,
                 ));
-                continue;
             }
         }
 
@@ -589,7 +588,7 @@ impl Collector {
 /// Parses a single test file.
 struct Parser<'a> {
     collector: &'a mut Collector,
-    path: Arc<PathBuf>,
+    path: Arc<Path>,
     s: Scanner<'a>,
     test_start_line: usize,
     line: usize,
@@ -600,7 +599,7 @@ impl<'a> Parser<'a> {
     fn new(collector: &'a mut Collector, path: &'a Path, source: &'a str) -> Self {
         Self {
             collector,
-            path: Arc::new(path.to_owned()),
+            path: path.into(),
             s: Scanner::new(source),
             // Lines in files are 1-indexed.
             test_start_line: 1,
@@ -720,7 +719,9 @@ impl<'a> Parser<'a> {
                         .filter_map(|s| {
                             serde_yaml::from_str(s)
                                 .inspect_err(|e| {
-                                    self.error(format!("unknown pdf standard `{s}`: {e}"))
+                                    self.error(format!(
+                                        "unknown pdf standard `{s}`: {e}"
+                                    ));
                                 })
                                 .ok()
                         })
@@ -832,7 +833,7 @@ pub struct TestParseError {
 impl TestParseError {
     pub fn new(kind: impl Into<TestParseErrorKind>, path: &Path, line: usize) -> Self {
         Self {
-            pos: FilePos { path: Arc::new(path.to_owned()), line },
+            pos: FilePos { path: path.into(), line },
             kind: kind.into(),
         }
     }

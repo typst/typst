@@ -8,11 +8,11 @@ use rustc_hash::FxHashMap;
 use serde::{Serialize, Serializer};
 use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use crate::diag::{SourceResult, StrResult, WarningSink, bail, error};
 use crate::foundations::{
-    Array, Content, Func, NativeElement, Packed, PlainText, Repr, cast, elem, func,
+    Array, Content, Func, NativeElement as _, Packed, PlainText, Repr, cast, elem, func,
     scope, ty,
 };
 
@@ -269,7 +269,7 @@ impl Symbol {
             }
 
             // Canonicalize the modifier order.
-            modifiers.sort();
+            modifiers.sort_unstable();
 
             // Ensure that there are no duplicate modifiers.
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {

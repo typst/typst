@@ -1,4 +1,4 @@
-use crate::diag::{Hint, HintedStrResult};
+use crate::diag::{Hint as _, HintedStrResult};
 use crate::foundations::{Content, Packed, ShowSet, Smart, StyleChain, Styles, elem};
 use crate::layout::{BlockElem, Em};
 use crate::model::DocumentElem;

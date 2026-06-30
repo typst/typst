@@ -1,10 +1,10 @@
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use smallvec::SmallVec;
 
 use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Array, Content, Packed, Reflect as _, Smart, Styles, cast, elem, scope,
 };
 use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
@@ -214,7 +214,7 @@ pub struct EnumElem {
     /// ```
     #[variadic]
     #[parse(
-        for item in args.items.iter() {
+        for item in &args.items {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,

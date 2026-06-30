@@ -1,4 +1,4 @@
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, Cursor, Read as _, Write as _};
 use std::path::PathBuf;
 use std::{env, fs};
 
@@ -80,7 +80,7 @@ pub fn update(command: &UpdateCommand) -> StrResult<()> {
         }
 
         return self_replace::self_replace(&backup_path)
-            .and_then(|_| fs::remove_file(&backup_path))
+            .and_then(|()| fs::remove_file(&backup_path))
             .map_err(|err| eco_format!("failed to revert to backup ({err})"));
     }
 

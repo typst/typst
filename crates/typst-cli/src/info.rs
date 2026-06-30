@@ -1,11 +1,11 @@
 use std::env::VarError;
 use std::fmt::Display;
-use std::io::{self, Write};
+use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
-use clap::builder::{BoolValueParser, TypedValueParser};
-use clap::{Command, CommandFactory, ValueEnum};
-use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor};
+use clap::builder::{BoolValueParser, TypedValueParser as _};
+use clap::{Command, CommandFactory as _, ValueEnum as _};
+use codespan_reporting::term::termcolor::{Color, ColorSpec, WriteColor as _};
 use ecow::eco_format;
 use serde::Serialize;
 use typst::diag::StrResult;
@@ -439,7 +439,6 @@ fn parse_features(feature_list: &str) -> StrResult<Features> {
             Err(_) => {
                 crate::print_error(&format!("unknown runtime feature: `{feature}`"))
                     .map_err(|e| eco_format!("{e}"))?;
-                continue;
             }
         }
     }

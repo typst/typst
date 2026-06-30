@@ -10,9 +10,11 @@ use typst_library::visualize::Stroke;
 
 use crate::PdfOptions;
 use crate::tags::tree::Tree;
-use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
+use crate::tags::util::{
+    PropertyOptRef as _, PropertyValCloned as _, PropertyValCopied as _,
+};
 use crate::tags::{GroupId, util};
-use crate::util::AbsExt;
+use crate::util::AbsExt as _;
 
 #[derive(Debug, Clone)]
 pub struct TextAttrs {

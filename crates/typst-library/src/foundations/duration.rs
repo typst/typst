@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
 use ecow::{EcoString, eco_format};
-use time::ext::NumericalDuration;
+use time::ext::NumericalDuration as _;
 
 use crate::foundations::{Repr, func, repr, scope, ty};
 

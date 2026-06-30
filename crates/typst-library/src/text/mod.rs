@@ -30,7 +30,7 @@ pub use self::space::*;
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use ecow::{EcoString, eco_format};
 use icu_properties::CodePointSetDataBorrowed;
@@ -40,13 +40,13 @@ use smallvec::SmallVec;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
 
-use crate::World;
-use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
+use crate::World as _;
+use crate::diag::{Hint as _, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
-    StyleChain, cast, dict, elem,
+    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement as _,
+    Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set as _, Smart,
+    Str, StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
 use crate::math::{EquationElem, MathSize};
@@ -1200,7 +1200,7 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
             Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
             Self::XHeight => Ok(VerticalFontMetric::XHeight),
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1242,7 +1242,7 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
         match self {
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
             Self::Descender => Ok(VerticalFontMetric::Descender),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1462,7 +1462,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag.into(), value, ..))
+        tags.push(Feature::new(tag.into(), value, ..));
     }
 
     tags

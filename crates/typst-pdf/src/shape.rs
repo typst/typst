@@ -7,7 +7,7 @@ use typst_syntax::Span;
 use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::util::{AbsExt, TransformExt, convert_path};
+use crate::util::{AbsExt as _, TransformExt as _, convert_path};
 use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle shape")]

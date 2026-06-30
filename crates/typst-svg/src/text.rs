@@ -73,7 +73,9 @@ impl SVGRenderer<'_> {
             });
 
             if path.is_some() {
-                self.render_path_glyph(svg, state, text, glyph_id, x_offset, y_offset, id)
+                self.render_path_glyph(
+                    svg, state, text, glyph_id, x_offset, y_offset, id,
+                );
             }
         } else {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and
@@ -86,14 +88,13 @@ impl SVGRenderer<'_> {
             });
 
             if frame.is_some() {
-                self.render_image_glyph(svg, x_offset, y_offset, text, id);
+                Self::render_image_glyph(svg, x_offset, y_offset, text, id);
             }
         }
     }
 
     /// Write a reference to an image glyph that is stored in font units.
     fn render_image_glyph(
-        &mut self,
         svg: &mut SvgElem,
         x_offset: Abs,
         y_offset: Abs,
@@ -111,7 +112,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Render a pre-scaled path glyph defined by an outline.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn render_path_glyph(
         &mut self,
         svg: &mut SvgElem,
@@ -148,19 +149,19 @@ impl SVGRenderer<'_> {
             &text.fill,
             FillRule::default(),
             aspect_ratio,
-            self.text_paint_transform(&state, &text.fill),
+            Self::text_paint_transform(&state, &text.fill),
         );
         if let Some(stroke) = &text.stroke {
             self.write_stroke(
                 &mut use_,
                 stroke,
                 aspect_ratio,
-                self.text_paint_transform(&state, &stroke.paint),
+                Self::text_paint_transform(&state, &stroke.paint),
             );
         }
     }
 
-    fn text_paint_transform(&self, state: &State, paint: &Paint) -> Transform {
+    fn text_paint_transform(state: &State, paint: &Paint) -> Transform {
         match paint {
             Paint::Solid(_) => Transform::identity(),
             Paint::Gradient(gradient) => match gradient.unwrap_relative(true) {
@@ -201,7 +202,7 @@ impl SVGRenderer<'_> {
                             self.render_shape(&mut symbol, &state, shape);
                         }
                         GlyphFrameItem::Image(_, image, size) => {
-                            self.render_image(&mut symbol, &state, image, size);
+                            Self::render_image(&mut symbol, &state, image, size);
                         }
                     }
                 }

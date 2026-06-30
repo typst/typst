@@ -1,13 +1,13 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Datelike as _, Timelike as _, Utc};
 use ecow::eco_format;
 use parking_lot::RwLock;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use typst::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, Warned,
-    bail,
+    At as _, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult,
+    Warned, bail,
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;
@@ -267,7 +267,7 @@ pub fn compile_once(
     let Warned { output, mut warnings } = compile_and_export(world, config);
 
     // Add static warnings (for deprecated CLI flags and such).
-    for warning in config.warnings.iter() {
+    for warning in &config.warnings {
         warnings.push(
             SourceDiagnostic::warning(Span::detached(), warning.message())
                 .with_hints(warning.hints().iter().map(Into::into)),

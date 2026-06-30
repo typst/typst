@@ -1,5 +1,5 @@
 use typst_library::diag::SourceResult;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Rel, Size};
 use typst_library::math::ir::{AlignedRow, MathProperties, TableItem};
 use typst_library::math::{AugmentOffsets, style_for_denominator};
@@ -88,13 +88,13 @@ pub fn layout_table(
         }
     }
 
-    for line in hline.0.iter_mut() {
+    for line in &mut hline.0 {
         if *line < 0 {
             *line += nrows as isize;
         }
     }
 
-    for line in vline.0.iter_mut() {
+    for line in &mut vline.0 {
         if *line < 0 {
             *line += ncols as isize;
         }

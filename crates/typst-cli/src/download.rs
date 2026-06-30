@@ -1,7 +1,7 @@
-use std::io::Write;
+use std::io::Write as _;
 
 use codespan_reporting::term;
-use codespan_reporting::term::termcolor::WriteColor;
+use codespan_reporting::term::termcolor::WriteColor as _;
 use ecow::{EcoString, eco_format};
 use typst::syntax::package::PackageSpec;
 use typst_kit::downloader::{

@@ -1,12 +1,12 @@
 use crate::path::SvgPathBuilder;
-use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite};
+use crate::write::{SvgElem, SvgTransform, SvgUrl, SvgWrite as _};
 use crate::{SVGRenderer, State};
 use ecow::EcoString;
 use typst_library::layout::{Abs, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Curve, CurveItem, FixedStroke, Geometry, LineCap, LineJoin, Paint, RelativeTo, Shape,
 };
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 impl SVGRenderer<'_> {
     /// Render a shape element.
@@ -23,8 +23,8 @@ impl SVGRenderer<'_> {
                 svg,
                 paint,
                 shape.fill_rule,
-                self.shape_fill_size(state, paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, paint, shape, false),
+                Self::shape_fill_size(state, paint, shape).aspect_ratio(),
+                Self::shape_paint_transform(state, paint, shape, false),
             );
         } else {
             svg.attr("fill", "none");
@@ -34,8 +34,8 @@ impl SVGRenderer<'_> {
             self.write_stroke(
                 svg,
                 stroke,
-                self.shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
-                self.shape_paint_transform(state, &stroke.paint, shape, true),
+                Self::shape_fill_size(state, &stroke.paint, shape).aspect_ratio(),
+                Self::shape_paint_transform(state, &stroke.paint, shape, true),
             );
         }
 
@@ -49,7 +49,6 @@ impl SVGRenderer<'_> {
 
     /// Calculate the transform of the shape's fill or stroke.
     fn shape_paint_transform(
-        &self,
         state: &State,
         paint: &Paint,
         shape: &Shape,
@@ -103,7 +102,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Calculate the size of the shape's fill.
-    fn shape_fill_size(&self, state: &State, paint: &Paint, shape: &Shape) -> Size {
+    fn shape_fill_size(state: &State, paint: &Paint, shape: &Shape) -> Size {
         let mut shape_size = shape.bbox(true).size();
         // Edge cases for strokes.
         if shape_size.x.is_zero() {
@@ -183,13 +182,13 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
         Geometry::Curve(p) => {
             return convert_curve(Point::zero(), p);
         }
-    };
+    }
     builder.finsish()
 }
 
 pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
     let mut builder = SvgPathBuilder::with_translate(initial_point);
-    for item in curve.0.iter() {
+    for item in &curve.0 {
         match *item {
             CurveItem::Move(pos) => builder.move_to(pos),
             CurveItem::Line(pos) => builder.line_to(pos),

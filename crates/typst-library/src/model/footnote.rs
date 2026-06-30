@@ -1,13 +1,13 @@
 use std::num::NonZeroUsize;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use ecow::{EcoString, eco_format};
-use typst_utils::{NonZeroExt, singleton};
+use typst_utils::{NonZeroExt as _, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At as _, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
+    Content, Label, NativeElement as _, Packed, ShowSet, Smart, StyleChain, Styles, cast,
     elem, scope,
 };
 use crate::introspection::{
@@ -129,7 +129,7 @@ impl FootnoteElem {
     pub fn body_content(&self) -> Option<&Content> {
         match &self.body {
             FootnoteBody::Content(content) => Some(content),
-            _ => None,
+            FootnoteBody::Reference(_) => None,
         }
     }
 }
@@ -166,7 +166,7 @@ impl Packed<FootnoteElem> {
                 }
                 footnote.declaration_location(engine)
             }
-            _ => Ok(self.location().unwrap()),
+            FootnoteBody::Content(_) => Ok(self.location().unwrap()),
         }
     }
 }

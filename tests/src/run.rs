@@ -1,10 +1,10 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use parking_lot::RwLock;
 use typst::diag::{SourceDiagnostic, SourceResult, Warned};
-use typst::foundations::{Content, Output, Repr};
-use typst::model::Document;
+use typst::foundations::{Content, Output, Repr as _};
+use typst::model::Document as _;
 use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
@@ -267,7 +267,7 @@ impl<'a> Runner<'a> {
         let mut inconsistent_stages = false;
         let mut consistent_set = TestStages::all();
 
-        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+        for Note { status, seen, kind, range, message } in &self.test.body.notes {
             // Set `needs_update` in one place for clarity.
             needs_update |= match &status {
                 NoteStatus::Annotated { .. } => seen.is_empty(),
@@ -393,7 +393,7 @@ impl<'a> Runner<'a> {
         }
 
         if let Err(errors) = output {
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, TestEval);
             }
         }
@@ -415,7 +415,7 @@ impl<'a> Runner<'a> {
         let target = TestTarget::from(D::target());
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
-        for warning in warnings.iter() {
+        for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning, target);
         }
 
@@ -427,7 +427,7 @@ impl<'a> Runner<'a> {
                     .unwrap_or(&[]);
                 let errors = eval::deduplicate_with(errors, eval_errors);
 
-                for error in errors.iter() {
+                for error in &errors {
                     self.check_diagnostic(NoteKind::Error, error, target);
                 }
 
@@ -447,7 +447,7 @@ impl<'a> Runner<'a> {
             let live_data = self.save_live::<T>(output);
             if self.test.should_check(T::OUTPUT) {
                 let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
-                self.check_file_ref::<T>(output)
+                self.check_file_ref::<T>(output);
             }
         }
         live
@@ -480,7 +480,7 @@ impl<'a> Runner<'a> {
                 log!(self, "no document, but also no errors");
             }
 
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, T::OUTPUT);
             }
         }
@@ -818,7 +818,7 @@ pub fn read_ref_data(ref_path: &Path) -> Option<Vec<u8>> {
 /// A bunch of copy pasted code from the `typst` crate, so we don't have to
 /// change the public API.
 mod eval {
-    use comemo::{Track, Tracked};
+    use comemo::{Track as _, Tracked};
     use ecow::EcoVec;
     use rustc_hash::FxHashSet;
     use typst::World;

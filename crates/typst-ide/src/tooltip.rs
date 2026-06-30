@@ -1,14 +1,14 @@
-use std::fmt::Write;
+use std::fmt::Write as _;
 
 use ecow::{EcoString, eco_format};
 use typst::engine::Sink;
 use typst::foundations::{
-    AsOutput, Capturer, CastInfo, Func, ParamInfo, Repr, Value, repr,
+    AsOutput, Capturer, CastInfo, Func, ParamInfo, Repr as _, Value, repr,
 };
 use typst::layout::Length;
-use typst::syntax::ast::AstNode;
+use typst::syntax::ast::AstNode as _;
 use typst::syntax::{LinkedNode, Side, Source, SyntaxKind, ast};
-use typst::utils::{Numeric, round_with_precision};
+use typst::utils::{Numeric as _, round_with_precision};
 use typst_eval::CapturesVisitor;
 
 use crate::analyze::analyze_expr_with_fallback;
@@ -35,7 +35,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| output.and_then(|output| label_tooltip(output, &leaf)))
+        .or_else(|| label_tooltip(output?, &leaf))
         .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
@@ -285,7 +285,7 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
 
     use typst::syntax::Side;
     use typst_layout::PagedDocument;

@@ -1,8 +1,8 @@
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error};
-use typst_library::foundations::{IntoValue, Value, ops};
-use typst_syntax::ast::{self, AstNode};
+use typst_library::diag::{At as _, SourceDiagnostic, SourceResult, bail, error};
+use typst_library::foundations::{IntoValue as _, Value, ops};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_syntax::{Span, SyntaxKind, SyntaxNode};
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::UnicodeSegmentation as _;
 
 use crate::{Eval, Vm, destructure};
 
@@ -123,7 +123,6 @@ impl Eval for ast::ForLoop<'_> {
             (for $pat:ident in $iterable:expr) => {{
                 vm.scopes.enter();
 
-                #[allow(unused_parens)]
                 for value in $iterable {
                     destructure(vm, $pat, value.into_value())?;
 

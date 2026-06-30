@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, NativeElement, Packed, Resolve, Smart};
+use typst_library::foundations::{Content, NativeElement, Packed, Resolve as _, Smart};
 use typst_library::introspection::{
     Counter, CounterDisplayElem, CounterState, CounterUpdate, Location, Locator,
     SplitLocator, Tag,
@@ -16,7 +16,7 @@ use typst_library::model::{
 };
 use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
-use typst_utils::{NonZeroExt, Numeric};
+use typst_utils::{NonZeroExt as _, Numeric as _};
 
 use super::{
     Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
@@ -95,10 +95,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Relayout(PlacementScope::Column)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Parent)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 Err(Stop::Error(err)) => return Err(err),
-            };
+            }
         };
         drop(checkpoint);
 
@@ -194,7 +193,6 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Finish(_)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 err => return err,
             }
@@ -529,7 +527,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         for (_, note) in nested {
             match self.footnote(note, regions, flow_need, migratable) {
                 // This footnote was already processed or queued.
-                Ok(_) => {}
+                Ok(()) => {}
                 // Footnotes always request a relayout when processed for the
                 // first time, so we ignore a relayout request since we're
                 // about to do so afterwards. Without this check, the first

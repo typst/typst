@@ -11,7 +11,7 @@ mod shaping;
 pub use self::box_::layout_box;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
@@ -24,7 +24,7 @@ use typst_library::model::{
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::text::{Costs, Lang, TextElem};
 use typst_library::{Library, World};
-use typst_utils::{LazyHash, Numeric, Protected, SliceExt};
+use typst_utils::{LazyHash, Numeric as _, Protected, SliceExt as _};
 
 use self::collect::{Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
@@ -68,7 +68,7 @@ pub fn layout_par(
 
 /// The internal, memoized implementation of `layout_par`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_par_impl(
     elem: &Packed<ParElem>,
     world: Tracked<dyn World + '_>,
@@ -149,7 +149,7 @@ pub fn layout_inline<'a>(
 }
 
 /// The internal implementation of [`layout_inline`].
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_inline_impl<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],

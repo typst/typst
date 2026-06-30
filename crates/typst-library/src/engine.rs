@@ -4,7 +4,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
-use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use rayon::iter::{
+    IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _,
+};
 use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
@@ -394,7 +396,7 @@ impl Route<'_> {
 }
 
 #[comemo::track]
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {

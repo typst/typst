@@ -43,7 +43,7 @@ pub fn definition(
                 (*item.name() == name).then(|| Definition::Span(item.span()))
             }) {
                 return Some(src);
-            };
+            }
 
             if let Some((value, _)) = analyze_expr(world, &node).first() {
                 let span = match value {
@@ -87,11 +87,11 @@ pub fn definition(
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
+    use std::borrow::Borrow as _;
     use std::ops::Range;
 
-    use typst::WorldExt;
-    use typst::foundations::{IntoValue, NativeElement};
+    use typst::WorldExt as _;
+    use typst::foundations::{IntoValue, NativeElement as _};
     use typst::syntax::Side;
     use typst_layout::PagedDocument;
 
@@ -135,7 +135,7 @@ mod tests {
         fn must_be_value(&self, expected: impl IntoValue) -> &Self {
             match &self.1 {
                 Some(Definition::Std(value)) => {
-                    assert_eq!(*value, expected.into_value())
+                    assert_eq!(*value, expected.into_value());
                 }
                 _ => panic!("expected std definition"),
             }

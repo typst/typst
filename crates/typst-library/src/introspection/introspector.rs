@@ -4,14 +4,14 @@ use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::sync::RwLock;
 
-use comemo::{Track, Tracked};
+use comemo::{Track as _, Tracked};
 use ecow::{EcoString, EcoVec};
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::SmallVec;
 use typst_syntax::VirtualPath;
 
 use crate::diag::{StrResult, bail};
-use crate::foundations::{Content, Label, Repr, Selector};
+use crate::foundations::{Content, Label, Repr as _, Selector};
 use crate::introspection::{DocumentPosition, Location, Tag};
 use crate::model::Numbering;
 
@@ -544,7 +544,7 @@ impl<P> ElementIntrospectorBuilder<P> {
         for (i, (elem, q)) in elements.elems.iter().enumerate() {
             let loc = elem.location().unwrap();
             if self.seen.insert(loc) {
-                let range = elements.locations.get(&loc).unwrap();
+                let range = &elements.locations[&loc];
                 let position = map_position(q);
                 self.sink.push(BuilderItem::Start(elem.clone(), position));
                 debug_assert_eq!(range.start, i);
@@ -649,7 +649,7 @@ where
         self.0.get(key).map_or(&[], |vec| vec.as_slice())
     }
 
-    fn iter<'a>(&'a self) -> impl Iterator<Item = (&'a K, &'a [V])> + use<'a, K, V> {
+    fn iter(&self) -> impl Iterator<Item = (&K, &[V])> + use<'_, K, V> {
         self.0.iter().map(|(k, v)| (k, v.as_slice()))
     }
 

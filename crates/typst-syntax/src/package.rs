@@ -551,7 +551,7 @@ impl<'de> Deserialize<'de> for VersionBound {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
+    use std::str::FromStr as _;
 
     use super::*;
 

@@ -6,9 +6,9 @@ use comemo::Tracked;
 
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, CastInfo, Content, Context, Func, IntoValue, NativeElement, NativeFunc,
-    NativeFuncData, NativeFuncPtr, NativeParamInfo, Reflect, Scope, SymbolElem, Type,
-    elem, func,
+    Args, CastInfo, Content, Context, Func, IntoValue as _, NativeElement as _,
+    NativeFunc as _, NativeFuncData, NativeFuncPtr, NativeParamInfo, Reflect as _, Scope,
+    SymbolElem, Type, elem, func,
 };
 use crate::layout::{Em, Length, Rel};
 use crate::math::Mathy;

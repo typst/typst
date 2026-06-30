@@ -1,16 +1,17 @@
 use std::num::NonZeroUsize;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use comemo::Tracked;
 use smallvec::SmallVec;
 use typst_syntax::Span;
-use typst_utils::{Get, NonZeroExt};
+use typst_utils::{Get as _, NonZeroExt as _};
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
+use crate::diag::{At as _, HintedStrResult, SourceResult, StrResult, bail, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement, Packed,
-    Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
+    Args, Construct, Content, Context, Func, LocatableSelector, NativeElement as _,
+    Packed, Resolve as _, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope,
+    select_where,
 };
 use crate::introspection::{
     Counter, CounterKey, Location, Locator, LocatorLink, PageNumberingIntrospection,

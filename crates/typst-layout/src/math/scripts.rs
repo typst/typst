@@ -3,7 +3,7 @@
 
 // Is unused in compiler versions where `Option::map_or_default` is stable.
 #[allow(unused_imports)]
-use typst_utils::OptionExt;
+use typst_utils::OptionExt as _;
 
 use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
@@ -81,7 +81,7 @@ pub fn layout_primes(
         frame.push_frame(
             Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
             prime.clone(),
-        )
+        );
     }
 
     ctx.push(FrameFragment::new(props, styles, frame).with_text_like(true));

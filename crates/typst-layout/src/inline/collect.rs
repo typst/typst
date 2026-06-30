@@ -1,5 +1,5 @@
 use typst_library::diag::warning;
-use typst_library::foundations::{Packed, Resolve};
+use typst_library::foundations::{Packed, Resolve as _};
 use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
@@ -10,10 +10,10 @@ use typst_library::text::{
     is_default_ignorable,
 };
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
+use crate::modifiers::{FrameModifiers, FrameModify as _, layout_and_modify};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -241,7 +241,7 @@ pub fn collect<'a>(
                 "{} may not occur inside of a paragraph and was ignored",
                 child.func().name(),
             ));
-        };
+        }
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());

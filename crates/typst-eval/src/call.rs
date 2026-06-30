@@ -1,22 +1,23 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::{
-    At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail, error,
+    At as _, HintedStrResult, HintedString, SourceResult, Trace as _, Tracepoint, bail,
+    error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
     Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
+    NativeElement as _, Scope, Scopes, SequenceElem, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
 use typst_library::{Library, World};
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 use typst_syntax::{Span, Spanned, SyntaxNode};
 use typst_utils::{LazyHash, Protected};
 
 use crate::{
-    Access, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
+    Access as _, Eval, FlowEvent, Route, Vm, call_method_mut, hint_if_shadowed_std,
     is_dict_mutating_method, is_mutating_method,
 };
 
@@ -185,7 +186,7 @@ fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Va
 /// evaluated value and arguments.
 ///
 /// This currently causes a number of bad errors due to limitations of the
-/// [`Access`] trait used for mutation.
+/// [`crate::Access`] trait used for mutation.
 fn maybe_resolve_mutating(
     vm: &mut Vm,
     target: ast::Expr,
@@ -236,8 +237,8 @@ enum FieldCallee {
 /// - Prioritizing methods would make all new method additions breaking changes.
 /// - Prioritizing field functions would break methods for certain dictionaries,
 ///   e.g. `(at: x => ...).at(key)`.
-fn eval_field_callee<'a, 'b>(
-    vm: &'a mut Vm<'b>,
+fn eval_field_callee(
+    vm: &mut Vm,
     access: &SyntaxNode,
     field: &str,
     field_span: Span,
@@ -596,7 +597,7 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,
@@ -654,7 +655,7 @@ pub fn eval_closure(
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                    vm.define(ident, args.expect::<Value>(&ident)?)
+                    vm.define(ident, args.expect::<Value>(&ident)?);
                 }
                 pattern => {
                     crate::destructure(
@@ -739,7 +740,7 @@ impl<'a> CapturesVisitor<'a> {
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math);
             }
 
             // Code and content blocks create a scope.

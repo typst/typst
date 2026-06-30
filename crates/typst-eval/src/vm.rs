@@ -5,7 +5,7 @@ use typst_library::diag::{HintedString, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Binding, Context, IntoValue, Scopes, Value};
 use typst_syntax::Span;
-use typst_syntax::ast::{self, AstNode};
+use typst_syntax::ast::{self, AstNode as _};
 
 use crate::FlowEvent;
 

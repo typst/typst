@@ -11,7 +11,7 @@ use hayro_svg::{RenderCache, SvgRenderSettings};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::diag::{At, SourceResult, StrResult, bail};
+use typst::diag::{At as _, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
@@ -86,7 +86,7 @@ impl HashedRefs {
 
 impl Display for HashedRefs {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (name, hash) in self.refs.iter() {
+        for (name, hash) in &self.refs {
             writeln!(f, "{hash} {name}")?;
         }
         Ok(())
@@ -648,10 +648,10 @@ fn approx_equal(a: &sk::Pixmap, b: &sk::Pixmap, tolerance: u8) -> bool {
 fn to_sk_transform(transform: &Transform) -> sk::Transform {
     let Transform { sx, ky, kx, sy, tx, ty } = *transform;
     sk::Transform::from_row(
-        sx.get() as _,
-        ky.get() as _,
-        kx.get() as _,
-        sy.get() as _,
+        sx.get() as f32,
+        ky.get() as f32,
+        kx.get() as f32,
+        sy.get() as f32,
         tx.to_pt() as f32,
         ty.to_pt() as f32,
     )

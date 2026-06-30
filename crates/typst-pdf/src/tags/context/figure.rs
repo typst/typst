@@ -8,7 +8,7 @@ use crate::tags::context::FigureId;
 use crate::tags::groups::{Group, GroupId, GroupKind, Groups};
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::Tree;
-use crate::tags::util::PropertyOptRef;
+use crate::tags::util::PropertyOptRef as _;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FigureCtx {
@@ -83,7 +83,7 @@ pub fn build_figure(tree: &mut Tree, figure_id: FigureId) {
             // Move the caption inside the table.
             let table = child;
             let captions = std::mem::take(&mut figure_ctx.captions);
-            for caption in captions.iter() {
+            for caption in &captions {
                 tree.groups.get_mut(*caption).parent = table;
             }
             tree.groups.prepend_groups(table, &captions);
@@ -99,7 +99,7 @@ pub fn build_figure(tree: &mut Tree, figure_id: FigureId) {
     // Insert the captions inside the figure.
     // an enclosing element.
     if !figure_ctx.captions.is_empty() {
-        for &caption in figure_ctx.captions.iter() {
+        for &caption in &figure_ctx.captions {
             tree.groups.get_mut(caption).parent = wrapper;
         }
         tree.groups.prepend_groups(wrapper, &figure_ctx.captions);

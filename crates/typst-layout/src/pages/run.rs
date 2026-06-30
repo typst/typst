@@ -1,8 +1,8 @@
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track as _, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
-    Content, NativeElement, Resolve, Smart, StyleChain, Styles,
+    Content, NativeElement as _, Resolve as _, Smart, StyleChain, Styles,
 };
 use typst_library::introspection::{
     Counter, CounterDisplayElem, CounterKey, Introspector, Locator, LocatorLink,
@@ -15,10 +15,10 @@ use typst_library::layout::{
 use typst_library::model::Numbering;
 use typst_library::pdf::ArtifactKind;
 use typst_library::routines::Pair;
-use typst_library::text::{LocalName, TextElem};
+use typst_library::text::{LocalName as _, TextElem};
 use typst_library::visualize::Paint;
 use typst_library::{Library, World};
-use typst_utils::{LazyHash, Numeric, Protected};
+use typst_utils::{LazyHash, Numeric as _, Protected};
 
 use crate::flow::{FlowMode, layout_flow};
 
@@ -75,7 +75,7 @@ pub fn layout_page_run(
 
 /// The internal implementation of `layout_page_run`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_page_run_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

@@ -7,9 +7,9 @@ use ecow::{EcoString, EcoVec};
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceResult, bail};
+use crate::diag::{At as _, SourceResult, bail};
 use crate::foundations::{
-    Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
+    Args, Array, Cast, Func, IntoValue as _, Repr, Smart, array, cast, func, scope, ty,
 };
 use crate::layout::{Angle, Axes, Dir, Ratio};
 use crate::visualize::{
@@ -195,7 +195,7 @@ pub enum Gradient {
 }
 
 #[scope]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 impl Gradient {
     /// Creates a new linear gradient, in which colors transition along a
     /// straight line.
@@ -786,7 +786,7 @@ impl Gradient {
         /// The position at which to sample the gradient.
         t: RatioOrAngle,
     ) -> Color {
-        let value: f64 = t.to_ratio().get();
+        let value = t.to_ratio().get();
 
         match self {
             Self::Linear(linear) => {
@@ -1339,7 +1339,7 @@ fn process_stops(
 
     if has_offset {
         let mut last_stop = f64::NEG_INFINITY;
-        for Spanned { v: stop, span } in stops.iter() {
+        for Spanned { v: stop, span } in stops {
             let Some(stop) = stop.offset else {
                 bail!(
                     *span, "either all stops must have an offset or none of them can";

@@ -1,13 +1,13 @@
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use az::SaturatingAs;
-use comemo::Track;
+use az::SaturatingAs as _;
+use comemo::Track as _;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, warning};
+use typst_library::diag::{At as _, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, NativeElement as _, NativeRuleMap, Selector, ShowFn, Smart,
+    StyleChain, Target,
 };
 use typst_library::introspection::{
     Counter, DocumentIntrospection, Locator, QueryIntrospection,
@@ -582,7 +582,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
     let tr = |tag, row: &[Entry]| {
         let row = row
             .iter()
-            .flat_map(|entry| entry.as_cell())
+            .filter_map(|entry| entry.as_cell())
             .map(|cell| show_cell(tag, cell, styles));
         elem(tag::tr, Content::sequence(row))
     };
@@ -625,7 +625,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            header_range(grid.headers.get(first_mid_table_header - 1).unwrap()).end;
+            header_range(&grid.headers[first_mid_table_header - 1]).end;
         let rows = rows.drain(..removed_header_rows);
 
         (

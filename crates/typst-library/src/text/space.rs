@@ -2,7 +2,7 @@ use ecow::EcoString;
 use typst_utils::singleton;
 
 use crate::foundations::{
-    Content, NativeElement, Packed, PlainText, Repr, Unlabellable, elem,
+    Content, NativeElement as _, Packed, PlainText, Repr, Unlabellable, elem,
 };
 
 /// A text space.

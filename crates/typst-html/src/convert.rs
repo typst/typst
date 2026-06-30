@@ -12,7 +12,7 @@ use typst_library::text::{
     is_default_ignorable,
 };
 use typst_syntax::Span;
-use typst_utils::SliceExt;
+use typst_utils::SliceExt as _;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{

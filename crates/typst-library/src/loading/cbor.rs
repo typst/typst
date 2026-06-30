@@ -2,10 +2,10 @@ use ciborium::de::Error;
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LoadError, LoadedWithin, SourceResult};
+use crate::diag::{At as _, LoadError, LoadedWithin as _, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Bytes, Value, func, scope};
-use crate::loading::{DataSource, Load};
+use crate::loading::{DataSource, Load as _};
 
 /// Reads structured data from a CBOR file.
 ///
@@ -108,7 +108,7 @@ impl cbor {
         let Spanned { v: value, span } = value;
         let mut res = Vec::new();
         ciborium::into_writer(&value, &mut res)
-            .map(|_| Bytes::new(res))
+            .map(|()| Bytes::new(res))
             .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))
             .at(span)
     }

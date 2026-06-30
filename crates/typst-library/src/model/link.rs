@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
@@ -7,10 +7,10 @@ use rustc_hash::FxHashMap;
 use typst_syntax::{Span, VirtualPath};
 use typst_utils::PicoStr;
 
-use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, warning};
+use crate::diag::{At as _, SourceDiagnostic, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Construct, Content, Label, NativeElement, Packed, Repr, Selector, ShowSet,
+    Args, Construct, Content, Label, NativeElement as _, Packed, Repr, Selector, ShowSet,
     Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{
@@ -670,6 +670,7 @@ impl<'a> LateLinkResolver<'a> {
 
 /// Resolves a link to the given location.
 #[comemo::track]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> LateLinkResolver<'a> {
     pub fn resolve(&self, location: Location) -> Option<ResolvedLink> {
         let from = self.base;

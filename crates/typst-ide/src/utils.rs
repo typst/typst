@@ -1,7 +1,7 @@
-use std::fmt::{Display, Write};
+use std::fmt::{Display, Write as _};
 use std::ops::ControlFlow;
 
-use comemo::Track;
+use comemo::Track as _;
 use ecow::EcoString;
 use indexmap::IndexMap;
 use typst::engine::{Engine, Route, Sink, Traced};
@@ -190,7 +190,7 @@ pub fn check_value_recursively(
     let mut searcher = Searcher { steps: 0, predicate, max_steps: 1000 };
     match searcher.find(value) {
         ControlFlow::Break(matching) => matching,
-        ControlFlow::Continue(_) => false,
+        ControlFlow::Continue(()) => false,
     }
 }
 

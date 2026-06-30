@@ -9,7 +9,7 @@ use typst_library::text::{FontInstance, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
-use crate::{AbsExt, State, shape};
+use crate::{AbsExt as _, State, shape};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
@@ -220,7 +220,7 @@ fn write_bitmap<S: PaintSampler>(
                     continue;
                 }
 
-                let color = sampler.sample((x as _, y as _));
+                let color = sampler.sample((x as u32, y as u32));
                 let color = bytemuck::cast(color);
                 let pi = (y * cw + x) as usize;
                 // Fast path if color is opaque.

@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use rustc_hash::FxHashMap;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Resolve, StyleChain};
+use typst_library::foundations::{Resolve as _, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::grid::resolve::{
     Cell, CellGrid, Header, LinePosition, Repeatable,
@@ -16,7 +16,7 @@ use typst_library::layout::{
 use typst_library::text::TextElem;
 use typst_library::visualize::Geometry;
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::Numeric as _;
 
 use super::{
     LineSegment, Rowspan, UnbreakableRowGroup, generate_line_segments,
@@ -447,13 +447,13 @@ impl<'a> GridLayouter<'a> {
             match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, disambiguator, y)?,
                 Sizing::Rel(v) => {
-                    self.layout_relative_row(engine, disambiguator, v, y)?
+                    self.layout_relative_row(engine, disambiguator, v, y)?;
                 }
                 Sizing::Fr(v) => {
                     if !self.row_state.in_active_repeatable {
                         self.flush_orphans();
                     }
-                    self.current.lrows.push(Row::Fr(v, y, disambiguator))
+                    self.current.lrows.push(Row::Fr(v, y, disambiguator));
                 }
             }
         }
