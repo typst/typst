@@ -330,7 +330,7 @@ impl Packed<ImageElem> {
     fn determine_format(&self, styles: StyleChain) -> StrResult<ImageFormat> {
         if let Smart::Custom(v) = self.format.get(styles) {
             return Ok(v);
-        };
+        }
 
         let Derived { source, derived: loaded } = &self.source;
         if let DataSource::Path(path) = source

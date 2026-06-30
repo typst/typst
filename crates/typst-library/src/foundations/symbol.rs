@@ -269,7 +269,7 @@ impl Symbol {
             }
 
             // Canonicalize the modifier order.
-            modifiers.sort();
+            modifiers.sort_unstable();
 
             // Ensure that there are no duplicate modifiers.
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {

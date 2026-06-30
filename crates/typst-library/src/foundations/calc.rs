@@ -120,7 +120,7 @@ pub fn pow(
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
-    };
+    }
 
     match (base, exponent.v) {
         (DecNum::Int(a), Num::Int(b)) if b >= 0 => a

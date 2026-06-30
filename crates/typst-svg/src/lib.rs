@@ -65,7 +65,7 @@ pub fn svg_in_bundle(
     renderer.render_page(&mut svg, &state, ts, page);
 
     for (pos, id) in anchors {
-        renderer.render_anchor(&mut svg, *pos, id);
+        render_anchor(&mut svg, *pos, id);
     }
 
     renderer.finalize(svg);
@@ -112,11 +112,18 @@ pub fn svg_in_html(
     renderer.render_frame(&mut svg, &state, frame);
 
     for (pos, id) in anchors {
-        renderer.render_anchor(&mut svg, *pos, id);
+        render_anchor(&mut svg, *pos, id);
     }
 
     renderer.finalize(svg);
     xml.end_document()
+}
+
+/// Renders a linkable point that can be used to link into an HTML frame.
+fn render_anchor(svg: &mut SvgElem, pos: Point, id: &str) {
+    svg.elem("g")
+        .attr("id", id)
+        .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));
 }
 
 /// Export a document with potentially multiple pages into a single SVG file.
@@ -315,11 +322,11 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Text(text) => self.render_text(svg, &state, text),
                 FrameItem::Shape(shape, _) => self.render_shape(svg, &state, shape),
                 FrameItem::Image(image, size, _) => {
-                    self.render_image(svg, &state, image, size)
+                    Self::render_image(svg, &state, image, size);
                 }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
-            };
+            }
         }
     }
 
@@ -400,13 +407,6 @@ impl<'a> SVGRenderer<'a> {
             .attr("stroke", "none");
     }
 
-    /// Renders a linkable point that can be used to link into an HTML frame.
-    fn render_anchor(&mut self, svg: &mut SvgElem, pos: Point, id: &str) {
-        svg.elem("g")
-            .attr("id", id)
-            .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));
-    }
-
     /// Finalize the SVG file. This must be called after all rendering is done.
     fn finalize(mut self, mut svg: SvgElem) {
         self.write_glyph_defs(&mut svg);
@@ -454,7 +454,7 @@ fn svg_header_with_custom_attrs(
     write_custom_attrs(&mut svg);
 
     svg.attr_with("viewBox", |attr| {
-        attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()])
+        attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
     });
     svg.attr_with("width", |attr| {
         attr.push_num(size.x.to_pt());

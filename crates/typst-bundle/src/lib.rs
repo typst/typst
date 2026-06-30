@@ -137,7 +137,7 @@ pub fn bundle(
 
 /// The internal implementation of `bundle`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn bundle_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

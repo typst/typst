@@ -322,7 +322,7 @@ impl Array {
         /// The function to apply to each item. Must return a boolean.
         searcher: Func,
     ) -> SourceResult<Option<Value>> {
-        for item in self.iter() {
+        for item in self {
             if searcher
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
@@ -453,13 +453,13 @@ impl Array {
         test: Func,
     ) -> SourceResult<Array> {
         let mut kept = EcoVec::new();
-        for item in self.iter() {
+        for item in self {
             if test
                 .call(engine, context, [item.clone()])?
                 .cast::<bool>()
                 .at(test.span())?
             {
-                kept.push(item.clone())
+                kept.push(item.clone());
             }
         }
         Ok(kept.into())
@@ -1090,7 +1090,7 @@ impl Array {
                 continue;
             }
 
-            for second in out.iter() {
+            for second in &out {
                 if ops::equal(&key, &key_of(second.clone())?) {
                     continue 'outer;
                 }

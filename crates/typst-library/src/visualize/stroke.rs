@@ -299,8 +299,6 @@ impl Stroke<Abs> {
 
     /// Unpack the stroke, filling missing fields with the default values.
     pub fn unwrap_or_default(self) -> FixedStroke {
-        // we want to do this; the Clippy lint is not type-aware
-        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or(FixedStroke::default())
     }
 }
@@ -503,9 +501,9 @@ impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
         let mut r = EcoString::from("(array: (");
         for (i, elem) in self.array.iter().enumerate() {
             if i != 0 {
-                r.push_str(", ")
+                r.push_str(", ");
             }
-            r.push_str(&elem.repr())
+            r.push_str(&elem.repr());
         }
         r.push_str("), phase: ");
         r.push_str(&self.phase.repr());

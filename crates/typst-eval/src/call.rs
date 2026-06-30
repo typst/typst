@@ -236,8 +236,8 @@ enum FieldCallee {
 /// - Prioritizing methods would make all new method additions breaking changes.
 /// - Prioritizing field functions would break methods for certain dictionaries,
 ///   e.g. `(at: x => ...).at(key)`.
-fn eval_field_callee<'a, 'b>(
-    vm: &'a mut Vm<'b>,
+fn eval_field_callee(
+    vm: &mut Vm,
     access: &SyntaxNode,
     field: &str,
     field_span: Span,
@@ -596,7 +596,7 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,
@@ -654,7 +654,7 @@ pub fn eval_closure(
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                    vm.define(ident, args.expect::<Value>(&ident)?)
+                    vm.define(ident, args.expect::<Value>(&ident)?);
                 }
                 pattern => {
                     crate::destructure(
@@ -739,7 +739,7 @@ impl<'a> CapturesVisitor<'a> {
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math);
             }
 
             // Code and content blocks create a scope.
