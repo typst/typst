@@ -326,10 +326,22 @@ impl SyntaxNode {
         (errors, warnings)
     }
 
-    /// Set a synthetic span for the node and all its descendants.
+    /// Set a synthetic span for the node and all its descendants, and add hints
+    /// with the original indices to any syntax errors or warnings.
     pub fn synthesize(&mut self, span: Span) {
-        // Sub-ranges are removed since the overall range is not accurate.
-        self.synthesize_with(0, &|_, _| span, &|_, sub_range| *sub_range = None);
+        self.synthesize_with(
+            0,
+            &|_, _| span,
+            // Sub-ranges are removed since the overall range is not accurate.
+            &|_, sub_range| *sub_range = None,
+            &|offset, len| {
+                Some(if len == 0 {
+                    eco_format!("at index: {offset}")
+                } else {
+                    eco_format!("at index range: {offset} to {}", offset + len)
+                })
+            },
+        );
     }
 
     /// Set a raw range span for each node.
@@ -360,6 +372,7 @@ impl SyntaxNode {
                     *sr = mapper.map_sub_range(offset, *sr);
                 }
             },
+            &|_, _| None,
         );
         Ok(())
     }
@@ -373,20 +386,24 @@ impl SyntaxNode {
         mut offset: usize,
         map_span: &impl Fn(usize, usize) -> Span,
         update_sub_range: &impl Fn(usize, &mut Option<SubRange>),
+        add_hint: &impl Fn(usize, usize) -> Option<EcoString>,
     ) {
+        let len = self.len();
+        self.span = map_span(offset, len);
         let mut data = &mut self.data;
         loop {
             match data {
-                Node::Leaf(leaf, _) => {
-                    self.span = map_span(offset, leaf.len());
-                    break;
-                }
+                Node::Leaf(_, _) => break,
                 Node::Inner(inner, _) => {
                     let inner = Arc::make_mut(inner);
-                    self.span = map_span(offset, inner.len);
                     inner.upper = self.span.number();
                     for child in &mut inner.children {
-                        child.synthesize_with(offset, map_span, update_sub_range);
+                        child.synthesize_with(
+                            offset,
+                            map_span,
+                            update_sub_range,
+                            add_hint,
+                        );
                         offset += child.len();
                     }
                     break;
@@ -396,7 +413,9 @@ impl SyntaxNode {
                     for (_hint, sub_range) in err.hints.make_mut() {
                         update_sub_range(offset, sub_range);
                     }
-                    self.span = map_span(offset, err.text.len());
+                    if let Some(hint) = add_hint(offset, len) {
+                        err.hints.push((hint, None));
+                    }
                     break;
                 }
                 Node::Warning(warn, _) => {
@@ -404,6 +423,9 @@ impl SyntaxNode {
                     update_sub_range(offset, &mut warn.sub_range);
                     for (_hint, sub_range) in warn.hints.make_mut() {
                         update_sub_range(offset, sub_range);
+                    }
+                    if let Some(hint) = add_hint(offset, len) {
+                        warn.hints.push((hint, None));
                     }
                     data = &mut warn.child;
                 }
