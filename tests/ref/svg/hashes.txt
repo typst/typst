@@ -237,8 +237,11 @@ a0e3748bc060393912dfce0a270db848 flow-first-region-counter-update-placed-and-lin
 40a3075869a733993b8074a37a0a89ed flow-first-region-zero-sized-item
 6079fbb3c165fb3a6de1690537190f5a flow-fr
 8914fc3fd12404579d4dc930c89b6331 flow-heading-no-orphan
+d1cf1f7c9ffa1e48b668f3dc132da6ba flow-heading-no-orphan-with-footnote
+e8046657931a2ab3c5d25158905f7b64 flow-heading-orphan-forced-with-footnote
 f06422603ad4fe05d85cdecbd166ac50 flow-par-no-orphan-and-widow-lines
 b40ce458a7e03f9fbf21e865fcd6e85b flow-widow-forced
+1aac1b75c42fb9cd19a6175ee0b58f74 flow-widow-forced-with-footnote
 041d4c50d19b11dfdc8ba6519d463707 fold-vec-order-meta
 c52ecd7b30dc141f38f8113f7fd1a6a9 fold-vec-order-text-decos
 5c064dbc85bdcc6e7e21501ac3c28c4e fold-vec-order-text-features
