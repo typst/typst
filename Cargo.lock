@@ -3077,8 +3077,7 @@ dependencies = [
 [[package]]
 name = "typst-assets"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da9b236d339dce0ec443dc44afe4ba4c6d76b8917bd4b1ae80158d2111f6637b"
+source = "git+https://github.com/typst/typst-assets?rev=b75554a#b75554a949b82ff1c19f526453f3156849388d0c"
 dependencies = [
  "bitflags 2.11.1",
 ]
