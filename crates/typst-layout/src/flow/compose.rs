@@ -11,10 +11,10 @@ use typst_library::layout::{
     Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
+use typst_library::model::ArtifactKind;
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
-use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
