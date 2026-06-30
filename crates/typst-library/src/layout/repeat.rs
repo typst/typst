@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::Tagged;
 use crate::layout::Length;
 
 /// Repeats content to the available space.

@@ -1,5 +1,4 @@
 use crate::foundations::{Content, Smart, elem};
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
