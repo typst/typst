@@ -140,7 +140,7 @@ pub struct ContentVtable<T: 'static = RawContent> {
 
 impl ContentVtable {
     /// Creates the vtable for an element.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new<E: NativeElement>(
         name: &'static str,
         title: &'static str,

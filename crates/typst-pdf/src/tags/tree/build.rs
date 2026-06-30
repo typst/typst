@@ -196,7 +196,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
     .at(Span::detached())?;
 
     // Insert logical children into the tree.
-    #[allow(clippy::iter_over_hash_type)]
+    #[expect(clippy::iter_over_hash_type)]
     for (loc, children) in tree.logical_children.iter() {
         let located = (tree.groups.by_loc(loc))
             .expect_internal("parent group")
@@ -336,7 +336,7 @@ fn visit_end_tag(tree: &mut TreeBuilder, loc: Location) -> SourceResult<()> {
 
 fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     // Artifacts
-    #[allow(clippy::redundant_pattern_matching)]
+    #[expect(clippy::redundant_pattern_matching)]
     if let Some(_) = elem.to_packed::<HideElem>() {
         push_artifact(tree, elem, ArtifactType::Other)
     } else if let Some(artifact) = elem.to_packed::<ArtifactElem>() {

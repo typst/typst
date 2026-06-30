@@ -596,7 +596,7 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,

@@ -782,7 +782,6 @@ fn is_compatible(a: Script, b: Script) -> bool {
 }
 
 /// Shape text into [`ShapedText`].
-#[allow(clippy::too_many_arguments)]
 fn shape<'a>(
     engine: &Engine,
     base: usize,

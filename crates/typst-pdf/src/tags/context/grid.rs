@@ -14,7 +14,7 @@ pub(super) trait GridExt {
     /// Convert from "effective" positions inside the cell grid, which may
     /// include gutter tracks in addition to the cells, to conventional
     /// positions.
-    #[allow(clippy::wrong_self_convention)]
+    #[expect(clippy::wrong_self_convention)]
     fn from_effective(&self, i: usize) -> u32;
 
     /// Convert from conventional positions to "effective" positions inside the

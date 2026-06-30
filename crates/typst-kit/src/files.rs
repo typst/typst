@@ -109,7 +109,7 @@ where
     /// in place with updated data, leading to improved incremental compilation
     /// performance.
     pub fn reset(&mut self) {
-        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }

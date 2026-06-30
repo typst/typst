@@ -483,7 +483,7 @@ impl ShapeKind {
 }
 
 /// Layout a shape.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_shape(
     engine: &mut Engine,
     locator: Locator,
