@@ -675,7 +675,7 @@ df7389f1ef0245aee8178dd1cfb6b9dc issue-2128-block-width-box
 3735451693e5357af5743ab44c346fdb issue-2134-pagebreak-bibliography
 3fd3758d8ecefb25e81909dd13ea35e0 issue-2162-pagebreak-set-style
 62f8304a63bf4ecab5e77c9224759a4a issue-2199-place-spacing-bottom
-3a214027c3487f9e6eb18d0b5d256a21 issue-2199-place-spacing-default
+ca16f09f86ba1714084ee7e85d4c5e3c issue-2199-place-spacing-default
 2a14a1963c36e8b8bd9c5a132874f0b2 issue-2213-align-fr
 9e980932779246b7188d81d1729fe37a issue-2214-baseline-math
 c41d51f569dcf27f881bd7d3d3648396 issue-2259-raw-color-overwrite
