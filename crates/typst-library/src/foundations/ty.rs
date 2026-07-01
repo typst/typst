@@ -60,7 +60,7 @@ use crate::foundations::{
 /// Note that `type` will return @content for all document elements. To
 /// programmatically determine which kind of content you are dealing with, see
 /// @content.func.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.8.0")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 
@@ -83,6 +83,11 @@ impl Type {
     /// The type's title case name, for use in documentation (e.g. `String`).
     pub fn title(&self) -> &'static str {
         self.0.title
+    }
+
+    /// th version of Typst this type was introduced in.
+    pub fn since(&self) -> Option<&'static str> {
+        self.0.since
     }
 
     /// Documentation for the type (as Markdown).
@@ -140,7 +145,7 @@ impl Type {
     /// #type(x => x + 1) \
     /// #type(type)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.8.0")]
     pub fn construct(
         /// The value whose type's to determine.
         value: Value,
@@ -209,11 +214,13 @@ pub struct NativeTypeData {
     pub name: &'static str,
     /// The type's long name (e.g. `string`), for error messages.
     pub long_name: &'static str,
-    /// The function's title case name (e.g. `String`).
+    /// The type's title case name (e.g. `String`).
     pub title: &'static str,
+    /// The version of Typst this type was introduced in.
+    pub since: Option<&'static str>,
     /// The documentation for this type as a string.
     pub docs: &'static str,
-    /// Where the function is defined in the source code.
+    /// Where the type is defined in the source code.
     pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],

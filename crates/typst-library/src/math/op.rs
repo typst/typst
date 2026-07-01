@@ -21,7 +21,7 @@ use crate::text::TextElem;
 /// `gcd`, `lcm`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`,
 /// `limsup`, `ln`, `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sech`, `sin`,
 /// `sinc`, `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
-#[elem(title = "Text Operator", Mathy)]
+#[elem(title = "Text Operator", since = "forever", Mathy)]
 pub struct OpElem {
     /// The operator's text.
     #[required]

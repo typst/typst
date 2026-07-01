@@ -45,7 +45,7 @@ use crate::model::Numbering;
 ///
 /// Note that you can still observe elements that are not locatable in queries
 /// through other means, for instance, when they have a label attached to them.
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location(u128);
 
@@ -89,7 +89,7 @@ impl Location {
     ///   page #here().page()
     /// ]
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn page(self, engine: &mut Engine, span: Span) -> NonZeroUsize {
         engine.introspect(PageIntrospection(self, span))
     }
@@ -100,7 +100,7 @@ impl Location {
     ///
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
-    #[func]
+    #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> PagedPosition {
         engine.introspect(PositionIntrospection(self, span))
     }
@@ -112,7 +112,7 @@ impl Location {
     ///
     /// If the page numbering is set to `{none}` at that location, this function
     /// returns `{none}`.
-    #[func]
+    #[func(since = "forever")]
     pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
         engine.introspect(PageNumberingIntrospection(self, span))
     }

@@ -1,6 +1,8 @@
 use heck::{ToKebabCase, ToTitleCase};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 use syn::parse::{Parse, ParseStream};
 use syn::token::Token;
 use syn::{Attribute, Ident, Result, Token};
@@ -44,11 +46,10 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
                 && expr.mac.path.is_ident("stringify")
                 && let Ok(lit) = syn::parse2::<syn::Lit>(expr.mac.tokens.clone())
                 && let Some(value) = match &lit {
-                    syn::Lit::Int(int) => Some(int.base10_digits()),
-                    syn::Lit::Float(float) => Some(float.base10_digits()),
-                    _ => None,
-                }
-            {
+                syn::Lit::Int(int) => Some(int.base10_digits()),
+                syn::Lit::Float(float) => Some(float.base10_digits()),
+                _ => None,
+            } {
                 doc.push_str(value);
                 doc.push('\n');
             }
@@ -269,6 +270,7 @@ pub mod kw {
     syn::custom_keyword!(name);
     syn::custom_keyword!(span);
     syn::custom_keyword!(title);
+    syn::custom_keyword!(since);
     syn::custom_keyword!(scope);
     syn::custom_keyword!(contextual);
     syn::custom_keyword!(cast);
@@ -276,6 +278,72 @@ pub mod kw {
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);
     syn::custom_keyword!(ext);
+}
+
+/// The version of Typst a feature was introduced in.
+pub enum Since {
+    /// The feature has existed since before Typst 0.1.0.
+    Forever,
+    /// The feature has existed since a version released after Typst 0.1.0.
+    Release(u64, u64, u64),
+    /// The feature is not present in any official Typst release.
+    Future,
+}
+
+impl Since {
+    const FOREVER: &'static str = "forever";
+    const FUTURE: &'static str = "{FUTURE_TYPST_RELEASE}";
+}
+
+impl FromStr for Since {
+    type Err = ();
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if s == Self::FOREVER {
+            Ok(Self::Forever)
+        } else if s == Self::FUTURE {
+            Ok(Self::Future)
+        } else if let Ok([major, minor, patch]) = s
+            .splitn(3, '.')
+            .map(u64::from_str)
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .as_deref()
+        {
+            Ok(Self::Release(*major, *minor, *patch))
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Parse for Since {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let value = input.parse::<syn::LitStr>()?;
+        let Ok(since) = value.value().parse() else {
+            bail!(
+                value,
+                "invalid version; use `{:?}` for an unreleased version",
+                Self::FUTURE,
+            )
+        };
+        Ok(since)
+    }
+}
+
+impl Display for Since {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Forever => write!(f, "forever"),
+            Self::Release(major, minor, patch) => write!(f, "{major}.{minor}.{patch}"),
+            Self::Future => write!(f, "not released yet"),
+        }
+    }
+}
+
+impl ToTokens for Since {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.to_string().to_tokens(tokens)
+    }
 }
 
 /// Extract the first line of documentation.

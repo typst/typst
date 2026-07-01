@@ -14,7 +14,7 @@ use crate::visualize::Stroke;
 /// $ (a dot b dot cancel(x)) /
 ///     cancel(x) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "0.3.0", Mathy)]
 pub struct CancelElem {
     /// The content over which the line should be placed.
     #[required]

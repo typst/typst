@@ -37,7 +37,7 @@ use crate::visualize::{LineElem, Stroke};
 /// #divider()
 /// Chapter 2
 /// ```
-#[elem(ShowSet)]
+#[elem(since = "{FUTURE_TYPST_RELEASE}", ShowSet)]
 pub struct DividerElem {}
 
 impl ShowSet for Packed<DividerElem> {

@@ -71,7 +71,7 @@ pub use crate::__format_str as format_str;
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
-#[ty(scope, cast, title = "String")]
+#[ty(scope, cast, title = "String", since = "forever")]
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -149,7 +149,7 @@ impl Str {
     /// #str(1e8) \
     /// #str(<intro>)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to a string.
         value: ToStr,
@@ -182,7 +182,7 @@ impl Str {
     }
 
     /// The length of the string in UTF-8 encoded bytes.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "forever")]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -191,7 +191,7 @@ impl Str {
     ///
     /// Returns the provided default value if the string is empty or fails with
     /// an error if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn first(
         &self,
         /// A default value to return if the string is empty.
@@ -210,7 +210,7 @@ impl Str {
     ///
     /// Returns the provided default value if the string is empty or fails with
     /// an error if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn last(
         &self,
         /// A default value to return if the string is empty.
@@ -228,7 +228,7 @@ impl Str {
     /// Extracts the first grapheme cluster after the specified index. Returns
     /// the default value if the index is out of bounds or fails with an error
     /// if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The byte index. If negative, indexes from the back.
@@ -246,7 +246,7 @@ impl Str {
 
     /// Extracts a substring of the string. Fails with an error if the start or
     /// end index is out of bounds.
-    #[func]
+    #[func(since = "forever")]
     pub fn slice(
         &self,
         /// The start byte index (inclusive). If negative, indexes from the
@@ -273,13 +273,13 @@ impl Str {
     }
 
     /// Returns the grapheme clusters of the string as an array of substrings.
-    #[func]
+    #[func(since = "forever")]
     pub fn clusters(&self) -> Array {
         self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
     }
 
     /// Returns the Unicode codepoints of the string as an array of substrings.
-    #[func]
+    #[func(since = "forever")]
     pub fn codepoints(&self) -> Array {
         self.chars().map(|c| Value::Str(c.into())).collect()
     }
@@ -292,7 +292,7 @@ impl Str {
     ///    .codepoints()
     ///    .map(str.to-unicode))
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn to_unicode(
         /// The character that should be converted.
         character: char,
@@ -305,7 +305,7 @@ impl Str {
     /// ```example
     /// #str.from-unicode(97)
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn from_unicode(
         /// The code point that should be converted.
         value: u32,
@@ -325,7 +325,7 @@ impl Str {
     /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
     /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
     /// ```
-    #[func]
+    #[func(since = "0.14.0")]
     pub fn normalize(
         &self,
         #[named]
@@ -344,7 +344,7 @@ impl Str {
     ///
     /// This method also has dedicated syntax: You can write `{"bc" in "abcd"}`
     /// instead of `{"abcd".contains("bc")}`.
-    #[func]
+    #[func(since = "forever")]
     pub fn contains(
         &self,
         /// The pattern to search for.
@@ -357,7 +357,7 @@ impl Str {
     }
 
     /// Whether the string starts with the specified pattern.
-    #[func]
+    #[func(since = "forever")]
     pub fn starts_with(
         &self,
         /// The pattern the string might start with.
@@ -370,7 +370,7 @@ impl Str {
     }
 
     /// Whether the string ends with the specified pattern.
-    #[func]
+    #[func(since = "forever")]
     pub fn ends_with(
         &self,
         /// The pattern the string might end with.
@@ -397,7 +397,7 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns the first
     /// match as a string or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn find(
         &self,
         /// The pattern to search for.
@@ -411,7 +411,7 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns the index
     /// of the first match as an integer or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn position(
         &self,
         /// The pattern to search for.
@@ -452,7 +452,7 @@ impl Str {
     ///   #"The time of my life.".match(regex("[mit]+e"))
     ///   ```
     /// )
-    #[func]
+    #[func(since = "forever")]
     pub fn match_(
         &self,
         /// The pattern to search for.
@@ -473,7 +473,7 @@ impl Str {
     /// ```example
     /// #"Day by Day.".matches("Day")
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn matches(
         &self,
         /// The pattern to search for.
@@ -497,7 +497,7 @@ impl Str {
     /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string or function (beginning from the start). If no count
     /// is given, all occurrences are replaced.
-    #[func]
+    #[func(since = "forever")]
     pub fn replace(
         &self,
         engine: &mut Engine,
@@ -567,7 +567,7 @@ impl Str {
 
     /// Removes matches of a pattern from one or both sides of the string, once
     /// or repeatedly and returns the resulting string.
-    #[func]
+    #[func(since = "forever")]
     pub fn trim(
         &self,
         /// The pattern to search for. If `{none}`, trims white spaces.
@@ -658,7 +658,7 @@ impl Str {
     /// beginning and end of the string. In practice, this means that the
     /// resulting list of parts will contain the empty string at the start and
     /// end of the list.
-    #[func]
+    #[func(since = "forever")]
     pub fn split(
         &self,
         /// The pattern to split at. Defaults to whitespace.
@@ -685,7 +685,7 @@ impl Str {
     /// ```example
     /// #"Pirate flag: 🏴‍☠️".rev()
     /// ```
-    #[func(title = "Reverse")]
+    #[func(title = "Reverse", since = "0.8.0")]
     pub fn rev(&self) -> Str {
         let mut s = EcoString::with_capacity(self.0.len());
         for grapheme in self.as_str().graphemes(true).rev() {
@@ -985,7 +985,7 @@ fn string_is_empty() -> EcoString {
 ///
 /// The numbers 1 to 10.
 /// ```
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Debug, Clone)]
 pub struct Regex(regex::Regex);
 
@@ -999,7 +999,7 @@ impl Regex {
 #[scope]
 impl Regex {
     /// Create a regular expression from a string.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The regular expression as a string.
         ///

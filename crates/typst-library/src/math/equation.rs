@@ -44,7 +44,17 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem}
 /// dollar signs to create an equation. Starting and ending the equation with
 /// whitespace lifts it into a separate block that is centered horizontally. For
 /// more details about math syntax, see the @math[main math page].
-#[elem(Locatable, Tagged, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(
+    since = "forever",
+    Locatable,
+    Tagged,
+    Synthesize,
+    ShowSet,
+    Count,
+    LocalName,
+    Refable,
+    Outlinable
+)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
