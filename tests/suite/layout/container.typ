@@ -370,6 +370,12 @@ Paragraph B
 // attempt to set a `display` property.
 A #box(html.div()) B
 
+--- columns-html html ---
+#columns(3)[Text]
+
+--- columns-gutter-html html ---
+#columns(3, gutter: 1em)[Text]
+
 --- container-layoutable-child paged ---
 // Test box/block sizing with directly layoutable child.
 //

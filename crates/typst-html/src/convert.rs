@@ -4,7 +4,7 @@ use typst_library::engine::Engine;
 use typst_library::foundations::{Content, Packed, StyleChain, Target, TargetElem};
 use typst_library::introspection::{SplitLocator, TagElem};
 use typst_library::layout::{
-    Abs, Axes, BlockBody, BlockElem, BoxElem, HElem, Region, Size,
+    Abs, Axes, BlockBody, BlockElem, BoxElem, ColumnsElem, HElem, Region, Size,
 };
 use typst_library::routines::Pair;
 use typst_library::text::{
@@ -14,6 +14,7 @@ use typst_library::text::{
 use typst_syntax::Span;
 use typst_utils::SliceExt;
 
+use crate::css::ToCss;
 use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{
     FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
@@ -152,6 +153,8 @@ fn handle(
         // be wrapped in a `box` to omit the `display` annotation.
         make_block_level(&mut node).unwrap();
         converter.push(node);
+    } else if let Some(elem) = child.to_packed::<ColumnsElem>() {
+        handle_columns(converter, elem, styles)?
     } else {
         converter.engine.sink.warn(warning!(
             child.span(),
@@ -434,6 +437,34 @@ fn handle_block(
             .spanned(elem.span()),
     );
 
+    Ok(())
+}
+
+/// Processes a columns element
+fn handle_columns(
+    converter: &mut Converter,
+    elem: &Packed<ColumnsElem>,
+    styles: StyleChain,
+) -> SourceResult<()> {
+    let children = html_block_fragment(
+        converter.engine,
+        &elem.body,
+        converter.locator.next(&elem.span()),
+        styles,
+        converter.whitespace,
+    )?;
+    let count = elem.count.get(styles);
+    let gutter = elem.gutter.get(styles);
+    converter.push(
+        HtmlElement::new(tag::div)
+            .with_css(
+                css::Properties::new()
+                    .with("column-count", count.to_string())
+                    .with("column-gap", gutter.to_css(())),
+            )
+            .with_children(children)
+            .spanned(elem.span()),
+    );
     Ok(())
 }
 

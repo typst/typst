@@ -40,6 +40,8 @@ ffa25d90e2baac1e02b03a60cae89720 block-html-block
 252cb984e3a921ac9d717570371f4fa6 cite-group
 e87734ba4dba7fed32967be69484478c col-gutter-table
 e87734ba4dba7fed32967be69484478c col-row-gutter-table
+1e292a6038b63797587212b27b70acd3 columns-gutter-html
+6168dc54a377492697a44d35d9d0a905 columns-html
 c3adb00220cf56685a91e1bd4d93f3b4 divider-html
 4131a1789df95f853768971f54e850a9 enum-par
 013e6642f1140f60b83d7ca64ca77c87 enum-start
