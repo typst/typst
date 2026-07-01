@@ -232,16 +232,25 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the math class of this item.
+    /// Sets the effective math class of this item.
     pub(crate) fn set_class(&mut self, class: MathClass) {
         if let Self::Component(comp) = self {
             comp.props.class = Some(class);
+        }
+    }
+
+    /// Sets the effective math class and applies it to glyph layout.
+    pub(crate) fn set_explicit_class(&mut self, class: MathClass) {
+        self.set_class(class);
+        if let Self::Component(comp) = self
+            && let MathKind::Glyph(glyph) = &mut comp.kind
+        {
+            glyph.class = class;
 
             // Small hack to ensure the non-explicit stretch gets added, as the
             // class is not recursive. This applies an equivalent stretch to
             // the one in `resolve_symbol`.
-            if let MathKind::Glyph(glyph) = &comp.kind
-                && class == MathClass::Large
+            if class == MathClass::Large
                 && comp.props.size == MathSize::Display
                 && !glyph.stretch.get().is_explicit(Axis::Y)
             {
@@ -916,6 +925,8 @@ impl NumberItem {
 pub struct GlyphItem {
     /// The text content.
     pub text: EcoString,
+    /// The math class to use for layout.
+    pub class: MathClass,
     /// How the glyph should be stretched.
     pub stretch: Cell<Stretch>,
     /// Whether this glyph has been stretched as a middle delimiter.
@@ -943,6 +954,7 @@ impl GlyphItem {
 
         let kind = MathKind::Glyph(Box::new(Self {
             text,
+            class: class.unwrap_or(MathClass::Normal),
             stretch: Cell::new(Stretch::new()),
             mid_stretched: Cell::new(None),
             flac: Cell::new(false),
