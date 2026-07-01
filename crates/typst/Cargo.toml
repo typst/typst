@@ -23,9 +23,21 @@ typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 arrayvec = { workspace = true }
+az = { workspace = true, optional = true }
+ciborium = { workspace = true, optional = true }
 comemo = { workspace = true }
+csv = { workspace = true, optional = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
+serde_json = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+
+[features]
+default = ["cbor", "csv", "toml", "json"]
+cbor = ["dep:ciborium"]
+csv = ["dep:csv", "dep:az"]
+toml = ["dep:toml"]
+json = ["dep:serde_json"]
 
 [lints]
 workspace = true

@@ -1,4 +1,3 @@
-use ecow::eco_format;
 use typst_syntax::Spanned;
 
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
@@ -119,12 +118,7 @@ pub fn json(
         );
     }
 
-    serde_json::from_slice(raw)
-        .map_err(|err| {
-            let pos = LineCol::one_based(err.line(), err.column());
-            LoadError::text(pos, "failed to parse JSON", err)
-        })
-        .within(&loaded)
+    (engine.library.routines.json_decode)(raw).within(&loaded)
 }
 
 #[scope]
@@ -132,6 +126,7 @@ impl json {
     /// Encodes structured data into a JSON string.
     #[func(title = "Encode JSON")]
     pub fn encode(
+        engine: &mut Engine,
         /// Value to be encoded.
         value: Spanned<Value>,
         /// Whether to pretty print the JSON with newlines and indentation.
@@ -140,13 +135,6 @@ impl json {
         pretty: bool,
     ) -> SourceResult<Str> {
         let Spanned { v: value, span } = value;
-        if pretty {
-            serde_json::to_string_pretty(&value)
-        } else {
-            serde_json::to_string(&value)
-        }
-        .map(|v| v.into())
-        .map_err(|err| eco_format!("failed to encode value as JSON ({err})"))
-        .at(span)
+        (engine.library.routines.json_encode)(value, pretty).at(span)
     }
 }

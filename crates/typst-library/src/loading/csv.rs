@@ -1,10 +1,10 @@
-use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult, bail};
+use crate::diag::{LoadedWithin, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
 use crate::loading::{DataSource, Load};
+use crate::routines::CsvRecords;
 
 /// Reads structured data from a CSV file.
 ///
@@ -46,43 +46,32 @@ pub fn csv(
 ) -> SourceResult<Array> {
     let loaded = source.load(engine.world)?;
 
-    let mut builder = ::csv::ReaderBuilder::new();
+    let mut builder = (engine.library.routines.new_csv_reader_builder)();
     let has_headers = row_type == RowType::Dict;
     builder.has_headers(has_headers);
     builder.delimiter(delimiter.0 as u8);
 
-    // Counting lines from 1 by default.
-    let mut line_offset: usize = 1;
-    let mut reader = builder.from_reader(loaded.data.as_slice());
-    let mut headers: Option<::csv::StringRecord> = None;
+    let mut reader = builder.create_reader(loaded.data.as_slice());
+    let mut headers: Option<Box<dyn CsvRecords>> = None;
 
     if has_headers {
-        // Counting lines from 2 because we have a header.
-        line_offset += 1;
-        headers = Some(
-            reader
-                .headers()
-                .cloned()
-                .map_err(|err| format_csv_error(err, 1))
-                .within(&loaded)?,
-        );
+        headers = Some(reader.header().within(&loaded)?);
     }
 
     let mut array = Array::new();
-    for (line, result) in reader.records().enumerate() {
+    for result in reader.records() {
         // Original solution was to use line from error, but that is
         // incorrect with `has_headers` set to `false`. See issue:
         // https://github.com/BurntSushi/rust-csv/issues/184
-        let line = line + line_offset;
-        let row = result.map_err(|err| format_csv_error(err, line)).within(&loaded)?;
+        let row = result.within(&loaded)?;
         let item = if let Some(headers) = &headers {
             let mut dict = Dict::new();
-            for (field, value) in headers.iter().zip(&row) {
+            for (field, value) in headers.iter().zip(row.iter()) {
                 dict.insert(field.into(), value.into_value());
             }
             dict.into_value()
         } else {
-            let sub = row.into_iter().map(|field| field.into_value()).collect();
+            let sub = row.iter().map(|field| field.into_value()).collect();
             Value::Array(sub)
         };
         array.push(item);
@@ -132,26 +121,4 @@ cast! {
             bail!("expected `array` or `dictionary`");
         }
     },
-}
-
-/// Format the user-facing CSV error message.
-fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
-    let msg = "failed to parse CSV";
-    let pos = (err.kind().position())
-        .map(|pos| {
-            let start = pos.byte().saturating_as();
-            ReportTextPos::from(start..start)
-        })
-        .unwrap_or(LineCol::one_based(line, 1).into());
-    match err.kind() {
-        ::csv::ErrorKind::Utf8 { .. } => {
-            LoadError::text(pos, msg, "file is not valid UTF-8")
-        }
-        ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            let err =
-                format!("found {len} instead of {expected_len} fields in line {line}");
-            LoadError::text(pos, msg, err)
-        }
-        _ => LoadError::text(pos, "failed to parse CSV", err),
-    }
 }

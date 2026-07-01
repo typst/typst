@@ -22,10 +22,8 @@ arrayvec = { workspace = true }
 az = { workspace = true }
 bitflags = { workspace = true }
 bumpalo = { workspace = true }
-ciborium = { workspace = true }
 codex = { workspace = true }
 comemo = { workspace = true }
-csv = { workspace = true }
 ecow = { workspace = true }
 either = { workspace = true }
 flate2 = { workspace = true }
@@ -54,13 +52,11 @@ rust_decimal = { workspace = true }
 rustc-hash = { workspace = true }
 rustybuzz = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 siphasher = { workspace = true }
 smallvec = { workspace = true }
 syntect = { workspace = true }
 time = { workspace = true }
-toml = { workspace = true }
 ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
