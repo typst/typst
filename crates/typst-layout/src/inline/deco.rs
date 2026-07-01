@@ -297,10 +297,25 @@ pub fn deco_intersect(
     };
     let affine = affine_from_transform(&transform.unwrap_or_default());
     let inv_affine = affine.inverse();
-    let line = Line::new(
-        inv_affine * kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-        inv_affine * kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
-    );
+    let line = if transform.is_some() {
+        let text_dy = pos.y.to_raw();
+        let mut line = Line::new(
+            inv_affine * kurbo::Point::new(pos.x.to_raw(), offset.to_raw() + text_dy),
+            inv_affine
+                * kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw() + text_dy),
+        );
+        let down = (inv_affine * kurbo::Point::new(0.0, -1.0)).to_vec2();
+        // line.p0 += pos.y.to_raw() * down;
+        // line.p1 += pos.y.to_raw() * down;
+        // line.p0 += kurbo::Vec2::new(0.0, -text_dy);
+        //line.p1 += kurbo::Vec2::new(0.0, -text_dy);
+        line
+    } else {
+        Line::new(
+            kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
+            kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+        )
+    };
     let mut x = pos.x;
     let font_metrics = text.font.metrics();
 
