@@ -74,6 +74,9 @@ pub struct CompileArgs {
     /// The output format.
     #[arg(long = "format", short = 'f', default_value_t)]
     pub format: OutputFormat,
+    /// Do not add the "development version" warning to the generated PDF.
+    #[arg(long)]
+    pub release: bool,
     /// Produces performance timings of the compilation process.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
     pub timings: Option<PathBuf>,
