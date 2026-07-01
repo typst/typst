@@ -245,6 +245,7 @@ a8ce522592318e1c2ca31b9559f81baf math-lr-nested
 41f483205229cb9e9938499910b7d7c4 math-lr-nested-mid
 abf4a5e72f6dd39b99be546080bddc9c math-lr-scripts
 8508963350df18b09284b66e4fab5610 math-lr-shorthands
+8a4286d3872be5791829a7f6e7b204b2 math-lr-single-line-align
 3c0849fa5b2ea610bdb3ff80f88fd75f math-lr-size
 3af85261f5583af580bb6359a9cf3591 math-lr-sym-call
 989aae07d65ab05884be6fe40af5fc95 math-lr-sym-call-size

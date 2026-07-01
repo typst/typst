@@ -117,7 +117,7 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
             return Ok(self.items.pop().unwrap().into_item().unwrap());
         }
 
-        Ok(match process_group(self.items.drain(start..), styles, false, true) {
+        Ok(match process_group(self.items.drain(start..), styles, false, true, false) {
             GroupResult::Multiline(rows) => MultilineItem::create(rows, styles),
             GroupResult::Flat(items) => MathItem::wrap(items, styles),
         })
@@ -966,7 +966,7 @@ fn resolve_lr<'a, 'v, 'e>(
     let close = closing_exists.then(|| inner_items.pop().unwrap().into_item().unwrap());
 
     let insert_pos = start + start_idx;
-    match process_group(inner_items, styles, close.is_some(), false) {
+    match process_group(inner_items, styles, close.is_some(), false, true) {
         GroupResult::Multiline(rows) => {
             let items = expand_multiline_fence(rows, open, close, styles, elem.span());
             ctx.items.splice(insert_pos..insert_pos, items);
