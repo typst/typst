@@ -80,8 +80,8 @@ enum Item<'a, 'b> {
     Fr(Fr, u8, Option<&'b SingleChild<'a>>),
     /// A frame for a laid out line or block.
     Frame(Frame, Axes<FixedAlignment>),
-    /// A frame for an absolutely (not floatingly) placed child.
-    Placed(Frame, &'b PlacedChild<'a>),
+    /// An absolutely (not floatingly) placed child.
+    Placed(&'b PlacedChild<'a>),
 }
 
 impl Item<'_, '_> {
@@ -96,7 +96,7 @@ impl Item<'_, '_> {
                         matches!(item, FrameItem::Link(_, _) | FrameItem::Tag(_))
                     })
             }
-            Self::Placed(_, placed) => !placed.float,
+            Self::Placed(placed) => !placed.float,
             _ => false,
         }
     }
@@ -454,7 +454,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.composer
                 .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
             self.flush_tags();
-            self.items.push(Item::Placed(frame, placed));
+            self.items.push(Item::Placed(placed));
         }
         Ok(())
     }
@@ -605,15 +605,42 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
                     output.push_frame(pos, frame);
                 }
-                Item::Placed(frame, placed) => {
-                    let x = placed.align_x.position(size.x - frame.width());
+                Item::Placed(placed) => {
+                    let container_x = if region.expand.x || used.x.is_zero() {
+                        region.size.x
+                    } else {
+                        size.x
+                    };
+                    let container_y = if used.y.is_zero() && !region.expand.y {
+                        self.regions.full
+                    } else {
+                        size.y
+                    };
+
+                    let base = Size::new(
+                        region.size.x,
+                        if used.y.is_zero() && !region.expand.y {
+                            self.regions.full
+                        } else {
+                            size.y
+                        },
+                    );
+                    let frame = placed.layout(self.composer.engine, base)?;
+
+                    let x = placed.align_x.position(container_x - frame.width());
                     let y = match placed.align_y.unwrap_or_default() {
-                        Some(align) => align.position(size.y - frame.height()),
+                        Some(align) => align.position(container_y - frame.height()),
                         _ => offset + ruler.position(free),
                     };
 
                     let pos = Point::new(x, y)
-                        + placed.delta.zip_map(size, Rel::relative_to).to_point();
+                        + placed
+                            .delta
+                            .zip_map(
+                                Size::new(container_x, container_y),
+                                Rel::relative_to,
+                            )
+                            .to_point();
 
                     output.push_frame(pos, frame);
                 }
