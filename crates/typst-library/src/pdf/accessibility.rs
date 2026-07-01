@@ -62,8 +62,8 @@ pub enum ArtifactKind {
     /// Text or graphics in the back- or foreground of all pages.
     Watermark,
     /// Page numbers. Note that if your page numbers are contained in a footer
-    /// or header instead, the whole header or footer should an artifact of the
-    /// appropriate type.
+    /// or header instead, the whole header or footer should be an artifact of
+    /// the appropriate type.
     PageNumber,
     /// Line or paragraph numbers.
     LineNumber,
@@ -71,7 +71,7 @@ pub enum ArtifactKind {
     /// of the document which has since been removed.
     Redaction,
     /// Bates numbering. Note that if your Bates numbering is contained in a
-    /// footer or header instead, the whole header or footer should an artifact
+    /// footer or header instead, the whole header or footer should be an artifact
     /// of the appropriate type.
     Bates,
     /// Not part of the document, but rather the page it is printed on. An
