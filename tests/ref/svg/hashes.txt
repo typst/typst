@@ -239,8 +239,8 @@ a0e3748bc060393912dfce0a270db848 flow-first-region-counter-update-placed-and-lin
 8914fc3fd12404579d4dc930c89b6331 flow-heading-no-orphan
 5db176851dcbc5eaf8c008dcb558a99c flow-heading-no-orphan-with-footnote
 e8046657931a2ab3c5d25158905f7b64 flow-heading-orphan-forced-with-footnote
-c761a6e98a1c7b9ad3fc5cb9888d86c9 flow-no-orphan-with-footnote
-a4dae8478e141a743c84e134644f83b4 flow-no-widow-with-footnote
+03999c0d9c011dbd11a5e36d76168b86 flow-no-orphan-with-footnote
+2c055b9daeb18543f89052681a62f837 flow-no-widow-with-footnote
 fe67e2b2aea413ed89e775b47530af6c flow-orphan-forced-with-footnote
 f06422603ad4fe05d85cdecbd166ac50 flow-par-no-orphan-and-widow-lines
 b40ce458a7e03f9fbf21e865fcd6e85b flow-widow-forced

@@ -210,22 +210,32 @@ impl<'a> Collector<'a, '_, '_> {
                 self.output.push(Child::Rel(leading.into(), 5));
             }
 
-            // To prevent widows and orphans, we require enough space for
+            // To prevent widows and orphans, a group of lines must be kept
+            // together. The group is always anchored on its first line, and
+            // covers
             // - all lines if it's just three
             // - the first two lines if we're at the first line
             // - the last two lines if we're at the second to last line
-            let need = if prevent_all && i == 0 {
-                front_1 + leading + front_2 + leading + back_1
+            //
+            // `need` is the combined height of the group. `length` is the
+            // number of lines in the group and is `None` when the line is not
+            // the anchor of any group.
+            let (need, length) = if prevent_all && i == 0 {
+                (front_1 + leading + front_2 + leading + back_1, Some(3))
             } else if prevent_orphans && i == 0 {
-                front_1 + leading + front_2
+                (front_1 + leading + front_2, Some(2))
             } else if prevent_widows && i >= 2 && i + 2 == len {
-                back_2 + leading + back_1
+                (back_2 + leading + back_1, Some(2))
             } else {
-                frame.height()
+                (frame.height(), None)
             };
 
-            self.output
-                .push(Child::Line(self.boxed(LineChild { frame, align, need })));
+            self.output.push(Child::Line(self.boxed(LineChild {
+                frame,
+                align,
+                need,
+                length,
+            })));
         }
     }
 
@@ -371,6 +381,7 @@ pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
     pub need: Abs,
+    pub length: Option<usize>,
 }
 
 /// A child that encapsulates a prepared unbreakable block.

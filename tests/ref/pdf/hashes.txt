@@ -241,8 +241,8 @@ acbd64702bef7a7e2e84db8eaaaeef6a flow-fr
 ce021acd6263989175451e7e120ced38 flow-heading-no-orphan
 7ba3685ff8290483c83165e82bc9aba2 flow-heading-no-orphan-with-footnote
 51f3c8b3eb6a1b22371dce8c192a833a flow-heading-orphan-forced-with-footnote
-b233f0e1a281f03d81cfe624274cb1fa flow-no-orphan-with-footnote
-340c3301a70154bd3face36a12cac47a flow-no-widow-with-footnote
+cc1b16ee560faa9855a1190cf10a0829 flow-no-orphan-with-footnote
+3510c883b53d47a07648b4b5d3843e91 flow-no-widow-with-footnote
 b9835a4330b6358604eca636c16e722e flow-orphan-forced-with-footnote
 2375d0e0148d07153cb082836c213ba1 flow-par-no-orphan-and-widow-lines
 f8a5a605c5c664d613b105e67aa6bb19 flow-widow-forced
