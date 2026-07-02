@@ -50,6 +50,31 @@ A
 #set page(height: 50pt)
 #lines(3)
 
+--- flow-no-widow-with-footnote paged ---
+// Ensure that a footnote in text doesn't create a widow.
+#set page(height: 80pt)
+#lines(4)#footnote[#lines(1)]
+
+--- flow-widow-forced-with-footnote paged ---
+// Ensure that a footnote in text allows a widow when there isn't enough space.
+#set page(height: 60pt)
+#lines(3)#footnote[#lines(1)]
+
+--- flow-no-orphan-with-footnote paged ---
+// Ensure that a footnote in text doesn't create an orphan.
+#set page(height: 65pt)
+#set text(costs: (widow: 0%))
+#lines(1)
+
+#lines(2)#footnote[#lines(1)] \
+#lines(1)
+
+--- flow-orphan-forced-with-footnote paged ---
+// Ensure a footnote in text allows an orphan when there isn't enough space.
+#set page(height: 50pt)
+#lines(1)#footnote[#lines(1)] \
+#lines(2)
+
 --- issue-1445-widow-orphan-unnecessary-skip paged ---
 // Ensure that widow/orphan prevention doesn't unnecessarily move things
 // to another page.
