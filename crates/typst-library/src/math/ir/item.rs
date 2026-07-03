@@ -926,6 +926,11 @@ pub struct GlyphItem {
     /// The text content.
     pub text: EcoString,
     /// The math class to use for layout.
+    ///
+    /// When the math class is large, the glyph is centered vertically and, in
+    /// display style, stretched vertically. This value is not necessarily the
+    /// same as the item's associated `MathProperties::class`, which is used
+    /// for determining spacing between items.
     pub class: MathClass,
     /// How the glyph should be stretched.
     pub stretch: Cell<Stretch>,
