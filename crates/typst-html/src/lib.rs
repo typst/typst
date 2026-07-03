@@ -29,7 +29,7 @@ use typst_library::Feature;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Format, FormatElement};
-use typst_library::foundations::{Args, Construct, Content};
+use typst_library::foundations::{Args, Construct, Content, Scope};
 use typst_library::introspection::Location;
 use typst_macros::{elem, scope};
 
@@ -55,19 +55,18 @@ impl FormatElement for Html {
     type Options = HtmlFormatOptions;
 }
 
-#[scope(
-    category = Html,
-    // TODO: I don't like this :/
-    // Any more elegant ideas?
-    // Maybe a `#[define] fn custom(scope: &mut Scope) { ... }`?
-    custom = crate::typed::define(scope),
-)]
+#[scope(category = Html)]
 impl Html {
     #[elem]
     type HtmlElem;
 
     #[elem]
     type FrameElem;
+
+    #[defs]
+    fn definitions(scope: &mut Scope) {
+        crate::typed::define(scope);
+    }
 }
 
 /// An HTML element that can contain Typst content.
