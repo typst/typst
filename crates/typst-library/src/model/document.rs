@@ -71,7 +71,7 @@ use crate::text::{Locale, TextElem};
 /// - SVG and PNG export do not have any metadata support at all.
 ///
 /// = Documents in bundle export <documents-in-bundle-export>
-/// In @reference:bundle[bundle export], a document element represents a single
+/// In @format.bundle[bundle export], a document element represents a single
 /// file in the bundle output, in one of Typst's other export formats. When
 /// creating a document, you must provide an output path and some content. Typst
 /// will compile and export the provided content with the appropriate format. By
@@ -130,7 +130,7 @@ pub struct DocumentElem {
     /// May contain interior slashes, in which case intermediate directories
     /// will be automatically created.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     #[required]
     pub path: BundlePath,
 
@@ -139,7 +139,7 @@ pub struct DocumentElem {
     /// If `{auto}`, Typst attempts to infer the export format from the
     /// @document.path[`path`'s] file extension.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     pub format: Smart<DocumentFormat>,
 
     /// The document's title. This is rendered as the title of the PDF viewer
@@ -181,7 +181,7 @@ pub struct DocumentElem {
 
     /// The content that makes up the document.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     #[required]
     pub body: Content,
 }

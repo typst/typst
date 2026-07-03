@@ -242,5 +242,13 @@ impl Report {
             diagnostics::DiagnosticFormat::Human,
         )
         .unwrap();
+
+        if !errors.is_empty() {
+            eprintln!("compiled with errors");
+        } else if !warnings.is_empty() {
+            eprintln!("compiled with warnings");
+        } else {
+            eprintln!("compiled successfully");
+        }
     }
 }

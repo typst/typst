@@ -26,15 +26,6 @@
 
   The definition sections are grouped by topic. For example, if you would like to explore all tools Typst provides to adjust where elements land on the page, you should start in the @reference:layout section.
 
-  = Export <export>
-  Some of the features in Typst only apply to certain output file formats.
-  #context if target() == "paged" [
-    Starting in the @pdf[PDF] section, you can find chapters for each of the output formats Typst supports. This is where
-  ] else [
-    In the third part,
-  ]
- you find the available format-specific settings and learn what features are available to customize your document for a given format.
-
   = Reading the reference <reading-the-reference>
   This reference uses a few graphical conventions and labels to let you quickly scan its sections.
 
@@ -59,4 +50,3 @@
 #show: paged-heading-offset.with(1)
 #include "language/index.typ"
 #include "library/index.typ"
-#include "export/index.typ"

@@ -2,7 +2,7 @@
 
 #let math-definitions = dictionary(math)
 #let math-items(..keys) = {
-  keys.pos().map(k => (k, math-definitions.at(k)))
+  keys.pos().map(k => (k, math-definitions.at(k))).to-dict()
 }
 
 #show: docs-category.with(

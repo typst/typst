@@ -114,7 +114,7 @@ pub struct ImageElem {
     ///
     /// - When exporting to PDF, any PDF image file used must have a version
     ///   equal to or lower than the
-    ///   @pdf:pdf-versions[export target PDF version].
+    ///   @pdf.standard:pdf-versions[export target PDF version].
     /// - PDF files as images are currently not supported when exporting with a
     ///   specific PDF standard, like PDF/A-3 or PDF/UA-1. In these cases, you
     ///   can instead use SVGs to embed vector images.

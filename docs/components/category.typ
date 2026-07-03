@@ -14,13 +14,24 @@
 #import "styling.typ": prose-styling
 #import "table.typ": docs-table
 
+// Emits category settings as labelled metadata to be picked up and used when
+// generating a sub-category definitions section.
+#let category-settings(..args) = [#metadata(args.named())<category-settings>]
 
 // Build a scope from a module and binding info.
-#let scope-from(mod, info) = (
-  mod: mod,
-  dict: dictionary(mod),
-  info: info,
-)
+#let scope-from(val, info) = {
+  let mod = if type(val) == function {
+    stdx.describe(val).scope
+  } else {
+    val
+  }
+
+  (
+    val: val,
+    dict: dictionary(mod),
+    info: info,
+  )
+}
 
 // Build the scope information for a module.
 //
@@ -33,7 +44,7 @@
 // Get nested binding information, feature gates of the parent scope info will
 // be forwarded to the nested item info.
 #let nested-binding(scope, key) = {
-  let info = stdx.binding(scope.mod, key)
+  let info = stdx.binding(scope.val, key)
   if info.feature == none {
     info.feature = scope.info.feature
   }
@@ -219,7 +230,7 @@
   {
     show raw.where(lang: "example"): example.with(folding: true)
     set par(spacing: 1em)
-    prose-styling(live-docs(param.docs, param.def-site))
+    prose-styling(live-docs(param.docs, param.def-site), base-target: param-label)
   }
 
   // For things that take constant strings, we show a table with additional
@@ -404,7 +415,6 @@
     indent: true,
     muted: muted,
   ))
-
 
   heading-offset(2, definitions-section(
     info.name,
@@ -685,14 +695,14 @@
   // For HTML
   let lis = ()
 
-  for (name, value, info, _) in definitions {
-    let def-target = if value == none {
+  for (kind, name, value, info) in definitions {
+    let def-target = if kind == "group" {
       group-target(def-target, info)
     } else {
       value
     }
 
-    let body = if value == none and not "def-target" in info {
+    let body = if kind == "group" and not "def-target" in info {
       name
     } else {
       raw(name)
@@ -748,6 +758,140 @@
   }
 }
 
+// Builds a sorted list of definitions from the scope, filtering out grouped
+// definitions and sub-categories, and including provided scope additions.
+#let build-category-definitions(
+  category: none,
+  scope: none,
+  scope-additions: (:),
+  groups: (),
+  sub-categories: (:),
+) = {
+  assert.ne(category, none, message: "category is required")
+  assert.ne(scope, none, message: "scope is required")
+
+  let definitions = {
+    // Direct definitions from the scope.
+    let skip = {
+      groups.map(g => g.items.values()).flatten()
+      sub-categories.values()
+    }
+    scope
+      .dict
+      .pairs()
+      .filter(((k, v)) => (
+        stdx.binding(scope.val, k).category == category
+          and type(v) in (function, type)
+          and v not in skip
+          and not (
+            (scope.val == math and k == "text") // dupe
+              or (scope.val == pdf and k == "embed") // deprecated
+              or (scope.val == std and k == "pattern") // deprecated
+          )
+      ))
+      .map(((k, v)) => ("direct", k, v, stdx.describe(v)))
+
+    // Manual ddditions.
+    scope-additions.pairs().map(((k, v)) => ("addition", k, v, stdx.describe(v)))
+
+    // Grouped definitions.
+    groups.map(g => ("group", g.name, none, g))
+
+    // Sub-categories.
+    sub-categories.pairs().map(((k, v)) => ("category", k, v, stdx.describe(v)))
+  }
+
+  definitions.sorted(key: ((.., info)) => info.title)
+}
+
+// Show a list of category definitions built by `build-category-definitions()`.
+#let category-definitions(route, scope, def-target, definitions, func-category: none) = {
+  // The individual sections for all definitions.
+  show: paged-heading-offset.with(1)
+
+  for (kind, name, value, info) in definitions {
+    if kind in ("direct", "addition", "category") {
+      let binding-info = if kind != "addition" { nested-binding(scope, name) }
+
+      if kind == "category" {
+        func-category(route, name, value, info, binding-info)
+      } else if type(value) == function {
+        func-section(route, name, value, info, binding-info)
+      } else if type(value) == type {
+        ty-section(route, name, value, info, binding-info)
+      }
+    } else if kind == "group" {
+      let group = info
+      if group.at("scope", default: none) == none {
+        group.scope = scope
+      }
+      group-section(route, def-target, group)
+    }
+  }
+}
+
+#let func-category(
+  base-route,
+  // The name of the function.
+  name,
+  // The value of the function.
+  func,
+  // The dict returned by `stdx.describe()`.
+  info,
+  // The function binding information returned by `stdx.binding()`.
+  binding-info,
+) = context {
+  let def-target = func
+  let route = base-route + "/" + name
+  let scope = scope-from(func, binding-info)
+
+  // TODO: Decide whether to actually use metadata to define groups.
+  let settings = query(selector(<category-settings>).within(here()))
+    .map(m => m.value)
+    .first(default: none)
+  let definitions = build-category-definitions(
+    category: name,
+    scope: scope,
+    ..settings,
+  )
+
+  func-or-ty-section(
+    kind: "Function",
+    route: route,
+    title: info.title,
+    title-fmt: raw(info.name),
+    subtitle: func-subtitle(info, binding-info),
+    has-summary: true,
+    keywords: info.keywords,
+    def-target: def-target,
+    description: "Documentation for the `" + name + "` function.",
+    {
+      prose-styling(
+        live-docs(info.docs, info.def-site),
+        base-target: func,
+      )
+
+      {
+        let base-label = <parameters>
+        labelled(heading[Parameters], base-label)
+        params-section(
+          func,
+          (info.name,),
+          info.params,
+          info.returns,
+          base-label,
+        )
+      }
+
+      if definitions.len() > 0 {
+        category-outline(definitions, def-target)
+      }
+    },
+  )
+
+  category-definitions(route, scope, def-target, definitions, func-category: func-category)
+}
+
 // Renders the docs for one category, including an overview section and sections
 // for all definitions in the category.
 #let docs-category(
@@ -764,6 +908,8 @@
   scope-additions: (:),
   // Definitions that should be documented together as a group.
   groups: (),
+  // Definitions that should be documented as a sub-category.
+  sub-categories: (:),
   // General documentation prose for the category.
   body,
 ) = {
@@ -773,7 +919,7 @@
   let def-target = if scope == none {
     label("reference:" + category)
   } else {
-    scope.mod
+    scope.val
   }
 
   let scope = if scope != none {
@@ -782,37 +928,13 @@
     scope-from(std, (feature: none))
   }
 
-  let definitions = {
-    // Non-grouped definitions from the scope.
-    let skip = groups.map(g => g.items.map(((k, v)) => v)).flatten()
-    scope
-      .dict
-      .pairs()
-      .filter(((k, v)) => (
-        stdx.binding(scope.mod, k).category == category
-          and type(v) in (function, type)
-          and v not in skip
-          and not (
-            (scope.mod == math and k == "text") // dupe
-              or (scope.mod == pdf and k == "embed") // deprecated
-              or (scope.mod == std and k == "pattern") // deprecated
-          )
-      ))
-      .map(((k, v)) => (
-        k,
-        v,
-        stdx.describe(v),
-        nested-binding(scope, k),
-      ))
-
-    // Manual ddditions.
-    scope-additions.pairs().map(((k, v)) => (k, v, stdx.describe(v), none))
-
-    // Grouped definitions.
-    groups.map(g => (g.name, none, g, none))
-  }
-
-  let definitions = definitions.sorted(key: ((.., info, _)) => info.title)
+  let definitions = build-category-definitions(
+    category: category,
+    scope: scope,
+    scope-additions: scope-additions,
+    groups: groups,
+    sub-categories: sub-categories,
+  )
 
   // The category overview section with an outline of definitions.
   docs-section(
@@ -830,18 +952,5 @@
     },
   )
 
-  // The individual sections for all definitions.
-  show: paged-heading-offset.with(1)
-  for (name, value, info, binding-info) in definitions {
-    if type(value) == function {
-      func-section(route, name, value, info, binding-info)
-    } else if type(value) == type {
-      ty-section(route, name, value, info, binding-info)
-    } else {
-      if info.at("scope", default: none) == none {
-        info.scope = scope
-      }
-      group-section(route, def-target, info)
-    }
-  }
+  category-definitions(route, scope, def-target, definitions, func-category: func-category)
 }

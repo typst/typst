@@ -26,10 +26,29 @@ use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;
 
+/// A value that can have a scope.
+pub enum ToScope {
+    Module(Module),
+    Type(Type),
+    Func(Func),
+}
+
+cast! {
+    ToScope,
+    m: Module => Self::Module(m),
+    t: Type => Self::Type(t),
+    f: Func => Self::Func(f),
+}
+
 /// Provides details about a binding in a module.
 #[func]
-pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
-    let binding = module.scope().get(&name)?;
+pub fn binding(scope: ToScope, name: EcoString) -> Option<Dict> {
+    let scope = match &scope {
+        ToScope::Module(module) => module.scope(),
+        ToScope::Type(ty) => ty.scope(),
+        ToScope::Func(func) => func.scope()?,
+    };
+    let binding = scope.get(&name)?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
         "feature" => binding.feature().map(|f| f.to_string()),

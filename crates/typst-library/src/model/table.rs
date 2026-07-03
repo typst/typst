@@ -455,7 +455,7 @@ impl TryFrom<Content> for TableItem {
 /// header cell. Likewise, you can use @pdf.data-cell to mark cells in this
 /// function as data cells. Note that these functions are not final and thus
 /// only available when you enable the `a11y-extras` feature (see the
-/// @pdf[PDF module documentation] for details).
+/// @pdf[PDF format documentation] for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)
