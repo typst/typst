@@ -243,5 +243,14 @@ impl Report {
             diagnostics::DiagnosticFormat::Human,
         )
         .unwrap();
+
+        let plural = |items: &[_]| if items.len() == 1 { "" } else { "s" };
+        eprintln!(
+            "compiled with {} error{} {} warning{}",
+            errors.len(),
+            plural(errors),
+            warnings.len(),
+            plural(errors)
+        );
     }
 }
