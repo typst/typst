@@ -16,9 +16,9 @@ pub fn module() -> Module {
     pdf.define_elem::<AttachElem>();
     pdf.define_elem::<ArtifactElem>();
 
-    pdf.define_func::<table_summary>().feature(Feature::A11yExtras);
-    pdf.define_func::<header_cell>().feature(Feature::A11yExtras);
-    pdf.define_func::<data_cell>().feature(Feature::A11yExtras);
+    pdf.define_func::<table_summary>().with_feature(Feature::A11yExtras);
+    pdf.define_func::<header_cell>().with_feature(Feature::A11yExtras);
+    pdf.define_func::<data_cell>().with_feature(Feature::A11yExtras);
 
     Module::new("pdf", pdf)
 }

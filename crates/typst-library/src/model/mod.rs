@@ -53,7 +53,7 @@ use crate::foundations::Scope;
 pub fn define(global: &mut Scope) {
     global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
-    global.define_elem::<AssetElem>().feature(Feature::Bundle);
+    global.define_elem::<AssetElem>().with_feature(Feature::Bundle);
     global.define_elem::<ParElem>();
     global.define_elem::<ParbreakElem>();
     global.define_elem::<StrongElem>();
