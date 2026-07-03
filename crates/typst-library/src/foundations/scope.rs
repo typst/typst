@@ -180,7 +180,7 @@ impl Scope {
         }
 
         let mut binding = Binding::detached(value);
-        binding.category = self.category;
+        binding.init_info().category = self.category;
         self.bind(name.into(), binding)
     }
 }
@@ -254,12 +254,15 @@ pub struct Binding {
     kind: BindingKind,
     /// A span associated with the binding.
     span: Span,
-    /// The category of the binding.
-    category: Option<Category>,
-    /// A feature required to access this binding.
-    feature: Option<Feature>,
-    /// The deprecation information if this item is deprecated.
-    deprecation: Option<Box<Deprecation>>,
+    /// Whether this binding has additional checks that should be performed
+    /// before accessing it. This boolean is just an optimization, so the happy
+    /// path stays fast. The concrete checks are performed on the properties of
+    /// additional binding information in [`Self::info`].
+    check_access: bool,
+    /// Infrequently accessed properties of the binding that are stored out of
+    /// band. These should only ever be set for built-in bindings in the
+    /// standard library.
+    info: Option<Box<BindingInfo>>,
 }
 
 /// The different kinds of slots.
@@ -278,9 +281,8 @@ impl Binding {
             value: value.into_value(),
             span,
             kind: BindingKind::Normal,
-            category: None,
-            feature: None,
-            deprecation: None,
+            check_access: false,
+            info: None,
         }
     }
 
@@ -290,15 +292,29 @@ impl Binding {
     }
 
     /// Gates this binding behind the given [`Feature`].
-    pub fn feature(&mut self, feature: Feature) -> &mut Self {
-        self.feature = Some(feature);
+    pub fn with_category(&mut self, category: Category) -> &mut Self {
+        self.init_info().category = Some(category);
+        self
+    }
+
+    /// Gates this binding behind the given [`Feature`].
+    pub fn with_feature(&mut self, feature: Feature) -> &mut Self {
+        let info = self.init_info();
+        info.feature = Some(feature);
+        self.check_access = info.has_checked_access();
         self
     }
 
     /// Marks this binding as deprecated, with the given `message`.
-    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
-        self.deprecation = Some(Box::new(deprecation));
+    pub fn with_deprecation(&mut self, deprecation: Deprecation) -> &mut Self {
+        let info = self.init_info();
+        info.deprecation = Some(deprecation);
+        self.check_access = info.has_checked_access();
         self
+    }
+
+    fn init_info(&mut self) -> &mut BindingInfo {
+        self.info.get_or_insert_default()
     }
 
     /// Read the value.
@@ -307,19 +323,28 @@ impl Binding {
     }
 
     /// Read the value, checking for deprecation.
-    pub fn read_checked(
-        &self,
-        mut ctx: impl BindingContext,
-    ) -> Result<&Value, FeatureError> {
-        if let Some(feature) = self.feature
+    pub fn read_checked(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
+        if self.check_access {
+            self.check_access(ctx)?;
+        }
+        Ok(&self.value)
+    }
+
+    #[cold]
+    fn check_access(&self, mut ctx: impl BindingContext) -> Result<(), FeatureError> {
+        let Some(info) = &self.info else { return Ok(()) };
+
+        if let Some(feature) = info.feature
             && !ctx.features().is_enabled(feature)
         {
             return Err(FeatureError(feature));
         }
-        if let Some(message) = &self.deprecation {
-            ctx.emit((**message).into());
+
+        if let Some(message) = info.deprecation {
+            ctx.emit(message.into());
         }
-        Ok(&self.value)
+
+        Ok(())
     }
 
     /// Try to write to the value.
@@ -352,14 +377,38 @@ impl Binding {
         self.span
     }
 
-    /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&Deprecation> {
-        self.deprecation.as_deref()
+    /// The category of the binding, if any.
+    pub fn category(&self) -> Option<Category> {
+        self.info.as_ref()?.category
     }
 
-    /// The category of the value, if any.
-    pub fn category(&self) -> Option<Category> {
-        self.category
+    /// The feature that gates the binding, if any.
+    pub fn feature(&self) -> Option<Feature> {
+        self.info.as_ref()?.feature
+    }
+
+    /// The deprecation of the binding, if any.
+    pub fn deprecation(&self) -> Option<Deprecation> {
+        self.info.as_ref()?.deprecation
+    }
+}
+
+/// Infrequently accessed information related to a binding.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+struct BindingInfo {
+    /// The category of the binding.
+    category: Option<Category>,
+    /// A feature required to access this binding.
+    feature: Option<Feature>,
+    /// The deprecation information if this item is deprecated.
+    deprecation: Option<Deprecation>,
+}
+
+impl BindingInfo {
+    /// Whether the binding info has a property set that requires checking
+    /// it when it's accessed.
+    fn has_checked_access(self) -> bool {
+        self.feature.is_some() || self.deprecation.is_some()
     }
 }
 

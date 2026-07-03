@@ -351,7 +351,9 @@ fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
 
     global.define("math", math);
     global.define("pdf", self::pdf::module());
-    global.define("html", (routines.html_module)()).feature(Feature::Html);
+    global
+        .define("html", (routines.html_module)())
+        .with_feature(Feature::Html);
 
     prelude(&mut global);
 
