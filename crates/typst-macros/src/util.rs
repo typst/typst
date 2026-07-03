@@ -156,13 +156,6 @@ pub fn parse_string_array<K: Token + Default + Parse>(
         .collect())
 }
 
-/// Parse an metadata key-expr pair, separated by `=`.
-pub fn parse_expr<K: Token + Default + Parse>(
-    input: ParseStream,
-) -> Result<Option<syn::Expr>> {
-    parse_key_value::<K, syn::Expr>(input)
-}
-
 /// Parse a metadata flag that can be present or not.
 pub fn parse_flag<K: Token + Default + Parse>(input: ParseStream) -> Result<bool> {
     if input.peek(|_| K::default()) {
