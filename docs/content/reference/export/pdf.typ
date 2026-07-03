@@ -2,7 +2,7 @@
 
 #show: docs-category.with(
   title: "PDF",
-  description: "Documentation for Typst's PDF export target.",
+  description: "Documentation for Typst's PDF export format.",
   category: "pdf",
   scope: pdf,
 )
