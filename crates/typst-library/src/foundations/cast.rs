@@ -509,6 +509,10 @@ cast! {
     /// A delimiter that is the same on both sides, e.g. `|`.
     "fence" => MathClass::Fence,
     /// A large operator like `sum`.
+    ///
+    /// If the body is a single glyph, this class vertically centers it on the
+    /// math axis (where the fraction line sits) and stretches it vertically
+    /// when in @math.display[`display`] style.
     "large" => MathClass::Large,
     /// A relation like `=` or `prec`.
     "relation" => MathClass::Relation,
