@@ -739,7 +739,12 @@
   let definitions = {
     // Non-grouped definitions from the scope.
     let skip = groups.map(g => g.items).flatten()
-    dictionary(scope)
+    let scope-items = if type(scope) == module {
+      dictionary(scope)
+    } else {
+      stdx.describe(scope).scope
+    }
+    scope-items
       .pairs()
       .filter(((k, v)) => (
         stdx.binding(scope, k).category == category

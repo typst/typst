@@ -38,6 +38,8 @@ pub const fn format() -> Format {
 }
 
 /// The HTML format.
+///
+/// == HACK <html>
 #[elem(scope, since = "unreleased", Construct)]
 pub struct Html {
     /// Wether to format the PDF in a human readable way.
