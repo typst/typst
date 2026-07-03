@@ -286,10 +286,13 @@ a0e191bb57c59f3849c52e90e3222a11 math-multiline-string-alignment
 db9e75ac8bf47e497e061047217d9646 math-op-call
 37ce1213def35ec23fac9e03f648cdf6 math-op-custom
 d4c136297ed5531a4689d405c2188580 math-op-font
+d2c049d9214a1f2e1d221e94c4546927 math-op-large-stretch
 c9b26fdfab8ea05409faf4485ee538a9 math-op-predefined
 e19edae4611059e579316a208253a63d math-op-scripts-vs-limits
 28527d8f6dca88e3acb99f19c8559f71 math-op-set-font
+318394fb00e5b89b3990cf5d1242a161 math-op-stretch-relative
 d1fd44c94606331202c0d74f51d9a639 math-op-styled
+85020cd77a6cf5b18a69d681bf66a021 math-op-symbol-baseline
 be6fdcc59c937cd93c3e54f5fb25514e math-optical-size-frac-script-script
 163cc355fe6c65b155ce0ae9cffd0a74 math-optical-size-nested-scripts
 00f2bb64b6e1dd08a925489f52988332 math-optical-size-prime-large-operator
@@ -303,7 +306,7 @@ dd1b7c0c6f3d059c7ff6e2cf84d5a772 math-primes-limits
 23d187f8756edf4acd1e00475a5b9a1c math-primes-merge-inner-prime
 b18768d480641954297ca8f528bba007 math-primes-merge-top
 7bc3a79f28cfd58eddf3f6bbfaec5524 math-primes-merge-top-nested
-3833136977ef183ccec841ad9ff38692 math-primes-scripts
+711de01a664cd3f1c93806638eac104f math-primes-scripts
 b80304d6399245b528acf3557482f220 math-primes-show-rule
 0a3962abaf48b18e5f5f25148623ad19 math-primes-show-rules
 81b3b6dd4fea4844064797c31e461d23 math-primes-spaces
