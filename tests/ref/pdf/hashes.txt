@@ -1239,6 +1239,7 @@ c93dc2460563802c00edda3de87e597c math-op-call
 f1b24293e58b612a581faf2bbac932a6 math-op-predefined
 5c6845107e59a49683b74aa8a67c8db8 math-op-scripts-vs-limits
 50cf65325d067e8d1cb2eb80d1521f15 math-op-set-font
+48eaec8e2a5e7bbd9c220b3a33cd467b math-op-stretch-relative
 1fd048408eba19336d5d34e60a8d07a8 math-op-styled
 7761973d75f7d0ae949160c664ec3573 math-op-symbol-baseline
 d4c12fb9389eb5401f4ba3247b25b050 math-optical-size-frac-script-script

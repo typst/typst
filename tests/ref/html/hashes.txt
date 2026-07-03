@@ -290,6 +290,7 @@ d2c049d9214a1f2e1d221e94c4546927 math-op-large-stretch
 c9b26fdfab8ea05409faf4485ee538a9 math-op-predefined
 e19edae4611059e579316a208253a63d math-op-scripts-vs-limits
 28527d8f6dca88e3acb99f19c8559f71 math-op-set-font
+318394fb00e5b89b3990cf5d1242a161 math-op-stretch-relative
 d1fd44c94606331202c0d74f51d9a639 math-op-styled
 85020cd77a6cf5b18a69d681bf66a021 math-op-symbol-baseline
 be6fdcc59c937cd93c3e54f5fb25514e math-optical-size-frac-script-script

@@ -58,3 +58,8 @@ $ colim_(x -> 0) inline(colim_(x -> 0)) $
 #test
 #show math.op: set text(font: "New Computer Modern")
 #test
+
+--- math-op-stretch-relative paged html ---
+// Test that math.op's large class setting doesn't affect relative stretch
+// resolution.
+$ op(stretch(|, size: #300%)) stretch(|, size: #300%) $
