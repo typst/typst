@@ -167,7 +167,6 @@ codegen-units = 1
 strip = true
 
 [workspace.lints.clippy]
-blocks_in_conditions = "allow"
 # See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
 derived_hash_with_manual_eq = "allow"
 manual_is_multiple_of = "allow"
