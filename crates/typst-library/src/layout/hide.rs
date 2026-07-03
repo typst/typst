@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::Tagged;
 
 /// Hides content without affecting layout.
 ///

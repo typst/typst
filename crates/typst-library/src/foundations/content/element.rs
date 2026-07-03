@@ -11,8 +11,8 @@ use typst_utils::{DefSite, Static};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Content, ContentVtable, FieldAccessError, Func, NativeParamInfo, Repr, Scope,
-    Selector, StyleChain, Styles, Value, cast,
+    Args, Content, ContentVtable, Func, NativeParamInfo, Repr, Scope, Selector,
+    StyleChain, Styles, Value, cast,
 };
 use crate::text::{Lang, Region};
 
@@ -81,6 +81,21 @@ impl Element {
         self.can_type_id(TypeId::of::<C>())
     }
 
+    /// Whether the element is locatable.
+    pub fn is_locatable(self) -> bool {
+        self.vtable().introspection.locatable
+    }
+
+    /// Whether the element is unqueriable.
+    pub fn is_unqueriable(self) -> bool {
+        self.vtable().introspection.unqueriable
+    }
+
+    /// Whether the element is tagged in PDF files.
+    pub fn is_tagged(self) -> bool {
+        self.vtable().introspection.tagged
+    }
+
     /// Whether the element has the given capability where the capability is
     /// given by a `TypeId`.
     pub fn can_type_id(self, type_id: TypeId) -> bool {
@@ -142,16 +157,14 @@ impl Element {
         self.vtable().field(id).map(|data| data.name)
     }
 
-    /// Extract the value of the field for the given field ID and style chain.
-    pub fn field_from_styles(
-        &self,
-        id: u8,
-        styles: StyleChain,
-    ) -> Result<Value, FieldAccessError> {
-        self.vtable()
-            .field(id)
-            .and_then(|field| (field.get_from_styles)(styles))
-            .ok_or(FieldAccessError::Unknown)
+    /// The style chain accessor for a settable field of the element. Returns
+    /// `None` if the field is unknown or is not settable.
+    ///
+    /// Note that this will return `None` for `#[ghost]` fields since `field_id`
+    /// returns `None`.
+    pub fn settable_field_accessor(self, name: &str) -> Option<fn(StyleChain) -> Value> {
+        let id = (self.vtable().field_id)(name)?;
+        self.vtable().fields[usize::from(id)].get_from_styles
     }
 
     /// The element's local name, if any.

@@ -14,9 +14,8 @@ use crate::foundations::{
     Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, History, Introspect, Introspector, Locatable, Location,
-    PagedPosition, PathIntrospection, QueryFirstIntrospection, QueryLabelIntrospection,
-    Tagged,
+    Counter, CounterKey, History, Introspect, Introspector, Location, PagedPosition,
+    PathIntrospection, QueryFirstIntrospection, QueryLabelIntrospection,
 };
 use crate::layout::PageElem;
 use crate::model::{NumberingPattern, Refable};

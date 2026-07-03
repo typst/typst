@@ -109,6 +109,8 @@ pub struct ContentVtable<T: 'static = RawContent> {
     /// pointer to a native Rust vtable of `Packed<Self>` w.r.t to the trait `C`
     /// where `capability` is `TypeId::of::<dyn C>()`.
     pub(super) capability: fn(capability: TypeId) -> Option<NonNull<()>>,
+    /// Introspection capabilities of the type.
+    pub(super) introspection: IntrospectionCapabilities,
 
     /// The `Drop` impl (for the whole raw content). The content must have a
     /// reference count of zero and may not be used anymore after `drop` was
@@ -147,6 +149,7 @@ impl ContentVtable {
         fields: &'static [FieldVtable<Packed<E>>],
         field_id: fn(name: &str) -> Option<u8>,
         capability: fn(TypeId) -> Option<NonNull<()>>,
+        introspection: IntrospectionCapabilities,
         store: fn() -> &'static LazyElementStore,
     ) -> ContentVtable<Packed<E>> {
         ContentVtable {
@@ -162,6 +165,7 @@ impl ContentVtable {
             local_name: None,
             scope: || Scope::new(),
             capability,
+            introspection,
             drop: RawContent::drop_impl::<E>,
             clone: RawContent::clone_impl::<E>,
             hash: |elem| typst_utils::hash128(elem.as_ref()),
@@ -307,6 +311,16 @@ impl ContentHandle<(&RawContent, &RawContent)> {
     }
 }
 
+/// A set of introspection capabilties available for the element.
+pub struct IntrospectionCapabilities {
+    /// Makes an element available in the introspector.
+    pub locatable: bool,
+    /// Marks an element as not queriable for the user.
+    pub unqueriable: bool,
+    /// Marks an element as tagged in PDF files.
+    pub tagged: bool,
+}
+
 /// A vtable for performing field-specific actions on type-erased
 /// content. Also contains general metadata for the specific field.
 #[repr(C)]
@@ -344,8 +358,12 @@ pub struct FieldVtable<T: 'static = RawContent> {
     /// element, the style chain, or a mix (if it's a
     /// [`Fold`](crate::foundations::Fold) field).
     pub(super) get_with_styles: unsafe fn(elem: &T, StyleChain) -> Option<Value>,
-    /// Retrieves the field just from the styles.
-    pub(super) get_from_styles: fn(StyleChain) -> Option<Value>,
+    /// Retrieves the field just from the styles, falling back to the default
+    /// value if not manually set.
+    ///
+    /// Note that this is currently `Some` when the field is settable and `None`
+    /// otherwise.
+    pub(super) get_from_styles: Option<fn(StyleChain) -> Value>,
     /// Sets the field from the styles if it is currently unset. (Or merges
     /// with the style data in case of a `Fold` field).
     pub(super) materialize: unsafe fn(elem: &mut T, styles: StyleChain),

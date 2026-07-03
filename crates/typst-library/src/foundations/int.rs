@@ -13,12 +13,13 @@ use crate::foundations::{
 
 /// An integer: a positive whole number, a negative whole number, or zero.
 ///
-/// #let twos = link.with("https://en.wikipedia.org/wiki/Two%27s_complement")
+/// #let wiki(name, body) = link("https://en.wikipedia.org/wiki/" + name, body)
 ///
-/// Typst stores signed integers with the #twos[two's complement] representation
-/// in 64 bits. This allows storing numbers up to $2^63-1$ or
-/// `{9223372036854775807}`, and down to $-2^63$ or `{-9223372036854775808}`.
-/// These values are accessible as `{int.max}` and `{int.min}`.
+/// Typst stores signed integers with the #wiki("Two%27s_complement")[two's
+/// complement] representation in 64 bits. This allows storing numbers up to
+/// $2^63-1$ or `{9223372036854775807}`, and down to $-2^63$ or
+/// `{-9223372036854775808}`. These values are accessible as `{int.max}` and
+/// `{int.min}`.
 ///
 /// Integers can also be specified as hexadecimal, octal, or binary by starting
 /// with the prefixes: `0x`, `0o`, or `0b`.
@@ -40,6 +41,30 @@ use crate::foundations::{
 /// / Max: #int.max
 /// / Min: #int.min
 /// ```
+///
+/// = Syntax <syntax>
+/// Typst integers can be entered in code mode using the decimal digits 0--9. In
+/// addition, if a lone digit 0 is followed by `x`, `o`, or `b` (`0x`, `0o`,
+/// `0b`), Typst will treat following digits as a
+/// #wiki("Hexadecimal")[hexadecimal] (base 16), #wiki("Octal")[octal] (base 8),
+/// or #wiki("Binary_number")[binary] (base 2) number.
+///
+/// Hexadecimal numbers use the letters a--f or A--F for the values 10--15.
+///
+/// Typst will error if an integer is written that is larger than `int.max` or
+/// smaller than `int.min`. If this happens, you may want to use a
+/// @float[floating point number] instead by appending a period to the end of
+/// the number.
+///
+/// Typst differs from some other programming languages by not treating negative
+/// integers as individual tokens in its syntax. Instead, input like `{-6}` is
+/// treated as the negation operator applied to the positive integer `6`. This
+/// may cause an issue when trying to write the minimum negative integer
+/// `{-9223372036854775808}`, as `{9223372036854775808}` is larger than
+/// `{int.max}`. To write the minimum negative integer, use `{int.min}` instead.
+///
+/// This also means that if you want to embed a negative integer in markup, you
+/// will need to use parentheses to group the negation operator: `[#(-6)]`.
 #[ty(scope, cast, name = "int", title = "Integer")]
 type i64;
 
@@ -75,6 +100,9 @@ impl i64 {
         /// The value that should be converted to an integer.
         value: Spanned<ToInt>,
         /// The base (radix) for parsing strings, between 2 and 36.
+        ///
+        /// Above base 10, Typst accepts the letters a--z or A--Z for the values
+        /// 10--35.
         #[named]
         #[default(Spanned::new(Base::Default, Span::detached()))]
         base: Spanned<Base>,

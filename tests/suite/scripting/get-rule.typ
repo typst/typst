@@ -11,6 +11,12 @@
 #set text(lang: "de")
 #context test(translate(de: "Inhalt", en: "Contents"), "Inhalt")
 
+--- get-rule-call paged empty ---
+// Test calling a contextual field as a function. Note that we need to wrap the
+// field-access in parens to avoid an error for a disallowed field call.
+#set heading(numbering: (..n) => n)
+#context test((heading.numbering)(1, 2), arguments(1, 2))
+
 --- get-rule-in-array-callback paged empty ---
 // Test whether context is retained in built-in callback.
 #set text(lang: "de")

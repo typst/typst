@@ -1,4 +1,3 @@
-use crate::introspection::Tagged;
 use ttf_parser::Tag;
 
 use crate::foundations::{Content, Smart, elem};

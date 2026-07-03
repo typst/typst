@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::{Locatable, Tagged};
 
 /// Strongly emphasizes content by increasing the font weight.
 ///

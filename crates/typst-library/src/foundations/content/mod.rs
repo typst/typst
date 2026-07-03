@@ -7,7 +7,7 @@ mod vtable;
 pub use self::element::*;
 pub use self::field::*;
 pub use self::packed::Packed;
-pub use self::vtable::{ContentVtable, FieldVtable};
+pub use self::vtable::{ContentVtable, FieldVtable, IntrospectionCapabilities};
 #[doc(inline)]
 pub use typst_macros::elem;
 
@@ -278,6 +278,21 @@ impl Content {
         C: ?Sized + 'static,
     {
         self.elem().can::<C>()
+    }
+
+    /// Whether the contained element is locatable.
+    pub fn is_locatable(&self) -> bool {
+        self.elem().is_locatable()
+    }
+
+    /// Whether the contained element is unqueriable.
+    pub fn is_unqueriable(&self) -> bool {
+        self.elem().is_unqueriable()
+    }
+
+    /// Whether the contained element is tagged in PDF files.
+    pub fn is_tagged(&self) -> bool {
+        self.elem().is_tagged()
     }
 
     /// Cast to a trait object if the contained element has the given

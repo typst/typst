@@ -2336,9 +2336,9 @@ impl SpotColorant {
         /// #link("https://en.wikipedia.org/wiki/Offset_printing#Plates")[color plates],
         /// use of this colorant will result in the specified tint being applied
         /// equally to all plates. If you choose `{none}`, no colorant will be
-        /// applied when using this color. Instead, you can use a spot color
-        /// with the name `{none}` to indicate cuts or varnishes. Be sure to
-        /// discuss this with your production printer!
+        /// applied when using this color. This special value is often used to
+        /// indicate cuts or varnishes. Be sure to discuss this with your
+        /// production printer!
         ///
         /// We do not recommend using the names `{"Cyan"}`, `{"Magenta"}`,
         /// `{"Yellow"}`, `{"Key"}`, `{"Black"}`, or their translations to your

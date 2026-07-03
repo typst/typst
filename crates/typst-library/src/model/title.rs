@@ -1,6 +1,5 @@
 use crate::diag::{Hint, HintedStrResult};
 use crate::foundations::{Content, Packed, ShowSet, Smart, StyleChain, Styles, elem};
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{BlockElem, Em};
 use crate::model::DocumentElem;
 use crate::text::{FontWeight, TextElem, TextSize};
