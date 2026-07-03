@@ -34,6 +34,27 @@ use crate::{Library, World};
 /// value is _contextual._ It is recommended to read the chapter on
 /// @reference:context[context] before continuing here.
 ///
+/// = Countable elements <countable-elements>
+/// In addition to the @counter:page-counter[page counter] and custom counters
+/// based on strings, counters can count through
+/// @location:locatable[locatable] elements in the document. The built-in
+/// locatable elements are:
+///
+/// - @reference:model[Model]: @document, @par, @par.line, @strong, @emph,
+///   @list, @enum, @terms, @link, @title, @heading, @figure, @figure.caption,
+///   @quote, @footnote, @footnote.entry, @outline, @outline.entry, @ref,
+///   @cite, @bibliography, @table, and @asset.
+/// - @reference:text[Text]: @raw, @underline, @overline, @strike, and
+///   @highlight.
+/// - Layout: @layout.
+/// - Math: @math.equation.
+/// - @reference:introspection[Introspection]: @metadata.
+/// - Visualize: @image.
+/// - PDF: @pdf.attach.
+///
+/// You can also count through selectors that match locatable elements. For
+/// example, `{counter(figure.where(kind: image))}` counts image figures.
+///
 /// = #short-or-long[Accessing][Accessing a counter] <accessing>
 /// To access the raw value of a counter, we can use the @counter.get[`get`]
 /// function. This function returns an @array[array]: Counters can have multiple
@@ -342,7 +363,8 @@ impl Counter {
         ///   by manual updates,
         /// - If it is the @page function, counts through pages,
         /// - If it is a @selector[selector], counts through elements that match
-        ///   the selector. For example,
+        ///   the selector. Element functions and @function.where[`where`]
+        ///   selectors must match locatable elements. For example,
         ///   - provide an element function: counts elements of that type,
         ///   - provide a @function.where[`where`] selector: counts a type of
         ///     element with specific fields,

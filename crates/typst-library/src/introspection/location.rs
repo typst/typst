@@ -38,7 +38,7 @@ use crate::model::Numbering;
 ///   element is locatable as being queried for is its primary purpose.
 ///
 /// - In the other categories, most elements are not locatable. Exceptions are
-///   @math.equation and @image.
+///   @layout, @math.equation, @image, and @pdf.attach.
 ///
 /// To find out whether a specific element is locatable, you can try to @query
 /// for it.
