@@ -82,14 +82,14 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                 syn::Meta::Path(_) => bail!(attr, "expected deprecation message"),
             }
 
-            def = quote! { #def.deprecated(#deprecation) }
+            def = quote! { #def.with_deprecation(#deprecation) }
         }
 
         if let Some(attr) = attrs.iter().find(|attr| attr.path().is_ident("feature")) {
             match &attr.meta {
                 syn::Meta::NameValue(pair) => {
                     let feature = &pair.value;
-                    def = quote! { #def.feature(::typst_library::Feature::#feature) }
+                    def = quote! { #def.with_feature(::typst_library::Feature::#feature) }
                 }
                 _ => bail!(attr, "expected feature name"),
             }

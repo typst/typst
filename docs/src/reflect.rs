@@ -27,6 +27,7 @@ pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
     let binding = module.scope().get(&name)?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
+        "feature" => binding.feature().map(|f| f.to_string()),
         "deprecation" => binding.deprecation().map(|d| dict! {
             "message" => d.message(),
             "until" => d.until(),
