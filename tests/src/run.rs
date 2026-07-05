@@ -197,7 +197,12 @@ impl<'a> Runner<'a> {
         // Only compile html document when the html target is specified.
         if self.test.should_run(TestTarget::Html) {
             let doc = self.compile::<HtmlDocument>(evaluated.clone());
-            self.run_hash_test::<output::Html>(doc.as_ref());
+            if self.test.should_check(TestOutput::Html) {
+                self.run_hash_test::<output::Html>(doc.as_ref());
+            }
+            if self.test.should_check(TestOutput::Xhtml) {
+                self.run_hash_test::<output::Xhtml>(doc.as_ref());
+            }
         }
 
         // Only compile bundle when the bundle target is specified.
