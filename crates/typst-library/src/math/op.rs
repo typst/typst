@@ -20,7 +20,7 @@ use crate::text::TextElem;
 /// `cosh`, `cot`, `coth`, `csc`, `csch`, `ctg`, `deg`, `det`, `dim`, `exp`,
 /// `gcd`, `lcm`, `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`,
 /// `limsup`, `ln`, `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sech`, `sin`,
-/// `sinc`, `sinh`, `sup`, `tan`, `tanh`, `tg` and `tr`.
+/// `sinc`, `sinh`, `span`, `sup`, `tan`, `tanh`, `tg` and `tr`.
 #[elem(title = "Text Operator", Mathy)]
 pub struct OpElem {
     /// The operator's text.
@@ -98,6 +98,7 @@ ops! {
     sin,
     sinc,
     sinh,
+    span,
     sup (limits),
     tan,
     tanh,
