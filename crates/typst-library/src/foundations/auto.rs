@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 
 use ecow::EcoString;
 
@@ -101,6 +102,17 @@ impl<T> Smart<T> {
         }
     }
 
+    /// Returns a `Smart<&T::Target>`, derefercing the inner `T`.
+    pub fn as_deref(&self) -> Smart<&T::Target>
+    where
+        T: Deref,
+    {
+        match self {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(v) => Smart::Custom(v),
+        }
+    }
+
     /// Returns the contained custom value.
     ///
     /// If the value is [`Smart::Auto`], returns `None`.
@@ -192,8 +204,6 @@ impl<T> Smart<T> {
     where
         T: Default,
     {
-        // we want to do this; the Clippy lint is not type-aware
-        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or_else(T::default)
     }
 }

@@ -1,11 +1,10 @@
 use typst_syntax::Spanned;
 
-use crate::diag::{At, HintedString, SourceResult, error};
+use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
 use crate::text::{Lang, Region, TextElem};
@@ -148,36 +147,39 @@ pub enum CitationForm {
     Year,
 }
 
-/// A group of citations.
+/// A group of consecutive citations.
 ///
-/// This is automatically created from adjacent citations during show rule
-/// application.
+/// This element is automatically created from adjacent citations during
+/// realization. Citations are grouped without regard to which bibliography they
+/// end up being assigned to. They are only split into subgroups during
+/// bibliography assignment within the call tree of [`Works::generate`].
+///
+/// Each subgroup created there may consist of one or multiple citations that
+/// are processed as a union by hayagriva. If hayagriva were to support a single
+/// citation group for multiple bibliographies, the subgroup concept could be
+/// removed, but it's unclear whether that can be reasonably supported.
+///
+/// Another alternative would have been to already segment by assigned
+/// bibliography when grouping consecutive citations into [`CiteGroup`]s during
+/// realization. This would be quite clean, but unfortunately it would incur one
+/// additional document iteration, which is too high a price to pay for the
+/// conceptual cleanliness.
+///
+/// The citation group element is purposefully kept internal to retain
+/// flexibility in how it is collected.
 #[elem(Locatable)]
 pub struct CiteGroup {
-    /// The citations.
+    /// Holds citations and potentially spaces in between them. The spaces are
+    /// retained so that they can be correctly rendered between subgroups
+    /// assigned to different bibliographies.
     #[required]
-    pub children: Vec<Packed<CiteElem>>,
+    pub children: Vec<Content>,
 }
 
 impl Packed<CiteGroup> {
     pub fn realize(&self, engine: &mut Engine) -> SourceResult<Content> {
-        let location = self.location().unwrap();
+        let loc = self.location().unwrap();
         let span = self.span();
-        Works::generate(engine, span)?
-            .citations
-            .get(&location)
-            .cloned()
-            .ok_or_else(failed_to_format_citation)
-            .at(span)?
+        Works::generate(engine, span)?.citation(loc, span)
     }
-}
-
-/// The error message when a citation wasn't found in the pre-formatted list.
-#[cold]
-fn failed_to_format_citation() -> HintedString {
-    error!(
-        "cannot format citation in isolation";
-        hint: "check whether this citation is measured \
-               without being inserted into the document";
-    )
 }

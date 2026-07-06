@@ -49,7 +49,7 @@ pub fn autocomplete(
         &leaf,
         cursor,
         explicit,
-    )?;
+    );
 
     // Getting the syntax mode also ensures we are not in a comment.
     let mode = ctx.leaf.mode_after()?;
@@ -115,7 +115,9 @@ pub enum CompletionKind {
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     let (after_dot, textual_dot) = match ctx.leaf.kind() {
         SyntaxKind::Dot => (true, false),
-        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.text() == "." => (true, true),
+        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.leaf_text() == "." => {
+            (true, true)
+        }
         _ => (false, false),
     };
 
@@ -217,17 +219,22 @@ fn field_access_completions(
             }
         }
         Value::Dict(dict) => {
-            for (name, value) in dict.iter() {
+            for (name, value) in dict {
+                ctx.value_completion(name.clone(), value);
+            }
+        }
+        Value::Args(args) => {
+            for (name, value) in &args.to_named() {
                 ctx.value_completion(name.clone(), value);
             }
         }
         Value::Func(func) => {
             // Autocomplete get rules.
             if let Some((elem, styles)) = func.to_element().zip(styles.as_ref()) {
-                for param in elem.params().iter().filter(|param| !param.required) {
-                    if let Some(value) = elem.field_id(param.name).and_then(|id| {
-                        elem.field_from_styles(id, StyleChain::new(styles)).ok()
-                    }) {
+                for param in elem.params() {
+                    if let Some(field_accessor) = elem.settable_field_accessor(param.name)
+                    {
+                        let value = field_accessor(StyleChain::new(styles));
                         ctx.value_completion(param.name, &value);
                     }
                 }
@@ -240,7 +247,7 @@ fn field_access_completions(
 /// Complete half-finished labels.
 fn complete_open_labels(ctx: &mut CompletionContext) -> bool {
     // A label anywhere in code: "(<la|".
-    if ctx.leaf.kind().is_error() && ctx.leaf.text().starts_with('<') {
+    if ctx.leaf.kind().is_error() && ctx.leaf.leaf_text().starts_with('<') {
         ctx.from = ctx.leaf.offset() + 1;
         ctx.label_completions();
         return true;
@@ -509,7 +516,7 @@ fn param_completions<'a>(
             ast::Arg::Named(named) => {
                 existing_named.insert(named.name().as_str());
             }
-            _ => {}
+            ast::Arg::Spread(_) => {}
         }
     }
 
@@ -556,8 +563,8 @@ fn param_completions<'a>(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
+fn named_param_value_completions(
+    ctx: &mut CompletionContext,
     callee: &LinkedNode,
     name: &str,
 ) {
@@ -577,11 +584,7 @@ fn named_param_value_completions<'a>(
 }
 
 /// Add completions for the values of a parameter.
-fn param_value_completions<'a>(
-    ctx: &mut CompletionContext<'a>,
-    func: &Func,
-    param: &ParamInfo,
-) {
+fn param_value_completions(ctx: &mut CompletionContext, func: &Func, param: &ParamInfo) {
     if param.name() == Some("font") {
         ctx.font_completions();
     } else if let Some(extensions) = path_completion(func, param) {
@@ -1069,9 +1072,9 @@ impl<'a> CompletionContext<'a> {
         leaf: &'a LinkedNode<'a>,
         cursor: usize,
         explicit: bool,
-    ) -> Option<Self> {
+    ) -> Self {
         let text = source.text();
-        Some(Self {
+        Self {
             world,
             output,
             text,
@@ -1083,7 +1086,7 @@ impl<'a> CompletionContext<'a> {
             from: cursor,
             completions: vec![],
             seen_casts: FxHashSet::default(),
-        })
+        }
     }
 
     /// A small window of context before the cursor.
@@ -1296,7 +1299,12 @@ impl<'a> CompletionContext<'a> {
             && !self.after.starts_with(['(', '['])
         {
             if let Value::Func(func) = value {
-                apply = Some(match BracketMode::of(func) {
+                let bracket_mode = if self.leaf.mode_after() == Some(SyntaxMode::Math) {
+                    BracketMode::RoundWithin
+                } else {
+                    BracketMode::of(func)
+                };
+                apply = Some(match bracket_mode {
                     BracketMode::RoundAfter => eco_format!("{label}()${{}}"),
                     BracketMode::RoundWithin => eco_format!("{label}(${{}})"),
                     BracketMode::RoundNewline => eco_format!("{label}(\n  ${{}}\n)"),
@@ -1339,7 +1347,7 @@ impl<'a> CompletionContext<'a> {
             }
             CastInfo::Type(ty) => {
                 if *ty == Type::of::<NoneValue>() {
-                    self.snippet_completion("none", "none", "Nothing.")
+                    self.snippet_completion("none", "none", "Nothing.");
                 } else if *ty == Type::of::<AutoValue>() {
                     self.snippet_completion("auto", "auto", "A smart default.");
                 } else if *ty == Type::of::<bool>() {
@@ -1388,7 +1396,7 @@ impl<'a> CompletionContext<'a> {
                     );
                     self.scope_completions(false, |value| value.ty() == *ty);
                 } else if *ty == Type::of::<Label>() {
-                    self.label_completions()
+                    self.label_completions();
                 } else if *ty == Type::of::<Func>() {
                     self.snippet_completion(
                         "function",
@@ -1697,6 +1705,61 @@ mod tests {
         test("$vec(..pi)$", -3).must_include(["pi"]).must_exclude(["box"]);
     }
 
+    /// Test dict field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_dict_fields() {
+        let with = |text| &*format!("#let dict = (a: (c: 1), b: 2); {text}").leak();
+        test(with("#dict."), -1)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("$dict.$"), -2)
+            .must_include(["a", "b", "keys"])
+            .must_exclude(["c"]);
+        test(with("#dict.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$dict.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#dict.a."), -1)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("$dict.a.$"), -2)
+            .must_include(["c", "keys"])
+            .must_exclude(["b"]);
+        test(with("#dict.a.c."), -1).must_include(["bit-or"]);
+        test(with("$dict.a.c.$"), -2).must_include(["bit-or"]);
+    }
+
+    /// Test argument field autocompletion in code and math.
+    #[test]
+    fn test_autocomplete_argument_fields() {
+        let with = |text| {
+            &*format!("#let args = arguments(0, a: arguments(c: 1), b: 2); {text}").leak()
+        };
+        test(with("#args."), -1)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("$args.$"), -2)
+            .must_include(["a", "b", "pos", "named"])
+            .must_exclude(["c"]);
+        test(with("#args.b."), -1)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("$args.b.$"), -2)
+            .must_include(["bit-or"])
+            .must_exclude(["c"]);
+        test(with("#args.at(0)."), -1).must_include(["bit-or"]);
+        test(with("#args.a."), -1)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("$args.a.$"), -2)
+            .must_include(["c", "pos", "named"])
+            .must_exclude(["b"]);
+        test(with("#args.a.c."), -1).must_include(["bit-or"]);
+        test(with("$args.a.c.$"), -2).must_include(["bit-or"]);
+    }
+
     /// Test that the `before_window` doesn't slice into invalid byte
     /// boundaries.
     #[test]
@@ -1759,6 +1822,7 @@ mod tests {
         test("#", 1).at("table").must_apply_as("table(\n  ${}\n)");
         test("#()", 1).at("list").must_apply_as(None);
         test("#[]", 1).at("strong").must_apply_as(None);
+        test("$$", 1).at("overline").must_apply_as("overline(${})");
     }
 
     /// Test that we only complete positional parameters if they aren't

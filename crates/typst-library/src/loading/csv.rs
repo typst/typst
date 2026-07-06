@@ -1,7 +1,7 @@
 use az::SaturatingAs;
 use typst_syntax::Spanned;
 
-use crate::diag::{LineCol, LoadError, LoadedWithin, ReportPos, SourceResult, bail};
+use crate::diag::{LineCol, LoadError, LoadedWithin, ReportTextPos, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Array, Dict, IntoValue, Type, Value, cast, func};
 use crate::loading::{DataSource, Load};
@@ -140,18 +140,18 @@ fn format_csv_error(err: ::csv::Error, line: usize) -> LoadError {
     let pos = (err.kind().position())
         .map(|pos| {
             let start = pos.byte().saturating_as();
-            ReportPos::from(start..start)
+            ReportTextPos::from(start..start)
         })
         .unwrap_or(LineCol::one_based(line, 1).into());
     match err.kind() {
         ::csv::ErrorKind::Utf8 { .. } => {
-            LoadError::new(pos, msg, "file is not valid UTF-8")
+            LoadError::text(pos, msg, "file is not valid UTF-8")
         }
         ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             let err =
                 format!("found {len} instead of {expected_len} fields in line {line}");
-            LoadError::new(pos, msg, err)
+            LoadError::text(pos, msg, err)
         }
-        _ => LoadError::new(pos, "failed to parse CSV", err),
+        _ => LoadError::text(pos, "failed to parse CSV", err),
     }
 }

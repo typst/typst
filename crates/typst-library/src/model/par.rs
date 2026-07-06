@@ -8,7 +8,7 @@ use crate::foundations::{
     IntoValue, NativeElement, Packed, Reflect, Smart, Unlabellable, Value, cast, dict,
     elem, scope,
 };
-use crate::introspection::{Count, CounterUpdate, Locatable, Tagged, Unqueriable};
+use crate::introspection::{Count, CounterUpdate};
 use crate::layout::{Abs, Em, HAlignment, Length, OuterHAlignment, Ratio, Rel};
 use crate::model::Numbering;
 
@@ -214,12 +214,13 @@ pub struct ParElem {
     ///
     /// Just like leading, this defines the spacing between the bottom edge of a
     /// paragraph's last line and the top edge of the next paragraph's first
-    /// line.
+    /// line. Spacing acts both above and below, collapsing to the greater of
+    /// the amounts defined by adjacent paragraphs.
     ///
-    /// When a paragraph is adjacent to a @block that is not a paragraph, that
-    /// block's @block.above[`above`] or @block.below[`below`] property takes
-    /// precedence over the paragraph spacing. Headings, for instance, reduce
-    /// the spacing below them by default for a better look.
+    /// When a paragraph is adjacent to a @block, that block's
+    /// @block.above[`above`] or @block.below[`below`] property takes precedence
+    /// over the paragraph spacing. Headings, for instance, reduce the spacing
+    /// below them by default for a better look.
     #[default(Em::new(1.2).into())]
     pub spacing: Length,
 
@@ -647,7 +648,7 @@ pub struct FirstLineIndent {
 cast! {
     FirstLineIndent,
     self => Value::Dict(self.into()),
-    amount: Length => Self { amount: Some(amount), all: Default::default() },
+    amount: Length => Self { amount: Some(amount), all: None },
     mut dict: Dict => {
         // Get a value by key, accepting either non-existence or something
         // convertible to type T.
@@ -690,10 +691,7 @@ impl FirstLineIndent {
 
 impl Default for FirstLineIndent {
     fn default() -> Self {
-        Self {
-            amount: Some(Default::default()),
-            all: Some(Default::default()),
-        }
+        Self { amount: Some(Length::default()), all: Some(false) }
     }
 }
 

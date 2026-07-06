@@ -64,7 +64,7 @@ impl Html {
     fn write_bool_attr(&mut self, name: &str) {
         assert!(self.in_attribute_list);
 
-        write!(self.buf, r" {name}").ok();
+        write!(self.buf, " {name}").ok();
     }
 
     fn write_text(&mut self, text: impl Display) {
@@ -519,7 +519,7 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
 
             div.div().class("diff-scroll-padding");
         });
-    })
+    });
 }
 
 fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
@@ -563,7 +563,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
 
         div.text("Diff Format");
         div.fieldset().class("control-group").with(|fieldset| {
-            for &output in TestOutput::ALL.iter() {
+            for &output in &TestOutput::ALL {
                 let enabled = (reports.iter())
                     .flat_map(|report| report.files.iter())
                     .any(|file| file.output == output);
@@ -578,7 +578,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
     parent.div().class("sidebar-setting").with(|div| {
         div.text("Diff Format");
         div.fieldset().class("control-group").with(|fieldset| {
-            for &output in TestOutput::ALL.iter() {
+            for &output in &TestOutput::ALL {
                 let id = display!("global-diff-format-{output}");
                 let (title, icon) = match output {
                     TestOutput::Render => ("Show PNG diffs", icons::RENDER),
@@ -671,7 +671,7 @@ fn sidebar(parent: &mut HtmlElem, reports: &[TestReport]) {
     parent.h2().text("Tests");
 
     parent.ul().class("sidebar-list").tabindex(-1).with(|ul| {
-        for report in reports.iter() {
+        for report in reports {
             ul.li().with(|li| {
                 li.a()
                     .href(display!("#r-{}", report.name))
@@ -743,7 +743,7 @@ fn test_report_header(
                         title,
                         icon,
                         file_idx == 0,
-                    )
+                    );
                 };
 
                 if report_file.diffs.len() == 1 {
@@ -767,7 +767,7 @@ fn test_report_header(
             .aria_expanded(false)
             .aria_controls(display!("test-report-source-{test_idx}"))
             .title("View test source")
-            .with(|button| svg_icon(button, icons::SOURCE))
+            .with(|button| svg_icon(button, icons::SOURCE));
     });
 }
 
@@ -794,7 +794,7 @@ fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx:
                         diff_cells(tr, &line);
                     });
                 }
-            })
+            });
         });
 }
 
@@ -855,7 +855,7 @@ fn report_file_header(parent: &mut HtmlElem, report_file: &ReportFile) {
                 .with(|button| {
                     svg_icon(button, icons::CHECK);
                     svg_icon(button, icons::COPY);
-                })
+                });
         });
     }
 
@@ -915,7 +915,7 @@ fn report_file_header(parent: &mut HtmlElem, report_file: &ReportFile) {
                 .with(|button| {
                     svg_icon(button, icons::CHECK);
                     svg_icon(button, icons::COPY);
-                })
+                });
         });
     }
 }
@@ -987,7 +987,7 @@ fn file_diff_tabpanel(
         .with(|div| match diff {
             Diff::Text(diff) => text_diff(div, diff),
             Diff::Image(diff) => {
-                image_diff(div, &test_report.name, report_file.output, diff, n)
+                image_diff(div, &test_report.name, report_file.output, diff, n);
             }
             Diff::Html(diff) => html_diff(div, diff),
         });
@@ -1145,7 +1145,7 @@ fn image_diff(
                 .max(opts.max)
                 .value(opts.value)
                 .step(opts.step);
-        })
+        });
     };
 
     parent.div().class("image-diff").with(|div| {
@@ -1304,7 +1304,7 @@ fn image_diff(
                         "Blend",
                         Some(icons::VIEW_BLEND),
                         SliderOpts { min: 0.0, max: 1.0, value: 0.5, step: 0.01 },
-                    )
+                    );
                 });
         });
     });

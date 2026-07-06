@@ -120,8 +120,7 @@ use crate::foundations::{
 /// specifying a parameter list followed by `=>` and the function body. If your
 /// function has just one parameter, the parentheses around the parameter list
 /// are optional. Unnamed functions are mainly useful for show rules, but also
-/// for settable properties that take functions like the page function's
-/// @page.footer[`footer`] property.
+/// as arguments to other functions, like @array.position.
 ///
 /// ```example
 /// #show "once?": it => [#it #it]
@@ -728,7 +727,7 @@ impl Closure {
             ClosureNode::Closure(ref node) => {
                 node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
             }
-            _ => None,
+            ClosureNode::Context(_) => None,
         }
     }
 

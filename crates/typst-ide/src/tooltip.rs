@@ -35,7 +35,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| output.and_then(|output| label_tooltip(output, &leaf)))
+        .or_else(|| label_tooltip(output?, &leaf))
         .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))
@@ -186,8 +186,10 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 /// Tooltip for a hovered reference or label.
 fn label_tooltip(output: impl AsOutput, leaf: &LinkedNode) -> Option<Tooltip> {
     let target = match leaf.kind() {
-        SyntaxKind::RefMarker => leaf.text().trim_start_matches('@'),
-        SyntaxKind::Label => leaf.text().trim_start_matches('<').trim_end_matches('>'),
+        SyntaxKind::RefMarker => leaf.leaf_text().trim_start_matches('@'),
+        SyntaxKind::Label => {
+            leaf.leaf_text().trim_start_matches('<').trim_end_matches('>')
+        }
         _ => return None,
     };
 
@@ -274,7 +276,7 @@ fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
             .families()
             .find(|&(family, _)| family.to_lowercase().as_str() == lower.as_str())
     {
-        let detail = summarize_font_family(iter.filter_map(|id| book.info(id)).collect());
+        let detail = summarize_font_family(iter.filter_map(|id| book.info(id)));
         return Some(Tooltip::Text(detail));
     }
 

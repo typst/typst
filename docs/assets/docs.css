@@ -3,6 +3,10 @@
 /** General note: The docs class is used in some places to increase the
  * specificity. */
 
+:root {
+  scrollbar-gutter: stable;
+}
+
 body.docs {
   font-size: 16px;
 }
@@ -61,14 +65,17 @@ h2,
 h3,
 h4 {
   margin-block-start: 32px;
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
   gap: 8px 32px;
 }
 
-h2 {
-  gap: 8px;
+h2,
+h3,
+h4,
+h5,
+h6 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
 }
 
 h3 {
@@ -80,6 +87,27 @@ h4 {
   margin-block-end: 12px;
 }
 
+h5,
+h6 {
+  gap: 8px 24px;
+}
+
+h5 {
+  margin-block: 24px 12px;
+}
+
+h6 {
+  margin-block: 24px 8px;
+}
+
+h2,
+h3:not(:has(.pill)),
+h4:not(:has(.pill)),
+h5:not(:has(.pill)),
+h6:not(:has(.pill)) {
+  gap: 8px;
+}
+
 h2 + h3 {
   margin-block-start: 0px !important;
 }
@@ -87,16 +115,27 @@ h2 + h3 {
 h1 code,
 h2 code,
 h3 code,
-h4 code {
+h4 code,
+h5 code,
+h6 code {
   font-size: unset;
+}
+
+h1 small,
+h2 small,
+h3 small,
+h4 small,
+h5 small,
+h6 small,
+.reference-index .mod {
+  color: #565565;
+  font-style: italic;
 }
 
 h1 small,
 h2 small {
   display: inline-flex;
   gap: 8px;
-  color: #565565;
-  font-style: italic;
   font-size: 14px !important;
 }
 
@@ -109,16 +148,21 @@ h2 small {
 }
 
 h3 small,
-h4 small {
+h4 small,
+h5 small,
+h6 small {
   display: inline-flex;
   gap: 4px;
-  color: #565565;
-  font-style: italic;
   font-size: 12px;
 }
 
 h3 small svg {
   margin-bottom: -1px;
+}
+
+.reference-index .mod {
+  font-size: inherit;
+  font-weight: 700;
 }
 
 @media screen and (max-width: 695px) {
@@ -133,6 +177,15 @@ h3 small svg {
     margin-left: -2px;
     padding: 4px;
   }
+}
+
+a.sources-link {
+  margin-inline-start: auto;
+}
+
+a.sources-link > svg {
+  display: block;
+  color: var(--text-primary);
 }
 
 li p + ul,
@@ -154,6 +207,10 @@ main > ul > li::marker {
   content: "–   ";
 }
 
+ul.checked > li::marker {
+  content: "✓   ";
+}
+
 dl {
   padding-inline-start: 32px;
   margin-block: 16px;
@@ -167,6 +224,23 @@ dt,
 dd {
   margin-block-end: 16px;
   margin-inline: 0px;
+}
+
+.reference-index dl {
+  padding-inline-start: 0px;
+}
+
+.reference-index dt {
+  margin-block-end: 8px;
+}
+
+.reference-index dd {
+  padding-inline-start: 16px;
+}
+
+math {
+  font-family: "NewComputerModernMath", math;
+  font-size: 1.1em;
 }
 
 main table {
@@ -279,6 +353,58 @@ sup[role="doc-noteref"] {
 
 /* Code example components */
 
+pre {
+  position: relative;
+}
+
+pre > button.copy {
+  top: 8px;
+  right: 8px;
+  padding: 8px;
+  background: #fdfdfd;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-primary);
+  position: absolute;
+  float: right;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+pre > button.copy:active,
+pre > button.copy:focus {
+  opacity: 1;
+}
+
+pre > button.copy:hover {
+  background: var(--action-secondary-hover);
+}
+
+pre > button.copy:focus-visible {
+  background: #fdfdfd;
+  transition: opacity 0s;
+}
+
+pre > button.copy:disabled {
+  color: var(--text-disabled);
+}
+
+@media (hover: hover) {
+  pre:hover > button.copy {
+    opacity: 1;
+  }
+}
+
+@media (hover: none) {
+  pre.tapped > button.copy {
+    opacity: 1;
+  }
+}
+
+pre > button.copy > svg {
+  display: block;
+}
+
 .code-definition + h4,
 .previewed-code + h4 {
   margin-block-start: 28px;
@@ -353,6 +479,8 @@ a.chain img {
   position: absolute;
   top: 7px;
   left: 8px;
+  pointer-events: none;
+  user-select: none;
 }
 
 .search input {
@@ -476,13 +604,32 @@ div[role="tooltip"]:not(.mobile)::after {
   white-space: nowrap;
 }
 
-a.pill {
-  color: inherit !important;
-  text-decoration: none !important;
+h1 > .pill {
+  font-size: 34px;
+  border-radius: 12px;
+  padding: 4px 12px;
+}
+
+h3 > .pill {
+  font-size: 20px;
+  border-radius: 8px;
+  padding: 4px 8px;
 }
 
 .pill + .pill {
   margin-inline-start: 4px;
+}
+
+h3 code + .pill,
+h4 code + .pill {
+  margin-inline-start: 16px;
+}
+
+/* Background styling for unique pills */
+
+a.pill {
+  color: inherit !important;
+  text-decoration: none !important;
 }
 
 .pill-con {
@@ -596,17 +743,6 @@ a.pill {
     rgba(255, 243, 124, 1) 66%,
     rgba(255, 164, 157, 1) 100%
   );
-}
-
-h1 .pill {
-  font-size: 34px;
-  border-radius: 12px;
-  padding: 4px 12px;
-}
-
-h3 code + .pill,
-h4 code + .pill {
-  margin-inline-start: 16px;
 }
 
 /* Navigation breadcrumbs */
@@ -1266,13 +1402,28 @@ h4 .additional-info .pill + .pill {
   margin-block-end: 4px;
 }
 
-.scoped-function {
+.scoped-definition {
   position: relative;
-  margin-block-start: 56px;
-  font-size: 20px;
 }
 
-h2 + h3.scoped-function {
+h3.scoped-definition {
+  font-size: 20px;
+  margin-block-start: 56px;
+}
+
+h4.scoped-definition {
+  font-size: 18px;
+  margin-block-start: 32px;
+}
+
+h5.scoped-definition {
+  font-size: 16px;
+  margin-block-start: 32px;
+}
+
+h2 + h3.scoped-definition,
+h3 + h4.scoped-definition,
+h4 + h5.scoped-definition {
   margin-block-start: 0px !important;
 }
 
@@ -1463,18 +1614,20 @@ p + .symbol-grid {
 }
 
 .symbol-flyout button.copy {
-  top: 1px;
-  margin-inline-start: 2px;
-}
-
-.symbol-flyout button.copy {
-  padding: 2px;
+  top: 0.2em;
+  margin-inline-start: 0.15em;
+  padding: 0px;
   background: none;
   border: 0px;
   width: unset;
   box-shadow: none;
   display: inline-block;
   position: relative;
+  cursor: pointer;
+}
+
+.symbol-flyout button.copy > img {
+  display: block;
 }
 
 .symbol-flyout .info {
@@ -1482,14 +1635,17 @@ p + .symbol-grid {
   gap: 16px;
 }
 
-.symbol-flyout .info .accent {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.symbol-flyout .info .accent > img {
+  top: 0.15em;
+  position: relative;
 }
 
 .symbol-flyout button + .remark {
   margin-inline-start: 4px;
   font-size: 14px;
   color: #565565;
+}
+
+.changelog h3 {
+  font-size: 20px;
 }

@@ -19,6 +19,7 @@ rayon = { workspace = true }
 rustc-hash = { workspace = true }
 semver = { workspace = true }
 siphasher = { workspace = true }
+smallvec = { workspace = true }
 thin-vec = { workspace = true }
 unicode-math-class = { workspace = true }
 libm = { workspace = true }

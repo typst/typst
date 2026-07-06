@@ -49,6 +49,10 @@ pub struct WatchCommand {
     /// Arguments for compilation.
     #[clap(flatten)]
     pub args: CompileArgs,
+
+    /// Whether to emit the files when the source changes, instead of serving them.
+    #[arg(long)]
+    pub no_serve: bool,
 }
 
 /// Arguments for compilation and watching.

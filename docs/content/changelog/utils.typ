@@ -1,4 +1,7 @@
-#import "../../components/index.typ": icon, labelled, small
+#import "../../components/index.typ": icon, labelled, short-or-long, small
+
+#let breaking = [*(Breaking change)*]
+#let minor-breaking = [*(Minor breaking change)*]
 
 #let main-repo = "typst/typst"
 
@@ -49,3 +52,4 @@
 }
 
 #let gh(name) = link("https://github.com/" + name, [\@#name])
+#let repo(name) = link("https://github.com/" + name, name)

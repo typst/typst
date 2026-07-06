@@ -107,7 +107,7 @@ pub fn write(mut reports: Vec<TestReport>) -> Result<bool, ()> {
         writeln!(text, "- {rev_hash}").unwrap();
     }
     writeln!(text, "missing-live:").unwrap();
-    for ((name, output), hash_ref) in missing_live.iter() {
+    for ((name, output), hash_ref) in &missing_live {
         let path = output.hash_path(*hash_ref, name);
         writeln!(text, "- {}", path.display()).unwrap();
     }

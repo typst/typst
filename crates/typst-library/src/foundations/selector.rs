@@ -12,7 +12,7 @@ use crate::foundations::{
     CastInfo, Content, Context, Dict, Element, FromValue, Func, Label, Reflect, Regex,
     Repr, Str, StyleChain, Symbol, Type, Value, cast, func, repr, scope, ty,
 };
-use crate::introspection::{Locatable, Location, QueryUniqueIntrospection, Unqueriable};
+use crate::introspection::{Location, QueryUniqueIntrospection};
 
 /// A helper macro to create a field selector used in [`Selector::Elem`]
 #[macro_export]
@@ -423,8 +423,8 @@ impl FromValue for LocatableSelector {
         fn validate(selector: &Selector) -> StrResult<()> {
             match selector {
                 Selector::Elem(elem, _) => {
-                    if !elem.can::<dyn Locatable>() || elem.can::<dyn Unqueriable>() {
-                        Err(eco_format!("{} is not locatable", elem.name()))?
+                    if !elem.is_locatable() || elem.is_unqueriable() {
+                        Err(eco_format!("{} is not locatable", elem.name()))?;
                     }
                 }
                 Selector::Location(_) => {}

@@ -120,7 +120,6 @@
       html.link(href: stdx.config.asset-base + "docs.css", rel: "stylesheet")
       html.script(type: "module", src: stdx.config.asset-base + "docs.js")
       html.title(title + " - Typst Documentation")
-      // TODO: More to come here
     })
 
     html.body(class: classnames("docs", class), {

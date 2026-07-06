@@ -167,7 +167,7 @@ pub trait SvgDisplay {
 
 impl<T: SvgDisplay> SvgDisplay for &T {
     fn fmt(&self, f: &mut impl SvgWrite) {
-        <T as SvgDisplay>::fmt(self, f)
+        <T as SvgDisplay>::fmt(self, f);
     }
 }
 
@@ -204,7 +204,7 @@ impl SvgDisplay for f64 {
 /// Displays as an SVG transform. The exact representation is chosen based on
 /// the specific transform. Either `matrix`, `scale`, or `translate` is used.
 ///
-/// See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
+/// See <https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform>
 pub struct SvgTransform(pub Transform);
 
 impl SvgDisplay for SvgTransform {
@@ -223,7 +223,7 @@ impl SvgDisplay for SvgTransform {
             } else {
                 f.push_nums([sx, sy]);
             }
-            f.push_str(")")
+            f.push_str(")");
         } else if self.0.is_only_translate() {
             f.push_str("translate(");
             if ty == 0.0 {

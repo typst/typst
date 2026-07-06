@@ -5,14 +5,14 @@ use ecow::EcoString;
 use typst_syntax::Span;
 
 use crate::layout::{Abs, Em, Point, Rect};
-use crate::text::{Font, Lang, Region, is_default_ignorable};
+use crate::text::{FontInstance, Lang, Region, is_default_ignorable};
 use crate::visualize::{FixedStroke, Paint};
 
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct TextItem {
     /// The font the glyphs are contained in.
-    pub font: Font,
+    pub font: FontInstance,
     /// The font size.
     pub size: Abs,
     /// Glyph color.
@@ -48,7 +48,7 @@ impl TextItem {
         let mut max = Point::splat(-Abs::inf());
         let mut cursor = Point::zero();
 
-        for glyph in self.glyphs.iter() {
+        for glyph in &self.glyphs {
             let advance =
                 Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
             let offset =
@@ -125,7 +125,7 @@ pub struct TextItemView<'a> {
 }
 
 impl<'a> TextItemView<'a> {
-    /// Build a TextItemView for the whole contents of a TextItem.
+    /// Build a [`TextItemView`] for the whole contents of a [`TextItem`].
     pub fn full(text: &'a TextItem) -> Self {
         Self::from_glyph_range(text, 0..text.glyphs.len())
     }

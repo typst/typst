@@ -9,16 +9,18 @@ use xmlwriter::XmlWriter;
 
 use crate::foundations::Bytes;
 use crate::layout::{Abs, Frame, FrameItem, Point, Rect, Size};
-use crate::text::Font;
+use crate::text::FontInstance;
 use crate::visualize::{
     ExchangeFormat, FixedStroke, Geometry, Image, RasterImage, Shape, SvgImage,
 };
 
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
-pub fn should_outline(font: &Font, glyph_id: GlyphId) -> bool {
+pub fn should_outline(font: &FontInstance, glyph_id: GlyphId) -> bool {
     let ttf = font.ttf();
-    (ttf.tables().glyf.is_some() || ttf.tables().cff.is_some())
+    (ttf.tables().glyf.is_some()
+        || ttf.tables().cff.is_some()
+        || ttf.tables().cff2.is_some())
         && !ttf
             .glyph_raster_image(glyph_id, u16::MAX)
             .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
@@ -45,10 +47,10 @@ impl From<GlyphFrame> for Frame {
         let mut frame = Frame::soft(Size::splat(g.upem));
         match g.item {
             GlyphFrameItem::Tofu(pos, shape) => {
-                frame.push(pos, FrameItem::Shape(shape, Span::detached()))
+                frame.push(pos, FrameItem::Shape(shape, Span::detached()));
             }
             GlyphFrameItem::Image(pos, image, size) => {
-                frame.push(pos, FrameItem::Image(image, size, Span::detached()))
+                frame.push(pos, FrameItem::Image(image, size, Span::detached()));
             }
         }
         frame
@@ -84,7 +86,7 @@ impl GlyphFrameItem {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
-pub fn glyph_frame(font: &Font, glyph_id: u16) -> Option<GlyphFrame> {
+pub fn glyph_frame(font: &FontInstance, glyph_id: u16) -> Option<GlyphFrame> {
     let upem = Abs::pt(font.units_per_em());
     let glyph_id = GlyphId(glyph_id);
 
@@ -101,7 +103,7 @@ pub fn glyph_frame(font: &Font, glyph_id: u16) -> Option<GlyphFrame> {
 }
 
 /// Tries to draw a glyph.
-fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
+fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let ttf = font.ttf();
     let kind = if let Some(raster_image) = ttf
         .glyph_raster_image(glyph_id, u16::MAX)
@@ -109,9 +111,9 @@ fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
     {
         draw_raster_glyph(font, upem, raster_image)
     } else if ttf.is_color_glyph(glyph_id) {
-        draw_colr_glyph(font, upem, glyph_id)
+        draw_colr_glyph(font, glyph_id)
     } else if ttf.glyph_svg_image(glyph_id).is_some() {
-        draw_svg_glyph(font, upem, glyph_id)
+        draw_svg_glyph(font, glyph_id)
     } else {
         None
     };
@@ -120,7 +122,7 @@ fn draw_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
 }
 
 /// Draws a fallback tofu box with the advance width of the glyph.
-fn draw_fallback_tofu(font: &Font, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
+fn draw_fallback_tofu(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
     let advance = font
         .ttf()
         .glyph_hor_advance(glyph_id)
@@ -140,33 +142,34 @@ fn draw_fallback_tofu(font: &Font, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
 ///
 /// Supports only PNG images.
 fn draw_raster_glyph(
-    font: &Font,
+    font: &FontInstance,
     upem: Abs,
     raster_image: ttf_parser::RasterGlyphImage,
 ) -> Option<GlyphFrameItem> {
     let data = Bytes::new(raster_image.data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
+    let scale = upem / raster_image.pixels_per_em as f64;
+    let image_width = scale * image.width();
+    let image_height = scale * image.height();
+
+    let x_offset = scale * raster_image.x as f64;
+    let mut y_offset = scale * raster_image.y as f64;
     // Apple Color emoji doesn't provide offset information (or at least
     // not in a way ttf-parser understands), so we artificially shift their
     // baseline to make it look good.
-    let y_offset = if font.info().family.to_lowercase() == "apple color emoji" {
-        20.0
-    } else {
-        -(raster_image.y as f64)
-    };
+    if font.info().family.to_lowercase() == "apple color emoji" {
+        // This factor is just taken from krilla.
+        y_offset -= 0.128 * upem;
+    }
 
-    let position = Point::new(
-        upem * raster_image.x as f64 / raster_image.pixels_per_em as f64,
-        upem * y_offset / raster_image.pixels_per_em as f64,
-    );
-    let aspect_ratio = image.width() / image.height();
-    let size = Size::new(upem, upem * aspect_ratio);
+    let position = Point::new(-x_offset, -(image_height + y_offset));
+    let size = Size::new(image_width, image_height);
     Some(GlyphFrameItem::Image(position, image, size))
 }
 
 /// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     let svg_string = colr_glyph_to_svg(font, glyph_id)?;
 
     let ttf = font.ttf();
@@ -178,14 +181,13 @@ fn draw_colr_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFra
     let data = Bytes::from_string(svg_string);
     let image = Image::plain(SvgImage::new(data).ok()?);
 
-    let y_shift = Abs::pt(upem.to_pt() - y_max);
-    let position = Point::new(Abs::pt(x_min), y_shift);
+    let position = Point::new(Abs::pt(x_min), Abs::pt(-y_max));
     let size = Size::new(Abs::pt(width), Abs::pt(height));
     Some(GlyphFrameItem::Image(position, image, size))
 }
 
 /// Convert a COLR glyph into an SVG file.
-fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
+fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     let ttf = font.ttf();
@@ -232,7 +234,7 @@ fn colr_glyph_to_svg(font: &Font, glyph_id: GlyphId) -> Option<String> {
 }
 
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
     let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
@@ -277,7 +279,7 @@ fn draw_svg_glyph(font: &Font, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFram
     let data = Bytes::from_string(data);
     let image = Image::plain(SvgImage::new(data).ok()?);
 
-    let position = Point::new(view_box.min.x, view_box.min.y + upem);
+    let position = Point::new(view_box.min.x, view_box.min.y);
     let size = view_box.size();
     Some(GlyphFrameItem::Image(position, image, size))
 }
@@ -371,26 +373,26 @@ impl ColrBuilder<'_> {
 impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "M {x} {y} ").unwrap()
+        write!(self.0, "M {x} {y} ").unwrap();
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "L {x} {y} ").unwrap()
+        write!(self.0, "L {x} {y} ").unwrap();
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "Q {x1} {y1} {x} {y} ").unwrap()
+        write!(self.0, "Q {x1} {y1} {x} {y} ").unwrap();
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "C {x1} {y1} {x2} {y2} {x} {y} ").unwrap()
+        write!(self.0, "C {x1} {y1} {x2} {y2} {x} {y} ").unwrap();
     }
 
     fn close(&mut self) {
-        self.0.push_str("Z ")
+        self.0.push_str("Z ");
     }
 }
 
@@ -651,7 +653,7 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
 
     fn pop_transform(&mut self) {
         if let Some(ts) = self.transforms_stack.pop() {
-            self.transform = ts
+            self.transform = ts;
         }
     }
 

@@ -3,14 +3,13 @@ use std::num::NonZeroUsize;
 use codex::styling::MathVariant;
 use ecow::EcoString;
 use typst_utils::NonZeroExt;
-use unicode_math_class::MathClass;
 
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
+use crate::introspection::{Count, Counter, CounterUpdate};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
@@ -147,11 +146,6 @@ pub struct EquationElem {
     #[internal]
     #[ghost]
     pub italic: Option<bool>,
-
-    /// A forced class to use for all fragment.
-    #[internal]
-    #[ghost]
-    pub class: Option<MathClass>,
 
     /// Values of `scriptPercentScaleDown` and `scriptScriptPercentScaleDown`
     /// respectively in the current font's MathConstants table.

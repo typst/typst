@@ -1,7 +1,7 @@
 use ecow::eco_format;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, LoadError, LoadedWithin, ReportPos, SourceResult};
+use crate::diag::{At, LoadError, LoadedWithin, ReportTextPos, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{Dict, Str, func, scope};
 use crate::loading::{DataSource, Load};
@@ -125,6 +125,6 @@ impl toml {
 
 /// Format the user-facing TOML error message.
 fn format_toml_error(error: ::toml::de::Error) -> LoadError {
-    let pos = error.span().map(ReportPos::from).unwrap_or_default();
-    LoadError::new(pos, "failed to parse TOML", error.message())
+    let pos = error.span().map(ReportTextPos::from).unwrap_or_default();
+    LoadError::text(pos, "failed to parse TOML", error.message())
 }

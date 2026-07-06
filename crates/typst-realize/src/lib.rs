@@ -21,9 +21,7 @@ use typst_library::foundations::{
     Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
     Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
 };
-use typst_library::introspection::{
-    Locatable, LocationKey, SplitLocator, Tag, TagElem, TagFlags, Tagged,
-};
+use typst_library::introspection::{LocationKey, SplitLocator, Tag, TagElem, TagFlags};
 use typst_library::layout::{
     AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
 };
@@ -520,8 +518,8 @@ fn verdict<'a>(
             elem.label().is_none()
                 && elem.location().is_none()
                 && !elem.can::<dyn ShowSet>()
-                && !elem.can::<dyn Locatable>()
-                && !elem.can::<dyn Tagged>()
+                && !elem.is_locatable()
+                && !elem.is_tagged()
                 && !elem.can::<dyn Synthesize>()
         })
     {
@@ -547,10 +545,10 @@ fn prepare(
     // when it stems from a query.
     let key = typst_utils::hash128(&elem);
     let flags = TagFlags {
-        introspectable: elem.can::<dyn Locatable>()
+        introspectable: elem.is_locatable()
             || elem.label().is_some()
             || elem.location().is_some(),
-        tagged: elem.can::<dyn Tagged>(),
+        tagged: elem.is_tagged(),
     };
     if elem.location().is_none() && flags.any() {
         let loc = locator.next_location(engine, key, elem.span());
@@ -1210,11 +1208,7 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     let elems = grouped.get();
     let span = select_span(elems);
     let trunk = elems[0].1;
-    let children = elems
-        .iter()
-        .filter_map(|(c, _)| c.to_packed::<CiteElem>())
-        .cloned()
-        .collect();
+    let children = elems.iter().map(|(c, _)| (**c).clone()).collect();
 
     // Create and visit the citation group.
     let s = grouped.end();

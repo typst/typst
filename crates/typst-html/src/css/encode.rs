@@ -6,7 +6,9 @@ use std::ops::Deref;
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::WarningSink;
 use typst_library::layout::{Abs, Angle, Em, Length, Ratio, Rel};
-use typst_library::visualize::{Color, Hsl, LinearRgb, Oklab, Oklch, Paint, Rgb};
+use typst_library::visualize::{
+    Color, Hsl, LinearRgb, Oklab, Oklch, Paint, ProcessColor, Rgb,
+};
 use typst_utils::Numeric;
 
 use crate::property;
@@ -151,7 +153,7 @@ impl<'a> CssWriter<'a> {
     }
 
     fn emit(&mut self, value: impl ToCss) {
-        value.emit(self)
+        value.emit(self);
     }
 
     fn write(&mut self, value: &str) {
@@ -322,8 +324,8 @@ impl ToCss for str {
 
 /// Displays a number with four significant digits.
 ///
-/// For a number between 0 and 1, four significant digits give us a
-/// precision of 1/10_000, which is more than 12 bits (see `is_very_close`).
+/// For a number between 0 and 1, four significant digits give us a precision of
+/// `1/10_000`, which is more than 12 bits (see [`is_very_close`]).
 struct Number<T: Into<f64>>(T);
 
 impl<T: Into<f64> + Copy> ToCss for Number<T> {
@@ -393,12 +395,16 @@ impl ToCss for Paint {
 
 impl ToCss for Color {
     fn emit(&self, w: &mut CssWriter) {
-        match self {
-            Color::Rgb(_) | Color::Cmyk(_) | Color::Luma(_) => w.emit(self.to_rgb()),
-            Color::Oklab(v) => w.emit(v),
-            Color::Oklch(v) => w.emit(v),
-            Color::LinearRgb(v) => w.emit(v),
-            Color::Hsl(_) | Color::Hsv(_) => w.emit(self.to_hsl()),
+        // Convert to ProcessColor (spot colors use their fallback)
+        let process = self.to_process();
+        match process {
+            ProcessColor::Rgb(_) | ProcessColor::Cmyk(_) | ProcessColor::Luma(_) => {
+                w.emit(process.to_rgb());
+            }
+            ProcessColor::Oklab(v) => w.emit(v),
+            ProcessColor::Oklch(v) => w.emit(v),
+            ProcessColor::LinearRgb(v) => w.emit(v),
+            ProcessColor::Hsl(_) | ProcessColor::Hsv(_) => w.emit(process.to_hsl()),
         }
     }
 }

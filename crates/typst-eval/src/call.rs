@@ -1,7 +1,8 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::{
-    At, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail, error,
+    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
+    bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
@@ -129,7 +130,7 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
                     span,
                     "cannot call mutating methods in math";
                     hint: "try using code mode to call the method: `#{}`",
-                        math_call.to_untyped().clone().into_text();
+                        math_call.to_untyped().full_text();
                 );
             }
             eval_field_callee(
@@ -236,8 +237,8 @@ enum FieldCallee {
 /// - Prioritizing methods would make all new method additions breaking changes.
 /// - Prioritizing field functions would break methods for certain dictionaries,
 ///   e.g. `(at: x => ...).at(key)`.
-fn eval_field_callee<'a, 'b>(
-    vm: &'a mut Vm<'b>,
+fn eval_field_callee(
+    vm: &mut Vm,
     access: &SyntaxNode,
     field: &str,
     field_span: Span,
@@ -255,75 +256,50 @@ fn eval_field_callee<'a, 'b>(
     {
         is_method_call = true;
         method.read_checked(sink).clone()
-    } else if matches!(
-        target,
-        Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
-    ) {
-        // Only these types are allowed to use field call syntax on non-methods.
+    } else if matches!(target, Value::Symbol(_) | Value::Type(_) | Value::Module(_)) {
+        // These types are allowed to use field call syntax on non-methods.
         target.field(field, sink).at(field_span)?
+    } else if let Value::Func(func) = &target {
+        // Functions can also use field call syntax on non-methods, but not for
+        // settable fields accessed from context.
+        match target.field(field, sink).at(field_span) {
+            Ok(callee_value) => callee_value,
+            Err(err) => {
+                if let Some(element) = func.to_element()
+                    && let Some(field_accessor) = element.settable_field_accessor(field)
+                {
+                    let styles = vm.context.styles().at(field_span)?;
+                    let callee_value = field_accessor(styles);
+                    bail!(disallowed_field_call_error(
+                        callee_value,
+                        access,
+                        field,
+                        target,
+                        in_math
+                    ));
+                } else {
+                    return Err(err);
+                }
+            }
+        }
     } else {
-        // Otherwise we cannot call this field and produce an error.
-        let full_text = || access.clone().into_text();
+        // Otherwise we are not allowed to call the field and produce an error.
         match target.field(field, sink) {
             // The field does exist.
             Ok(callee_value) => {
-                // Aside from Dict and Content, only a few other types have
-                // accessible fields which could produce these errors. As of
-                // March 2026, they are:
-                // - Alignment (.x, .y)
-                // - Length (.abs, .em)
-                // - Relative Length (.ratio, .length)
-                // - Stroke (.cap, .dash, .join, .miter-limit, .paint, .thickness)
-                // - Version (.major, .minor, .patch)
-                // The other types with fields (Symbol, Func, Type, Module) are
-                // handled above.
-                let is_dict = matches!(target, Value::Dict(_));
-                let mut err = if is_dict {
-                    // Dictionaries get a specific error & hint because they're
-                    // the easiest to attempt this with, and users need to be
-                    // told directly why it's not allowed.
-                    error!(
-                        access.span(),
-                        "cannot directly call dictionary keys as functions";
-                    )
-                } else {
-                    let (kind, name) = element_or_type_with_name(&target);
-                    error!(
-                        access.span(),
-                        "`{field}` is not a valid method for {kind} `{name}`";
-                    )
-                };
-                if callee_value.clone().cast::<Func>().is_ok() {
-                    err.hint(eco_format!(
-                        "to call the stored function, {}wrap the field access \
-                            in parentheses: `{}({})(..)`",
-                        if in_math { "use code mode and " } else { "" },
-                        if in_math { "#" } else { "" },
-                        full_text()
-                    ));
-                } else if in_math {
-                    err.hint("try adding a space before the parentheses");
-                } else {
-                    err.hint(eco_format!(
-                        "to access the `{field}` {}, remove the function arguments: `{}`",
-                        if is_dict { "key" } else { "field" },
-                        full_text(),
-                    ));
-                }
-                if is_dict {
-                    err.hint(
-                        "dictionary keys cannot be used with method syntax as keys \
-                            could conflict with built-in method names",
-                    );
-                }
-
-                bail!(err)
+                bail!(disallowed_field_call_error(
+                    callee_value,
+                    access,
+                    field,
+                    target,
+                    in_math
+                ));
             }
             // The field does not exist. We don't try as hard on the error here
             // to avoid assuming the user's intent.
             Err(_) => {
                 let (kind, name) = element_or_type_with_name(&target);
-                bail!(access.span(), "{kind} {name} has no method `{field}`")
+                bail!(access.span(), "{kind} {name} has no method `{field}`");
             }
         }
     };
@@ -335,6 +311,83 @@ fn eval_field_callee<'a, 'b>(
         Ok(func) => Ok(FieldCallee::Func(func)),
         Err(err) => Ok(FieldCallee::NonFunc(callee_value, err)),
     }
+}
+
+/// Produce an error for calls to fields that do exist, but are not allowed to
+/// be called with field-access syntax.
+///
+/// The types that do allow direct field-access calling are `Symbol`, `Type`,
+/// `Module`, and `Func`. Although functions don't allow settable fields
+/// accessed from context (like `heading.numbering`) to be called directly.
+///
+/// The main types that allow field-access but disallow calling are `Dict`,
+/// named `Args`, and `Content`.
+///
+/// And the remaining types/fields that could produce this error are:
+/// - `Alignment`: `.x`, `.y`
+/// - `Length`: `.abs`, `.em`
+/// - `Rel`: `.ratio`, `.length`
+/// - `Stroke`: `.cap`, `.dash`, `.join`, `.miter-limit`, `.paint`, `.thickness`
+/// - `Version`: `.major`, `.minor`, `.patch`
+fn disallowed_field_call_error(
+    callee_value: Value,
+    access: &SyntaxNode,
+    field: &str,
+    target: Value,
+    in_math: bool,
+) -> SourceDiagnostic {
+    let is_dict = matches!(target, Value::Dict(_));
+    let is_named = matches!(target, Value::Args(_));
+    let mut err = if is_dict {
+        // Dictionaries get a specific error & hint because they're the easiest
+        // to attempt this with, and users need to be told directly why it's not
+        // allowed.
+        error!(access.span(), "cannot directly call dictionary keys as functions")
+    } else if is_named {
+        // Also give the custom error & hint for named arguments.
+        error!(access.span(), "cannot directly call named argument fields as functions")
+    } else {
+        let (kind, name) = element_or_type_with_name(&target);
+        error!(access.span(), "`{field}` is not a valid method for {kind} `{name}`")
+    };
+
+    if callee_value.clone().cast::<Func>().is_ok() {
+        err.hint(eco_format!(
+            "to call the stored function, {}wrap the field access \
+                in parentheses: `{}({})(..)`",
+            if in_math { "use code mode and " } else { "" },
+            if in_math { "#" } else { "" },
+            access.full_text(),
+        ));
+    } else if in_math {
+        err.hint("try adding a space before the parentheses");
+    } else {
+        err.hint(eco_format!(
+            "to access the `{field}` {}, remove the function arguments: `{}`",
+            if is_dict {
+                "key"
+            } else if is_named {
+                "argument"
+            } else {
+                "field"
+            },
+            access.full_text(),
+        ));
+    }
+
+    if is_dict {
+        err.hint(
+            "dictionary keys cannot be used with method syntax as keys could conflict \
+                with built-in method names",
+        );
+    } else if is_named {
+        err.hint(
+            "named arguments cannot be used with method syntax as argument names could \
+                conflict with built-in method names",
+        );
+    }
+
+    err
 }
 
 /// If the value is content, the string "element" and the name of its element
@@ -513,9 +566,8 @@ fn unparse_math_args(
                 body.push(expr.eval(vm)?.display().spanned(expr.span()));
             }
             ast::MathArgItem::Arg(ast::Arg::Named(named)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    named.to_untyped().clone().into_text().replacen(":", "\\:", 1);
+                let name = callee.to_untyped().full_text();
+                let fixed = named.to_untyped().full_text().replacen(":", "\\:", 1);
                 errors.push(error!(
                     named.span(), "named-argument syntax can only be used with functions";
                     hint[callee.span()]: "`{name}` is not a function";
@@ -523,9 +575,8 @@ fn unparse_math_args(
                 ));
             }
             ast::MathArgItem::Arg(ast::Arg::Spread(spread)) => {
-                let name = callee.to_untyped().clone().into_text();
-                let fixed =
-                    spread.to_untyped().clone().into_text().replacen("..", ".. ", 1);
+                let name = callee.to_untyped().full_text();
+                let fixed = spread.to_untyped().full_text().replacen("..", ".. ", 1);
                 errors.push(error!(
                     spread.span(), "spread-argument syntax can only be used with functions";
                     hint[callee.span()]: "`{name}` is not a function";
@@ -581,7 +632,7 @@ impl Eval for ast::Closure<'_> {
 
 /// Call the function in the context with the arguments.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_closure(
     func: &Func,
     closure: &LazyHash<Closure>,
@@ -639,7 +690,7 @@ pub fn eval_closure(
         match p {
             ast::Param::Pos(pattern) => match pattern {
                 ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                    vm.define(ident, args.expect::<Value>(&ident)?)
+                    vm.define(ident, args.expect::<Value>(&ident)?);
                 }
                 pattern => {
                     crate::destructure(
@@ -724,7 +775,7 @@ impl<'a> CapturesVisitor<'a> {
             // the expressions that contain them).
             Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math)
+                self.capture(ident.get(), Scopes::get_in_math);
             }
 
             // Code and content blocks create a scope.

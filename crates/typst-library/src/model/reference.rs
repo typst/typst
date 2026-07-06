@@ -8,8 +8,8 @@ use crate::foundations::{
     StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, Locatable, PageNumberingIntrospection,
-    PageSupplementIntrospection, QueryLabelIntrospection, Tagged,
+    Counter, CounterKey, PageNumberingIntrospection, PageSupplementIntrospection,
+    QueryLabelIntrospection,
 };
 use crate::math::EquationElem;
 use crate::model::{
@@ -264,7 +264,7 @@ impl Packed<RefElem> {
             if let Ok(elem) = elem {
                 bail!(
                     span,
-                    "label `{}` occurs both in the document and its bibliography",
+                    "label `{}` occurs both in the document and a bibliography",
                     self.target.repr();
                     hint: "change either the {}'s label or the \
                            bibliography key to resolve the ambiguity",

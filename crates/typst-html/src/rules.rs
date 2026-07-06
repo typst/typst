@@ -501,14 +501,15 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| {
 // properly overridden. For those, we currently emit classes so that a user can
 // style them with CSS, but do not emit any styles ourselves.
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
+    let loc = elem.location().unwrap();
     let span = elem.span();
-    let works = Works::with_bibliography(engine, elem.clone())?;
-    let references = works.references(elem, styles)?;
+    let works = Works::generate(engine, elem.span())?;
+    let bibliography = works.bibliography(loc, span)?;
 
-    let items = references.iter().map(|(prefix, reference, loc)| {
-        let mut realized = reference.clone();
+    let items = bibliography.entries.iter().map(|entry| {
+        let mut realized = entry.body.clone();
 
-        if let Some(mut prefix) = prefix.clone() {
+        if let Some(mut prefix) = entry.prefix.clone() {
             // If we have a link back to the first citation referencing this
             // entry, attach the appropriate role.
             if prefix.is::<DirectLinkElem>() {
@@ -528,7 +529,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
         HtmlElem::new(tag::li)
             .with_body(Some(realized))
             .pack()
-            .located(*loc)
+            .located(entry.backlink)
             .spanned(span)
     });
 
@@ -544,7 +545,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
             .with_attr(attr::role, "doc-bibliography")
             .with_optional_attr(
                 attr::class,
-                works.hanging_indent.then_some("hanging-indent"),
+                bibliography.hanging_indent.then_some("hanging-indent"),
             )
             .with_body(Some(title.unwrap_or_default() + list))
             .pack()
@@ -581,7 +582,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
     let tr = |tag, row: &[Entry]| {
         let row = row
             .iter()
-            .flat_map(|entry| entry.as_cell())
+            .filter_map(|entry| entry.as_cell())
             .map(|cell| show_cell(tag, cell, styles));
         elem(tag::tr, Content::sequence(row))
     };
@@ -624,7 +625,7 @@ fn show_cellgrid(grid: &CellGrid, styles: StyleChain, span: Span) -> Content {
 
     let (y_offset, header) = if first_mid_table_header > 0 {
         let removed_header_rows =
-            header_range(grid.headers.get(first_mid_table_header - 1).unwrap()).end;
+            header_range(&grid.headers[first_mid_table_header - 1]).end;
         let rows = rows.drain(..removed_header_rows);
 
         (

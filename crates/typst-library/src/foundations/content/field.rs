@@ -95,7 +95,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
             has: |_| true,
             get: |elem| Some((E::FIELD.get)(elem).clone().into_value()),
             get_with_styles: |elem, _| Some((E::FIELD.get)(elem).clone().into_value()),
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |a, b| (E::FIELD.get)(a) == (E::FIELD.get)(b),
         }
@@ -122,7 +122,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
             has: |_| true,
             get: |elem| Some((E::FIELD.get)(elem).clone().into_value()),
             get_with_styles: |elem, _| Some((E::FIELD.get)(elem).clone().into_value()),
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |a, b| (E::FIELD.get)(a) == (E::FIELD.get)(b),
         }
@@ -178,7 +178,7 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
             get_with_styles: |elem, _| {
                 (E::FIELD.get)(elem).clone().map(|v| v.into_value())
             },
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             // Synthesized fields don't affect equality.
             eq: |_, _| true,
@@ -232,7 +232,7 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
             has: |_| false,
             get: |_| None,
             get_with_styles: |_, _| None,
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |_, _| true,
         }
@@ -256,7 +256,7 @@ pub struct SettableFieldData<E: SettableField<I>, const I: u8> {
 
 impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
     /// Creates the data from its parts. This is called in the `#[elem]` macro.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         docs: &'static str,
@@ -308,9 +308,9 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
             get_with_styles: |elem, styles| {
                 Some((E::FIELD.get)(elem).get_cloned(styles).into_value())
             },
-            get_from_styles: |styles| {
-                Some(styles.get_cloned::<E, I>(Field::new()).into_value())
-            },
+            get_from_styles: Some(|styles| {
+                styles.get_cloned::<E, I>(Field::new()).into_value()
+            }),
             materialize: |elem, styles| {
                 if !(E::FIELD.get)(elem).is_set() {
                     (E::FIELD.get_mut)(elem).set(styles.get_cloned::<E, I>(Field::new()));
@@ -423,9 +423,9 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
             get_with_styles: |_, styles| {
                 Some(styles.get_cloned::<E, I>(Field::new()).into_value())
             },
-            get_from_styles: |styles| {
-                Some(styles.get_cloned::<E, I>(Field::new()).into_value())
-            },
+            get_from_styles: Some(|styles| {
+                styles.get_cloned::<E, I>(Field::new()).into_value()
+            }),
             materialize: |_, _| {},
             eq: |_, _| true,
         }
@@ -483,7 +483,7 @@ where
 
     /// Retrieves the value given styles. The styles are used if the value is
     /// unset.
-    pub fn get<'a>(&'a self, styles: StyleChain<'a>) -> E::Type
+    pub fn get(&self, styles: StyleChain) -> E::Type
     where
         E::Type: Copy,
     {
@@ -492,7 +492,7 @@ where
 
     /// Retrieves and clones the value given styles. The styles are used if the
     /// value is unset or if it needs folding.
-    pub fn get_cloned<'a>(&'a self, styles: StyleChain<'a>) -> E::Type {
+    pub fn get_cloned(&self, styles: StyleChain) -> E::Type {
         if let Some(fold) = E::FOLD {
             let mut res = styles.get_cloned::<E, I>(Field::new());
             if let Some(value) = &self.0 {
@@ -520,7 +520,7 @@ where
     }
 
     /// Retrieves the value and then immediately [resolves](Resolve) it.
-    pub fn resolve<'a>(&'a self, styles: StyleChain<'a>) -> <E::Type as Resolve>::Output
+    pub fn resolve(&self, styles: StyleChain) -> <E::Type as Resolve>::Output
     where
         E::Type: Resolve,
     {

@@ -68,10 +68,14 @@ pub fn layout_table(
     // We pad ascent and descent with the ascent and descent of the paren
     // to ensure that normal matrices are aligned with others unless they are
     // way too big.
-    let (ascent, descent) =
-        GlyphFragment::new_char(ctx, styles.chain(&denom_style), '(', Span::detached())
-            .map(|glyph| (glyph.ascent(), glyph.descent()))
-            .unwrap_or((Abs::zero(), Abs::zero()));
+    let (ascent, descent) = GlyphFragment::synthetic(
+        ctx.engine,
+        styles.chain(&denom_style),
+        '(',
+        Span::detached(),
+    )
+    .map(|glyph| (glyph.ascent(), glyph.descent()))
+    .unwrap_or((Abs::zero(), Abs::zero()));
 
     for (r, row) in rows.iter().enumerate() {
         for (c, cell) in row.iter().enumerate() {
@@ -84,13 +88,13 @@ pub fn layout_table(
         }
     }
 
-    for line in hline.0.iter_mut() {
+    for line in &mut hline.0 {
         if *line < 0 {
             *line += nrows as isize;
         }
     }
 
-    for line in vline.0.iter_mut() {
+    for line in &mut vline.0 {
         if *line < 0 {
             *line += ncols as isize;
         }

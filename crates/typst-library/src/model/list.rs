@@ -6,8 +6,7 @@ use crate::foundations::{
     Array, Content, Context, Depth, Func, NativeElement, Packed, Smart, StyleChain,
     Styles, Value, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
-use crate::layout::{Em, Length};
+use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::text::TextElem;
 
 /// A bullet list.
@@ -107,6 +106,35 @@ pub struct ListElem {
     /// If set to `{auto}`, uses paragraph @par.leading[`leading`] for tight
     /// lists and paragraph @par.spacing[`spacing`] for wide (non-tight) lists.
     pub spacing: Smart<Length>,
+
+    /// Alignment to use for list markers.
+    ///
+    /// Vertical alignment is always relative to the height of the list items
+    /// they are attached to. By default, it is unspecified, which means that
+    /// each marker will vertically align with the baseline of the item it is
+    /// attached to (which is usually its first line of text, or otherwise its
+    /// top).
+    ///
+    /// Horizontal alignment, on the other hand, is relative to other markers at
+    /// the same list level. By default, it is set to `{end}`, meaning that
+    /// markers line up towards the end of the current text direction (`{right}`
+    /// for LTR, `{left}` for RTL text). However, since markers at each level
+    /// are usually identical, it is expected that horizontal alignment has no
+    /// actual effect, most of the time. Regardless, it is still possible for it
+    /// to make a difference in some cases, particularly if markers use counters
+    /// or other forms of state to display different content for each item.
+    ///
+    /// ```example
+    /// - Baseline \
+    ///   aligned
+    ///
+    /// #set list(marker-align: horizon)
+    ///
+    /// - Horizon \
+    ///   aligned
+    /// ```
+    #[default(Alignment::H(HAlignment::End))]
+    pub marker_align: Alignment,
 
     /// The bullet list's children.
     ///

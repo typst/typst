@@ -46,7 +46,7 @@
 )
 
 #info[
-  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variables to `html`. In the web app, HTML export is not available at this time. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
+  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variable to `html`. In the web app, HTML export is not available at this time. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
 ]
 
 HTML files describe a document structurally. The aim of Typst's HTML export is to capture the structure of an input document and produce semantically rich HTML that retains this structure. The resulting HTML should be accessible, human-readable, and editable by hand and downstream tools.
@@ -55,7 +55,7 @@ PDF, PNG, and SVG export, in contrast, all produce _visual_ representations of a
 
 Instead, it gives _you_ full control: You can check the current export format through the @target function and when it is set to HTML, generate @html.elem[raw HTML elements]. The primary intended use of these elements is in templates and show rules. This way, the document's contents can be fully agnostic to the export target and content can be shared between PDF and HTML export.
 
-In the `html` export format, Typst will output a single HTML file. You can also use Typst to create a web site comprising multiple HTML documents and additional assets. Typst calls such a collection a _bundle_ and supports this use case with the dedicated @reference:bundle[`bundle` target]. Refer to its documentation to learn more. Note that both in the `html` and the `bundle` target, Typst will currently always emit a standalone HTML file. Support for emitting fragments that can be integrated into other HTML documents is planned for the future.
+In the `html` export format, Typst will output a single HTML file. You can also use Typst to create a website comprising multiple HTML documents and additional assets. Typst calls such a collection a _bundle_ and supports this use case with the dedicated @reference:bundle[`bundle` target]. Refer to its documentation to learn more. Note that both in the `html` and the `bundle` target, Typst will currently always emit a standalone HTML file. Support for emitting fragments that can be integrated into other HTML documents is planned for the future.
 
 Typst currently does not output CSS style sheets, instead focussing on emitting semantic markup. You can of course write your own CSS styles and still benefit from sharing your _content_ between PDF and HTML. For the future, we plan to give you the option of automatically emitting CSS, taking more of your existing set rules into account.
 

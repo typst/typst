@@ -23,6 +23,7 @@
   "0.14.0": "24.10.2025",
   "0.14.1": "03.12.2025",
   "0.14.2": "12.12.2025",
+  "0.15.0": "15.06.2026",
 )
 
 // Converts the human-editable format above into typed (version, datetime)
@@ -30,15 +31,18 @@
 #let releases = {
   releases
     .pairs()
-    .map(((v, d)) => {
-      let (day, month, year) = d.split(".").map(int)
-      (
-        version(..v.split(".").map(int)),
-        datetime(day: day, month: month, year: year),
-      )
-    })
+    .map(((version, date)) => (
+      version,
+      if date != none {
+        let (day, month, year) = date.split(".").map(int)
+        datetime(day: day, month: month, year: year)
+      },
+    ))
     .rev()
 }
+
+// The tag suffix of a release candidate.
+#let rc-suffix = regex("-rc\\.(\\d+)$")
 
 #docs-chapter(
   title: "Changelog",
@@ -65,16 +69,36 @@
 // for them.
 #show heading.where(level: 2): set heading(numbering: none)
 
-#for (i, (release, date)) in releases.enumerate() {
-  let s = str(release)
+#for (i, (version, date)) in releases.enumerate() {
+  let candidate = version.match(rc-suffix)
+  let (base-version, rc) = if candidate != none {
+    let base-version = version.trim(rc-suffix, at: end)
+    let rc = candidate.captures.first()
+    (base-version, rc)
+  } else {
+    (version, none)
+  }
+
   docs-chapter(
-    route: "/changelog/" + s,
-    title: s,
-    title-fmt: [Typst #s (#date.display("[month repr:long] [day], [year]"))],
-    description: "Changes in Typst " + s,
+    route: "/changelog/" + base-version,
+    title: {
+      base-version
+      if rc != none { "-rc." + rc }
+    },
+    title-fmt: {
+      [Typst #base-version]
+      if rc != none [, Release Candidate #rc]
+      if date != none [
+        (#date.display("[month repr:long] [day], [year]"))
+      ] else [
+        (Unreleased)
+      ]
+    },
+    description: "Changes in Typst " + base-version,
+    class: "changelog",
     context {
-      set heading(outlined: false) if target() == "paged"
-      include s + ".typ"
+      set heading(outlined: false, bookmarked: true) if target() == "paged"
+      include base-version + ".typ"
       if target() == "html" [
         = Contributors <contributors>
         Thanks to everyone who contributed to this release!
@@ -82,7 +106,7 @@
         #block(html.elem("slot", attrs: (
           type: "contributors",
           from: "v" + str(releases.at(i + 1, default: ()).first(default: "23-03-28")),
-          to: "v" + s,
+          to: "v" + version,
         )))
       ]
     },
@@ -95,7 +119,7 @@
   route: "/changelog/earlier",
   description: "Changes in early, unversioned Typst",
   context {
-    set heading(outlined: false) if target() == "paged"
+    set heading(outlined: false, bookmarked: true) if target() == "paged"
     include "earlier.typ"
   },
 )

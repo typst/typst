@@ -25,7 +25,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 ///
 /// = Construction and casts <construction-and-casts>
 /// To create a decimal number, use the `{decimal(string)}` constructor, such as
-/// in `{decimal("3.141592653")}` *(note the double quotes!)*. This constructor
+/// in `{decimal("3.141592653")}` _(note the double quotes)._ This constructor
 /// preserves all given fractional digits, provided they are representable as
 /// per the limits specified below (otherwise, an error is raised).
 ///
@@ -170,7 +170,7 @@ impl Decimal {
         let old_scale = num.scale();
         let digits = -digits as u32;
 
-        let (Ok(_), Some(ten_to_digits)) = (
+        let (Ok(()), Some(ten_to_digits)) = (
             // Same as dividing by 10^digits.
             num.set_scale(old_scale + digits),
             rust_decimal::Decimal::TEN.checked_powi(digits as i64),
@@ -308,7 +308,7 @@ impl Decimal {
             ToDecimal::Float(float) => {
                 warn_on_float_literal(engine, value.span);
                 Self::try_from(float)
-                    .map_err(|_| {
+                    .map_err(|()| {
                         eco_format!(
                             "float is not a valid decimal: {}",
                             repr::format_float(float, None, true, "")
@@ -332,7 +332,7 @@ fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
             "creating a decimal using imprecise float literal";
             hint: "use a string in the decimal constructor to avoid loss \
                    of precision: `decimal({})`",
-            node.text().repr();
+            node.leaf_text().repr();
         ));
     }
     Some(())

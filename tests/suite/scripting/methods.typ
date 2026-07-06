@@ -114,6 +114,73 @@ $ pi.alt() $
 // Hint: 3-9 try adding a space before the parentheses
 $ pi.alt() $
 
+--- field-call-args-invalid eval ---
+// Test attempting to call a function from a named argument field.
+// Error: 2-43 cannot directly call named argument fields as functions
+// Hint: 2-43 to call the stored function, wrap the field access in parentheses: `(arguments(call-me: () => "maybe").call-me)(..)`
+// Hint: 2-43 named arguments cannot be used with method syntax as argument names could conflict with built-in method names
+#arguments(call-me: () => "maybe").call-me()
+
+--- math-field-call-args-invalid eval ---
+#let pi = arguments(alt: _ => math.pi.alt)
+// Error: 3-9 cannot directly call named argument fields as functions
+// Hint: 3-9 to call the stored function, use code mode and wrap the field access in parentheses: `#(pi.alt)(..)`
+// Hint: 3-9 named arguments cannot be used with method syntax as argument names could conflict with built-in method names
+$ pi.alt() $
+
+--- field-call-args-non-func eval ---
+// Error: 2-33 cannot directly call named argument fields as functions
+// Hint: 2-33 to access the `non-func` argument, remove the function arguments: `arguments(non-func: 1).non-func`
+// Hint: 2-33 named arguments cannot be used with method syntax as argument names could conflict with built-in method names
+#arguments(non-func: 1).non-func()
+
+--- math-field-call-args-non-func eval ---
+// The hint should differ slightly to account for being in math mode.
+#let pi = arguments(alt: math.pi.alt)
+// Error: 3-9 cannot directly call named argument fields as functions
+// Hint: 3-9 try adding a space before the parentheses
+// Hint: 3-9 named arguments cannot be used with method syntax as argument names could conflict with built-in method names
+$ pi.alt() $
+
+--- field-call-no-context eval ---
+#set heading(numbering: (..n) => none)
+// Error: 10-19 can only be used when context is known
+// Hint: 10-19 try wrapping this in a `context` expression
+// Hint: 10-19 the `context` expression should wrap everything that depends on this function
+#heading.numbering(1)
+
+--- math-field-call-no-context eval ---
+#set heading(numbering: (..n) => none)
+// Error: 14-23 can only be used when context is known
+// Hint: 14-23 try wrapping this in a `context` expression
+// Hint: 14-23 the `context` expression should wrap everything that depends on this function
+$std.heading.numbering(#1)$
+
+--- field-call-contextual-invalid paged empty ---
+// Test calling a contextual field as a function.
+#set heading(numbering: (..n) => none)
+// Error: 10-27 `numbering` is not a valid method for type `function`
+// Hint: 10-27 to call the stored function, wrap the field access in parentheses: `(heading.numbering)(..)`
+#context heading.numbering(1)
+
+--- math-field-call-contextual-invalid paged empty ---
+#set heading(numbering: (..n) => none)
+// Error: 11-32 `numbering` is not a valid method for type `function`
+// Hint: 11-32 to call the stored function, use code mode and wrap the field access in parentheses: `#(std.heading.numbering)(..)`
+#context $std.heading.numbering(#1)$
+
+--- field-call-contextual-non-func paged empty ---
+#set heading(numbering: "1.")
+// Error: 10-27 `numbering` is not a valid method for type `function`
+// Hint: 10-27 to access the `numbering` field, remove the function arguments: `heading.numbering`
+#context heading.numbering(1)
+
+--- math-field-call-contextual-non-func paged empty ---
+#set heading(numbering: "1.")
+// Error: 11-32 `numbering` is not a valid method for type `function`
+// Hint: 11-32 try adding a space before the parentheses
+#context $std.heading.numbering(#1)$
+
 --- field-call-mut-basic eval ---
 // Mutating methods mutate a variable.
 #let numbers = (1, 2, 3)

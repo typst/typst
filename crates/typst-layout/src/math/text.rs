@@ -2,11 +2,10 @@ use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
-use typst_library::layout::{Abs, Axis, Size};
+use typst_library::layout::{Abs, Size};
 use typst_library::math::ir::{GlyphItem, MathProperties, NumberItem, TextItem};
-use typst_library::math::{EquationElem, MathSize, style_dtls, style_flac};
-use typst_library::text::{Font, TextElem};
-use typst_utils::Get;
+use typst_library::math::{EquationElem, style_dtls, style_flac};
+use typst_library::text::{FontInstance, TextElem};
 use unicode_math_class::MathClass;
 
 use super::MathContext;
@@ -56,7 +55,7 @@ pub fn layout_number(
     // differently to normal text and is worth re-evaluating in the future.
     let mut fragments = vec![];
     for c in text.chars() {
-        if let Some(glyph) = GlyphFragment::new_char(ctx, styles, c, span) {
+        if let Some(glyph) = GlyphFragment::synthetic(ctx.engine, styles, c, span) {
             fragments.push(glyph.into());
         }
     }
@@ -105,50 +104,28 @@ pub fn layout_glyph(
             (styles, item.text.clone())
         };
 
-    if let Some(mut glyph) =
-        GlyphFragment::new(ctx.engine.world, styles, &text, props.span)
-    {
-        glyph.class = props.class;
-
-        if let Some(axis) = glyph.stretch_axis(ctx.engine)
-            && let Some(stretch) = item.stretch.get().resolve(axis)
-        {
-            let relative_to_size = stretch.relative_to.unwrap_or_else(|| {
-                if axis == Axis::Y
-                    && glyph.class == MathClass::Large
-                    && props.size == MathSize::Display
-                {
-                    glyph.item.font.math().display_operator_min_height.at(glyph.item.size)
-                } else {
-                    glyph.size.get(axis)
-                }
-            });
-
-            glyph.stretch(
-                ctx.engine,
-                stretch.target.relative_to(relative_to_size),
-                stretch.short_fall.at(stretch.font_size.unwrap_or(glyph.item.size)),
-                axis,
-            );
-
-            if axis == Axis::Y {
-                glyph.center_on_axis();
-            }
-        }
-
+    if let Some(mut glyph) = GlyphFragment::new(
+        ctx.engine,
+        &text,
+        &item.stretch.get(),
+        styles,
+        props,
+        item.class,
+    ) {
         if glyph.class == MathClass::Large {
             // TeXbook p 155. Large operators are always vertically centered on
             // the axis.
             glyph.center_on_axis();
         }
 
+        glyph.class = props.class();
         ctx.push(glyph);
     }
     Ok(())
 }
 
 /// Whether the given font has the dtls OpenType feature.
-fn has_dtls_feat(font: &Font) -> bool {
+fn has_dtls_feat(font: &FontInstance) -> bool {
     font.ttf()
         .tables()
         .gsub

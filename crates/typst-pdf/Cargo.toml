@@ -25,6 +25,7 @@ bytemuck = { workspace = true }
 codex = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
+flate2 = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 infer = { workspace = true }

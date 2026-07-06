@@ -14,17 +14,16 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{EcoString, eco_format};
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
-use crate::diag::{At, LoadedWithin, SourceResult, StrResult, bail, warning};
+use crate::diag::{At, LoadError, LoadedWithin, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Loaded};
 use crate::model::Figurable;
@@ -266,17 +265,23 @@ impl Packed<ImageElem> {
                         // TODO: the `DecyptionError` is currently not public
                         LoadPdfError::Decryption(_) => {
                             bail!(
-                                span,
-                                "the PDF is encrypted or password-protected";
-                                hint: "such PDFs are currently not supported";
-                                hint: "preprocess the PDF to remove the encryption";
+                                LoadError::binary(
+                                    "failed to load PDF",
+                                    "the PDF is encrypted or password-protected",
+                                )
+                                .within(loaded)
+                                .with_hint("such PDFs are currently not supported")
+                                .with_hint("preprocess the PDF to remove the encryption")
                             );
                         }
                         LoadPdfError::Invalid => {
                             bail!(
-                                span,
-                                "the PDF could not be loaded";
-                                hint: "perhaps the PDF file is malformed";
+                                LoadError::binary(
+                                    "failed to load PDF",
+                                    "the PDF could not be loaded",
+                                )
+                                .within(loaded)
+                                .with_hint("perhaps the PDF file is malformed")
                             );
                         }
                     },
@@ -302,9 +307,14 @@ impl Packed<ImageElem> {
                 let Some(pdf_image) = PdfImage::new(document, page_idx) else {
                     let s = if num_pages == 1 { "" } else { "s" };
                     bail!(
-                        span,
-                        "page {page_num} does not exist";
-                        hint: "the document only has {num_pages} page{s}";
+                        LoadError::binary(
+                            "failed to load PDF",
+                            eco_format!("page {page_num} does not exist"),
+                        )
+                        .within(loaded)
+                        .with_hint(eco_format!(
+                            "the document only has {num_pages} page{s}"
+                        ))
                     );
                 };
 
@@ -320,7 +330,7 @@ impl Packed<ImageElem> {
     fn determine_format(&self, styles: StyleChain) -> StrResult<ImageFormat> {
         if let Smart::Custom(v) = self.format.get(styles) {
             return Ok(v);
-        };
+        }
 
         let Derived { source, derived: loaded } = &self.source;
         if let DataSource::Path(path) = source

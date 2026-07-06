@@ -14,9 +14,8 @@ use crate::foundations::{
     Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, History, Introspect, Introspector, Locatable, Location,
-    PagedPosition, PathIntrospection, QueryFirstIntrospection, QueryLabelIntrospection,
-    Tagged,
+    Counter, CounterKey, History, Introspect, Introspector, Location, PagedPosition,
+    PathIntrospection, QueryFirstIntrospection, QueryLabelIntrospection,
 };
 use crate::layout::PageElem;
 use crate::model::{NumberingPattern, Refable};
@@ -136,7 +135,7 @@ use crate::text::{LocalName, TextElem};
 /// as _named destinations._ PNG documents do not support linking.
 ///
 /// Note that links always use full relative paths. In some scenarios (primarily
-/// for multi-page web sites), this may not be desirable. For instance, you may
+/// for multi-page websites), this may not be desirable. For instance, you may
 /// want to generate a `/blog/index.html` document while wanting to link to it
 /// as just `/blog`. Furthermore, your web server might treat `/blog` and
 /// `/blog/` as interchangeable and serve `/blog/index.html` for both. If a user
@@ -671,6 +670,7 @@ impl<'a> LateLinkResolver<'a> {
 
 /// Resolves a link to the given location.
 #[comemo::track]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> LateLinkResolver<'a> {
     pub fn resolve(&self, location: Location) -> Option<ResolvedLink> {
         let from = self.base;
@@ -715,7 +715,12 @@ pub enum ResolvedLink {
 }
 
 impl ResolvedLink {
-    /// Turns the link into a relative URI, potentially with an `#` anchor fragment.
+    /// Turns the link into a relative URI, potentially with an `#` anchor
+    /// fragment.
+    ///
+    /// This will percent-encode characters in relative paths if necessary.
+    /// Anchor fragments are guaranteed to be URI-compatible so they are not
+    /// encoded.
     pub fn into_relative_uri(self) -> StrResult<EcoString> {
         Ok(match self {
             // Still write the empty anchor if linking to the document itself
@@ -729,15 +734,53 @@ impl ResolvedLink {
                 };
 
                 let relative_path = to.relative_from(&parent);
+                let encoded = percent_encode_path(&relative_path);
+
                 if anchor.is_empty() {
                     // Don't write a trailing `#` if linking to a full document.
-                    relative_path
+                    encoded
                 } else {
-                    eco_format!("{relative_path}#{anchor}")
+                    eco_format!("{encoded}#{anchor}")
                 }
             }
         })
     }
+}
+
+/// Cross-bundle relative paths may contain characters that are not safe to use
+/// in URIs. This function encodes them with percent encoding.
+fn percent_encode_path(relative_path: &str) -> EcoString {
+    /// This is the complement of an allow-list of alphanumeric + the listed
+    /// chars. The double negation is necessary because `percent_encode`
+    /// requires a denylist.
+    ///
+    /// Everything not in the allow-list is percent-encoded. What characters in
+    /// a URI need to be percent-encoded depends a bit on the context (e.g. `?`
+    /// does not necessarily need to be escaped in all positions). However, we
+    /// use a very strict allow-list because overcautious encoding only results
+    /// in less pretty URIs while a missing encoding could result in a broken
+    /// link.
+    static NOT_PATH_SAFE: percent_encoding::AsciiSet = percent_encoding::NON_ALPHANUMERIC
+        // These are all unreserved.
+        .remove(b'-')
+        .remove(b'.')
+        .remove(b'_')
+        .remove(b'~')
+        // Slashes should be kept as-is, as they separate fragments in the
+        // relative path.
+        .remove(b'/');
+
+    // Encode the path with URI encoding.
+    let encoded_parts =
+        percent_encoding::percent_encode(relative_path.as_bytes(), &NOT_PATH_SAFE);
+
+    // TODO: This loop can be replaced with `collect()` after bumping to ecow 0.3.
+    let mut encoded = EcoString::new();
+    for item in encoded_parts {
+        encoded.push_str(item);
+    }
+
+    encoded
 }
 
 /// Resolves the anchor to reach the linked-to element with the given location.

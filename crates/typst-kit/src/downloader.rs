@@ -376,8 +376,8 @@ fn format_seconds(duration: Duration) -> impl Display {
     typst_utils::display(move |f| write!(f, "{} s", duration.as_secs()))
 }
 
-// Acknowledgement:
-// The `RemoteReader` is closely modelled after rustup's `DownloadTracker`.
+// Acknowledgment:
+// The `RemoteReader` is closely modeled after rustup's `DownloadTracker`.
 // https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs
 
 /// Keep track of this many download speed samples.
@@ -386,7 +386,7 @@ const SAMPLES: usize = 25;
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
 /// over a websocket and reports its progress.
 struct ProgressReader<'p> {
-    /// The reader returned by the ureq::Response.
+    /// The reader returned by the [`ureq::Response`].
     reader: Box<dyn Read>,
     /// The download state, holding download metadata for progress reporting.
     state: Progress,

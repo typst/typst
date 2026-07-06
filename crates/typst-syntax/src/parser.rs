@@ -7,7 +7,7 @@ use typst_utils::{default_math_class, defer};
 use unicode_math_class::MathClass;
 
 use crate::set::{SyntaxSet, syntax_set};
-use crate::{Lexer, SyntaxError, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
+use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
 
 // Picked by gut feeling.
 const MAX_DEPTH: u32 = 256;
@@ -139,8 +139,14 @@ fn strong(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Star);
         markup(p, false, true, syntax_set!(Star, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Star);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Star);
         p.wrap(m, SyntaxKind::Strong);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within stars");
+            let hint = "using multiple consecutive stars (e.g. **) has no \
+                        additional effect";
+            p[m].hint(hint);
+        }
     });
 }
 
@@ -150,8 +156,14 @@ fn emph(p: &mut Parser) {
         let m = p.marker();
         p.assert(SyntaxKind::Underscore);
         markup(p, false, true, syntax_set!(Underscore, RightBracket, End));
-        p.expect_closing_delimiter(m, SyntaxKind::Underscore);
+        let had_closing = p.expect_closing_delimiter(m, SyntaxKind::Underscore);
         p.wrap(m, SyntaxKind::Emph);
+        if had_closing && p[m].len() == 2 {
+            p[m].warn("no text within underscores");
+            let hint = "using multiple consecutive underscores (e.g. __) has no \
+                        additional effect";
+            p[m].hint(hint);
+        }
     });
 }
 
@@ -248,7 +260,7 @@ fn math_exprs(p: &mut Parser, stop_set: SyntaxSet) -> usize {
 /// Parses a single math expression: This includes math elements like
 /// attachment, fractions, roots, and embedded code expressions.
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, syntax_set!())
+    math_expr_prec(p, 0, syntax_set!());
 }
 
 /// Parses a math expression with at least the given precedence, possibly
@@ -444,7 +456,7 @@ fn math_delimited(p: &mut Parser) {
 }
 
 /// Remove one set of parentheses (if any) from a previously parsed expression
-/// by converting to non-expression SyntaxKinds.
+/// by converting to non-expression [`SyntaxKind`]s.
 fn math_unparen(p: &mut Parser, m: Marker) {
     let Some(node) = p.nodes.get_mut(m.0) else { return };
     if node.kind() != SyntaxKind::MathDelimited {
@@ -452,8 +464,8 @@ fn math_unparen(p: &mut Parser, m: Marker) {
     }
 
     if let [first, .., last] = node.children_mut()
-        && first.text() == "("
-        && last.text() == ")"
+        && first.leaf_text() == "("
+        && last.leaf_text() == ")"
     {
         first.convert_to_kind(SyntaxKind::LeftParen);
         last.convert_to_kind(SyntaxKind::RightParen);
@@ -1175,7 +1187,7 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
         if state.kind == Some(SyntaxKind::Dict) {
             p[m].expected("named or keyed pair");
         } else {
-            state.kind = Some(SyntaxKind::Array)
+            state.kind = Some(SyntaxKind::Array);
         }
     }
 }
@@ -1464,10 +1476,10 @@ fn pattern_leaf<'s>(
 /// 3. Produce or convert nodes into an [error node](`SyntaxNode::error`) when
 ///    something expected is missing or something unexpected is found.
 ///
-/// Overall the parser produces a nested tree of SyntaxNodes as a "_Concrete_
+/// Overall the parser produces a nested tree of `SyntaxNode`s as a "Concrete
 /// Syntax Tree." The raw Concrete Syntax Tree should contain the entire source
 /// text, and is used as-is for e.g. syntax highlighting and IDE features. In
-/// `ast.rs` the CST is interpreted as a lazy view over an "_Abstract_ Syntax
+/// `ast.rs` the CST is interpreted as a lazy view over an "Abstract Syntax
 /// Tree." The AST module skips over irrelevant tokens -- whitespace, comments,
 /// code parens, commas in function args, etc. -- as it iterates through the
 /// tree.
@@ -1561,10 +1573,10 @@ enum AtNewline {
 impl AtNewline {
     /// Whether to stop at a newline or continue based on the current context.
     fn stop_at(self, Newline { column, parbreak }: Newline, kind: SyntaxKind) -> bool {
-        #[allow(clippy::match_like_matches_macro)]
         match self {
             AtNewline::Continue => false,
             AtNewline::Stop => true,
+            #[expect(clippy::match_like_matches_macro)]
             AtNewline::ContextualContinue => match kind {
                 SyntaxKind::Else | SyntaxKind::Dot => false,
                 _ => true,
@@ -1618,12 +1630,12 @@ impl<'s> Parser<'s> {
             token,
             balanced: true,
             nodes,
-            memo: Default::default(),
+            memo: MemoArena::default(),
             depth: 0,
         }
     }
 
-    /// Consume the parser, yielding the full vector of parsed SyntaxNodes.
+    /// Consume the parser, yielding the full vector of parsed [`SyntaxNode`]s.
     fn finish(self) -> Vec<SyntaxNode> {
         self.nodes
     }
@@ -1784,10 +1796,11 @@ impl<'s> Parser<'s> {
     fn wrap_error(&mut self, from: Marker, message: impl Into<EcoString>) {
         let to = self.before_trivia().0;
         let from = from.0.min(to);
-        let text: EcoString =
-            self.nodes.drain(from..to).map(SyntaxNode::into_text).collect();
-        self.nodes
-            .insert(from, SyntaxNode::error(SyntaxError::new(message), text));
+        let len: usize = self.nodes.drain(from..to).map(|node| node.len()).sum();
+        let end = self.token.prev_end;
+        let start = end - len;
+        let text = &self.text[start..end];
+        self.nodes.insert(from, SyntaxNode::error(message.into(), text));
     }
 
     /// Parse within the [`SyntaxMode`] for subsequent tokens (does not change the
@@ -1984,10 +1997,12 @@ impl Parser<'_> {
     /// Consume the given closing delimiter or produce an error for the matching
     /// opening delimiter at `open`.
     #[track_caller]
-    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
-        if !self.eat_if(kind) {
+    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) -> bool {
+        let at = self.eat_if(kind);
+        if !at {
             self.nodes[open.0].convert_to_error("unclosed delimiter");
         }
+        at
     }
 
     /// Produce an error that the given `thing` was expected. If the parser is
@@ -2021,8 +2036,7 @@ impl Parser<'_> {
     /// Produce an error that the given `thing` was expected at the position
     /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let error =
-            SyntaxNode::error(SyntaxError::new(eco_format!("expected {thing}")), "");
+        let error = SyntaxNode::error(eco_format!("expected {thing}"), "");
         self.nodes.insert(m.0, error);
     }
 

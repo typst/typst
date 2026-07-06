@@ -48,11 +48,12 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
-                self.base.and_then(|base| match base.global.scope().get(var) {
+                let base = self.base?;
+                match base.global.scope().get(var) {
                     Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
-                })
+                }
             })
             .ok_or_else(|| unknown_variable(var))
     }
@@ -77,11 +78,12 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
             .or_else(|| {
-                self.base.and_then(|base| match base.math.scope().get(var) {
+                let base = self.base?;
+                match base.math.scope().get(var) {
                     Some(binding) => Some(binding),
                     None if var == "std" => Some(&base.std),
                     None => None,
-                })
+                }
             })
             .ok_or_else(|| {
                 unknown_variable_math(
@@ -112,7 +114,7 @@ pub struct Scope {
 impl Scope {
     /// Create a new empty scope.
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Create a new scope with duplication prevention.
@@ -407,7 +409,7 @@ impl From<Deprecation> for HintedString {
         HintedString::new(deprecation.message.into()).with_hints(
             deprecation
                 .until
-                .map(|v| eco_format!("it will be removed in Typst {}", v)),
+                .map(|v| eco_format!("it will be removed in Typst {v}")),
         )
     }
 }
@@ -416,13 +418,13 @@ impl From<Deprecation> for HintedString {
 /// library.
 #[cold]
 fn cannot_mutate_constant(var: &str) -> HintedString {
-    eco_format!("cannot mutate a constant: {}", var).into()
+    eco_format!("cannot mutate a constant: {var}").into()
 }
 
 /// The error message when a variable wasn't found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
 
     if var.contains('-') {
         res.hint(eco_format!(
@@ -439,7 +441,7 @@ fn unknown_variable(var: &str) -> HintedString {
 /// The error message when a variable wasn't found it math.
 #[cold]
 fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {}", var));
+    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
 
     if matches!(var, "none" | "auto" | "false" | "true") {
         res.hint(eco_format!(

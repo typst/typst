@@ -6,7 +6,7 @@
 // Cooperates with `docs/src/example.rs`.
 
 #import "system.typ": colors, sizes
-#import "base.typ": folding-details, labelled, small
+#import "base.typ": folding-details, labelled, small, use-icon
 
 // Shared styling properties for all elements with a "boxy" look.
 #let radius = 2pt
@@ -159,6 +159,22 @@
       )
     })
   } else {
+    show html.elem.where(tag: "pre"): pre => {
+      if pre.at("label", default: none) == <_stop> {
+        return pre
+      }
+      let copy-button = html.button(
+        class: "copy",
+        disabled: true,
+        use-icon(16, "copy", "Copy"),
+      )
+      let reconstructed = html.elem(
+        "pre",
+        attrs: pre.attrs,
+        copy-button + pre.body,
+      )
+      labelled(reconstructed, <_stop>)
+    }
     html.div(class: "previewed-code", {
       with-hidden-lines(it)
       html.div(class: "preview", pages.join())

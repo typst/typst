@@ -14,6 +14,7 @@ use typst_library::layout::{
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
+use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -30,7 +31,7 @@ use super::{
 /// the distributor).
 ///
 /// To lay out the in-flow contents of individual subregions, the composer
-/// invokes [distribution](distribute).
+/// invokes [distribution](distribute()).
 pub fn compose(
     engine: &mut Engine,
     work: &mut Work,
@@ -94,10 +95,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Relayout(PlacementScope::Column)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Parent)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 Err(Stop::Error(err)) => return Err(err),
-            };
+            }
         };
         drop(checkpoint);
 
@@ -193,7 +193,6 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Finish(_)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
-                    continue;
                 }
                 err => return err,
             }
@@ -247,7 +246,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
     /// Lays out an item with floating placement.
     ///
-    /// This is called from within [`distribute`]. When the float fits, this
+    /// This is called from within [`distribute()`]. When the float fits, this
     /// returns an `Err(Stop::Relayout(..))`, which bubbles all the way through
     /// distribution and is handled in [`Self::page`] or [`Self::column`]
     /// (depending on `placed.scope`).
@@ -528,7 +527,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         for (_, note) in nested {
             match self.footnote(note, regions, flow_need, migratable) {
                 // This footnote was already processed or queued.
-                Ok(_) => {}
+                Ok(()) => {}
                 // Footnotes always request a relayout when processed for the
                 // first time, so we ignore a relayout request since we're
                 // about to do so afterwards. Without this check, the first
@@ -906,6 +905,7 @@ fn layout_line_number(
         counter.clone().update(Span::detached(), update),
         CounterDisplayElem::new(counter, numbering, false).pack(),
     ]);
+    let content = content.artifact(ArtifactKind::LineNumber);
 
     // Layout the number.
     let mut frame = crate::layout_frame(

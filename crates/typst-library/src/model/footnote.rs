@@ -11,7 +11,7 @@ use crate::foundations::{
     elem, scope,
 };
 use crate::introspection::{
-    Count, Counter, CounterUpdate, Locatable, Location, QueryLabelIntrospection, Tagged,
+    Count, Counter, CounterUpdate, Location, QueryLabelIntrospection,
 };
 use crate::layout::{Em, Length, Ratio};
 use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
@@ -129,7 +129,7 @@ impl FootnoteElem {
     pub fn body_content(&self) -> Option<&Content> {
         match &self.body {
             FootnoteBody::Content(content) => Some(content),
-            _ => None,
+            FootnoteBody::Reference(_) => None,
         }
     }
 }
@@ -166,7 +166,7 @@ impl Packed<FootnoteElem> {
                 }
                 footnote.declaration_location(engine)
             }
-            _ => Ok(self.location().unwrap()),
+            FootnoteBody::Content(_) => Ok(self.location().unwrap()),
         }
     }
 }

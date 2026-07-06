@@ -1,3 +1,4 @@
+use std::error;
 use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
@@ -149,8 +150,10 @@ impl DiagnosticWorld for SystemWorld {
         match id.root() {
             VirtualRoot::Project => {
                 // Try to express the path relative to the working directory.
-                let rooted = vpath.realize(self.root());
-                pathdiff::diff_paths(rooted, self.workdir())
+                vpath
+                    .realize(self.root())
+                    .ok()
+                    .and_then(|rooted| pathdiff::diff_paths(rooted, self.workdir()))
                     .map(|path| path.to_string_lossy().into_owned())
                     .unwrap_or_else(|| vpath.get_without_slash().into())
             }
@@ -211,7 +214,7 @@ impl SystemFiles {
             let path = world_args
                 .root
                 .as_deref()
-                .or_else(|| input_path.as_deref().and_then(|i| i.parent()))
+                .or_else(|| input_path.as_deref()?.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {
@@ -242,7 +245,7 @@ impl SystemFiles {
 
     /// Resolves the file system path for the given `id`.
     pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     /// Resolves the root in which the given file ID resides.
@@ -318,6 +321,15 @@ impl fmt::Display for WorldCreationError {
                 write!(f, "creation timestamp out of range")
             }
             WorldCreationError::Io(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl error::Error for WorldCreationError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Io(error) => Some(error),
+            _ => None,
         }
     }
 }

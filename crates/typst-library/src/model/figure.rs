@@ -11,9 +11,7 @@ use crate::foundations::{
     Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
     Styles, Synthesize, cast, elem, scope, select_where,
 };
-use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
-};
+use crate::introspection::{Count, Counter, CounterKey, CounterUpdate, Location};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
     VAlignment,

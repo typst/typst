@@ -28,7 +28,9 @@ use typst_library::math::ir::{
 use typst_library::math::{EquationElem, families};
 use typst_library::model::ParElem;
 use typst_library::routines::Arenas;
-use typst_library::text::{Font, FontFlags, TextEdgeBounds, TextElem, variant};
+use typst_library::text::{
+    Font, FontFlags, FontInstance, TextEdgeBounds, TextElem, variant,
+};
 use typst_syntax::Span;
 use typst_utils::{LazyHash, Numeric};
 
@@ -292,7 +294,7 @@ fn add_equation_number(
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
-        _ => unreachable!(),
+        FixedAlignment::Center => unreachable!(),
     };
     let y = {
         let align_baselines = |(_, pos, baseline): (_, Point, Abs), number: &Frame| {
@@ -364,13 +366,13 @@ struct MathContext<'v, 'e> {
     engine: &'v mut Engine<'e>,
     region: Region,
     // Mutable.
-    fonts_stack: Vec<Font>,
+    fonts_stack: Vec<FontInstance>,
     fragments: MathRun,
 }
 
 impl<'v, 'e> MathContext<'v, 'e> {
     /// Create a new math context.
-    fn new(engine: &'v mut Engine<'e>, base: Size, font: Font) -> Self {
+    fn new(engine: &'v mut Engine<'e>, base: Size, font: FontInstance) -> Self {
         Self {
             engine,
             region: Region::new(base, Axes::splat(false)),
@@ -381,7 +383,7 @@ impl<'v, 'e> MathContext<'v, 'e> {
 
     /// Get the current base font.
     #[inline]
-    fn font(&self) -> &Font {
+    fn font(&self) -> &FontInstance {
         // Will always be at least one font in the stack.
         self.fonts_stack.last().unwrap()
     }
@@ -511,7 +513,7 @@ fn layout_realized(
         MathKind::Table(item) => layout_table(item, ctx, styles, props)?,
         MathKind::Fraction(item) => layout_fraction(item, ctx, styles, props)?,
         MathKind::SkewedFraction(item) => {
-            layout_skewed_fraction(item, ctx, styles, props)?
+            layout_skewed_fraction(item, ctx, styles, props)?;
         }
         MathKind::Text(item) => layout_text(item, ctx, styles, props)?,
         MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
@@ -603,7 +605,7 @@ fn layout_external(
 }
 
 /// Styles to add font constants to the style chain.
-fn style_for_script_scale(font: &Font) -> LazyHash<Style> {
+fn style_for_script_scale(font: &FontInstance) -> LazyHash<Style> {
     EquationElem::script_scale
         .set((
             font.math().script_percent_scale_down,
@@ -617,8 +619,10 @@ fn get_font(
     world: Tracked<dyn World + '_>,
     styles: StyleChain,
     span: Span,
-) -> SourceResult<Font> {
+) -> SourceResult<FontInstance> {
     let variant = variant(styles);
+    let size = styles.resolve(TextElem::size);
+    let variations = styles.get_cloned(TextElem::variations);
     families(styles)
         .find_map(|family| {
             world
@@ -626,6 +630,7 @@ fn get_font(
                 .select(family.as_str(), variant)
                 .and_then(|id| world.font(id))
                 .filter(|_| family.covers().is_none())
+                .map(|font| font.instantiate(variant, size, &variations))
         })
         .ok_or("no font could be found")
         .at(span)
@@ -640,6 +645,6 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
             font.info().family;
             hint: "to avoid poor rendering, use an OpenType math font instead";
             hint: "to use it only for specific characters, specify the covers"
-        ))
+        ));
     }
 }

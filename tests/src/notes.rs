@@ -15,7 +15,9 @@ use typst::foundations::Bytes;
 use typst::{World, WorldExt as _};
 use typst_kit::files::FileLoader as _;
 use typst_syntax::package::PackageVersion;
-use typst_syntax::{FileId, Lines, RootedPath, Source, Span, VirtualPath, VirtualRoot};
+use typst_syntax::{
+    DiagSpan, DiagSpanKind, FileId, Lines, RootedPath, Source, VirtualPath, VirtualRoot,
+};
 use unscanny::Scanner;
 
 use crate::collect::{FilePos, TestParseError, TestStages};
@@ -61,8 +63,6 @@ impl TestBody {
                 {
                     best = Some((i, pos.clone()));
                     break;
-                } else {
-                    continue;
                 }
             } else if same_range && same_message {
                 // A perfect match! Mark as seen and return.
@@ -214,7 +214,7 @@ impl Note {
         kind: NoteKind,
         stage: TestStages,
         message: &EcoString,
-        span: Span,
+        span: DiagSpan,
         world: &TestWorld,
     ) -> Self {
         let range = if let Some(file) = span.id()
@@ -231,7 +231,7 @@ impl Note {
                 positions: start..end,
             }
         } else {
-            assert!(span.is_detached());
+            assert!(matches!(span.get(), DiagSpanKind::Detached));
             NoteRange::None
         };
 
@@ -352,7 +352,7 @@ impl Display for NoteRange {
             Self::Some { external_file, positions: Range { start, end }, .. } => {
                 let mut buffer = String::new();
                 if let Some(file) = external_file {
-                    let path = TestFiles.resolve(*file);
+                    let path = TestFiles.resolve(*file).unwrap();
                     write!(buffer, "\"{}\" ", path.display())?;
                 }
                 let must_print_lines = f.alternate() || external_file.is_some();

@@ -31,18 +31,14 @@ pub use self::space::*;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::str::FromStr;
-use std::sync::LazyLock;
 
 use ecow::{EcoString, eco_format};
-use icu_properties::sets::CodePointSetData;
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_blob::BlobDataProvider;
+use icu_properties::CodePointSetDataBorrowed;
+use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
-use ttf_parser::Tag;
 use typst_syntax::Spanned;
 use typst_utils::singleton;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
@@ -113,6 +109,22 @@ pub struct TextElem {
     /// until it finds a font that has the necessary glyphs. In the example
     /// below, the font `Inria Serif` is preferred, but since it does not
     /// contain Arabic glyphs, the arabic text uses `Noto Sans Arabic` instead.
+    ///
+    /// Typst aims to unify different fonts from the same family under a single
+    /// family name. To that effect, it automatically trims common style
+    /// suffixes like "Bold" or "Condensed" from font family names. Instead of
+    /// selecting these through the name, access them through Typst's built-in
+    /// mechanisms (such as the @text.weight[`weight`] and
+    /// @text.stretch[`stretch`] parameters). Similarly, when using a variable
+    /// font with Typst, the suffixes "Variable", "Var", and "VF" should be
+    /// omitted as Typst trims them to unify static and variable fonts into a
+    /// single family.
+    ///
+    /// Between fonts from the same family, Typst picks the one that is the
+    /// closest match to the configured text @text.style[`style`],
+    /// @text.weight[`weight`], and @text.stretch[`stretch`]. If both a static
+    /// and a variable font support a specific configuration, the variable font
+    /// is preferred.
     ///
     /// The collection of available fonts differs by platform:
     ///
@@ -199,7 +211,11 @@ pub struct TextElem {
     /// available either in an italic or oblique style, the difference between
     /// italic and oblique style is rarely observable.
     ///
-    /// If you want to emphasize your text, you should do so using the
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `ital` (for an italic style) or `slnt` (for an oblique
+    /// style) @text.variations[font variation] based on this property.
+    ///
+    /// _Note:_ If you want to emphasize your text, you should do so using the
     /// @emph[emph] function instead. This makes it easy to adapt the style
     /// later if you change your mind about how to signify the emphasis.
     ///
@@ -215,9 +231,14 @@ pub struct TextElem {
     /// desired weight is not available, Typst selects the font from the family
     /// that is closest in weight.
     ///
-    /// If you want to strongly emphasize your text, you should do so using the
-    /// @strong[strong] function instead. This makes it easy to adapt the style
-    /// later if you change your mind about how to signify the strong emphasis.
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `wght` @text.variations[font variation] based on this
+    /// property.
+    ///
+    /// _Note:_ If you want to strongly emphasize your text, you should do so
+    /// using the @strong[strong] function instead. This makes it easy to adapt
+    /// the style later if you change your mind about how to signify the strong
+    /// emphasis.
     ///
     /// ```example
     /// #set text(font: "IBM Plex Sans")
@@ -236,11 +257,16 @@ pub struct TextElem {
     /// font from the family that is closest in stretch. This will only stretch
     /// the text if a condensed or expanded version of the font is available.
     ///
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `wdth` @text.variations[font variation] based on this
+    /// property.
+    ///
     /// If you want to adjust the amount of space between characters instead of
     /// stretching the glyphs itself, use the @text.tracking[`tracking`]
     /// property instead.
     ///
     /// ```example
+    /// #set text(font: "IBM Plex Sans")
     /// #text(stretch: 75%)[Condensed] \
     /// #text(stretch: 100%)[Normal]
     /// ```
@@ -252,6 +278,10 @@ pub struct TextElem {
     ///
     /// You can also give the font size itself in `em` units. Then, it is
     /// relative to the previous font size.
+    ///
+    /// When used with a suitable variable font, Typst will automatically
+    /// configure the `opsz` (optical size) @text.variations[font variation]
+    /// based on this property, optimizing legibility for the specific size.
     ///
     /// ```example
     /// #set text(size: 20pt)
@@ -468,7 +498,7 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set text(
-    ///   font: "Libertinus Serif",
+    ///   font: "IBM Plex Sans",
     ///   size: 20pt,
     /// )
     ///
@@ -756,6 +786,68 @@ pub struct TextElem {
     #[fold]
     #[ghost]
     pub features: FontFeatures,
+
+    /// Raw OpenType font variations to apply.
+    ///
+    /// While classic static fonts require a separate font file for each style
+    /// combination, variable fonts have _variation axes_ from which many
+    /// different styles can be instanced. Variation axes are identified by
+    /// case-sensitive four-letter strings.
+    ///
+    /// There are a few well-known variation axes, for which Typst will
+    /// automatically set suitable values based on the text
+    /// @text.weight[`weight`], @text.stretch[`stretch`], @text.style[`style`],
+    /// and @text.size[`size`]. This includes:
+    /// - `wght`: Weight (e.g., 400 for regular, 700 for bold)
+    /// - `wdth`: Width (percentage, e.g., 100 for normal)
+    /// - `slnt`: Slant (degrees, negative for right-leaning)
+    /// - `ital`: Italic (0 for upright, 1 for italic)
+    /// - `opsz`: Optical size (in points)
+    ///
+    /// Fonts can also define custom variation axes to realize arbitrary visual
+    /// effects. For example, a font's appearance could become more whimsical
+    /// the higher a particular axis value is set.
+    ///
+    /// With the `variations` parameter, you can directly set values for the
+    /// axes supported by the active font. It only has an effect when used with
+    /// a suitable variable font that supports the specified axes. You can use
+    /// the parameter both to override automatically set values for the
+    /// well-known axes and to set values for custom axes.
+    ///
+    /// The value should be a dictionary mapping axis tags (four-character
+    /// @str[strings]) to their values (@float[floating-point numbers]).
+    ///
+    /// #example(
+    ///   title: "Setting values for custom axes",
+    ///   ```
+    ///   >>> #set page(width: 500pt, margin: 40pt)
+    ///   #set text(font: "Fraunces", size: 60pt)
+    ///
+    ///   #text(variations: (SOFT: 0))[Soft? No.] \
+    ///   #text(variations: (SOFT: 100))[Soft? Yes.]
+    ///   ```
+    /// )
+    ///
+    /// #example(
+    ///   title: "Overriding automatically set values",
+    ///   ```
+    ///   #set text(
+    ///     font: "Roboto Flex",
+    ///     weight: 900,
+    ///     stretch: 150%,
+    ///   )
+    ///
+    ///   Wide and Heavy
+    ///
+    ///   #text(variations: (wght: 400))[
+    ///     Forced back to normal,
+    ///     but still wide.
+    ///   ]
+    ///   ```
+    /// )
+    #[fold]
+    #[ghost]
+    pub variations: FontVariations,
 
     /// Content in which all text is styled according to the other arguments.
     #[external]
@@ -1108,7 +1200,7 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
             Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
             Self::XHeight => Ok(VerticalFontMetric::XHeight),
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1150,7 +1242,7 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
         match self {
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
             Self::Descender => Ok(VerticalFontMetric::Descender),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1255,54 +1347,13 @@ pub enum NumberWidth {
 
 /// OpenType font features settings.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct FontFeatures(pub Vec<(Tag, u32)>);
-
-cast! {
-    Tag,
-    v: Str => {
-        // Tags must: https://learn.microsoft.com/en-us/typography/opentype/spec/otff#data-types
-        // - be one to four bytes in length
-        // - be representable as printable ASCII (0x20..=0x7E)
-        // - contain at least one character that isn't padding (0x20, space)
-        // - padding may only appear at the end of a tag
-
-        if let Some(cluster) = v.graphemes(true).find(|v| {
-            !v.as_bytes().iter().all(|v| (0x20..=0x7E).contains(v))
-        }) {
-            bail!(
-                "feature tag may contain only printable ASCII characters";
-                hint: "found invalid cluster `{}`", cluster.repr();
-            )
-        }
-
-        if !(1..=4).contains(&v.len()) {
-            bail!(
-                "feature tag must be one to four characters in length";
-                hint: "found {} characters", v.len();
-            );
-        }
-
-        let mut within_padding = false;
-        for (i, &v) in v.as_bytes().iter().enumerate() {
-            if (within_padding && v != b' ') || (i == 0 && v == b' ') {
-                bail!("spaces may only appear as padding following a feature tag")
-            }
-            within_padding |= b' ' == v;
-        }
-
-        Self::from_bytes_lossy(v.as_bytes())
-    }
-}
+pub struct FontFeatures(pub SmallVec<[(Tag, u32); 2]>);
 
 cast! {
     FontFeatures,
     self => self.0
         .into_iter()
-        .map(|(tag, num)| {
-            let bytes = tag.to_bytes();
-            let key = std::str::from_utf8(&bytes).unwrap_or_default();
-            (key.into(), num.into_value())
-        })
+        .map(|(tag, num)| (tag.to_str_lossy().into(), num.into_value()))
         .collect::<Dict>()
         .into_value(),
     values: Array => Self(values
@@ -1345,7 +1396,7 @@ impl Fold for FontFeatures {
 pub fn features(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag: &[u8; 4], value: u32| {
-        tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
+        tags.push(Feature::new(ttf_parser::Tag::from_bytes(tag), value, ..));
     };
 
     // Features that are on by default in Harfbuzz are only added if disabled.
@@ -1411,7 +1462,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag, value, ..))
+        tags.push(Feature::new(tag.into(), value, ..));
     }
 
     tags
@@ -1517,41 +1568,21 @@ cast! {
 /// Whether a codepoint is Unicode `Default_Ignorable`.
 pub fn is_default_ignorable(c: char) -> bool {
     /// The set of Unicode default ignorables.
-    static DEFAULT_IGNORABLE_DATA: LazyLock<CodePointSetData> = LazyLock::new(|| {
-        icu_properties::sets::load_default_ignorable_code_point(
-            &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
-                .unwrap()
-                .as_deserializing(),
-        )
-        .unwrap()
-    });
-    DEFAULT_IGNORABLE_DATA.as_borrowed().contains(c)
+    const DEFAULT_IGNORABLE_DATA: CodePointSetDataBorrowed =
+        CodePointSetDataBorrowed::new::<DefaultIgnorableCodePoint>();
+    DEFAULT_IGNORABLE_DATA.contains(c)
 }
 
 /// Checks for font families that are not available.
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        match book.select_family(family.as_str()).next() {
-            Some(index) => {
-                if book
-                    .info(index)
-                    .is_some_and(|x| x.flags.contains(FontFlags::VARIABLE))
-                {
-                    engine.sink.warn(warning!(
-                        list.span,
-                        "variable fonts are not currently supported and may render \
-                         incorrectly";
-                        hint: "try installing a static version of \"{}\" instead",
-                            family.as_str();
-                    ))
-                }
-            }
-            None => engine.sink.warn(warning!(
+        if book.select_family(family.as_str()).next().is_none() {
+            engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
                 family.as_str(),
-            )),
+            ));
         }
     }
 }
@@ -1572,7 +1603,7 @@ mod tests {
                 .unwrap()
                 .into_value()
                 .cast::<Tag>()
-                .map_or(None, |v| Some(v.0.to_be_bytes()))
+                .map_or(None, |v| Some(v.to_bytes()))
         };
 
         // Valid tags; standard and padded forms.

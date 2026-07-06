@@ -7,8 +7,6 @@ use typst_library::text::Locale;
 use crate::convert::GlobalContext;
 
 pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Metadata {
-    let creator = format!("Typst {}", typst_utils::version().raw());
-
     // Always write a language, PDF/UA-1 implicitly requires a document language
     // so the metadata and outline entries have an applicable language.
     let lang = doc_lang.unwrap_or(Locale::DEFAULT);
@@ -20,10 +18,18 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
     };
 
     let mut metadata = Metadata::new()
-        .creator(creator)
         .keywords(gc.document.info().keywords.iter().map(Into::into).collect())
         .authors(gc.document.info().author.iter().map(Into::into).collect())
         .language(lang.rfc_3066().to_string());
+
+    if let Some(creator) = gc
+        .options
+        .creator
+        .clone()
+        .unwrap_or_else(|| Some(format!("Typst {}", typst_utils::version().raw())))
+    {
+        metadata = metadata.creator(creator);
+    }
 
     if let Some(title) = &gc.document.info().title {
         metadata = metadata.title(title.to_string());
@@ -33,8 +39,8 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
         metadata = metadata.description(description.to_string());
     }
 
-    if let Some(ident) = gc.options.ident.custom() {
-        metadata = metadata.document_id(ident.to_string());
+    if let Smart::Custom(ident) = gc.options.ident.clone() {
+        metadata = metadata.document_id(ident);
     }
 
     if let Some(date) = creation_date(gc) {
@@ -84,7 +90,7 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
     match tz {
         Some(Timezone::UTC) => kd = kd.utc_offset_hour(0).utc_offset_minute(0),
         Some(Timezone::Local { hour_offset, minute_offset }) => {
-            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset)
+            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset);
         }
         None => {}
     }

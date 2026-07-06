@@ -1,6 +1,6 @@
 #import "../../../components/index.typ": (
   classnames, colors, docs-category, docs-section, fonts, icon,
-  paged-heading-offset, search-box, ty-pill, use-icon,
+  paged-heading-offset, prose-styling, search-box, ty-pill, use-icon,
 )
 
 // Symbols that are not rendered as themselves because they would be invisible.
@@ -25,6 +25,14 @@
   "\u{200B}": "zwsp",
   "\u{200E}": "lrm",
   "\u{200F}": "rlm",
+)
+
+// Additional keywords for some symbols. Used to improve symbol search.
+#let symbol-keywords = (
+  "ħ": ("hbar",),
+  "⇒": ("implies",),
+  "⟹": ("implies",),
+  "⇔": ("iff",),
 )
 
 // Human-facing names of the math classes.
@@ -74,8 +82,13 @@
         html.p(class: "sym-name", {
           [Name: ]
           html.code()
-          [ ]
           copy-button()
+        })
+        html.p(class: "shorthand", {
+          [Shorthand: ]
+          html.code(class: "typ-escape")
+          copy-button()
+          html.span(class: "remark")
         })
         html.p(class: "codepoint", {
           [Escape: ]
@@ -83,19 +96,11 @@
             class: "typ-escape",
             "\\u{" + html.span(class: "value") + "}",
           )
-          [ ]
           copy-button()
-        })
-        html.p(class: "shorthand", {
-          [Shorthand: ]
-          html.code(class: "typ-escape")
-          [ ]
-          copy-button()
-          html.span(class: "remark")
         })
         html.p(class: "accent", {
           [Accent: ]
-          icon(16, "close", "")
+          icon(16, "check", "Yes")
         })
         html.p(class: "math-class", {
           [Math Class: ]
@@ -121,28 +126,19 @@
 // One list entry in a symbol list or cell in a symbol grid.
 #let symbol-entry(
   name,
-  info,
-  variant,
   value,
   deprecation,
-  title: auto,
+  alternates,
+  shorthand: false,
 ) = {
-  let complete(variant) = if variant == "" {
-    name
-  } else {
-    name + "." + variant
-  }
-
-  let full = complete(variant)
-  let alternates = info
-    .variants
-    .map(((variant, ..)) => complete(variant))
-    .filter(v => v != full)
-
   let attrs = (
-    id: "symbol-" + full,
+    // This can possibly produce IDs that are not valid CSS identifiers, but we
+    // don't need that so this is fine.
+    id: "symbol-" + name,
+    data-codex-name: if not shorthand { name },
     data-unic-name: stdx.unicode-name(value),
     data-latex-name: stdx.latex-name(value),
+    data-keywords: symbol-keywords.at(value, default: ()).join(" ", default: ""),
     data-value: value,
     data-accent: if stdx.is-accent(value) { "true" },
     data-alternates: alternates.join(" ", default: none),
@@ -159,49 +155,49 @@
   let body = symbol-overrides.at(value, default: value)
 
   context if target() == "paged" {
-   let style = if value in symbol-overrides {
+    let style = if value in symbol-overrides {
       (fill: colors.dark-gray.shade-10, weight: 500, style: "italic")
     }
     box(width: 5em, h(1fr) + text(font: symbol-fonts, ..style, body) + h(1em))
     let wrapper = if deprecation != none { strike } else { it => it }
-    if title == auto {
-      wrapper(raw(full))
+    if shorthand {
+      text(fill: colors.text.syntax.teal, wrapper(raw(name)))
     } else {
-      text(fill: colors.text.syntax.teal, wrapper(raw(title)))
+      wrapper(raw(name))
     }
   } else {
-    let title = title
-    let named = title == auto
-    if named {
-      let sep
-      title = for part in full.split(".") {
-        sep
-        part
-        sep = "." + html.wbr()
-      }
-    }
-
     html.elem(
       "li",
       attrs: attrs.pairs().filter(p => p.last() != none).to-dict(),
       html.button({
         html.span(class: "sym", body)
         html.code(
-          ..if not named { (class: "typ-escape") },
-          title,
+          ..if shorthand { (class: "typ-escape") },
+          if not shorthand {
+            show ".": it => it + html.wbr()
+            name
+          } else {
+            name
+          },
         )
       }),
     )
   }
 }
 
-// A list / grid of symbols.
-#let symbol-list(mod, shorthands: none, emoji: false) = {
+// Computes the entries to display in a symbol list / grid.
+#let symbol-list-entries(mod, prefix) = {
   let entries = ()
   for (name, s) in dictionary(mod) {
-    // TODO: Submodules are not yet handled
-    // (they weren't in the non-Typst docs either).
-    if type(s) == module { continue }
+    if type(s) == module {
+      let nested-prefix = if prefix == none {
+        name
+      } else {
+        prefix + "." + name
+      }
+      entries += symbol-list-entries(s, nested-prefix)
+      continue
+    }
 
     let info = stdx.describe(s)
     let binding = stdx.binding(mod, name)
@@ -211,26 +207,38 @@
         deprecation = binding.deprecation.message
       }
 
-      let title = auto
-      if shorthands != none {
-        let short = shorthands.at(value, default: none)
-        if short == none or deprecation != none {
-          continue
+      let complete(v) = {
+        if prefix != none {
+          prefix + "."
         }
-        title = short
+        name
+        if v != "" {
+          "." + v
+        }
       }
 
+      let full-name = complete(variant)
+      let alternates = info
+        .variants
+        .map(((variant, ..)) => complete(variant))
+        .filter(v => v != full-name)
+
       entries.push(symbol-entry(
-        name,
-        info,
-        variant,
+        full-name,
         value,
         deprecation,
-        title: title,
+        alternates,
       ))
     }
   }
+  entries
+}
 
+// A list / grid of symbols.
+//
+// Any page containing this should also contain a single `flyout-template()` in
+// website export.
+#let symbol-list(entries, emoji: false) = {
   context if target() == "paged" {
     columns(2, list(..entries, marker: none))
   } else {
@@ -238,8 +246,27 @@
       class: classnames("symbol-grid", emoji: emoji),
       entries.join(),
     )
-    flyout-template()
   }
+}
+
+// A list / grid of symbols with their names.
+#let symbol-name-list(mod, emoji: false) = {
+  let entries = symbol-list-entries(mod, none)
+  symbol-list(entries, emoji: emoji)
+}
+
+// A list / grid of symbols with their shorthands.
+#let symbol-shorthand-list(shorthands) = {
+  let entries = shorthands.pairs().map(((value, shorthand)) => {
+    symbol-entry(
+      shorthand,
+      value,
+      none,
+      (),
+      shorthand: true,
+    )
+  })
+  symbol-list(entries)
 }
 
 #docs-category(
@@ -257,24 +284,31 @@
   You can deactivate a shorthand's interpretation by escaping any of its characters. If you escape a single character in a shorthand, the remaining unescaped characters may form a different shorthand.
 
   == Within Markup Mode <within-markup-mode>
-  #symbol-list(sym, shorthands: stdx.shorthands.markup)
+  #symbol-shorthand-list(stdx.shorthands.markup)
 
   == Within Math Mode <within-math-mode>
-  #symbol-list(sym, shorthands: stdx.shorthands.math)
+  #symbol-shorthand-list(stdx.shorthands.math)
+
+  #context if target() == "html" {
+    flyout-template()
+  }
 ]
 
 #let symbols-section(..args, mod: none, emoji: false, body) = docs-section(
   ..args,
   kind: "Symbols",
   {
-    body
+    prose-styling(body)
     context if target() == "html" {
       html.div(class: "symbol-hint", {
         par[Click on a #ty-pill(symbol) to copy it to the clipboard.]
         search-box(id: "symbol-search", placeholder: "Search in symbols")
       })
     }
-    symbol-list(mod, emoji: emoji)
+    symbol-name-list(mod, emoji: emoji)
+    context if target() == "html" {
+      flyout-template()
+    }
   },
 )
 

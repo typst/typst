@@ -461,7 +461,7 @@ impl Curve {
         if offset.is_zero() {
             return;
         }
-        for item in self.0.iter_mut() {
+        for item in &mut self.0 {
             match item {
                 CurveItem::Move(p) => *p += offset,
                 CurveItem::Line(p) => *p += offset,

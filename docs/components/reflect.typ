@@ -87,7 +87,7 @@
 #let ty-categories = (
   kw: (type(none), type(auto)),
   num: (bool, int, float, length, angle, ratio, relative, fraction, decimal),
-  col: (color, gradient, stroke),
+  col: (color, color.spot, gradient, stroke),
   tiling: (tiling,),
   date: (datetime, duration),
   // TODO: Maybe `path` should be in a different one?

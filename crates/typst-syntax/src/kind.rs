@@ -378,8 +378,8 @@ impl SyntaxKind {
     }
 
     /// Whether this is an error.
-    pub fn is_error(self) -> bool {
-        self == Self::Error
+    pub const fn is_error(self) -> bool {
+        matches!(self, Self::Error)
     }
 
     /// A human-readable name for the kind.

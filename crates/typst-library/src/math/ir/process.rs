@@ -23,19 +23,22 @@ pub(crate) enum GroupResult<'a> {
 ///
 /// The `closing` parameter indicates whether a closing delimiter follows the
 /// items. The `pad` parameter indicates whether, when linebreaks are present,
-/// the resulting rows should be padded to have the same length.
+/// the resulting rows should be padded to have the same length. The `split`
+/// parameter indicates whether alignment points should split the items into
+/// columns, even when no linebreaks are present.
 pub(crate) fn process_group<'a, I>(
     items: I,
     styles: StyleChain<'a>,
     closing: bool,
     pad: bool,
+    split: bool,
 ) -> GroupResult<'a>
 where
     I: IntoIterator<Item = RawMathItem<'a>>,
     I::IntoIter: ExactSizeIterator,
 {
     let preprocessed = preprocess(items, closing, false);
-    if preprocessed.linebreaks > 0 {
+    if preprocessed.linebreaks > 0 || (split && preprocessed.has_align) {
         let mut row = Vec::new();
         let mut rows: Vec<_> = preprocessed
             .items
@@ -205,7 +208,7 @@ where
                 continue;
             }
 
-            _ => {}
+            RawMathItem::Item(_) => {}
         }
 
         let mut item = item.into_item().unwrap();
@@ -246,7 +249,7 @@ where
         && item.rclass() == MathClass::Punctuation
         && item.size().is_none_or(|s| s > MathSize::Script)
     {
-        item.set_rspace(Some(THIN))
+        item.set_rspace(Some(THIN));
     } else if let Some(idx) = resolved.last_index()
         && let RawMathItem::Item(MathItem::Spacing(_, _, true)) = resolved.0[idx]
     {
@@ -310,7 +313,7 @@ fn spacing<'a>(
         _ if (l.is_spaced() || r.is_spaced()) => return space,
 
         _ => {}
-    };
+    }
 
     None
 }
@@ -344,7 +347,7 @@ impl<'a> Deref for MathBuffer<'a> {
     }
 }
 
-impl<'a> DerefMut for MathBuffer<'a> {
+impl DerefMut for MathBuffer<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

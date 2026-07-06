@@ -6,8 +6,7 @@ use crate::diag::{bail, warning};
 use crate::foundations::{
     Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
-use crate::layout::{Alignment, Em, HAlignment, Length, VAlignment};
+use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
 /// A numbered list.
@@ -166,15 +165,26 @@ pub struct EnumElem {
 
     /// The alignment that enum numbers should have.
     ///
-    /// By default, this is set to `{end + top}`, which aligns enum numbers
-    /// towards end of the current text direction (in left-to-right script, for
-    /// example, this is the same as `{right}`) and at the top of the line. The
-    /// choice of `{end}` for horizontal alignment of enum numbers is usually
-    /// preferred over `{start}`, as numbers then grow away from the text
-    /// instead of towards it, avoiding certain visual issues. This option lets
-    /// you override this behaviour, however. (Also to note is that the
-    /// @list[unordered list] uses a different method for this, by giving the
-    /// `marker` content an alignment directly.)
+    /// By default, this is set to `{end}`, which aligns enum numbers
+    /// horizontally towards the end of the current text direction (in a
+    /// left-to-right script, for example, this is the same as `{right}`). In
+    /// addition, the lack of a vertical alignment places each number vertically
+    /// just above the baseline of the item, as if it were part of its first
+    /// line of text.
+    ///
+    /// The choice of `{end}` for horizontal alignment of enum numbers is
+    /// usually preferred over `{start}`, as numbers then grow away from the
+    /// text instead of towards it. This option lets you override this
+    /// behaviour, however.
+    ///
+    /// As for vertical alignment, it can be overridden if baseline alignment is
+    /// not desired. For example, an alignment of `{end + top}` would always
+    /// place the marker vertically near the top of the item, whereas `{end +
+    /// bottom}` would move it near the bottom.
+    ///
+    /// Also to note is that the @list[unordered list] possesses a similar
+    /// option named `marker-align` instead, which also controls both axes of
+    /// marker alignment in the exact same way as `enum` numbers.
     ///
     /// ```example
     /// #set enum(number-align: start + bottom)
@@ -187,7 +197,7 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ```
-    #[default(HAlignment::End + VAlignment::Top)]
+    #[default(Alignment::H(HAlignment::End))]
     pub number_align: Alignment,
 
     /// The numbered list's items.
@@ -204,7 +214,7 @@ pub struct EnumElem {
     /// ```
     #[variadic]
     #[parse(
-        for item in args.items.iter() {
+        for item in &args.items {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,

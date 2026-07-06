@@ -71,7 +71,7 @@ fn compile(command: &CompileCommand) -> ExitCode {
 fn watch(command: &WatchCommand) -> ! {
     let mut timer = Timer::new_or_placeholder(command.args.timings.clone());
     let mut watcher = Watcher::new(None).unwrap();
-    let mut config = Config::new(&command.args, true);
+    let mut config = Config::new(&command.args, !command.no_serve);
     let mut world = DocWorld::new(&config);
 
     loop {
@@ -122,16 +122,16 @@ struct Config {
 
 impl Config {
     /// Preprocess `CompileArgs`, producing a compilation config.
-    fn new(args: &CompileArgs, watching: bool) -> Self {
+    fn new(args: &CompileArgs, serve: bool) -> Self {
         Self {
             input: args.input.clone(),
             output: args.output.clone().or_else(|| match args.format {
                 OutputFormat::Pdf => Some(PDF_PATH.into()),
-                OutputFormat::Website if watching => None,
+                OutputFormat::Website if serve => None,
                 OutputFormat::Website => Some(SITE_PATH.into()),
             }),
             output_format: args.format,
-            server: (watching && args.format == OutputFormat::Website)
+            server: (serve && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),
             open: args.open,
         }
@@ -182,7 +182,7 @@ fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
         BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
     );
 
-    let options = BundleOptions { pixel_per_pt: 1.0, pdf: PdfOptions::default() };
+    let options = BundleOptions::default();
     let fs = typst_bundle::export(&bundle, &options)?;
 
     if let Some(path) = &config.output {
@@ -200,17 +200,17 @@ fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
 fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
     std::fs::create_dir_all(root).unwrap();
     fs.par_iter().for_each(|(path, data)| {
-        let realized = path.realize(root);
+        let realized = path.realize(root).unwrap();
         if let Some(parent) = realized.parent() {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(&realized, data).unwrap();
-    })
+    });
 }
 
 /// Exports a document to PDF and writes it to disk.
 fn export_pdf(document: &PagedDocument, config: &Config) -> SourceResult<()> {
-    let data = typst_pdf::pdf(document, &typst_pdf::PdfOptions::default())?;
+    let data = typst_pdf::pdf(document, &PdfOptions::default())?;
     if let Some(path) = &config.output {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).unwrap();

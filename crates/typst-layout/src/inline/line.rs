@@ -2,11 +2,10 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, variant};
+use typst_library::text::{Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -275,7 +274,7 @@ where
     // Call `f` for each run.
     for run in runs {
         let rtl = levels[run.start].is_rtl();
-        f(run, rtl)
+        f(run, rtl);
     }
 }
 
@@ -326,7 +325,10 @@ fn collect_range<'a>(
         // Trim end-of-line whitespace glyphs.
         if trim.layout < range.end {
             let shaped = item.text_mut().unwrap();
-            shaped.glyphs.trim(|glyph| trim.layout < glyph.range.end);
+            // Make sure not to trim glyphs that have overlapping ranges, for
+            // example due to zero width spaces included in the cluster.
+            // Otherwise these glyphs would protrude into the margin.
+            shaped.glyphs.trim(|glyph| glyph.range.start >= trim.layout);
         }
 
         items.push(item, idx);
@@ -460,26 +462,27 @@ pub fn apply_shift<'a>(
     let mut baseline = styles.resolve(TextElem::baseline);
     let mut compensation = Abs::zero();
     if let Some(scripts) = styles.get_ref(TextElem::shift_settings) {
-        let font_metrics = styles
-            .get_ref(TextElem::font)
-            .into_iter()
+        let variant = variant(styles);
+        let size = styles.resolve(TextElem::size);
+        let variations = styles.get_cloned(TextElem::variations);
+        let font_metrics = families(styles)
             .find_map(|family| {
                 world
                     .book()
-                    .select(family.as_str(), variant(styles))
+                    .select(family.as_str(), variant)
                     .and_then(|id| world.font(id))
+                    .map(|font| font.instantiate(variant, size, &variations))
             })
             .map_or(*scripts.kind.default_metrics(), |f| {
                 *scripts.kind.read_metrics(f.metrics())
             });
-        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).resolve(styles);
-        compensation += font_metrics.horizontal_offset.resolve(styles);
+        baseline -= scripts.shift.unwrap_or(font_metrics.vertical_offset).at(size);
+        compensation += font_metrics.horizontal_offset.at(size);
     }
     frame.translate(Point::new(compensation, baseline));
 }
 
 /// Commit to a line and build its frame.
-#[allow(clippy::too_many_arguments)]
 pub fn commit(
     engine: &mut Engine,
     p: &Preparation,
@@ -741,7 +744,7 @@ impl<'a> Items<'a> {
 
     /// Reorder the items starting at the given index to RTL.
     pub fn reorder(&mut self, from: usize) {
-        self.0[from..].reverse()
+        self.0[from..].reverse();
     }
 }
 
@@ -810,7 +813,7 @@ impl<'a> ItemEntry<'a> {
                 *self = Self::Box(Box::new(Item::Text(text.clone())));
                 match self {
                     Self::Box(item) => item.text_mut(),
-                    _ => unreachable!(),
+                    Self::Ref(_) => unreachable!(),
                 }
             }
             Self::Box(item) => item.text_mut(),

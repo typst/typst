@@ -8,9 +8,9 @@
 
 --- double-percent-embedded eval ---
 // Test for two percent signs in a row.
-// Error: 2-7 invalid number suffix: %%
+// Error: 2-7 invalid number suffix: `%%`
 #3.1%%
 
 --- double-percent-parens eval ---
-// Error: 3-8 invalid number suffix: %%
+// Error: 3-8 invalid number suffix: `%%`
 #(3.1%%)
