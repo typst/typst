@@ -30,9 +30,9 @@
 )
 
 // Takes a raw block and processes `>>>` and `<<<` markers in them for display.
-// The `>>>` marker indicates that a line is display-only while the `<<<` marker
-// indices a compile-only line. This function applies the display part (trimming
-// the former marker and stripping lines with the latter marker) while the code
+// The `>>>` marker indicates that a line is compile-only while the `<<<` marker
+// indicates a display-only line. This function applies the display part (trimming
+// the `<<<` marker and stripping lines with the `>>>` marker) while the code
 // in `example.rs` deals with the markers in the opposite way.
 #let with-hidden-lines(it) = {
   assert(it.at("lang", default: none) in (none, "typ", "example"))
