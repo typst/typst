@@ -9,12 +9,12 @@
 //!
 //! Because our vtable pointers are backed by `static` variables, we can also
 //! perform checks for element types by comparing raw vtable pointers giving us
-//! `RawContent::is` without dynamic dispatch.
+//! [`RawContent::is`] without dynamic dispatch.
 //!
 //! Overall, the custom vtable gives us just a little more flexibility and
 //! optimizability than using built-in trait objects.
 //!
-//! Note that all vtable methods receive elements of type `Packed<E>`, but some
+//! Note that all vtable methods receive elements of type [`Packed<E>`], but some
 //! only perform actions on the `E` itself, with the shared part kept outside of
 //! the vtable (e.g. `hash`), while some perform the full action (e.g. `clone`
 //! as it needs to return new, fully populated raw content). Which one it is, is
@@ -26,10 +26,10 @@
 //! specific element type are marked as unsafe. In combination with `repr(C)`,
 //! this grants us the ability to safely transmute a `ContentVtable<Packed<E>>`
 //! into a `ContentVtable<RawContent>` (or just short `ContentVtable`). Callers
-//! of functions marked as unsafe have to guarantee that the `ContentVtable` was
-//! transmuted from the same `E` as the RawContent was constructed from. The
-//! `Handle` struct provides a safe access layer, moving the guarantee that the
-//! vtable is matching into a single spot.
+//! of functions marked as unsafe have to guarantee that the [`ContentVtable`]
+//! was transmuted from the same `E` as the [`RawContent`] was constructed from.
+//! The [`Handle`] struct provides a safe access layer, moving the guarantee
+//! that the vtable is matching into a single spot.
 //!
 //! [vtable]: https://en.wikipedia.org/wiki/Virtual_method_table
 
@@ -140,7 +140,7 @@ pub struct ContentVtable<T: 'static = RawContent> {
 
 impl ContentVtable {
     /// Creates the vtable for an element.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub const fn new<E: NativeElement>(
         name: &'static str,
         title: &'static str,

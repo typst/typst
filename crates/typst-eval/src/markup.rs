@@ -38,7 +38,7 @@ fn eval_markup<'a>(
                     break;
                 }
 
-                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
+                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles));
             }
             ast::Expr::ShowRule(show) => {
                 let recipe = show.eval(vm)?;
@@ -47,7 +47,7 @@ fn eval_markup<'a>(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?)
+                seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?);
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {

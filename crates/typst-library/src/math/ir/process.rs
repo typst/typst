@@ -208,7 +208,7 @@ where
                 continue;
             }
 
-            _ => {}
+            RawMathItem::Item(_) => {}
         }
 
         let mut item = item.into_item().unwrap();
@@ -249,7 +249,7 @@ where
         && item.rclass() == MathClass::Punctuation
         && item.size().is_none_or(|s| s > MathSize::Script)
     {
-        item.set_rspace(Some(THIN))
+        item.set_rspace(Some(THIN));
     } else if let Some(idx) = resolved.last_index()
         && let RawMathItem::Item(MathItem::Spacing(_, _, true)) = resolved.0[idx]
     {
@@ -313,7 +313,7 @@ fn spacing<'a>(
         _ if (l.is_spaced() || r.is_spaced()) => return space,
 
         _ => {}
-    };
+    }
 
     None
 }
@@ -347,7 +347,7 @@ impl<'a> Deref for MathBuffer<'a> {
     }
 }
 
-impl<'a> DerefMut for MathBuffer<'a> {
+impl DerefMut for MathBuffer<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

@@ -121,9 +121,7 @@ impl Introspector for PagedIntrospector {
 
     fn page_numbering(&self, location: Location) -> Option<&Numbering> {
         let page = self.page(location)?;
-        self.page_numberings
-            .get(page.get() - 1)
-            .and_then(|slot| slot.as_ref())
+        self.page_numberings.get(page.get() - 1)?.as_ref()
     }
 
     fn page_supplement(&self, location: Location) -> Option<&Content> {

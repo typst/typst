@@ -4,7 +4,7 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
-use syntect::highlighting::{self as synt};
+use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
@@ -617,7 +617,7 @@ impl Packed<RawElem> {
             }
         } else {
             seq.extend(non_highlighted_result(lines));
-        };
+        }
 
         seq
     }
@@ -931,7 +931,7 @@ impl<'a> ThemedHighlighter<'a> {
         for child in self.node.children() {
             let mut scopes = self.scopes.clone();
             if let Some(tag) = typst_syntax::highlight(&child) {
-                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap());
             }
 
             std::mem::swap(&mut scopes, &mut self.scopes);

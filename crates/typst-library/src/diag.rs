@@ -514,7 +514,7 @@ pub type HintedStrResult<T> = Result<T, HintedString>;
 /// This is internally represented by a vector of strings.
 /// - The first element of the vector contains the message.
 /// - The remaining elements are the hints.
-/// - This is done to reduce the size of a HintedString.
+/// - This is done to reduce the size of a [`HintedString`].
 /// - The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HintedString(EcoVec<EcoString>);
@@ -1027,7 +1027,6 @@ impl LineCol {
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
-        #[allow(clippy::double_ended_iterator_last)]
         let line_start = memchr::memchr_iter(b'\n', bytes)
             .inspect(|_| line += 1)
             .last()

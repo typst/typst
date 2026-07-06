@@ -63,8 +63,6 @@ impl TestBody {
                 {
                     best = Some((i, pos.clone()));
                     break;
-                } else {
-                    continue;
                 }
             } else if same_range && same_message {
                 // A perfect match! Mark as seen and return.

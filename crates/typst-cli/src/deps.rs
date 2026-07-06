@@ -145,7 +145,7 @@ fn munge(s: &str) -> String {
                 // `munge`'s source contains a comment here that says: "A
                 // space or tab preceded by 2N+1 backslashes represents N
                 // backslashes followed by space..."
-                for _ in 0..slashes + 1 {
+                for _ in 0..=slashes {
                     res.push('\\');
                 }
                 slashes = 0;
@@ -155,7 +155,7 @@ fn munge(s: &str) -> String {
                 slashes = 0;
             }
             _ => slashes = 0,
-        };
+        }
         res.push(c);
     }
     res

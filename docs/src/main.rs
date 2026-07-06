@@ -205,7 +205,7 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(&realized, data).unwrap();
-    })
+    });
 }
 
 /// Exports a document to PDF and writes it to disk.

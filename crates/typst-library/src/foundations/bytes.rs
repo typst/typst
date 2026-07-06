@@ -192,10 +192,9 @@ impl Bytes {
     where
         T: AsRef<[u8]> + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.0).and_then(|unique| {
-            let inner: &mut dyn Bytelike = &mut **unique;
-            (inner as &mut dyn Any).downcast_mut::<T>()
-        })
+        let unique = Arc::get_mut(&mut self.0)?;
+        let inner: &mut dyn Bytelike = &mut **unique;
+        (inner as &mut dyn Any).downcast_mut::<T>()
     }
 
     /// Try to access a string this was built from via [`Bytes::from_string`].
@@ -213,12 +212,11 @@ impl Bytes {
     where
         T: AsRef<str> + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.0).and_then(|unique| {
-            let inner: &mut dyn Bytelike = &mut **unique;
-            (inner as &mut dyn Any)
-                .downcast_mut::<StrWrapper<T>>()
-                .map(|wrapper| &mut wrapper.0)
-        })
+        let unique = Arc::get_mut(&mut self.0)?;
+        let inner: &mut dyn Bytelike = &mut **unique;
+        (inner as &mut dyn Any)
+            .downcast_mut::<StrWrapper<T>>()
+            .map(|wrapper| &mut wrapper.0)
     }
 
     /// Access the inner `dyn Bytelike`.

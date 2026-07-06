@@ -670,6 +670,7 @@ impl<'a> LateLinkResolver<'a> {
 
 /// Resolves a link to the given location.
 #[comemo::track]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> LateLinkResolver<'a> {
     pub fn resolve(&self, location: Location) -> Option<ResolvedLink> {
         let from = self.base;

@@ -137,13 +137,13 @@ impl f64 {
                 Endianness::Little => f64::from_le_bytes(buffer),
                 Endianness::Big => f64::from_be_bytes(buffer),
             });
-        };
+        }
         if let Ok(buffer) = <[u8; 4]>::try_from(bytes.as_ref()) {
             return Ok(match endian {
                 Endianness::Little => f32::from_le_bytes(buffer),
                 Endianness::Big => f32::from_be_bytes(buffer),
             } as f64);
-        };
+        }
 
         bail!("bytes must have a length of 4 or 8");
     }
