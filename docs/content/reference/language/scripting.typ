@@ -40,7 +40,12 @@ Content and code blocks can be nested arbitrarily. In the example below, `{[hell
 }
 ```
 
-= #short-or-long[Bindings][Bindings and Destructuring] <bindings>
+= #short-or-long[Bindings][Bindings and Destructuring] <bindings> #context register-index-item(
+  kind: "Language",
+  title: "Bindings",
+  dest: locate(<bindings>),
+  keywords: ("Let",),
+)
 As already demonstrated above, variables can be defined with `{let}` bindings. The variable is assigned the value of the expression that follows the `=` sign. A @reference:syntax:identifiers[valid variable name] may contain `-`, but cannot start with `-`. The assignment of a value is optional, if no value is assigned, the variable will be initialized as `{none}`. The `{let}` keyword can also be used to create a @function:defining-functions[custom named function]. Variables can be accessed for the rest of the containing block (or the rest of the file if there is no containing block).
 
 ```example
