@@ -147,14 +147,14 @@ B
 #lorem(18)
 
 --- columns-balanced-figures paged ---
-#set page(width: 300pt, height: auto, margin: 5pt, columns: 3)
+#set page(width: 300pt, height: 190pt, margin: 5pt, columns: 3)
 #set columns(balanced: true)
 #set text(hyphenate: true)
 #set par(justify: true)
 #figure(rect(height: 30pt, width: 100%))
-#lorem(25)
+#lorem(25)#footnote[Footer]
 #figure(rect(height: 30pt, width: 100%), placement: bottom)
-#lorem(40)
+#lorem(35)
 #figure(rect(height: 15pt, width: 80%), scope: "parent", placement: bottom)
 
 --- columns-balanced-footnotes paged ---

@@ -103,7 +103,7 @@ e4378b03c0c88a04b7bc5b0c3d9e23f9 color-saturation
 72bf371d532444341689298ed44c4353 color-spaces
 49417c77b77d95ffc4155a083c6f2f18 columns-balanced
 9a482603cd93d532f17b7d114eabae1d columns-balanced-blocks
-129f0dfe20d2b6bb43aee852c70b5c01 columns-balanced-figures
+36c3820835643878a4550af0a04c566b columns-balanced-figures
 afeb78c647d8b3c7f8b4b97631dbe817 columns-balanced-footnotes
 431f30b6cf72f01cb2aab1dd147b62f2 columns-balanced-lists
 ef9b28c336f647ab3ed1d5d2d9c6a4bb columns-balanced-pagebreak
