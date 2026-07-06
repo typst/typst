@@ -17,9 +17,10 @@ pub use self::matchers::{DerefTarget, NamedItem, deref_target, named_items};
 pub use self::tooltip::{Tooltip, tooltip};
 
 use ecow::EcoString;
-use typst::World;
+use typst::diag::{BindingContext, HintedString, WarningSink};
 use typst::syntax::FileId;
 use typst::syntax::package::PackageSpec;
+use typst::{Features, World};
 
 /// Extends the `World` for IDE functionality.
 pub trait IdeWorld: World {
@@ -47,6 +48,54 @@ pub trait IdeWorld: World {
     /// experience by enabling autocompletion for file paths.
     fn files(&self) -> Vec<FileId> {
         vec![]
+    }
+}
+
+trait WorldBindingExt {
+    /// Create a struct that implements [`typst::diag::BindingContext`].
+    fn binding_ctx(&self) -> FeaturesBindingCtx;
+}
+
+impl WorldBindingExt for dyn World {
+    fn binding_ctx(&self) -> FeaturesBindingCtx {
+        FeaturesBindingCtx { features: self.library().features.clone() }
+    }
+}
+
+impl WorldBindingExt for dyn IdeWorld + '_ {
+    fn binding_ctx(&self) -> FeaturesBindingCtx {
+        FeaturesBindingCtx { features: self.library().features.clone() }
+    }
+}
+
+/// A stuct that implements [`BindingContext`].
+/// Warnings emitted when accessing bindings are discarded.
+#[derive(Clone)]
+pub struct FeaturesBindingCtx {
+    features: Features,
+}
+
+impl WarningSink for FeaturesBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings when gathering information.
+    }
+}
+
+impl WarningSink for &FeaturesBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings when gathering information.
+    }
+}
+
+impl BindingContext for FeaturesBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
+    }
+}
+
+impl BindingContext for &FeaturesBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
     }
 }
 

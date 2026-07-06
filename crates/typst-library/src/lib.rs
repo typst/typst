@@ -28,6 +28,7 @@ pub mod visualize;
 
 use std::fmt::Display;
 use std::ops::{Deref, Range};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
@@ -238,7 +239,7 @@ impl LibraryBuilder {
 /// A selection of in-development features that should be enabled.
 ///
 /// Can be collected from an iterator of [`Feature`]s.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Features(SmallBitSet);
 
 impl Features {
@@ -291,6 +292,19 @@ impl Display for Feature {
             Feature::Bundle => "bundle",
             Feature::A11yExtras => "a11y-extras",
         })
+    }
+}
+
+impl FromStr for Feature {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "html" => Ok(Self::Html),
+            "bundle" => Ok(Self::Bundle),
+            "a11y-extras" => Ok(Self::A11yExtras),
+            _ => Err(()),
+        }
     }
 }
 

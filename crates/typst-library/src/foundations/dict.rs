@@ -8,7 +8,7 @@ use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_syntax::is_ident;
+use typst_syntax::{Spanned, is_ident};
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
@@ -183,10 +183,21 @@ impl Dict {
     /// ```
     #[func(constructor)]
     pub fn construct(
+        engine: &mut Engine,
         /// The value that should be converted to a dictionary.
-        value: ToDict,
-    ) -> Dict {
-        value.0
+        to_dict: Spanned<ToDict>,
+    ) -> SourceResult<Dict> {
+        let ToDict(module) = to_dict.v;
+        let dict = module
+            .scope()
+            .iter()
+            .filter_map(|(key, binding)| {
+                // Filter out values that are in feature gated bindings.
+                let val = binding.read_checked(engine.binding_ctx(to_dict.span)).ok()?;
+                Some((Str::from(key.clone()), val.clone()))
+            })
+            .collect();
+        Ok(dict)
     }
 
     /// The number of pairs in the dictionary.
@@ -340,16 +351,14 @@ impl Dict {
 }
 
 /// A value that can be cast to dictionary.
-pub struct ToDict(Dict);
+/// Currently only modules are supported, and the conversion is deferred because
+/// when accessing the scope of the module the list of active features needs to
+/// be provided.
+pub struct ToDict(Module);
 
 cast! {
     ToDict,
-    v: Module => Self(v
-        .scope()
-        .iter()
-        .map(|(k, b)| (Str::from(k.clone()), b.read().clone()))
-        .collect()
-    ),
+    m: Module => Self(m),
 }
 
 impl Debug for Dict {
