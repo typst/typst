@@ -66,11 +66,7 @@
 
   context if target() == "paged" {
     set text(size: sizes.mono)
-    example-like-block(if it.lang == "typ" {
-      with-hidden-lines(it)
-    } else {
-      it
-    })
+    example-like-block(it)
   } else {
     it
   }
