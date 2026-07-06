@@ -4,8 +4,8 @@ use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
-    DerefTarget, IdeWorld, NamedItem, analyze_expr, analyze_import, deref_target,
-    named_items,
+    DerefTarget, IdeWorld, NamedItem, WorldBindingExt, analyze_expr, analyze_import,
+    deref_target, named_items,
 };
 
 /// A definition of some item.
@@ -56,8 +56,10 @@ pub fn definition(
                 }
             }
 
-            if let Some(binding) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(binding.read().clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name)
+                && let Ok(value) = binding.read_checked(world.binding_ctx())
+            {
+                return Some(Definition::Std(value.clone()));
             }
         }
 
