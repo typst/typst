@@ -111,7 +111,6 @@ Headers are bottom-aligned by default so that they do not collide with the top e
 You'll need different headers and footers on some pages. For example, you may not want a header and footer on the title page. The example below shows how to conditionally remove the header on the first page:
 
 ```typ
-#set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
   if counter(page).get().first() > 1 [
     _Lisa Strassner's Thesis_
@@ -131,7 +130,6 @@ You can, of course, add an `else` to this example to add a different header to t
 The technique described in the previous section can be adapted to perform more advanced tasks using Typst's labels. For example, pages with big tables could omit their headers to help keep clutter down. We will mark our tables with a `<big-table>` @label[label] and use the @query[query system] to find out if such a label exists on the current page:
 
 ```typ
-#set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
   let matches = query(<big-table>)
   let current = counter(page).get()
