@@ -108,7 +108,12 @@ Destructuring also works in argument lists of functions ...
 }
 ```
 
-= Conditionals #context register-index-item(kind: "Language", title: "Conditionals", dest: locate(<conditionals>), keywords: ("If", "Else")) <conditionals>
+= Conditionals <conditionals> #context register-index-item(
+  kind: "Language",
+  title: "Conditionals",
+  dest: locate(<conditionals>),
+  keywords: ("If", "Else"),
+)
 With a conditional, you can display or compute different things depending on whether some condition is fulfilled. Typst supports `{if}`, `{else if}` and `{else}` expressions. When the condition evaluates to `{true}`, the conditional yields the value resulting from the if's body. Otherwise, it yields the value resulting from the else's body.
 
 ```example
@@ -126,7 +131,10 @@ Each branch can have a code or content block as its body.
 - `{if condition [..] else {..}}`
 - `{if condition [..] else if condition {..} else [..]}`
 
-= Loops #context register-index-item(kind: "Language", title: "Loops", dest: locate(<loops>), keywords: ("For", "While")) <loops>
+= Loops <loops> #context register-index-item(kind: "Language", title: "Loops", dest: locate(<loops>), keywords: (
+  "For",
+  "While",
+))
 With loops, you can repeat content or compute something iteratively. Typst supports two types of loops: `{for}` and `{while}` loops. The former iterate over a specified collection whereas the latter iterate as long as a condition stays fulfilled. Just like blocks, loops _join_ the results from each iteration into one value.
 
 In the example below, the three sentences created by the for loop join together into a single content value and the length-1 arrays in the while loop join together into one larger array.
@@ -222,7 +230,12 @@ The structure of a method call is `{value.method(..args)}` and its equivalent fu
 
 There are a few special functions that modify the value they are called on (e.g. @array.push). These functions _must_ be called in method form. In some cases, when the method is only called for its side effect, its return value should be ignored (and not participate in joining). The canonical way to discard a value is with a let binding: `{let _ = array.remove(1)}`.
 
-= Modules #context register-index-item(kind: "Language", title: "Modules", dest: locate(<modules>), keywords: ("Include", "Import")) <modules>
+= Modules <modules> #context register-index-item(
+  kind: "Language",
+  title: "Modules",
+  dest: locate(<modules>),
+  keywords: ("Include", "Import"),
+)
 You can split up your Typst projects into multiple files called _modules._ A module can refer to the content and definitions of another module in multiple ways:
 
 - *Including:* `{include "bar.typ"}` \
