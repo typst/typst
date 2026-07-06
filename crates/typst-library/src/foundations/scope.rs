@@ -5,7 +5,7 @@ use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 
 use crate::diag::{BindingContext, HintedStrResult, HintedString, StrResult, bail};
 use crate::foundations::{
@@ -214,13 +214,25 @@ impl Scope {
     pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Binding)> {
         self.map.iter()
     }
+
+    /// Iterate over all definitions filtering out values that couldn't be
+    /// accessed using the [`BindingContext`].
+    pub fn iter_checked(
+        &self,
+        mut ctx: impl BindingContext,
+    ) -> impl Iterator<Item = (&EcoString, Spanned<&Value>)> {
+        self.map.iter().filter_map(move |(name, binding)| {
+            let value = binding.read_checked(&mut ctx).ok()?;
+            Some((name, Spanned::new(value, binding.span())))
+        })
+    }
 }
 
 impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.map.iter().map(|(k, v)| (k, v.read())))
+            .entries(self.map.iter().map(|(k, v)| (k, &v.value)))
             .finish()
     }
 }
@@ -317,12 +329,13 @@ impl Binding {
         self.info.get_or_insert_default()
     }
 
-    /// Read the value.
-    pub fn read(&self) -> &Value {
+    /// Read the value, without checking for deprecation and feature gates.
+    /// The caller must justify why it's okay to avoid the checks.
+    pub fn read_unchecked(&self, _justification: &'static str) -> &Value {
         &self.value
     }
 
-    /// Read the value, checking for deprecation.
+    /// Read the value, checking for deprecation and feature gates.
     pub fn read_checked(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
         if self.check_access {
             self.check_access(ctx)?;
@@ -413,6 +426,7 @@ impl BindingInfo {
 }
 
 /// A binding has been accessed but the feature that gates it isn't enabled.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FeatureError(Feature);
 
 pub trait BindingAccess<T> {
