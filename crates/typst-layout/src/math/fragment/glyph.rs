@@ -70,16 +70,11 @@ impl GlyphFragment {
         stretch: &Stretch,
         styles: StyleChain,
         props: &MathProperties,
+        class: MathClass,
     ) -> Option<GlyphFragment> {
-        let PlannedGlyph { mut glyph, action } = Self::planned(
-            engine.world,
-            styles,
-            text,
-            props.class(),
-            props.size,
-            *stretch,
-        )?
-        .with_span(props.span);
+        let PlannedGlyph { mut glyph, action } =
+            Self::planned(engine.world, styles, text, class, props.size, *stretch)?
+                .with_span(props.span);
 
         match action {
             Action::Stretch { axis, target, short_fall } => {

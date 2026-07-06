@@ -1,4 +1,5 @@
-use typst_library::diag::{At, HintedStrResult, SourceResult};
+use ecow::eco_format;
+use typst_library::diag::{At, HintedStrResult, SourceResult, bail, error};
 use typst_library::foundations::{IntoValue, Value, ops};
 use typst_syntax::ast::{self, AstNode};
 
@@ -8,7 +9,10 @@ impl Eval for ast::Unary<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.expr().eval(vm)?;
+        let expr = self.expr();
+        let value = expr.eval(vm).map_err(|err| {
+            overflowing_int_negation_error(self, expr).err().unwrap_or(err)
+        })?;
         let result = match self.op() {
             ast::UnOp::Pos => ops::pos(value),
             ast::UnOp::Neg => ops::neg(value),
@@ -88,4 +92,43 @@ fn apply_assignment(
     let lhs = std::mem::take(&mut *location);
     *location = op(lhs, rhs).at(binary.span())?;
     Ok(Value::None)
+}
+
+/// Error for an overflowing positive integer that was negated.
+#[cold]
+fn overflowing_int_negation_error(
+    unary: ast::Unary,
+    expr: ast::Expr,
+) -> SourceResult<()> {
+    if let ast::Expr::Int(int) = expr
+        && unary.op() == ast::UnOp::Neg
+        && let Err(ast::IntLiteralError::PosOverflow { base, max_plus_one }) = int.get()
+    {
+        if max_plus_one {
+            bail!(
+                unary.span(),
+                "cannot write minimum integer manually";
+                hint: "Typst integers are always initially positive";
+                hint: "2^63 does not fit into a signed 64-bit integer";
+                hint: "try writing `int.min`";
+            );
+        } else {
+            let mut error = error!(
+                unary.span(),
+                "integer value is too small";
+                hint: "value does not fit into a signed 64-bit integer";
+            );
+            if base.is_none() {
+                error.hint(
+                    "a floating point number could approximately represent this value",
+                );
+                error.hint(eco_format!(
+                    "you can use a floating point number by appending a dot: `{}.`",
+                    expr.to_untyped().leaf_text()
+                ));
+            }
+            bail!(error);
+        }
+    }
+    Ok(())
 }

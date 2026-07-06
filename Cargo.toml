@@ -33,7 +33,7 @@ typst-svg = { path = "crates/typst-svg", version = "0.15.0" }
 typst-syntax = { path = "crates/typst-syntax", version = "0.15.0" }
 typst-timing = { path = "crates/typst-timing", version = "0.15.0" }
 typst-utils = { path = "crates/typst-utils", version = "0.15.0" }
-typst-assets = { git = "https://github.com/typst/typst-assets", rev = "c0ae970" }
+typst-assets = { git = "https://github.com/typst/typst-assets", rev = "74217e4" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "a2e29ed" }
 arrayvec = "0.7.4"
 az = "1.2"
@@ -167,14 +167,46 @@ codegen-units = 1
 strip = true
 
 [workspace.lints.clippy]
-blocks_in_conditions = "allow"
-comparison_chain = "allow"
-iter_over_hash_type = "warn"
+# See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
+derived_hash_with_manual_eq = "allow"
 manual_is_multiple_of = "allow"
 manual_range_contains = "allow"
 mutable_key_type = "allow"
-uninlined_format_args = "warn"
 wildcard_in_or_patterns = "allow"
-# See https://github.com/typst/typst/pull/6560#issuecomment-3045393640
-derived_hash_with_manual_eq = "allow"
+
+as_pointer_underscore = "warn"
+as_underscore = "warn"
+cloned_instead_of_copied = "warn"
+decimal_literal_representation = "warn"
+default_trait_access = "warn"
+deref_by_slicing = "warn"
 disallowed_methods = "warn"
+doc_markdown = "warn"
+elidable_lifetime_names = "warn"
+explicit_into_iter_loop = "warn"
+explicit_iter_loop = "warn"
+flat_map_option = "warn"
+get_unwrap = "warn"
+ignored_unit_patterns = "warn"
+implicit_clone = "warn"
+inconsistent_struct_constructor = "warn"
+iter_over_hash_type = "warn"
+manual_is_variant_and = "warn"
+match_wildcard_for_single_variants = "warn"
+mut_mut = "warn"
+needless_continue = "warn"
+needless_raw_string_hashes = "warn"
+needless_raw_strings = "warn"
+range_plus_one = "warn"
+rc_buffer = "warn"
+redundant_type_annotations = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+return_and_then = "warn"
+semicolon_if_nothing_returned = "warn"
+stable_sort_primitive = "warn"
+trivially_copy_pass_by_ref = "warn"
+uninlined_format_args = "warn"
+unnecessary_self_imports = "warn"
+unnecessary_semicolon = "warn"
+unnested_or_patterns = "warn"
+unseparated_literal_suffix = "warn"

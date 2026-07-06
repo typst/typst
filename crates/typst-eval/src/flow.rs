@@ -123,7 +123,6 @@ impl Eval for ast::ForLoop<'_> {
             (for $pat:ident in $iterable:expr) => {{
                 vm.scopes.enter();
 
-                #[allow(unused_parens)]
                 for value in $iterable {
                     destructure(vm, $pat, value.into_value())?;
 

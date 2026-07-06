@@ -1,4 +1,4 @@
-#![allow(clippy::too_many_arguments)]
+#![expect(clippy::too_many_arguments)]
 use std::cell::Cell;
 use std::ops::{Deref, MulAssign};
 use std::rc::Rc;
@@ -232,16 +232,25 @@ impl<'a> MathItem<'a> {
         }
     }
 
-    /// Sets the math class of this item.
+    /// Sets the effective math class of this item.
     pub(crate) fn set_class(&mut self, class: MathClass) {
         if let Self::Component(comp) = self {
             comp.props.class = Some(class);
+        }
+    }
+
+    /// Sets the effective math class and applies it to glyph layout.
+    pub(crate) fn set_explicit_class(&mut self, class: MathClass) {
+        self.set_class(class);
+        if let Self::Component(comp) = self
+            && let MathKind::Glyph(glyph) = &mut comp.kind
+        {
+            glyph.class = class;
 
             // Small hack to ensure the non-explicit stretch gets added, as the
             // class is not recursive. This applies an equivalent stretch to
             // the one in `resolve_symbol`.
-            if let MathKind::Glyph(glyph) = &comp.kind
-                && class == MathClass::Large
+            if class == MathClass::Large
                 && comp.props.size == MathSize::Display
                 && !glyph.stretch.get().is_explicit(Axis::Y)
             {
@@ -858,7 +867,7 @@ pub struct PrimesItem {
 
 impl PrimesItem {
     /// Creates a new primes item.
-    pub(crate) fn create<'a>(count: usize, styles: StyleChain<'a>) -> MathItem<'a> {
+    pub(crate) fn create(count: usize, styles: StyleChain<'_>) -> MathItem<'_> {
         let kind = MathKind::Primes(Box::new(Self { count }));
         let props = MathProperties::default(styles, Span::detached());
         MathComponent { kind, props, styles }.into()
@@ -900,11 +909,11 @@ pub struct NumberItem {
 
 impl NumberItem {
     /// Creates a new number item.
-    pub(crate) fn create<'a>(
+    pub(crate) fn create(
         text: EcoString,
-        styles: StyleChain<'a>,
+        styles: StyleChain<'_>,
         span: Span,
-    ) -> MathItem<'a> {
+    ) -> MathItem<'_> {
         let kind = MathKind::Number(Self { text });
         let props = MathProperties::default(styles, span);
         MathComponent { kind, props, styles }.into()
@@ -916,6 +925,13 @@ impl NumberItem {
 pub struct GlyphItem {
     /// The text content.
     pub text: EcoString,
+    /// The math class to use for layout.
+    ///
+    /// When the math class is large, the glyph is centered vertically and, in
+    /// display style, stretched vertically. This value is not necessarily the
+    /// same as the item's associated `MathProperties::class`, which is used
+    /// for determining spacing between items.
+    pub class: MathClass,
     /// How the glyph should be stretched.
     pub stretch: Cell<Stretch>,
     /// Whether this glyph has been stretched as a middle delimiter.
@@ -929,11 +945,11 @@ impl GlyphItem {
     ///
     /// The `dtls` parameter indicates that a dotless character was converted
     /// to its non-dotless version.
-    pub(crate) fn create<'a>(
+    pub(crate) fn create(
         text: EcoString,
-        styles: StyleChain<'a>,
+        styles: StyleChain<'_>,
         span: Span,
-    ) -> MathItem<'a> {
+    ) -> MathItem<'_> {
         assert!(text.graphemes(true).count() == 1);
 
         let c = text.chars().next().unwrap();
@@ -943,6 +959,7 @@ impl GlyphItem {
 
         let kind = MathKind::Glyph(Box::new(Self {
             text,
+            class: class.unwrap_or(MathClass::Normal),
             stretch: Cell::new(Stretch::new()),
             mid_stretched: Cell::new(None),
             flac: Cell::new(false),

@@ -5,7 +5,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
 use crate::text::{Lang, Region, TextElem};

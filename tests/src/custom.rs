@@ -82,7 +82,7 @@ fn check_balanced(doc: &PagedDocument) -> Result<(), &'static str> {
                     if group.parent.is_some() {
                         return Err("groups with parents are not supported");
                     }
-                    visit(stack, &group.frame)?
+                    visit(stack, &group.frame)?;
                 }
                 _ => {}
             }

@@ -1,5 +1,4 @@
 use crate::foundations::{Content, Smart, elem};
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
@@ -294,7 +293,7 @@ pub struct Decoration {
 
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum DecoLine {
     Underline {
         stroke: Stroke<Abs>,

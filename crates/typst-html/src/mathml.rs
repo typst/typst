@@ -234,7 +234,7 @@ enum NodePosition {
 }
 
 impl NodePosition {
-    fn get_form(&self) -> Form {
+    fn get_form(self) -> Form {
         match self {
             Self::Start => Form::Prefix,
             Self::Middle => Form::Infix,
@@ -630,7 +630,7 @@ fn handle_realized(
                 .with_optional_attr(attr::displaystyle, displaystyle)
                 .with_css(properties)
         });
-        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node })
+        ctx.push(if modified { ctx.apply_diverging(node, styles) } else { node });
     }
 
     // Push explicit rspace if it won't be added to the attributes of an `mo`.
@@ -784,7 +784,7 @@ fn handle_glyph(
         MathClass::Punctuation => separator = true,
         MathClass::Fence => fence = true,
         MathClass::Large => {
-            largeop = true;
+            largeop = item.class == MathClass::Large;
             form = Some(Form::Prefix);
         }
         MathClass::Opening => {
@@ -1082,7 +1082,7 @@ fn handle_mathml(
 }
 
 /// Creates an `mo` element.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn make_mo(
     text: &str,
     span: Span,
@@ -1115,7 +1115,7 @@ fn make_mo(
     let info = OperatorInfo::of(
         text,
         form.unwrap_or(initial_form),
-        form.filter(|f| *f != initial_form).is_some(),
+        form.is_some_and(|f| f != initial_form),
     );
 
     // We force emitting `lspace` and `rspace` for a fraction slash (for
@@ -1311,7 +1311,7 @@ fn is_space_like(item: &MathItem) -> bool {
                 .all(is_space_like),
             _ => false,
         },
-        _ => false,
+        MathItem::Tag(_) => false,
     }
 }
 

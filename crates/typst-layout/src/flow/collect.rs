@@ -29,7 +29,6 @@ use crate::modifiers::layout_and_modify;
 /// Collects all elements of the flow into prepared children. These are much
 /// simpler to handle than the raw elements.
 #[typst_macros::time]
-#[allow(clippy::too_many_arguments)]
 pub fn collect<'a>(
     engine: &mut Engine,
     bump: &'a Bump,
@@ -273,7 +272,7 @@ impl<'a> Collector<'a, '_, '_> {
                 locator,
                 cell: CachedCell::new(),
             })));
-        };
+        }
 
         self.output.push(spacing(elem.below.get(styles)));
         self.par_situation = ParSituation::Other;
@@ -411,7 +410,7 @@ impl SingleChild<'_> {
 
 /// The cached, internal implementation of [`SingleChild::layout`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_single_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -511,7 +510,7 @@ impl<'a> MultiChild<'a> {
 
 /// The cached, internal implementation of [`MultiChild::layout_full`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_multi_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

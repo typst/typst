@@ -9,7 +9,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
@@ -799,7 +798,6 @@ impl Default for Packed<TableCell> {
 
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

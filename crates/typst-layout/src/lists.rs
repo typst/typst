@@ -127,7 +127,7 @@ pub fn layout_enum(
                     parents.len(),
                     number,
                 )),
-                other => other
+                Numbering::Func(_) => numbering
                     .apply(engine, context.track(), item.span(), &[number])?
                     .display(),
             }
@@ -397,7 +397,7 @@ fn layout_item(
         layouter.baseline_align(&marker, &mut body, engine)?;
     } else {
         layouter.vertical_align(&mut marker, &body, engine)?;
-    };
+    }
 
     layouter.finish(marker, body)
 }
@@ -549,7 +549,7 @@ impl<'a> ItemLayouter<'a> {
             *body_fragment = self.layout_body(regions, engine)?;
 
             self.body_offset.y = -diff;
-        };
+        }
 
         Ok(())
     }

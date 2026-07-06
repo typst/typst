@@ -158,7 +158,7 @@ impl Dict {
             _ => "unexpected keys ",
         });
 
-        msg.push_str(&format_as_list(&unexpected[..]));
+        msg.push_str(&format_as_list(&unexpected));
 
         if let Some(expected) = hint_expected {
             msg.push_str(", valid keys are ");

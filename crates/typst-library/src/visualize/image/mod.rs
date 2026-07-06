@@ -24,7 +24,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Loaded};
 use crate::model::Figurable;
@@ -331,7 +330,7 @@ impl Packed<ImageElem> {
     fn determine_format(&self, styles: StyleChain) -> StrResult<ImageFormat> {
         if let Smart::Custom(v) = self.format.get(styles) {
             return Ok(v);
-        };
+        }
 
         let Derived { source, derived: loaded } = &self.source;
         if let DataSource::Path(path) = source

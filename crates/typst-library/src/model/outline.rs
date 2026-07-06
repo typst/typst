@@ -13,8 +13,8 @@ use crate::foundations::{
     Resolve, ShowSet, Smart, StyleChain, Styles, cast, elem, func, scope, select_where,
 };
 use crate::introspection::{
-    Counter, CounterKey, Locatable, Location, Locator, LocatorLink,
-    PageNumberingIntrospection, QueryIntrospection, Tagged, Unqueriable,
+    Counter, CounterKey, Location, Locator, LocatorLink, PageNumberingIntrospection,
+    QueryIntrospection,
 };
 use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,

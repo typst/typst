@@ -289,7 +289,7 @@ pub struct Coverage(Vec<u32>);
 impl Coverage {
     /// Encode a vector of codepoints.
     pub fn from_vec(mut codepoints: Vec<u32>) -> Self {
-        codepoints.sort();
+        codepoints.sort_unstable();
         codepoints.dedup();
 
         let mut runs = Vec::new();
@@ -388,7 +388,7 @@ mod tests {
             // {2, 3, 4, 9, 10, 11, 15, 18, 19}
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
-        )
+        );
     }
 
     #[test]

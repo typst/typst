@@ -20,13 +20,13 @@ c456aecc3b410f0b4f8705fc87e6d499 bibliography-group-mixed-styles
 805860e9a2d6bc7f9e466517c058eeec block-box-html
 2771d670b32a96e330e3db46aebd5f5b block-display-html
 ffa25d90e2baac1e02b03a60cae89720 block-html-block
-3c77f2f38c8f3fa6c90b1beb10c5d722 block-html-frame
+408fa53d2d35abe39c279f182a7c5df3 block-html-frame
 56e9ac9cf5876bc5ebbdd43b1a640a99 block-html-inline
 083d9124f7249ddd06de82bab51e932d block-html-multiple
 0b57400a2448caf6d434728014f5f047 block-html-text
 2b2857e0703e2211a74a25da543ec421 block-invalid-html
 33daaa5982a84b668f506461b070bf11 box-block-html
-800ffd92f70fed0affed4b5731aab0d1 box-html-frame
+627d1c6c247afedf8cba16543c7889bf box-html-frame
 33daaa5982a84b668f506461b070bf11 box-html-inline
 8aeeb8c8a69284b88f9c1464ecab9795 box-html-multiple
 9c97626487e554505316c09c201e2672 box-html-text
@@ -58,7 +58,7 @@ e34ea44e32ada9e0685b72d6e82ecfd5 html-elem-attrs-fold
 2ea76ccf8bdc8f8a39f586aab6ed80c9 html-elem-custom
 52de31c777d4b7b8d356b54138b5fe14 html-elem-metadata
 0a1d1443e72ef554d74d15ae49cd076c html-escapable-raw-text-contains-closing-tag
-30c425a860c27388ccda71cdd5d49e5f html-frame
+41d47680056dc0777c4060cf3ecc8c6a html-frame
 1e1005b4ac5db07bd074e5d12aa2162e html-pre-starting-with-newline
 9ddbaca4b63c936215a967cb76b0327a html-script
 de4b0b9e9a41128ffdb982bae7550178 html-space-collapsing
@@ -95,8 +95,8 @@ b1b17f3b81e381628200be8eee0a7e27 issue-7437-math-accent-text-presentation
 51719643a3ad5c5a58e9a93141653d28 issue-8261-string-as-non-numeric
 08eef154f592feabbe8e2ef7915d1f73 issue-math-realize-scripting
 44fbc75996ca7154896d82a2cc32da32 link-basic
-64f6d891e22ff529a703605d80ac4ab7 link-html-frame
-3ba326b82bb0c42ddea6c3266fda9c87 link-html-frame-ref
+a401e6e8dbbfb91c6fcd9f50b0812f00 link-html-frame
+aecca822229f41f10fdcfae3954413f1 link-html-frame-ref
 49c235cf678e473ea05818dfa2846180 link-html-here
 85145829d953d451be76af5b4f9369cb link-html-id-attach
 5ffe20ca590c5e8ce14f77537aae6b31 link-html-id-existing
@@ -245,6 +245,7 @@ a8ce522592318e1c2ca31b9559f81baf math-lr-nested
 41f483205229cb9e9938499910b7d7c4 math-lr-nested-mid
 abf4a5e72f6dd39b99be546080bddc9c math-lr-scripts
 8508963350df18b09284b66e4fab5610 math-lr-shorthands
+8a4286d3872be5791829a7f6e7b204b2 math-lr-single-line-align
 3c0849fa5b2ea610bdb3ff80f88fd75f math-lr-size
 3af85261f5583af580bb6359a9cf3591 math-lr-sym-call
 989aae07d65ab05884be6fe40af5fc95 math-lr-sym-call-size
@@ -285,10 +286,13 @@ a0e191bb57c59f3849c52e90e3222a11 math-multiline-string-alignment
 db9e75ac8bf47e497e061047217d9646 math-op-call
 37ce1213def35ec23fac9e03f648cdf6 math-op-custom
 d4c136297ed5531a4689d405c2188580 math-op-font
+d2c049d9214a1f2e1d221e94c4546927 math-op-large-stretch
 c9b26fdfab8ea05409faf4485ee538a9 math-op-predefined
 e19edae4611059e579316a208253a63d math-op-scripts-vs-limits
 28527d8f6dca88e3acb99f19c8559f71 math-op-set-font
+318394fb00e5b89b3990cf5d1242a161 math-op-stretch-relative
 d1fd44c94606331202c0d74f51d9a639 math-op-styled
+85020cd77a6cf5b18a69d681bf66a021 math-op-symbol-baseline
 be6fdcc59c937cd93c3e54f5fb25514e math-optical-size-frac-script-script
 163cc355fe6c65b155ce0ae9cffd0a74 math-optical-size-nested-scripts
 00f2bb64b6e1dd08a925489f52988332 math-optical-size-prime-large-operator
@@ -302,7 +306,7 @@ dd1b7c0c6f3d059c7ff6e2cf84d5a772 math-primes-limits
 23d187f8756edf4acd1e00475a5b9a1c math-primes-merge-inner-prime
 b18768d480641954297ca8f528bba007 math-primes-merge-top
 7bc3a79f28cfd58eddf3f6bbfaec5524 math-primes-merge-top-nested
-3833136977ef183ccec841ad9ff38692 math-primes-scripts
+711de01a664cd3f1c93806638eac104f math-primes-scripts
 b80304d6399245b528acf3557482f220 math-primes-show-rule
 0a3962abaf48b18e5f5f25148623ad19 math-primes-show-rules
 81b3b6dd4fea4844064797c31e461d23 math-primes-spaces

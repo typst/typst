@@ -175,7 +175,7 @@ impl Construct for InlineElem {
 
 impl InlineElem {
     /// Create an inline-level item with a custom layouter.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     pub fn layouter<T: NativeElement>(
         captured: Packed<T>,
         callback: fn(
@@ -579,10 +579,7 @@ impl BaselinePos {
 
 impl Default for BaselinePos {
     fn default() -> Self {
-        Self {
-            at: Some(Default::default()),
-            shift: Some(Default::default()),
-        }
+        Self { at: Some(Smart::Auto), shift: Some(Rel::default()) }
     }
 }
 
@@ -632,7 +629,7 @@ mod callbacks {
                         //   private field and `Content`'s `Clone` impl is
                         //   guaranteed to retain the type (if it didn't,
                         //   literally everything would break).
-                        #[allow(clippy::missing_transmute_annotations)]
+                        #[expect(clippy::missing_transmute_annotations)]
                         f: unsafe { std::mem::transmute(f) },
                     }
                 }
