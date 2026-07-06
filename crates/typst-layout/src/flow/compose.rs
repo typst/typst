@@ -277,9 +277,10 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// If the amount fits into the region, taking into account column balancing limits
     pub fn fits(&self, regions: Regions, amount: Abs) -> bool {
         let mut fits = regions.size.y.fits(amount);
-        if let Some(limit) = self.column_balancing_limit() {
-            // Check if the amount would exceed the balanced column height
-            fits &= limit.fits(self.column_balancing.used_height + amount)
+        if let Some(target) = self.column_balancing_limit() {
+            // Add elements as long as the balancing target is not reached. By not including
+            // the amount here, we avoid protruding items to cumulate in the last column.
+            fits &= target.fits(self.column_balancing.used_height);
         }
         fits
     }
