@@ -157,7 +157,7 @@ impl FromValue for CitationSupplement {
             Ok(CitationSupplement { locator: None, content })
         } else {
             bail!(
-                "Citation Supplement must either be of type (Locator, Content) or Content"
+                "Citation supplement must either be of type (Locator, Content) or Content"
             );
         }
     }
@@ -183,7 +183,10 @@ impl Reflect for CitationSupplement {
     }
 
     fn castable(value: &Value) -> bool {
-        Content::castable(value) || matches!(value, Value::Array(arr) if arr.len() == 2)
+        Content::castable(value)
+            || matches!(value, Value::Array(array) if array.len() == 2
+            && array.at(0, None).map_or(false, |v| Locator::castable(&v))
+            && array.at(1, None).map_or(false, |v| Content::castable(&v)))
     }
 }
 
