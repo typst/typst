@@ -142,28 +142,23 @@ pub struct CitationSupplement {
 
 impl CitationSupplement {
     pub fn realize(self) -> (Option<Locator>, Content) {
-        return (
+        (
             self.locator.and_then(|locator| {
                 serde_json::from_str::<Locator>(&format!("\"{}\"", &locator)).ok()
             }),
             self.content,
-        );
+        )
     }
 }
 
 impl FromValue for CitationSupplement {
     fn from_value(value: Value) -> HintedStrResult<Self> {
-        if let Value::Array(array) = &value {
-            if array.len() == 2 {
-                if let Ok(locator) = array.at(0, None)?.clone().cast::<EcoString>() {
-                    if let Ok(content) = array.at(1, None)?.clone().cast::<Content>() {
-                        return Ok(CitationSupplement {
-                            locator: Some(locator),
-                            content,
-                        });
-                    }
-                }
-            }
+        if let Value::Array(array) = &value
+            && array.len() == 2
+            && let Ok(locator) = array.at(0, None)?.clone().cast::<EcoString>()
+            && let Ok(content) = array.at(1, None)?.clone().cast::<Content>()
+        {
+            return Ok(CitationSupplement { locator: Some(locator), content });
         }
 
         if let Ok(content) = value.cast::<Content>() {
