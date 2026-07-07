@@ -180,6 +180,9 @@
 // Warning: 3-7 `join` is deprecated, use `bowtie.big` instead
 $ join_x x = bowtie.big_x x $
 
+// Warning: 6-10 `join` is deprecated, use `bowtie.big` instead
+#sym.join
+
 --- symbol-modifier-deprecated paged ---
 // Warning: 6-9 `gt.tri` is deprecated, use `gt.closed` instead
 $ gt.tri $
