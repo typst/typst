@@ -144,13 +144,13 @@ impl FromValue for CitationSupplement {
     fn from_value(value: Value) -> HintedStrResult<Self> {
         if let Value::Array(array) = &value
             && array.len() == 2
-            && let locator = array
-                .at(0, None)?
-                .cast::<Locator>()
-                .map_err(|e| e.with_hint("invalid locator in citation supplement"))?
-            && let content = array.at(1, None)?.clone().cast::<Content>()?
         {
-            return Ok(CitationSupplement { locator: Some(locator), content });
+            return Ok(CitationSupplement {
+                locator: Some(array.at(0, None)?.cast::<Locator>().map_err(|e| {
+                    e.with_hint("invalid locator in citation supplement")
+                })?),
+                content: array.at(1, None)?.clone().cast::<Content>()?,
+            });
         }
 
         if let Ok(content) = value.cast::<Content>() {
