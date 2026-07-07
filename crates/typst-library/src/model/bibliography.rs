@@ -1136,21 +1136,15 @@ fn citation_item<'a>(
 ) -> CitationItem<'a, hayagriva::Entry> {
     let supplement = child.supplement.get_cloned(StyleChain::default());
 
-    let (locator, supplement) = match supplement {
-        Some(supplement) => {
-            let (locator, content) = supplement.realize();
-            (
-                Some(SpecificLocator(
-                    locator.unwrap_or(citationberg::taxonomy::Locator::Custom),
-                    hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
-                        content.clone(),
-                    )),
-                )),
-                Some(content),
-            )
-        }
-        None => (None, None),
-    };
+    let locator = supplement.map(|supplement| {
+        let (locator, content) = supplement.realize();
+        SpecificLocator(
+            locator.unwrap_or(citationberg::taxonomy::Locator::Custom),
+            hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
+                content.clone(),
+            )),
+        )
+    });
 
     let mut hidden = false;
     let special_form = match child.form.get(StyleChain::default()) {

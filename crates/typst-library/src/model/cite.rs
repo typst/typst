@@ -2,7 +2,7 @@ use ecow::EcoString;
 use hayagriva::citationberg::taxonomy::Locator;
 use typst_syntax::Spanned;
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail, error};
+use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, Packed,
