@@ -110,6 +110,10 @@ pub fn prepare<'a>(
         add_cjk_latin_spacing(&mut items);
     }
 
+    if config.thai_distributed {
+        mark_thai_distributed(&mut items);
+    }
+
     Ok(Preparation {
         config,
         text,
@@ -171,5 +175,47 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             }
         }
         prev = item;
+    }
+}
+
+/// Mark Thai cluster boundary glyphs as justifiable for Thai distributed
+/// alignment.
+///
+/// When Thai distributed justification is enabled, extra space is distributed
+/// evenly between Thai grapheme clusters. This function iterates through all
+/// shaped glyphs and sets `is_justifiable = true` for glyphs whose first
+/// character is a Thai cluster boundary (base consonant, leading vowel, or
+/// digit).
+///
+/// This marks the last glyph of the previous Thai cluster because
+/// justification adds extra space after marked glyphs.
+fn mark_thai_distributed(items: &mut [(Range, Item)]) {
+    use super::shaping::{is_thai_cluster_boundary, is_thai_script};
+
+    for (_, item) in items.iter_mut() {
+        if let Item::Text(text_item) = item {
+            let glyphs = text_item.glyphs.to_mut();
+            let mut prev_thai_cluster: Option<(Range, usize)> = None;
+
+            for i in 0..glyphs.len() {
+                let c = glyphs[i].c;
+                let range = glyphs[i].range.clone();
+
+                if !is_thai_script(c) {
+                    prev_thai_cluster = None;
+                    continue;
+                }
+
+                if is_thai_cluster_boundary(c) {
+                    if let Some((prev_range, prev_index)) = &prev_thai_cluster
+                        && *prev_range != range
+                    {
+                        glyphs[*prev_index].is_justifiable = true;
+                    }
+                }
+
+                prev_thai_cluster = Some((range, i));
+            }
+        }
     }
 }

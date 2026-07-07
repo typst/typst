@@ -151,6 +151,7 @@ pub fn line<'a>(
     // Trim the line at the end, if necessary for this breakpoint.
     let trim = breakpoint.trim(range.start, full);
     let trimmed_range = range.start..trim.layout;
+    let trimmed_end = trimmed_range.end;
 
     // Collect the items for the line.
     let mut items = Items::new();
@@ -180,12 +181,18 @@ pub fn line<'a>(
     // Ensure that there is no weak spacing at the start and end of the line.
     trim_weak_spacing(&mut items);
 
+    // Deal with Thai word-spacing at the start of the line.
+    adjust_thai_distributed_at_line_start(p, &mut items);
+
     // Deal with CJ characters at line boundaries.
     // Use the trimmed range for robust boundary checks.
     adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
 
     // Deal with stretchability of glyphs at the end of the line.
     adjust_glyph_stretch_at_line_end(p, &mut items);
+
+    // Deal with Thai word-spacing at the end of the line.
+    adjust_thai_distributed_at_line_end(p, trimmed_end, &mut items);
 
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
@@ -371,6 +378,51 @@ fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
     let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.to_mut().last_mut() else { return };
     glyph.adjustability = Adjustability::default();
+}
+
+/// Remove Thai distributed spacing from the last glyph in the line.
+fn adjust_thai_distributed_at_line_end(
+    p: &Preparation,
+    line_end: usize,
+    items: &mut Items,
+) {
+    if !p.config.thai_distributed {
+        return;
+    }
+
+    let Some(shaped) = items.trailing_text_mut() else { return };
+    let Some(glyph) = shaped.glyphs.to_mut().last_mut() else { return };
+
+    if glyph.range.end == line_end && crate::inline::shaping::is_thai_script(glyph.c) {
+        glyph.is_justifiable = false;
+    }
+}
+
+/// Remove leading spaces from Thai distributed lines.
+fn adjust_thai_distributed_at_line_start(p: &Preparation, items: &mut Items) {
+    if !p.config.thai_distributed {
+        return;
+    }
+
+    let starts_with_thai = items
+        .iter()
+        .filter_map(Item::text)
+        .flat_map(|shaped| shaped.glyphs.iter())
+        .find(|glyph| !glyph.is_space())
+        .is_some_and(|glyph| crate::inline::shaping::is_thai_script(glyph.c));
+
+    if !starts_with_thai {
+        return;
+    }
+
+    let Some(shaped) = items.leading_text_mut() else { return };
+
+    for glyph in shaped.glyphs.to_mut().iter_mut().take_while(|glyph| glyph.is_space()) {
+        glyph.x_advance = Em::zero();
+        glyph.x_offset = Em::zero();
+        glyph.is_justifiable = false;
+        glyph.adjustability = Adjustability::default();
+    }
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.

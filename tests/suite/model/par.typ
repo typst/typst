@@ -578,3 +578,9 @@ A
 // Hint: 2-36 this is specific to paragraphs as they are not considered blocks anymore
 // Hint: 2-36 write `set par(spacing: ..)` instead
 #show par: set block(spacing: 12pt)
+
+--- par-thai-distributed paged ---
+#set page(width: 220pt)
+#set par(justify: true, thai-distributed: true)
+#set text(lang: "th")
+เอกสารฉบับนี้จัดทำขึ้นเพื่อกำหนดแนวทางในการบริหารจัดการ การดำเนินการ และการติดตามความคืบหน้าของโครงการอย่างเป็นระบบ โดยอ้างอิงตามกรอบปฏิบัติและแนวปฏิบัติตามมาตรฐานสากลด้านวิศวกรรมซอฟต์แวร์ ISO/IEC 29110 ในส่วนของภาค 5 ระดับ Basic (Basic Profile) ซึ่งเป็นมาตรฐานที่เหมาะสมสำหรับหน่วยงานหรือทีมพัฒนาขนาดเล็ก เพื่อให้มั่นใจได้ว่ากระบวนการพัฒนาซอฟต์แวร์จะมีคุณภาพและสามารถส่งมอบงานได้ตามกำหนดการ มีหัวข้อและสาระสำคัญดังนี้

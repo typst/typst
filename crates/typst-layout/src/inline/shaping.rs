@@ -1508,3 +1508,48 @@ fn is_justifiable(
         || is_cjk_right_aligned_punctuation(c, x_advance, stretchability)
         || is_cjk_center_aligned_punctuation(c, style)
 }
+
+/// Whether the character is a Thai base consonant (ก-ฮ, U+0E01–U+0E2E).
+#[allow(dead_code)]
+fn is_thai_consonant(c: char) -> bool {
+    matches!(c, '\u{0E01}'..='\u{0E2E}')
+}
+
+/// Whether the character is a Thai leading vowel (เ แ โ ใ ไ).
+/// These vowels appear before the consonant they belong to and always
+/// start a new grapheme cluster.
+#[allow(dead_code)]
+fn is_thai_leading_vowel(c: char) -> bool {
+    matches!(c, '\u{0E40}'..='\u{0E44}')
+}
+
+/// Whether the character is a Thai digit (๐-๙, U+0E50–U+0E59).
+#[allow(dead_code)]
+fn is_thai_digit(c: char) -> bool {
+    matches!(c, '\u{0E50}'..='\u{0E59}')
+}
+
+/// Whether the character marks the beginning of a new Thai grapheme cluster.
+///
+/// A cluster boundary occurs at:
+/// - Base consonants (ก-ฮ): start of a consonant cluster
+/// - Leading vowels (เ แ โ ใ ไ): these visually precede the consonant but
+///   logically start a new syllable
+/// - Thai digits (๐-๙): standalone justifiable units
+///
+/// Characters that are NOT cluster boundaries (they attach to the preceding
+/// consonant and must not be separated):
+/// - Above vowels: ั ิ ี ึ ื
+/// - Below vowels: ุ ู
+/// - Tone marks: ่ ้ ๊ ๋
+/// - Following vowels/marks: ะ า ำ ็ ์ ํ
+/// - Mai Yamok: ๆ (reduplication mark)
+#[allow(dead_code)]
+pub fn is_thai_cluster_boundary(c: char) -> bool {
+    is_thai_consonant(c) || is_thai_leading_vowel(c) || is_thai_digit(c)
+}
+
+/// Whether the character belongs to the Thai script block (U+0E00–U+0E7F).
+pub fn is_thai_script(c: char) -> bool {
+    matches!(c, '\u{0E01}'..='\u{0E7F}')
+}
