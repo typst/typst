@@ -198,6 +198,10 @@
 #let f( param : v ) = param
 #test(f( param /* ok */ : 2 ), 2)
 
+--- call-feature-gated eval features() ---
+// Error: 2-6 cannot access variable `html` because the `html` feature is not enabled
+#html()
+
 --- call-args-unclosed eval ---
 // Error: 7-8 unclosed delimiter
 #{func(}
