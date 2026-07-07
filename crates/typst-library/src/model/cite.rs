@@ -185,8 +185,8 @@ impl Reflect for CitationSupplement {
     fn castable(value: &Value) -> bool {
         Content::castable(value)
             || matches!(value, Value::Array(array) if array.len() == 2
-            && array.at(0, None).map_or(false, |v| Locator::castable(&v))
-            && array.at(1, None).map_or(false, |v| Content::castable(&v)))
+            && array.at(0, None).is_ok_and(|v| Locator::castable(&v))
+            && array.at(1, None).is_ok_and(|v| Content::castable(&v)))
     }
 }
 
