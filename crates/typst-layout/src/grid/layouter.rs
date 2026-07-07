@@ -1209,14 +1209,20 @@ impl<'a> GridLayouter<'a> {
             // Subtract header and footer heights from the region height when
             // it's not the first. Ignore non-repeating headers as they only
             // appear on the first region by definition.
-            target.set_max(
-                region.y
-                    - if i > 0 {
-                        self.current.repeating_header_height + self.current.footer_height
-                    } else {
-                        Abs::zero()
-                    },
-            );
+            let expanded = region.y
+                - if i > 0 {
+                    self.current.repeating_header_height + self.current.footer_height
+                } else {
+                    Abs::zero()
+                };
+
+            // In an unbounded region (e.g. a page with `height: auto`), the
+            // region height is infinite. Expanding a row to fill it would
+            // produce a non-finite frame size and panic when a cell breaks
+            // (e.g. due to a `colbreak`), so only expand into finite regions.
+            if expanded.is_finite() {
+                target.set_max(expanded);
+            }
         }
 
         // Layout into multiple regions.

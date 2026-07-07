@@ -845,6 +845,7 @@ ce0a8c8453f682afc61280473b32b856 issue-8261-string-as-non-numeric
 a06b2482f1d0f5ca88d5442e9c2d1d4f issue-8383-headers-pdf-ua
 d1f419b4e576bb3ae9c4b2ed45de67c0 issue-852-mat-type
 d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
+6d6159ed5606ac84d8a97bf41283b6db issue-8614-colbreak-in-cell-auto-height
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
 aa87ad6ade20c3470dd44d260dfa6811 issue-color-mix-luma
 5b94002ca5168ccda6d3200861bb81af issue-columns-heading

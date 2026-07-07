@@ -300,3 +300,12 @@ The following:
 #fn()
 
 Result: #context st.get()
+
+--- issue-8614-colbreak-in-cell-auto-height paged ---
+// Test that a `colbreak` inside a table cell does not crash the compiler when
+// the page height is automatic (an unbounded region). The cell should break
+// across two auto-sized pages instead of producing a non-finite frame size.
+#set page(height: auto)
+#table(
+  [hi#colbreak()\ hi]
+)

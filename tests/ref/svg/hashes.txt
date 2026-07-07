@@ -842,6 +842,7 @@ e757b359586c26a3453ab45df86c1591 issue-8261-string-as-non-numeric
 49c58d52a09c8a0e2941f0c9b3e02a26 issue-8372-stretched-glyphs
 c09d6d3c63dcd6a04c2daea43e75e0cb issue-852-mat-type
 d2c75477a39f501e64b586e9154160c4 issue-8520-script-stylistic-set
+d7bfb41fe3ffc1bb31086ada016bedf0 issue-8614-colbreak-in-cell-auto-height
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
 4c01dfc0d145e59abdb4413234dfd836 issue-columns-heading
