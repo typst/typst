@@ -187,6 +187,10 @@ $ gt.tri $
 // Warning: 12-15 `gt.tri.eq` is deprecated, use `gt.closed.eq` instead
 #sym.gt.eq.tri.not
 
+--- symbol-sect-deprecated-markup paged ---
+// Warning: 6-10 `join` is deprecated, use `bowtie.big` instead
+#sym.join
+
 --- issue-5930-symbol-label paged ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")

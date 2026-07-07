@@ -1805,6 +1805,7 @@ fc1f3964c3f9e1f668dea0e3c4d264cc sub-super-typographic
 03215022d93e92caa99976bb13e526f8 symbol-constructor
 c3dcac7395916a5744d93a97fff86f4c symbol-modifier-deprecated
 48ec0b459b27c4c90cb8c75ee0aabe99 symbol-sect-deprecated
+5112002bb2e209d7daea0bf37e8178f9 symbol-sect-deprecated-markup
 17ef2fb2d79d3aef3cbd09ceb1c66090 table-align-array
 5996856077120cf278e8c663a6c7048e table-cell-align-override
 29b29e77ad9aa1ab6fb43cb868ab932e table-cell-folding

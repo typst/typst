@@ -191,6 +191,10 @@
 #test(type(dictionary(sys).at("version")), version)
 #test(dictionary(sys).at("no-crash", default: none), none)
 
+--- dict-from-module-feature-gated-item eval features() ---
+// Error: 18-27 dictionary does not contain key "data-cell"
+#dictionary(pdf).data-cell
+
 --- dict-remove-order eval ---
 // Test that removal keeps order.
 #let dict = (a: 1, b: 2, c: 3, d: 4)

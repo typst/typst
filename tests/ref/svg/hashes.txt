@@ -1799,6 +1799,7 @@ b64d264f46907d6864cec01a3fa30aae super-underline
 39d7f353b3cf598d45674cf7cb21fc20 symbol-constructor
 a6803b73c3c1149b4e2972c54f79635a symbol-modifier-deprecated
 9c17d83a2556c6b5755e15ed4d9fce7f symbol-sect-deprecated
+49d1998c0184abea15e5d86e060bb36c symbol-sect-deprecated-markup
 adfb436c3a5c05d3b1f5f5d4fc9810f0 table-align-array
 0f85b8f9611c29330864ebde678621d8 table-cell-align-override
 a6a47fe5db49fd35fa379b2d06f51356 table-cell-folding
