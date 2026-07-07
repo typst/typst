@@ -6,7 +6,7 @@ use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, Packed,
-    Reflect, Smart, StyleChain, Synthesize, Value, cast, elem,
+    Reflect, Repr, Smart, StyleChain, Synthesize, Value, cast, elem,
 };
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
@@ -136,26 +136,15 @@ cast! {
 /// The supplement of the citation.
 #[derive(Debug, Clone, PartialEq, Hash, Default)]
 pub struct CitationSupplement {
-    pub locator: Option<EcoString>,
+    pub locator: Option<Locator>,
     pub content: Content,
-}
-
-impl CitationSupplement {
-    pub fn realize(self) -> (Option<Locator>, Content) {
-        (
-            self.locator.and_then(|locator| {
-                serde_json::from_str::<Locator>(&format!("\"{}\"", &locator)).ok()
-            }),
-            self.content,
-        )
-    }
 }
 
 impl FromValue for CitationSupplement {
     fn from_value(value: Value) -> HintedStrResult<Self> {
         if let Value::Array(array) = &value
             && array.len() == 2
-            && let Ok(locator) = array.at(0, None)?.clone().cast::<EcoString>()
+            && let Ok(locator) = array.at(0, None)?.clone().cast::<Locator>()
             && let Ok(content) = array.at(1, None)?.clone().cast::<Content>()
         {
             return Ok(CitationSupplement { locator: Some(locator), content });
@@ -193,6 +182,79 @@ impl Reflect for CitationSupplement {
     fn castable(value: &Value) -> bool {
         Content::castable(value) || matches!(value, Value::Array(arr) if arr.len() == 2)
     }
+}
+
+impl Repr for Locator {
+    fn repr(&self) -> EcoString {
+        match self {
+            Locator::Act => "act".into(),
+            Locator::Appendix => "appendix".into(),
+            Locator::ArticleLocator => "article-locator".into(),
+            Locator::Book => "book".into(),
+            Locator::Canon => "canon".into(),
+            Locator::Chapter => "chapter".into(),
+            Locator::Column => "column".into(),
+            Locator::Elocation => "elocation".into(),
+            Locator::Equation => "equation".into(),
+            Locator::Figure => "figure".into(),
+            Locator::Folio => "folio".into(),
+            Locator::Issue => "issue".into(),
+            Locator::Line => "line".into(),
+            Locator::Note => "note".into(),
+            Locator::Opus => "opus".into(),
+            Locator::Page => "page".into(),
+            Locator::Paragraph => "paragraph".into(),
+            Locator::Part => "part".into(),
+            Locator::Rule => "rule".into(),
+            Locator::Scene => "scene".into(),
+            Locator::Section => "section".into(),
+            Locator::SubVerbo => "sub verbo".into(),
+            Locator::Supplement => "supplement".into(),
+            Locator::Table => "table".into(),
+            Locator::Timestamp => "timestamp".into(),
+            Locator::Title => "title".into(),
+            Locator::TitleLocator => "title-locator".into(),
+            Locator::Verse => "verse".into(),
+            Locator::Volume => "volume".into(),
+            Locator::Custom => "custom".into(),
+        }
+    }
+}
+
+cast! {
+    Locator,
+    self => self.repr().into_value(),
+    "act" => Locator::Act,
+    "appendix" => Locator::Appendix,
+    "article-locator" => Locator::ArticleLocator,
+    "book" => Locator::Book,
+    "canon" => Locator::Canon,
+    "chapter" => Locator::Chapter,
+    "column" => Locator::Column,
+    "elocation" => Locator::Elocation,
+    "equation" => Locator::Equation,
+    "figure" => Locator::Figure,
+    "folio" => Locator::Folio,
+    "issue" => Locator::Issue,
+    "line" => Locator::Line,
+    "note" => Locator::Note,
+    "opus" => Locator::Opus,
+    "page" => Locator::Page,
+    "paragraph" => Locator::Paragraph,
+    "part" => Locator::Part,
+    "rule" => Locator::Rule,
+    "scene" => Locator::Scene,
+    "section" => Locator::Section,
+    "sub verbo" => Locator::SubVerbo,
+    "sub-verbo" => Locator::SubVerbo,
+    "supplement" => Locator::Supplement,
+    "table" => Locator::Table,
+    "timestamp" => Locator::Timestamp,
+    "title" => Locator::Title,
+    "title-locator" => Locator::TitleLocator,
+    "verse" => Locator::Verse,
+    "volume" => Locator::Volume,
+    "custom" => Locator::Custom,
 }
 
 /// The form of the citation.

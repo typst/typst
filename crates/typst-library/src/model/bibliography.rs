@@ -1137,11 +1137,10 @@ fn citation_item<'a>(
     let supplement = child.supplement.get_cloned(StyleChain::default());
 
     let locator = supplement.map(|supplement| {
-        let (locator, content) = supplement.realize();
         SpecificLocator(
-            locator.unwrap_or(citationberg::taxonomy::Locator::Custom),
+            supplement.locator.unwrap_or(citationberg::taxonomy::Locator::Custom),
             hayagriva::LocatorPayload::Transparent(TransparentLocator::new(
-                content.clone(),
+                supplement.content.clone(),
             )),
         )
     });
@@ -1503,8 +1502,8 @@ fn show_link(
 
 /// Displays transparent pass-through content.
 fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
-    let (_, content) = (ctx.supplement)(i).unwrap_or_default().realize();
-    show_with_formatting(content, format)
+    let supplement = (ctx.supplement)(i).unwrap_or_default();
+    show_with_formatting(supplement.content, format)
 }
 
 /// Displays formatted hayagriva text as content.
