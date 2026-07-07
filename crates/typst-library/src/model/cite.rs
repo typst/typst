@@ -154,7 +154,7 @@ impl FromValue for CitationSupplement {
             Ok(CitationSupplement { locator: None, content })
         } else {
             bail!(
-                "Citation Supplement must either be of type (string, content) or content"
+                "Citation Supplement must either be of type (Locator, Content) or Content"
             );
         }
     }
