@@ -206,12 +206,11 @@ fn mark_thai_distributed(items: &mut [(Range, Item)]) {
                     continue;
                 }
 
-                if is_thai_cluster_boundary(c) {
-                    if let Some((prev_range, prev_index)) = &prev_thai_cluster
-                        && *prev_range != range
-                    {
-                        glyphs[*prev_index].is_justifiable = true;
-                    }
+                if is_thai_cluster_boundary(c)
+                    && let Some((prev_range, prev_index)) = &prev_thai_cluster
+                    && *prev_range != range
+                {
+                    glyphs[*prev_index].is_justifiable = true;
                 }
 
                 prev_thai_cluster = Some((range, i));
