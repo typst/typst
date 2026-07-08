@@ -102,11 +102,13 @@ impl<'a> TilingSampler<'a> {
             RelativeTo::Self_ => sk::Transform::identity(),
             RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
+        let pattern_transform = tiling_transform(tilings);
 
         Self {
             pixmap,
             size: (tilings.size() + tilings.spacing()) * state.pixel_per_pt as f64,
-            transform_to_parent: fill_transform,
+            transform_to_parent: fill_transform
+                .post_concat(pattern_transform.invert().unwrap_or_default()),
             pixel_per_pt: state.pixel_per_pt,
         }
     }
@@ -270,10 +272,7 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_translate(
-                        tilings.offset().x.to_f32(),
-                        tilings.offset().y.to_f32(),
-                    )
+                    .pre_concat(tiling_transform(tilings))
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
                     .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );
@@ -307,4 +306,15 @@ pub fn render_tiling_frame(state: &State, tilings: &Tiling) -> sk::Pixmap {
     let temp_state = State::new(tilings.size(), ts, state.pixel_per_pt);
     crate::render_frame(&mut canvas, temp_state, tilings.frame());
     canvas
+}
+
+fn tiling_transform(tiling: &Tiling) -> sk::Transform {
+    sk::Transform::from_row(
+        tiling.angle().cos() as f32,
+        tiling.angle().sin() as f32,
+        -tiling.angle().sin() as f32,
+        tiling.angle().cos() as f32,
+        tiling.offset().x.to_f32(),
+        tiling.offset().y.to_f32(),
+    )
 }

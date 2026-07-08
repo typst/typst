@@ -10,11 +10,11 @@
 #set page(width: auto, height: auto, margin: 0pt)
 
 #let t = tiling(size: (10pt, 10pt), {
-    place(line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
-    place(line(stroke: 4pt, start: (100%,0%), end: (200%, 100%)))
-    place(line(stroke: 4pt, start: (0%,100%), end: (100%, 200%)))
-    place(line(stroke: 4pt, start: (-100%,0%), end: (0%, 100%)))
-    place(line(stroke: 4pt, start: (0%,-100%), end: (100%, 0%)))
+  place(line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
+  place(line(stroke: 4pt, start: (100%, 0%), end: (200%, 100%)))
+  place(line(stroke: 4pt, start: (0%, 100%), end: (100%, 200%)))
+  place(line(stroke: 4pt, start: (-100%, 0%), end: (0%, 100%)))
+  place(line(stroke: 4pt, start: (0%, -100%), end: (100%, 0%)))
 })
 #rect(width: 50pt, height: 50pt, fill: t)
 
@@ -53,7 +53,7 @@
   (20%, 0pt),
   (60%, 0pt),
   (80%, 20pt),
-  (0%,  20pt),
+  (0%, 20pt),
 )
 
 --- tiling-relative-stack paged ---
@@ -69,13 +69,13 @@
 #box(
   width: 8pt,
   height: 1pt,
-  fill: tiling(size: (1pt, 1pt), square(size: 1pt, fill: black))
+  fill: tiling(size: (1pt, 1pt), square(size: 1pt, fill: black)),
 )
 #v(-1em)
 #box(
   width: 8pt,
   height: 1pt,
-  fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black))
+  fill: tiling(size: (2pt, 1pt), square(size: 1pt, fill: black)),
 )
 
 --- tiling-zero-sized eval ---
@@ -111,7 +111,7 @@
 
 #set page(width: 100pt, height: 100pt)
 
-#rect(fill: t(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)
+#rect(fill: t(spacing: (10pt, 10pt)), width: 100%, height: 100%, stroke: 1pt)
 
 --- tiling-offset-negative paged ---
 // Test with offset set to `(-10pt, -10pt)`
@@ -153,6 +153,16 @@
 
 #rect(fill: t(offset: (50%, -50%)), width: 100%, height: 100%, stroke: 1pt)
 
+--- tiling-angle paged ---
+// Test with 45deg
+#let t(..args) = tiling(size: (20pt, 20pt), ..args)[
+  #line(start: (0%, 50%), end: (100%, 50%), stroke: 2pt + blue)
+]
+
+#set page(width: 100pt, height: 60pt)
+
+#rect(fill: t(angle: 45deg), width: 100%, height: 100%, stroke: 1pt)
+
 --- tiling-stroke paged ---
 // Test tiling on strokes
 #align(
@@ -161,13 +171,14 @@
     size: 50pt,
     fill: tiling(
       size: (5pt, 5pt),
-      align(horizon + center, circle(fill: blue, radius: 2.5pt))
+      align(horizon + center, circle(fill: blue, radius: 2.5pt)),
     ),
-    stroke: 7.5pt + tiling(
-      size: (5pt, 5pt),
-      align(horizon + center, circle(fill: red, radius: 2.5pt))
-    )
-  )
+    stroke: 7.5pt
+      + tiling(
+        size: (5pt, 5pt),
+        align(horizon + center, circle(fill: red, radius: 2.5pt)),
+      ),
+  ),
 )
 
 --- tiling-stroke-relative-parent paged ---
@@ -181,11 +192,14 @@
     fill: tiling(size: (5pt, 5pt), circle(radius: 2.5pt, fill: blue)),
     align(center + horizon, circle(
       radius: 15pt,
-      stroke: 7.5pt + tiling(
-        size: (5pt, 5pt), circle(radius: 2.5pt, fill: red), relative: "parent"
-      ),
-    ))
-  )
+      stroke: 7.5pt
+        + tiling(
+          size: (5pt, 5pt),
+          circle(radius: 2.5pt, fill: red),
+          relative: "parent",
+        ),
+    )),
+  ),
 )
 
 --- tiling-text paged ---
@@ -195,13 +209,13 @@
 #let t = tiling(
   size: (30pt, 30pt),
   relative: "parent",
-  square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
 );
 
 #set page(
   width: 140pt,
   height: 140pt,
-  fill: t
+  fill: t,
 )
 
 #rotate(45deg, scale(x: 50%, y: 70%, rect(
@@ -219,7 +233,7 @@
 #let t = tiling(
   size: (30pt, 30pt),
   relative: "parent",
-  square(size: 30pt, fill: gradient.conic(..color.map.rainbow))
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
 );
 #set text(fill: t)
 

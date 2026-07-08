@@ -9,7 +9,7 @@ use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Axes, Frame, Length, Region, Rel, Size};
+use crate::layout::{Abs, Angle, Axes, Frame, Length, Region, Rel, Size};
 use crate::visualize::RelativeTo;
 
 /// A repeating tiling fill.
@@ -20,7 +20,8 @@ use crate::visualize::RelativeTo;
 /// @tiling.constructor.size[`size`] and a body defining the content of each
 /// cell. You can also add horizontal or vertical
 /// @tiling.constructor.spacing[`spacing`] between the cells of the tiling and
-/// @tiling.constructor.offset[`offset`] the starting position of the tiling.
+/// @tiling.constructor.offset[`offset`] and
+/// @tiling.constructor.angle[`angle`] the starting placement of the tiling.
 ///
 /// = Example <example>
 /// ```example
@@ -68,6 +69,8 @@ struct TilingInner {
     spacing: Size,
     /// The tiling's tile offset.
     offset: Size,
+    /// The tiling's tile angle.
+    angle: Angle,
     /// The tiling's relative transform.
     relative: Smart<RelativeTo>,
 }
@@ -92,6 +95,7 @@ impl Tiling {
     ///
     /// #rect(width: 100%, height: 60pt, fill: pat)
     /// ```
+    #[expect(clippy::too_many_arguments)]
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
@@ -164,6 +168,20 @@ impl Tiling {
         #[named]
         #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
         offset: Spanned<Axes<Rel<Length>>>,
+        /// Rotates the tiles and the grid clockwise about the origin of the tiling.
+        ///
+        /// ```example
+        /// #let pat = tiling(
+        ///   size: (20pt, 20pt),
+        ///   angle: 45deg,
+        ///   line(start: (0%, 50%), end: (100%, 50%)),
+        /// )
+        ///
+        /// #rect(width: 100%, height: 60pt, fill: pat)
+        /// ```
+        #[named]
+        #[default(Angle::zero())]
+        angle: Angle,
         /// Determines relative to which element's bounding box the tiling is
         /// drawn.
         ///
@@ -252,6 +270,10 @@ impl Tiling {
             bail!(offset.span, "tile offset must be finite");
         }
 
+        if !angle.is_finite() {
+            bail!(span, "tile angle must be finite");
+        }
+
         // The size of the frame
         let size = size.v.map(|l| l.map(|a| a.abs));
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
@@ -288,6 +310,7 @@ impl Tiling {
             frame: LazyHash::new(frame),
             spacing,
             offset,
+            angle,
             relative,
         })))
     }
@@ -311,6 +334,11 @@ impl Tiling {
     /// Return the offset of the tiling in absolute units.
     pub fn offset(&self) -> Size {
         self.0.offset
+    }
+
+    /// Return the rotation angle of the tiling.
+    pub fn angle(&self) -> Angle {
+        self.0.angle
     }
 
     /// Return the frame of the tiling.
@@ -360,6 +388,11 @@ impl Repr for Tiling {
             out.push_str(", ");
             out.push_str(&self.0.offset.y.repr());
             out.push(')');
+        }
+
+        if self.0.angle != Angle::zero() {
+            out.push_str(", angle: ");
+            out.push_str(&self.0.angle.repr());
         }
 
         out.push_str(", ..)");
