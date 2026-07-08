@@ -171,13 +171,12 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Column balancing with re-layout
-        if self.config.columns.balanced
-            && self.work.children.is_empty()
-            && self.column_balancing.column_height.is_none()
-        {
-            self.column_balancing.column_height =
-                Some(balancing_height / self.config.columns.count as f64);
-            return Err(Stop::Relayout(PlacementScope::Parent));
+        if self.config.columns.balanced && self.work.children.is_empty() {
+            let column_height = balancing_height / self.config.columns.count as f64;
+            if self.column_balancing.column_height.is_none_or(|h| h < column_height) {
+                self.column_balancing.column_height = Some(column_height);
+                return Err(Stop::Relayout(PlacementScope::Parent));
+            }
         }
 
         Ok(output)

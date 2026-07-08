@@ -105,7 +105,7 @@ a2bc7d8dcb908647fa9494a451d7d592 color-spaces
 c0ce14889d60fcb5d8a064a97a97c24e columns-balanced-footnotes
 97939b351858b9cf563dd289e6722a6a columns-balanced-lists
 034dcf0195cba7f6a69ce398abbc66f1 columns-balanced-pagebreak
-9f11b62d021b17b7fc31a8db18915a5b columns-balanced-tables
+3672488e8d7ee67e6fbe808a42b3b0fb columns-balanced-tables
 cc4b690f5771b9286e7a833551e0109e columns-colbreak-after-place
 f6db5c95be1a9a92e4b794403580fa64 columns-empty-second-column
 4b8e180702317152a96f132736bd60f5 columns-in-auto-sized-rect
