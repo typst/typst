@@ -7,6 +7,7 @@ use typst_library::layout::{
 use typst_library::visualize::{
     Color, FillRule, Gradient, GradientStop, Paint, ProcessColor, RatioOrAngle, Tiling,
 };
+use typst_utils::Numeric;
 use xmlwriter::XmlWriter;
 
 use crate::path::SvgPathBuilder;
@@ -95,11 +96,17 @@ impl SVGRenderer<'_> {
 
         // Use the rendered SVG and the tiling's size and offset as a key, since the `Tiling`
         // itself includes `Location`s which aren't stable.
-        let tiling_id = self
-            .tilings
-            .insert_with((tiling_size, tiling_offset, tiling_angle, rendered), || {
-                tiling.clone()
-            });
+        let tiling_id = if tiling_angle.is_zero() {
+            self.tilings
+                .insert_with((tiling_size, tiling_offset, rendered.as_str()), || {
+                    tiling.clone()
+                })
+        } else {
+            self.tilings.insert_with(
+                (tiling_size, tiling_offset, tiling_angle, rendered.as_str()),
+                || tiling.clone(),
+            )
+        };
 
         if ts.is_identity() {
             return tiling_id;
@@ -344,19 +351,23 @@ impl SVGRenderer<'_> {
             self.tilings.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
             let size = tiling.size() + tiling.spacing();
-            let transform = Transform::translate(tiling.offset().x, tiling.offset().y)
-                .pre_concat(Transform::rotate(tiling.angle()));
+            let transform = Transform::rotate(tiling.angle());
 
             defs.elem("pattern")
                 .attr("id", id)
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
-                .attr("patternTransform", SvgTransform(transform))
+                .attr("x", tiling.offset().x.to_pt())
+                .attr("y", tiling.offset().y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
                 })
                 .with(|pattern| {
+                    if !transform.is_identity() {
+                        pattern.attr("patternTransform", SvgTransform(transform));
+                    }
+
                     // Render the frame.
                     let state = State::new(size);
                     self.render_frame(pattern, &state, tiling.frame());
