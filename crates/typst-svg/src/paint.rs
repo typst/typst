@@ -97,7 +97,9 @@ impl SVGRenderer<'_> {
         // itself includes `Location`s which aren't stable.
         let tiling_id = self
             .tilings
-            .insert_with((tiling_size, tiling_offset, tiling_angle, rendered), || tiling.clone());
+            .insert_with((tiling_size, tiling_offset, tiling_angle, rendered), || {
+                tiling.clone()
+            });
 
         if ts.is_identity() {
             return tiling_id;

@@ -76,6 +76,7 @@ struct TilingInner {
 }
 
 #[scope]
+#[expect(clippy::too_many_arguments)]
 impl Tiling {
     /// Construct a new tiling.
     ///
@@ -95,7 +96,6 @@ impl Tiling {
     ///
     /// #rect(width: 100%, height: 60pt, fill: pat)
     /// ```
-    #[expect(clippy::too_many_arguments)]
     #[func(constructor)]
     pub fn construct(
         engine: &mut Engine,
