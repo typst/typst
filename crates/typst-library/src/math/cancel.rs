@@ -57,9 +57,10 @@ pub struct CancelElem {
     /// Whether the line is placed behind the content.
     ///
     /// ```example
-    /// >>> #set cancel(stroke: red)
-    /// $ cancel(background: true)[This is behind.] \
-    /// $ cancel(background: false)[This is in front.] $
+    /// >>> #set page(width: 140pt)
+    /// #set math.cancel(stroke: red + 2pt)
+    /// $ cancel("behind", background: #true) \
+    ///   cancel("in front", background: #false) $
     /// ```
     #[default(false)]
     pub background: bool,
