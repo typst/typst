@@ -22,6 +22,10 @@ $ x + cancel("abcdefg", inverted: #true) $
 $a + cancel(b + c + d, cross: #true, stroke: #red) + e$
 $ a + cancel(b + c + d, cross: #true) + e $
 
+--- math-cancel-background paged ---
+// Background
+$a + cancel(b, background: #true, stroke: #(red + 3pt)) $
+
 --- math-cancel-customized paged ---
 // Resized and styled
 #set page(width: 200pt, height: auto)

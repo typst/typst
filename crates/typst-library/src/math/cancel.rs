@@ -54,6 +54,16 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
+    /// Whether the line is placed behind the content.
+    ///
+    /// ```example
+    /// >>> #set cancel(stroke: red)
+    /// $ cancel(background: true)[This is behind.] \
+    /// $ cancel(background: false)[This is in front.] $
+    /// ```
+    #[default(false)]
+    pub background: bool,
+
     /// How much to rotate the cancel line.
     ///
     /// - If given an angle, the line is rotated by that angle clockwise with
