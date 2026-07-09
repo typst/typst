@@ -331,6 +331,17 @@ pub struct RawElem {
     /// @reference:syntax:code[Typst code], and
     /// @reference:syntax:math[Typst math], respectively.
     ///
+    /// #folding-details(
+    ///   title: [Available syntaxes],
+    ///   docs-table(
+    ///     table.header[Name][Tags],
+    ///     ..stdx.raw-langs.map(((name, tokens)) => (
+    ///       name,
+    ///       tokens.map(raw).join[, ],
+    ///     )).flatten()
+    ///   )
+    /// )
+    ///
     /// ````example
     /// ```typ
     /// This is *Typst!*
