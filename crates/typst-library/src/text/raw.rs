@@ -334,6 +334,17 @@ pub struct RawElem {
     /// @reference:syntax:code[Typst code], and
     /// @reference:syntax:math[Typst math], respectively.
     ///
+    /// #folding-details(
+    ///   title: [Available syntaxes],
+    ///   docs-table(
+    ///     table.header[Name][Tags],
+    ///     ..stdx.raw-langs.map(((name, tokens)) => (
+    ///       name,
+    ///       tokens.map(raw).join[, ],
+    ///     )).flatten()
+    ///   )
+    /// )
+    ///
     /// ````example
     /// ```typ
     /// This is *Typst!*
@@ -373,6 +384,9 @@ pub struct RawElem {
     /// - A path string or @path to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
+    ///
+    /// For a list of built-in syntaxes, see the documentation of the
+    /// @raw.lang[`lang` parameter].
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")

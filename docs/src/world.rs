@@ -227,6 +227,7 @@ fn stdx_module(is_dev_version: bool) -> Module {
     scope.define_func::<crate::reflect::is_global_html_attr>();
     scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
+    scope.define("raw-langs", crate::reflect::raw_langs());
     scope.define("commit", display_commit(typst_utils::version().commit()));
     scope.define("is-dev-version", is_dev_version);
     Module::new("stdx", scope)
