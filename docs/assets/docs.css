@@ -261,6 +261,7 @@ main table thead {
 main table td,
 main table th {
   padding: 4px 8px;
+  vertical-align: baseline;
 }
 
 main table td p:first-child {
