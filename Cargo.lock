@@ -3356,6 +3356,7 @@ dependencies = [
  "glidesort",
  "hayagriva",
  "hayro-syntax",
+ "icu_collator",
  "icu_properties",
  "image",
  "indexmap",

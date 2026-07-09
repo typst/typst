@@ -4,6 +4,8 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
+use icu_collator::options::CollatorOptions;
+use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
@@ -463,21 +465,29 @@ impl RawElem {
 impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
-        RAW_SYNTAXES
+        let typst = [
+            ("Typst", vec!["typ", "typst"]),
+            ("Typst (code)", vec!["typc"]),
+            ("Typst (math)", vec!["typm"]),
+        ];
+
+        let other = RAW_SYNTAXES
             .syntaxes()
             .iter()
+            .filter(|syntax| !syntax.file_extensions.is_empty())
             .map(|syntax| {
-                (
-                    syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
-                )
-            })
-            .chain([
-                ("Typst", vec!["typ"]),
-                ("Typst (code)", vec!["typc"]),
-                ("Typst (math)", vec!["typm"]),
-            ])
-            .collect()
+                let name = syntax.name.as_str();
+                let exts = syntax.file_extensions.iter().map(|s| s.as_str()).collect();
+                (name, exts)
+            });
+
+        let front = typst.len();
+        let mut syntaxes: Vec<_> = typst.into_iter().chain(other).collect();
+        let collator =
+            Collator::try_new(CollatorPreferences::default(), CollatorOptions::default())
+                .unwrap();
+        syntaxes[front..].sort_by(|&(a, _), &(b, _)| collator.compare(a, b));
+        syntaxes
     }
 }
 
