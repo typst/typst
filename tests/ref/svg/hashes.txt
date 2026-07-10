@@ -1157,6 +1157,7 @@ ceb250274654168b12f0533e84da1a51 math-frac-paren-removal
 7cd5f3a473a23adfd73eff3ea01d9de0 math-frac-skewed
 3326585733d71bc147a40b3723b63c4f math-frac-styles-inline
 69cfff9677413c12ca81b1a87c275e96 math-frac-tan-sin-cos
+4b2af6532daf7978af846090a673bc39 math-func-literal-arg
 d89fb5ede740145a07a4897186f77b04 math-glyph-show-rule
 91ff62fe9d960a27d371b1c91a53321b math-linebreak-delimited
 88fe2f57a584407d420c88f23871e53c math-linebreaking-after-binop-and-rel

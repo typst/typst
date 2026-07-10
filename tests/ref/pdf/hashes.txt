@@ -1161,6 +1161,7 @@ a2ecaa1df02dd0ee9ff0d4b4cb2c9eee math-frac-precedence
 cc27c32a76ab2a7690dbd31854292b1b math-frac-skewed
 9440b6fcc7333365e15c929995a0afee math-frac-styles-inline
 d6643d1feebe04753f347a4cdc437af3 math-frac-tan-sin-cos
+9ffe00a82fdbae8668e1afce2a3f55d2 math-func-literal-arg
 997a7889821de9977ae8c8dc10fee7b1 math-glyph-show-rule
 92fbd7cccadef8db40967b4804558cd4 math-linebreak-delimited
 d1d6be25f35698cabebd697307519f5e math-linebreaking-after-binop-and-rel
