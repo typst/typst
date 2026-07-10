@@ -1510,7 +1510,6 @@ fn is_justifiable(
 }
 
 /// Whether the character is a Thai base consonant (ก-ฮ, U+0E01–U+0E2E).
-#[allow(dead_code)]
 fn is_thai_consonant(c: char) -> bool {
     matches!(c, '\u{0E01}'..='\u{0E2E}')
 }
@@ -1518,13 +1517,11 @@ fn is_thai_consonant(c: char) -> bool {
 /// Whether the character is a Thai leading vowel (เ แ โ ใ ไ).
 /// These vowels appear before the consonant they belong to and always
 /// start a new grapheme cluster.
-#[allow(dead_code)]
 fn is_thai_leading_vowel(c: char) -> bool {
     matches!(c, '\u{0E40}'..='\u{0E44}')
 }
 
 /// Whether the character is a Thai digit (๐-๙, U+0E50–U+0E59).
-#[allow(dead_code)]
 fn is_thai_digit(c: char) -> bool {
     matches!(c, '\u{0E50}'..='\u{0E59}')
 }
@@ -1544,15 +1541,8 @@ fn is_thai_digit(c: char) -> bool {
 /// - Tone marks: ่ ้ ๊ ๋
 /// - Following vowels/marks: ะ า ำ ็ ์ ํ
 /// - Mai Yamok: ๆ (reduplication mark)
-#[allow(dead_code)]
 pub fn is_thai_cluster_boundary(c: char) -> bool {
     is_thai_consonant(c) || is_thai_leading_vowel(c) || is_thai_digit(c)
-}
-
-/// Whether the character belongs to the Thai script block (U+0E00–U+0E7F).
-#[allow(dead_code)]
-pub fn is_thai_script(c: char) -> bool {
-    matches!(c, '\u{0E01}'..='\u{0E7F}')
 }
 
 /// Whether the character can start a justifiable distributed text unit.
