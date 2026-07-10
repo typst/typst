@@ -1550,6 +1550,16 @@ pub fn is_thai_cluster_boundary(c: char) -> bool {
 }
 
 /// Whether the character belongs to the Thai script block (U+0E00–U+0E7F).
+#[allow(dead_code)]
 pub fn is_thai_script(c: char) -> bool {
     matches!(c, '\u{0E01}'..='\u{0E7F}')
+}
+
+/// Whether the character can start a justifiable distributed text unit.
+///
+/// Thai text is distributed at cluster boundaries so marks stay attached to
+/// their base glyphs. Latin letters and digits are distributed by glyph cluster
+/// to keep mixed Thai/English paragraphs flush on both sides.
+pub fn is_distributed_cluster_boundary(c: char) -> bool {
+    is_thai_cluster_boundary(c) || c.script() == Script::Latin || c.is_ascii_digit()
 }
