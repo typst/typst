@@ -1109,7 +1109,7 @@ c6d8d02f23dd27b394211f3100465b15 math-cases-linebreaks-trailing
 ea1c5d0877e6dc21d3d02980c2412e09 math-class-chars
 6fa87c49a63f35e1cf8e757f36850329 math-class-content
 16cd1ac07d0a72392b31412902558fdc math-class-exceptions
-a22d2db7e0135d5f9126c30f3c19494e math-class-limits
+69ab6637ff5264e740895c8a8d007c1f math-class-limits
 fc2cd15c2c8976bd368b00dc078069b3 math-class-nested
 a119e5653fd04be9bcd89d07bd98c96c math-class-not-recursive
 1b24d9c62649d487de87348d90a07778 math-common-symbols
@@ -1305,12 +1305,13 @@ e59997145effaf8ed480c80fce67be7d math-stretch-explicit-mixed
 665c9a4ddf38847fa1bd92d33a05e166 math-stretch-fallback
 78a526a92f82b34e90c4c189c5bd7bf1 math-stretch-fallback-explicit
 0321378b783573d752b400db14b2ab81 math-stretch-horizontal
-5429a6ad3c8fb747ede6fa7f1b2d7171 math-stretch-horizontal-attach
+f3d0a41cff2270e0fcb7bdb135af9166 math-stretch-horizontal-attach
+27c88dc8c6ff2f9ac0617baee0957e62 math-stretch-horizontal-attach-constants
 bf4d73b61fec58823aa72e796b28d614 math-stretch-lr-nested-horizontal
-235efdbd5fdaa17f807176bf1613c799 math-stretch-lr-nested-horizontal-attach
+02561efbdca8574b5ef9152b90dcac88 math-stretch-lr-nested-horizontal-attach
 6a17f4daa45daba15045c9ee9d75263d math-stretch-lr-nested-vertical
 fff143ce58ee044f38efdf0def61dd83 math-stretch-lr-nested-vertical-attach
-eed21a1f575339ea9c11e663d2eba8f2 math-stretch-min-overlap-exceeds-max
+a5a280d1a72e0f73082d6c9f758effc7 math-stretch-min-overlap-exceeds-max
 57fbcf389872ef26a04745390a5c021d math-stretch-nested
 a50b9794695c043d24df3b1ed367227f math-stretch-nested-horizontal-attach
 0ca1280877c66a671a42812a774b46e5 math-stretch-nested-vertical-attach
