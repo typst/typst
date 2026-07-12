@@ -64,7 +64,7 @@ pub use crate::__format_str as format_str;
 /// ```
 ///
 /// = #short-or-long[Escapes][Escape sequences] <escapes>
-/// Just like in markup, you can escape a few symbols in strings:
+/// Strings support the following escape sequences:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
 /// - `[\n]` for a newline
