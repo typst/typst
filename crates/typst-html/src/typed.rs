@@ -126,8 +126,20 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
         let value = std::mem::take(&mut item.value.v);
         let ty = AttrType::convert(attr.ty);
         match ty.cast(value).at(span) {
-            Ok(Some(string)) => attrs.push(HtmlAttr::constant(attr.name), string),
-            Ok(None) => {}
+            // A later argument with the same name overrides an earlier one
+            // (e.g. from a spread), matching the behaviour of regular
+            // functions and avoiding duplicate HTML attributes.
+            Ok(Some(string)) => {
+                let key = HtmlAttr::constant(attr.name);
+                match attrs.get_mut(key) {
+                    Some(slot) => *slot = string,
+                    None => attrs.push(key, string),
+                }
+            }
+            // A later argument that resolves to no attribute (e.g. a presence
+            // attribute set to `false`) removes an earlier one with the same
+            // name.
+            Ok(None) => attrs.0.retain(|(k, _)| *k != HtmlAttr::constant(attr.name)),
             Err(diags) => errors.extend(diags),
         }
 
