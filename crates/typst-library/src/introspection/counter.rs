@@ -34,27 +34,6 @@ use crate::{Library, World};
 /// value is _contextual._ It is recommended to read the chapter on
 /// @reference:context[context] before continuing here.
 ///
-/// = Countable elements <countable-elements>
-/// In addition to the @counter:page-counter[page counter] and custom counters
-/// based on strings, counters can count through
-/// @location:locatable[locatable] elements in the document. The built-in
-/// locatable elements are:
-///
-/// - @reference:model[Model]: @document, @par, @par.line, @strong, @emph,
-///   @list, @enum, @terms, @link, @title, @heading, @figure, @figure.caption,
-///   @quote, @footnote, @footnote.entry, @outline, @outline.entry, @ref,
-///   @cite, @bibliography, @table, and @asset.
-/// - @reference:text[Text]: @raw, @underline, @overline, @strike, and
-///   @highlight.
-/// - Layout: @layout.
-/// - Math: @math.equation.
-/// - @reference:introspection[Introspection]: @metadata.
-/// - Visualize: @image.
-/// - PDF: @pdf.attach.
-///
-/// You can also count through selectors that match locatable elements. For
-/// example, `{counter(figure.where(kind: image))}` counts image figures.
-///
 /// = #short-or-long[Accessing][Accessing a counter] <accessing>
 /// To access the raw value of a counter, we can use the @counter.get[`get`]
 /// function. This function returns an @array[array]: Counters can have multiple
@@ -154,6 +133,16 @@ use crate::{Library, World};
 /// page and total number of pages in
 /// Arabic numbers.
 /// ```
+///
+/// = Element counters <element-counters>
+/// In addition to the @counter:page-counter[page counter] and custom counters
+/// based on strings, counters can count through
+/// @location:locatable[locatable] elements in the document.
+///
+/// You can also count through selectors that match locatable elements. For
+/// example, `{counter(figure.where(kind: image))}` counts image figures.
+/// See @location:locatable[locatable elements] for the list of built-in
+/// locatable elements.
 ///
 /// = Custom counters <custom-counters>
 /// To define your own counter, call the `counter` function with a string as a

@@ -26,9 +26,12 @@ use crate::model::Numbering;
 /// Elements that are automatically assigned a location are called _locatable._
 /// For efficiency reasons, not all elements are locatable.
 ///
-/// - In the @reference:model[Model category], most elements are locatable. This
-///   is because semantic elements like @heading[headings] and @figure[figures]
-///   are often used with introspection.
+/// - In the @reference:model[Model category], the following elements are
+///   locatable: @document, @par, @strong, @emph, @list, @enum, @terms, @link,
+///   @title, @heading, @figure, @figure.caption, @quote, @footnote,
+///   @footnote.entry, @outline, @outline.entry, @ref, @cite, @bibliography,
+///   @table, and @asset. This is because semantic elements like
+///   @heading[headings] and @figure[figures] are often used with introspection.
 ///
 /// - In the @reference:text[Text category], the @raw element, and the
 ///   decoration elements @underline, @overline, @strike, and @highlight are
@@ -38,7 +41,7 @@ use crate::model::Numbering;
 ///   element is locatable as being queried for is its primary purpose.
 ///
 /// - In the other categories, most elements are not locatable. Exceptions are
-///   @layout, @math.equation, @image, and @pdf.attach.
+///   @math.equation, @image, and @pdf.attach.
 ///
 /// To find out whether a specific element is locatable, you can try to @query
 /// for it.
