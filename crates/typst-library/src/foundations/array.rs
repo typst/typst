@@ -174,9 +174,9 @@ impl Array {
         self.0.len()
     }
 
-    /// Returns the first item in the array. May be used on the left-hand side
+    /// Returns the first item in the array. May be used on the left-hand side of
     /// an assignment. Returns the default value if the array is empty or fails
-    /// with an error is no default value was specified.
+    /// with an error if no default value was specified.
     #[func]
     pub fn first(
         &self,
@@ -189,7 +189,7 @@ impl Array {
 
     /// Returns the last item in the array. May be used on the left-hand side of
     /// an assignment. Returns the default value if the array is empty or fails
-    /// with an error is no default value was specified.
+    /// with an error if no default value was specified.
     #[func]
     pub fn last(
         &self,
