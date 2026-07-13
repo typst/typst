@@ -18,7 +18,6 @@ pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame
         items: vec![],
         sticky: None,
         stickable: None,
-        lines: None,
     };
     let init = distributor.snapshot();
     let forced = match distributor.run() {
@@ -63,23 +62,12 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// blocks are supposed to always be in the same page as the subsequent
     /// frame, but that is impossible in that case, which is thus pathological.
     stickable: Option<bool>,
-    /// The state of a group of lines that must stay together due to widow and
-    /// orphan prevention.
-    lines: Option<LineGroup<'a, 'b>>,
 }
 
 /// A snapshot of the distribution state.
 struct DistributionSnapshot<'a, 'b> {
     work: Work<'a, 'b>,
     items: usize,
-}
-
-/// A snapshot from before a group of lines, that must stay together due to
-/// widow/orphan prevention, is distributed, along with the number of lines of
-/// the group still to be distributed.
-struct LineGroup<'a, 'b> {
-    snapshot: DistributionSnapshot<'a, 'b>,
-    remaining: usize,
 }
 
 /// A laid out item in a distribution.
@@ -304,39 +292,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        // If this line anchors a widow/orphan group and we've already placed
-        // content in this region, snapshot the state before it. Should a
-        // footnote later force a break partway through the group, we rewind
-        // here so the whole group migrates to the next region together.
-        if let Some(length) = line.length
-            && self.has_frame()
-        {
-            self.lines = Some(LineGroup { snapshot: self.snapshot(), remaining: length });
-        }
+        // Lines participating in widow/orphan prevention reuse the sticky
+        // logic.
+        let sticky = line.sticky_need.is_some_and(|need| {
+            self.regions.iter().nth(1).is_some_and(|region| region.y.fits(need))
+        });
 
-        match self.frame(line.frame.clone(), line.align, false, false) {
-            Err(Stop::Finish(false)) => {
-                // This can only occur if a footnote in this line forced a
-                // region break, so rewind to the group's start to ensure all
-                // its line migrate to the next region together.
-                if let Some(lines) = self.lines.take() {
-                    self.restore(lines.snapshot);
-                }
-                Err(Stop::Finish(false))
-            }
-            Ok(()) => {
-                // The line was placed, so decrement the remaining lines and
-                // drop the snapshot if the whole group has been distributed.
-                if let Some(lines) = &mut self.lines {
-                    lines.remaining -= 1;
-                    if lines.remaining == 0 {
-                        self.lines = None;
-                    }
-                }
-                Ok(())
-            }
-            other => other,
-        }
+        self.frame(line.frame.clone(), line.align, sticky, false)
     }
 
     /// Processes an unbreakable block.

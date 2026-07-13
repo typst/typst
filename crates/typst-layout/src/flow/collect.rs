@@ -210,22 +210,22 @@ impl<'a> Collector<'a, '_, '_> {
                 self.output.push(Child::Rel(leading.into(), 5));
             }
 
-            // To prevent widows and orphans, a group of lines must be kept
-            // together. The group is always anchored on its first line, and
-            // covers
+            // To prevent widows and orphans, we require enough space for
             // - all lines if it's just three
             // - the first two lines if we're at the first line
             // - the last two lines if we're at the second to last line
-            //
-            // `need` is the combined height of the group. `length` is the
-            // number of lines in the group and is `None` when the line is not
-            // the anchor of any group.
-            let (need, length) = if prevent_all && i == 0 {
-                (front_1 + leading + front_2 + leading + back_1, Some(3))
+            let (need, sticky_need) = if prevent_all && i == 0 {
+                let all = front_1 + leading + front_2 + leading + back_1;
+                (all, Some(all))
+            } else if prevent_all && i + 2 == len {
+                let all = front_1 + leading + front_2 + leading + back_1;
+                (frame.height(), Some(all))
             } else if prevent_orphans && i == 0 {
-                (front_1 + leading + front_2, Some(2))
+                let first_two = front_1 + leading + front_2;
+                (first_two, Some(first_two))
             } else if prevent_widows && i >= 2 && i + 2 == len {
-                (back_2 + leading + back_1, Some(2))
+                let last_two = back_2 + leading + back_1;
+                (last_two, Some(last_two))
             } else {
                 (frame.height(), None)
             };
@@ -234,7 +234,7 @@ impl<'a> Collector<'a, '_, '_> {
                 frame,
                 align,
                 need,
-                length,
+                sticky_need,
             })));
         }
     }
@@ -381,7 +381,7 @@ pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
     pub need: Abs,
-    pub length: Option<usize>,
+    pub sticky_need: Option<Abs>,
 }
 
 /// A child that encapsulates a prepared unbreakable block.
