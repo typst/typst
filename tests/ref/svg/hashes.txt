@@ -1093,6 +1093,7 @@ b7693a8f704a821b1b5c41edced328c4 math-call-non-func-empty-args
 72675e743a35a60ef26160d70e57eb35 math-call-spread-shorthand-clash
 0745e119f75e2074b0ef76720e54bed8 math-cancel-angle-absolute
 380fabc6a69828318f199416c0d146a2 math-cancel-angle-func
+0203aa23aea2245da578c8718f8d2d89 math-cancel-background
 c056a99d37b4909eb3572ce10edaaf0e math-cancel-cross
 f333350646fd8f4e07381e9de0b10153 math-cancel-customized
 0114d1c97f4684bec0c24aff46a03caa math-cancel-display

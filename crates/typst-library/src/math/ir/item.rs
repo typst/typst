@@ -796,6 +796,8 @@ pub struct CancelItem<'a> {
     pub cross: bool,
     /// Whether to invert the angle of the first line.
     pub invert_first_line: bool,
+    /// Whether to draw the line behind the main content.
+    pub background: bool,
     /// The angle of the line.
     pub angle: Smart<CancelAngle>,
 }
@@ -810,6 +812,7 @@ impl<'a> CancelItem<'a> {
         stroke: FixedStroke,
         cross: bool,
         invert_first_line: bool,
+        background: bool,
         angle: Smart<CancelAngle>,
         styles: StyleChain<'a>,
         span: Span,
@@ -821,6 +824,7 @@ impl<'a> CancelItem<'a> {
             stroke,
             cross,
             invert_first_line,
+            background,
             angle,
         }));
         MathComponent { kind, props, styles }.into()
