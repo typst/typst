@@ -32,14 +32,18 @@ pub trait Tagged {}
 /// element with the @content.location[`location()`] method on content.
 ///
 /// = #short-or-long[Locatable][Locatable elements] <locatable>
-/// Elements that are automatically assigned a location are called _locatable._
-/// For efficiency reasons, not all elements are locatable.
+/// Elements that are automatically assigned a location are called _locatable_
+/// and can be found with @query[queries]:
 ///
-/// - In the @reference:model[Model category], most elements are locatable. This
-///   is because semantic elements like @heading[headings] and @figure[figures]
-///   are often used with introspection.
+/// - In the @reference:model[Model category], the following elements are
+///   locatable: @asset, @bibliography, @cite, @document, @emph, @enum, @figure,
+///   @figure.caption, @footnote, @footnote.entry, @heading, @link, @list,
+///   @outline, @outline.entry, @par, @quote, @ref, @strong, @table, @terms, and
+///   @title. Most of the elements in the _Model_ category are locatable because
+///   semantic elements like headings and figures are often
+///   used with introspection.
 ///
-/// - In the @reference:text[Text category], the @raw element, and the
+/// - In the @reference:text[Text category], the @raw element and the
 ///   decoration elements @underline, @overline, @strike, and @highlight are
 ///   locatable as these are also quite semantic in nature.
 ///
@@ -47,7 +51,7 @@ pub trait Tagged {}
 ///   element is locatable as being queried for is its primary purpose.
 ///
 /// - In the other categories, most elements are not locatable. Exceptions are
-///   @math.equation and @image.
+///   @math.equation, @image, and @pdf.attach.
 ///
 /// To find out whether a specific element is locatable, you can try to @query
 /// for it.
