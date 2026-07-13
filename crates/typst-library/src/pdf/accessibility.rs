@@ -62,18 +62,14 @@ pub enum ArtifactKind {
     Footer,
     /// Text or graphics in the back- or foreground of all pages.
     Watermark,
-    /// Page numbers. Note that if your page numbers are contained in a footer
-    /// or header instead, the whole header or footer should an artifact of the
-    /// appropriate type.
+    /// Page numbers.
     PageNumber,
     /// Line or paragraph numbers.
     LineNumber,
     /// Placeholders for areas in which there was content in another rendition
     /// of the document which has since been removed.
     Redaction,
-    /// Bates numbering. Note that if your Bates numbering is contained in a
-    /// footer or header instead, the whole header or footer should an artifact
-    /// of the appropriate type.
+    /// Bates numbering.
     Bates,
     /// Not part of the document, but rather the page it is printed on. An
     /// example would be cut marks or color bars.
