@@ -107,6 +107,15 @@ use crate::{Library, World};
 /// }
 /// ```
 ///
+/// = Element counters <element-counters>
+/// Above, there are various examples of using the @heading counter. Headings
+/// are just one kind of element that can be counted. In general, counters can
+/// count through any kind of @location:locatable[_locatable_ element].
+///
+/// Additionally, a counter can also count just those elements that match a
+/// specific @selector. For example, `{counter(figure.where(kind: image))}`
+/// counts figures containing images, but ignores other kinds of figures.
+///
 /// = Page counter <page-counter>
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
@@ -133,16 +142,6 @@ use crate::{Library, World};
 /// page and total number of pages in
 /// Arabic numbers.
 /// ```
-///
-/// = Element counters <element-counters>
-/// In addition to the @counter:page-counter[page counter] and custom counters
-/// based on strings, counters can count through
-/// @location:locatable[locatable] elements in the document.
-///
-/// You can also count through selectors that match locatable elements. For
-/// example, `{counter(figure.where(kind: image))}` counts image figures.
-/// See @location:locatable[locatable elements] for the list of built-in
-/// locatable elements.
 ///
 /// = Custom counters <custom-counters>
 /// To define your own counter, call the `counter` function with a string as a
@@ -352,14 +351,14 @@ impl Counter {
         ///   by manual updates,
         /// - If it is the @page function, counts through pages,
         /// - If it is a @selector[selector], counts through elements that match
-        ///   the selector. For example,
-        ///   - provide an element function: counts elements of that type,
-        ///   - provide a @function.where[`where`] selector: counts a type of
+        ///   the selector. For example, you can
+        ///   - provide an element function to count elements of that type,
+        ///   - provide a @function.where[`where`] selector to count a type of
         ///     element with specific fields,
-        ///   - provide a @label[`{<label>}`]: counts elements with that label.
+        ///   - provide a @label[`{<label>}`] to count elements with that label.
         ///
-        ///   Element functions and @function.where[`where`] selectors must
-        ///   match locatable elements.
+        ///   Element and @function.where[`where`] selector counter keys are
+        ///   only supported for @location:locatable[locatable elements].
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
