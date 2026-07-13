@@ -54,17 +54,6 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// Whether the line is placed behind the content.
-    ///
-    /// ```example
-    /// >>> #set page(width: 140pt)
-    /// #set math.cancel(stroke: red + 2pt)
-    /// $ cancel("behind", background: #true) \
-    ///   cancel("in front", background: #false) $
-    /// ```
-    #[default(false)]
-    pub background: bool,
-
     /// How much to rotate the cancel line.
     ///
     /// - If given an angle, the line is rotated by that angle clockwise with
@@ -106,6 +95,17 @@ pub struct CancelElem {
         ..Default::default()
     })]
     pub stroke: Stroke,
+
+    /// Whether the line is placed behind the content.
+    ///
+    /// ```example
+    /// >>> #set page(width: 140pt)
+    /// #set math.cancel(stroke: red + 2pt)
+    /// $ cancel("behind", background: #true) \
+    ///   cancel("in front", background: #false) $
+    /// ```
+    #[default(false)]
+    pub background: bool,
 }
 
 /// Defines the cancel line.
