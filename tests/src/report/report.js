@@ -75,7 +75,7 @@ for (const report of document.getElementsByClassName("test-report")) {
     const expanded = !(reportSourceToggle.ariaExpanded == "true");
     reportSource.hidden = !expanded;
     reportSourceToggle.ariaExpanded = expanded;
-    
+
     if (expanded) {
       activeTestSources += 1;
     } else {
@@ -84,7 +84,7 @@ for (const report of document.getElementsByClassName("test-report")) {
 
     globalSourceToggle.checked = activeTestSources > 0;
   });
-  
+
   for (const button of reportHeader.querySelectorAll(".copy-button")) {
     button.addEventListener("click", () => {
       navigator.clipboard.writeText(button.dataset.filePath);
@@ -493,6 +493,7 @@ function disableImageControls(state, mode) {
  * @property h {number}
  * @property clip {Path2D?}
  * @property opacity {number}
+ * @property border_color {string}
  */
 
 /**
@@ -528,6 +529,7 @@ function redrawImageDiff(state) {
     w: scale * state.images[0].naturalWidth,
     h: scale * state.images[0].naturalHeight,
     opacity: 1,
+    border_color: "#FF0000",
   };
   /** @type {ImageParams} */
   const b = {
@@ -536,18 +538,20 @@ function redrawImageDiff(state) {
     w: scale * state.images[1].naturalWidth,
     h: scale * state.images[1].naturalHeight,
     opacity: 1,
+    border_color: "#00e030",
   };
 
   const maxWidth = Math.max(a.w, b.w);
   const maxHeight = Math.max(a.h, b.h);
 
-  const sideBySideGap = 1;
+  const sideBySideGap = 2;
 
-  const swipeYPadding = scale * 8;
-  const swipeXPadding = 2;
+  const swipeMargin = { x: 2, y: scale * 8};
   const swipeDividerWidth = 1;
 
+  // Logical size of the canvas without the margin.
   let canvasSize = { w: maxWidth, h: maxHeight };
+  let canvasMargin = { x: 2, y: 2 };
   let compositeMode;
   let swipeDividerPos = null;
   switch (mode) {
@@ -556,7 +560,7 @@ function redrawImageDiff(state) {
 
       canvasSize = { w: 2 * maxWidth + sideBySideGap, h: maxHeight };
 
-      // Center align images
+      // Center align images.
       a.x = maxWidth - a.w;
       b.x = maxWidth + sideBySideGap;
 
@@ -568,23 +572,25 @@ function redrawImageDiff(state) {
     case "swipe": {
       compositeMode = "source-over";
 
-      const logicalCanvasSize = canvasSize;
-      canvasSize = { w: maxWidth + 2 * swipeXPadding, h: maxHeight + 2 * swipeYPadding };
+      canvasMargin = swipeMargin;
 
-      a.x = horizontalAlignImage(a, logicalCanvasSize, alignX) + swipeXPadding;
-      b.x = horizontalAlignImage(b, logicalCanvasSize, alignX) + swipeXPadding;
-      a.y = verticalAlignImage(a, logicalCanvasSize, alignY) + swipeYPadding;
-      b.y = verticalAlignImage(b, logicalCanvasSize, alignY) + swipeYPadding;
+      a.x = horizontalAlignImage(a, canvasSize, alignX)
+      b.x = horizontalAlignImage(b, canvasSize, alignX)
+      a.y = verticalAlignImage(a, canvasSize, alignY)
+      b.y = verticalAlignImage(b, canvasSize, alignY)
 
-      swipeDividerPos = Math.round(blend * (canvasSize.w - swipeDividerWidth));
+      swipeDividerPos = {
+        x: Math.round(blend * canvasSize.w),
+        y: -swipeMargin.y,
+      };
 
       // Use clip paths instead of the `drawImage` source paramters to avoid
       // wobble of the images when moving the slider.
       a.clip = new Path2D();
-      a.clip.rect(0, 0, swipeDividerPos, canvasSize.h);
+      a.clip.rect(0, 0, swipeDividerPos.x, canvasSize.h);
 
       b.clip = new Path2D();
-      b.clip.rect(swipeDividerPos, 0, canvasSize.w - swipeDividerPos, canvasSize.h);
+      b.clip.rect(swipeDividerPos.x, 0, canvasSize.w - swipeDividerPos.x, canvasSize.h);
 
       break;
     }
@@ -624,14 +630,15 @@ function redrawImageDiff(state) {
   }
 
   // Computation is done, do the actual drawing.
-  state.imageCanvas.width = canvasSize.w;
-  state.imageCanvas.height = canvasSize.h;
+  state.imageCanvas.width = canvasSize.w + 2 * canvasMargin.x;
+  state.imageCanvas.height = canvasSize.h + 2 * canvasMargin.y;
 
   const ctx = state.imageCanvas.getContext("2d")
   ctx.clearRect(0, 0, state.imageCanvas.width, state.imageCanvas.height);
 
   ctx.imageSmoothingEnabled = antialiased;
   ctx.globalCompositeOperation = compositeMode;
+  ctx.translate(canvasMargin.x, canvasMargin.y);
 
   drawImage(ctx, state.images[0], a);
   drawImage(ctx, state.images[1], b);
@@ -639,11 +646,10 @@ function redrawImageDiff(state) {
   // Divider.
   if (swipeDividerPos != null) {
     ctx.lineWidth = swipeDividerWidth;
-    ctx.strokeStyle = "red";
+    ctx.strokeStyle = "#007BFF";
     const divider = new Path2D();
-    console.log(swipeDividerPos);
-    divider.moveTo(swipeDividerPos, 0);
-    divider.lineTo(swipeDividerPos, canvasSize.h);
+    divider.moveTo(swipeDividerPos.x, swipeDividerPos.y);
+    divider.lineTo(swipeDividerPos.x, state.imageCanvas.height);
     ctx.stroke(divider);
   }
 }
@@ -656,8 +662,16 @@ function redrawImageDiff(state) {
 function drawImage(ctx, img, p) {
   ctx.save();
   ctx.globalAlpha = p.opacity;
+
+  // Draw image.
   if (p.clip != null) ctx.clip(p.clip);
   ctx.drawImage(img, p.x, p.y, p.w, p.h);
+
+  // Draw outline.
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = p.border_color;
+  ctx.strokeRect(p.x, p.y, p.w, p.h);
+
   ctx.restore();
 }
 
