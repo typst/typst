@@ -385,38 +385,36 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         sticky: bool,
         breakable: bool,
     ) -> FlowResult<()> {
-        if sticky {
-            // If the frame is sticky and we haven't remembered a preceding
-            // sticky element, make a checkpoint which we can restore should we
-            // end on this sticky element.
-            //
-            // The first sticky block within consecutive sticky blocks
-            // determines whether this group of sticky blocks has stickiness
-            // disabled or not.
-            //
-            // The criteria used here is: if migrating this group of sticky
-            // blocks together with the "attached" block can't improve the lack
-            // of space, since we're at the start of the region, then we don't
-            // do so, and stickiness is disabled (at least, for this region).
-            // Otherwise, migration is allowed.
-            //
-            // Note that, since the whole region is checked, this ensures sticky
-            // blocks at the top of a block - but not necessarily of the page -
-            // can still be migrated.
-            if self.sticky.is_none()
-                && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
-            {
-                self.sticky = Some(self.snapshot());
-            }
-        } else if !frame.is_empty() {
-            // If the frame isn't sticky, we can forget a previous snapshot. We
-            // interrupt a group of sticky blocks, if there was one, so we reset
-            // the saved stickable check for the next group of sticky blocks.
-            self.sticky = None;
-            self.stickable = None;
+        // If the frame is sticky and we haven't remembered a preceding sticky
+        // element, make a checkpoint which we can restore should we end on
+        // this sticky element.
+        //
+        // The first sticky block within consecutive sticky blocks determines
+        // whether this group of sticky blocks has stickiness disabled or not.
+        //
+        // The criteria used here is: if migrating this group of sticky blocks
+        // together with the "attached" block can't improve the lack of space,
+        // since we're at the start of the region, then we don't do so, and
+        // stickiness is disabled (at least, for this region). Otherwise,
+        // migration is allowed.
+        //
+        // Note that, since the whole region is checked, this ensures sticky
+        // blocks at the top of a block - but not necessarily of the page - can
+        // still be migrated.
+        if sticky
+            && self.sticky.is_none()
+            && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
+        {
+            self.sticky = Some(self.snapshot());
         }
 
         // Handle footnotes.
+        //
+        // This must happen before we forget a previous sticky snapshot below.
+        // If a non-sticky frame's footnote doesn't fit, the frame and any
+        // preceding sticky blocks attached to it need to migrate to the next
+        // region together. Resetting the sticky state first would then strand
+        // those sticky blocks in this region.
         self.composer.footnotes(
             &self.regions,
             &frame,
@@ -424,6 +422,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             breakable,
             true,
         )?;
+
+        if !sticky && !frame.is_empty() {
+            // If the frame isn't sticky, we can forget a previous snapshot. We
+            // interrupt a group of sticky blocks, if there was one, so we reset
+            // the saved stickable check for the next group of sticky blocks.
+            self.sticky = None;
+            self.stickable = None;
+        }
 
         // Push an item for the frame.
         self.regions.size.y -= frame.height();
