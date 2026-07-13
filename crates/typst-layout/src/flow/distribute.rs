@@ -278,27 +278,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        // If the line's need, which includes its own height and that of
-        // following lines grouped by widow/orphan prevention, does not fit into
-        // the current region, but does fit into the next region, finish the
-        // region.
-        if !self.regions.size.y.fits(line.need)
-            && self
-                .regions
-                .iter()
-                .nth(1)
-                .is_some_and(|region| region.y.fits(line.need))
-        {
-            return Err(Stop::Finish(false));
-        }
-
-        // Lines participating in widow/orphan prevention reuse the sticky
-        // logic.
-        let sticky = line.sticky_need.is_some_and(|need| {
-            self.regions.iter().nth(1).is_some_and(|region| region.y.fits(need))
-        });
-
-        self.frame(line.frame.clone(), line.align, sticky, false)
+        self.frame(line.frame.clone(), line.align, line.sticky, false)
     }
 
     /// Processes an unbreakable block.

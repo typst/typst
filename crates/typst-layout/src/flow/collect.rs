@@ -195,47 +195,15 @@ impl<'a> Collector<'a, '_, '_> {
             costs.orphan() > Ratio::zero() && len >= 2 && !lines[1].is_empty();
         let prevent_widows =
             costs.widow() > Ratio::zero() && len >= 2 && !lines[len - 2].is_empty();
-        let prevent_all = len == 3 && prevent_orphans && prevent_widows;
-
-        // Store the heights of lines at the edges because we'll potentially
-        // need these later when `lines` is already moved.
-        let height_at = |i| lines.get(i).map(Frame::height).unwrap_or_default();
-        let front_1 = height_at(0);
-        let front_2 = height_at(1);
-        let back_2 = height_at(len.saturating_sub(2));
-        let back_1 = height_at(len.saturating_sub(1));
 
         for (i, frame) in lines.into_iter().enumerate() {
             if i > 0 {
                 self.output.push(Child::Rel(leading.into(), 5));
             }
 
-            // To prevent widows and orphans, we require enough space for
-            // - all lines if it's just three
-            // - the first two lines if we're at the first line
-            // - the last two lines if we're at the second to last line
-            let (need, sticky_need) = if prevent_all && i == 0 {
-                let all = front_1 + leading + front_2 + leading + back_1;
-                (all, Some(all))
-            } else if prevent_all && i + 2 == len {
-                let all = front_1 + leading + front_2 + leading + back_1;
-                (frame.height(), Some(all))
-            } else if prevent_orphans && i == 0 {
-                let first_two = front_1 + leading + front_2;
-                (first_two, Some(first_two))
-            } else if prevent_widows && i >= 2 && i + 2 == len {
-                let last_two = back_2 + leading + back_1;
-                (last_two, Some(last_two))
-            } else {
-                (frame.height(), None)
-            };
-
-            self.output.push(Child::Line(self.boxed(LineChild {
-                frame,
-                align,
-                need,
-                sticky_need,
-            })));
+            let sticky = (prevent_orphans && i == 0) || (prevent_widows && i + 2 == len);
+            self.output
+                .push(Child::Line(self.boxed(LineChild { frame, align, sticky })));
         }
     }
 
@@ -380,8 +348,7 @@ pub enum Child<'a> {
 pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
-    pub need: Abs,
-    pub sticky_need: Option<Abs>,
+    pub sticky: bool,
 }
 
 /// A child that encapsulates a prepared unbreakable block.
