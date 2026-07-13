@@ -223,7 +223,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(self.routines, math.clone(), inputs);
+        let global = global(self.routines, math.clone(), inputs, &self.features);
         Library {
             routines: self.routines,
             global: global.clone(),
@@ -351,7 +351,12 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
+fn global(
+    routines: &Routines,
+    math: Module,
+    inputs: Dict,
+    features: &Features,
+) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs);
@@ -365,9 +370,14 @@ fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
 
     global.define("math", math);
     global.define("pdf", self::pdf::module());
-    global
-        .define("html", (routines.html_module)())
-        .with_feature(Feature::Html);
+
+    // Only initialize the HTML module if the feature is enabled.
+    let html = if features.is_enabled(Feature::Html) {
+        (routines.html_module)()
+    } else {
+        Module::new("html", Scope::new())
+    };
+    global.define("html", html).with_feature(Feature::Html);
 
     prelude(&mut global);
 
