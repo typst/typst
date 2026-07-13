@@ -352,12 +352,14 @@ impl Counter {
         ///   by manual updates,
         /// - If it is the @page function, counts through pages,
         /// - If it is a @selector[selector], counts through elements that match
-        ///   the selector. Element functions and @function.where[`where`]
-        ///   selectors must match locatable elements. For example,
+        ///   the selector. For example,
         ///   - provide an element function: counts elements of that type,
         ///   - provide a @function.where[`where`] selector: counts a type of
         ///     element with specific fields,
         ///   - provide a @label[`{<label>}`]: counts elements with that label.
+        ///
+        ///   Element functions and @function.where[`where`] selectors must
+        ///   match locatable elements.
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
