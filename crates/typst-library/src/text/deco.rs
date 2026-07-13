@@ -60,9 +60,9 @@ pub struct UnderlineElem {
     /// Whether the line is placed behind the content it underlines.
     ///
     /// ```example
-    /// #set underline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
-    /// #underline(background: true)[This is stylized.] \
-    /// #underline(background: false)[This is partially hidden.]
+    /// #set underline(stroke: aqua + 5pt, evade: false)
+    /// #underline(background: true)[Fully visible.] \
+    /// #underline(background: false)[Partially hidden.]
     /// ```
     #[default(false)]
     pub background: bool,
@@ -134,9 +134,9 @@ pub struct OverlineElem {
     /// Whether the line is placed behind the content it overlines.
     ///
     /// ```example
-    /// #set overline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
-    /// #overline(background: true)[This is stylized.] \
-    /// #overline(background: false)[This is partially hidden.]
+    /// #set overline(stroke: aqua + 5pt)
+    /// #overline(background: true)[Fully visible.] \
+    /// #overline(background: false)[Partially hidden.]
     /// ```
     #[default(false)]
     pub background: bool,
@@ -193,7 +193,7 @@ pub struct StrikeElem {
     /// Whether the line is placed behind the content.
     ///
     /// ```example
-    /// #set strike(stroke: red)
+    /// #set strike(stroke: red + 2pt)
     /// #strike(background: true)[This is behind.] \
     /// #strike(background: false)[This is in front.]
     /// ```
