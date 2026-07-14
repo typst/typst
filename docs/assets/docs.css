@@ -261,6 +261,7 @@ main table thead {
 main table td,
 main table th {
   padding: 4px 8px;
+  vertical-align: baseline;
 }
 
 main table td p:first-child {
@@ -419,15 +420,15 @@ pre > button.copy > svg {
   margin-block-start: 16px;
 }
 
-.code-definition + .folding-example {
+.code-definition + .folding-details {
   margin-block-start: 8px;
 }
 
-.folding-example + .code-definition {
+.folding-details + .code-definition {
   margin-block-start: 16px;
 }
 
-.folding-example summary {
+.folding-details summary {
   display: inline-flex;
   gap: 8px;
   font-size: 13px;
@@ -439,26 +440,46 @@ pre > button.copy > svg {
   transition: ease 0.1s background-color;
 }
 
-.folding-example summary:active {
+.folding-details summary:active {
   background-color: #d7d9e0;
 }
 
-.folding-example summary::marker,
-.folding-example summary::-webkit-details-marker {
+.folding-details summary::marker,
+.folding-details summary::-webkit-details-marker {
   display: none;
   content: "";
 }
 
-.folding-example summary img {
+.folding-details summary img {
   transition: ease 0.2s transform;
 }
 
-.folding-example[open] summary img {
+.folding-details[open] summary img {
   transform: rotate(90deg);
 }
 
-.folding-example > div {
+.folding-details > div {
   margin-top: 6px;
+}
+
+.info-box .folding-details summary {
+  display: flex;
+  font-size: unset;
+  color: unset;
+  border-radius: unset;
+  padding: 0px;
+}
+
+.info-box .folding-details {
+  margin-block-end: 8px;
+}
+
+.info-box .folding-details summary:active {
+  background: unset;
+}
+
+.info-box .folding-details summary img {
+  margin-block-start: 0.125em;
 }
 
 /* Chain link component */

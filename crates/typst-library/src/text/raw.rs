@@ -331,6 +331,17 @@ pub struct RawElem {
     /// @reference:syntax:code[Typst code], and
     /// @reference:syntax:math[Typst math], respectively.
     ///
+    /// #folding-details(
+    ///   title: [Available syntaxes],
+    ///   docs-table(
+    ///     table.header[Name][Tags],
+    ///     ..stdx.raw-langs.map(((name, tokens)) => (
+    ///       name,
+    ///       tokens.map(raw).join[, ],
+    ///     )).flatten()
+    ///   )
+    /// )
+    ///
     /// ````example
     /// ```typ
     /// This is *Typst!*
@@ -462,21 +473,25 @@ impl RawElem {
 impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
-        RAW_SYNTAXES
-            .syntaxes()
-            .iter()
-            .map(|syntax| {
-                (
-                    syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
-                )
-            })
-            .chain([
-                ("Typst", vec!["typ"]),
-                ("Typst (code)", vec!["typc"]),
-                ("Typst (math)", vec!["typm"]),
-            ])
-            .collect()
+        [
+            ("Typst", vec!["typ", "typst"]),
+            ("Typst (code)", vec!["typc"]),
+            ("Typst (math)", vec!["typm"]),
+        ]
+        .into_iter()
+        .chain(
+            RAW_SYNTAXES
+                .syntaxes()
+                .iter()
+                .filter(|syntax| !syntax.file_extensions.is_empty())
+                .map(|syntax| {
+                    (
+                        syntax.name.as_str(),
+                        syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
+                    )
+                }),
+        )
+        .collect()
     }
 }
 

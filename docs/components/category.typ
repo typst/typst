@@ -214,7 +214,7 @@
           ))
           .flatten(),
       )
-      if strings.len() > 10 {
+      context if strings.len() > 10 and target() == "html" {
         folding-details(title: [View options], t)
       } else {
         t

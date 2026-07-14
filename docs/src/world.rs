@@ -227,6 +227,7 @@ fn stdx_module() -> Module {
     scope.define_func::<crate::reflect::is_global_html_attr>();
     scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
+    scope.define("raw-langs", crate::reflect::raw_langs());
     Module::new("stdx", scope)
 }
 
