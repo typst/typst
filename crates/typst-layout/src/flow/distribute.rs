@@ -156,6 +156,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
     }
 
+    /// Mark the amount of height used and reduce the region height accordingly.
+    fn use_height(&mut self, amount: Abs) {
+        self.regions.size.y -= amount;
+        self.composer.column_balancing.used_height += amount;
+    }
+
     /// Processes relative spacing.
     fn rel(&mut self, amount: Rel<Abs>, weakness: u8) {
         let amount = amount.relative_to(self.regions.base().y);
@@ -163,8 +169,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return;
         }
 
-        self.regions.size.y -= amount;
-        self.composer.column_balancing.used_height += amount;
+        self.use_height(amount);
         self.items.push(Item::Abs(amount, weakness));
     }
 
@@ -193,10 +198,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || amount > prev_amount)
                     {
-                        self.regions.size.y -= amount - prev_amount;
-                        self.composer.column_balancing.used_height +=
-                            amount - prev_amount;
                         *item = Item::Abs(amount, weakness);
+                        self.use_height(amount - prev_amount);
                     }
                     return false;
                 }
@@ -247,8 +250,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for (i, item) in self.items.iter().enumerate().rev() {
             match *item {
                 Item::Abs(amount, 1..) => {
-                    self.regions.size.y += amount;
-                    self.composer.column_balancing.used_height -= amount;
+                    self.use_height(-amount);
                     self.items.remove(i);
                     break;
                 }
@@ -448,8 +450,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         )?;
 
         // Push an item for the frame.
-        self.regions.size.y -= frame.height();
-        self.composer.column_balancing.used_height += frame.height();
+        self.use_height(frame.height());
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -464,16 +465,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // spacing temporarily available again because it can collapse if it
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
-            self.regions.size.y += weak_spacing;
-            self.composer.column_balancing.used_height -= weak_spacing;
+            self.use_height(-weak_spacing);
             self.composer.float(
                 placed,
                 &self.regions,
                 self.items.iter().any(|item| matches!(item, Item::Frame(..))),
                 true,
             )?;
-            self.regions.size.y -= weak_spacing;
-            self.composer.column_balancing.used_height += weak_spacing;
+            self.use_height(weak_spacing);
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer
