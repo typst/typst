@@ -102,6 +102,7 @@ a2bc7d8dcb908647fa9494a451d7d592 color-spaces
 8492ecc566615fa988840b12dd09077d columns-balanced
 bd1233a376d1fffe7096f5a23434a0f1 columns-balanced-blocks
 06a475e9fdffb6516cd96db1cc41e735 columns-balanced-figures
+92f23d2f6eae88e4250d62b8115b0b1d columns-balanced-footnote-overflow
 c0ce14889d60fcb5d8a064a97a97c24e columns-balanced-footnotes
 90bc505fed9240df2ac9ed34be7b8af5 columns-balanced-leftover-2-3
 83032278eeba68bc31069018ad46639d columns-balanced-leftover-4

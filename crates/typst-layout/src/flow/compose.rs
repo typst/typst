@@ -757,10 +757,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
             return inner;
         }
 
-        let mut size = inner.size() + Size::with_y(self.height());
-        if let Some(height) = column_height {
-            size.y.set_max(height + self.footnote_size);
-        }
+        let size = inner.size() + Size::with_y(self.height());
         let mut output = Frame::soft(size);
 
         let mut offset_top = Abs::zero();

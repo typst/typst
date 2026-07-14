@@ -239,6 +239,13 @@ B
 #lorem(50)#footnote[Footer]
 #lorem(22)
 
+--- columns-balanced-footnote-overflow paged ---
+#set page(width: 300pt, height: 150pt, columns: 2)
+#set columns(balanced: true)
+#lorem(10)
+#footnote(lorem(30))
+#lorem(45)
+
 --- columns-balanced-blocks paged ---
 #set page(width: 100pt, height: auto, margin: 5pt, columns: 3)
 #set columns(balanced: true)

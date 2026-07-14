@@ -104,6 +104,7 @@ e4378b03c0c88a04b7bc5b0c3d9e23f9 color-saturation
 49417c77b77d95ffc4155a083c6f2f18 columns-balanced
 85466b150e564a3d71f8179b676a0457 columns-balanced-blocks
 36c3820835643878a4550af0a04c566b columns-balanced-figures
+98524c510f636e12f4d2e26b4e8a10e0 columns-balanced-footnote-overflow
 afeb78c647d8b3c7f8b4b97631dbe817 columns-balanced-footnotes
 3083467593aaafa5c14be713f0902bfb columns-balanced-leftover-2-3
 0528be61fa39c9c839d4be18cbdf25ce columns-balanced-leftover-4
