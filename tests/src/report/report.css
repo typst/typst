@@ -224,6 +224,11 @@ h2.diff-container-header {
   }
 }
 
+.test-report-body {
+  position: relative;
+  width: 100%;
+}
+
 .test-report-source {
   border-bottom: 1.25rem solid var(--layer-2);
 }
@@ -338,10 +343,73 @@ a.report-file-link:active {
 }
 
 .report-file {
+  width: 100%;
+  height: 100%;
   position: relative;
 }
 
+.file-diff {
+  width: 100%;
+  height: 100%;
+}
+
+/* ========== Image diff ========== */
+
+.test-report-body > .image-controls {
+  visibility: hidden;
+}
+
+.test-report-body.image > .image-controls {
+  visibility: visible;
+}
+
+.test-report-body.image:not(:hover,:has(*:focus-visible)) > .image-controls {
+  /* Avoid flicker in some cases */
+  transition: opacity 0.1s cubic-bezier(0.64, 0, 0.78, 0) 0.1s;
+  opacity: 0;
+}
+
+.image-controls {
+  position: absolute;
+  width: 100%;
+  margin: var(--size-xxxsmall) 0;
+  padding: 0 var(--size-xxxsmall);
+
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: var(--size-xxxsmall);
+
+  z-index: 100;
+}
+
+.image-controls.top {
+  top: 0;
+}
+
+.image-controls.bottom {
+  bottom: 0;
+}
+
+.file-diff.image {
+  width: 100%;
+  height: 400px;
+  min-height: 100px;
+  max-height: 100vh;
+  resize: vertical;
+  overflow: hidden;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 /* ========== Text diff ========== */
+
+.file-diff.text {
+  width: 100%;
+}
 
 table.text-diff {
   width: 100%;
@@ -443,74 +511,11 @@ tr {
   margin: var(--line-margin) 0;
 }
 
-/* ========== Image diff ========== */
-
-.image-diff {
-  position: relative;
-  height: 400px;
-  width: 100%;
-  min-height: 100px;
-  max-height: 100vh;
-  resize: vertical;
-  overflow: hidden;
-
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Only show image controls on hover */
-.image-diff:not(:hover,:has(*:focus-visible)) {
-  > .image-controls,
-  > .image-mode-controls {
-    /* Avoid flicker in some cases */
-    transition: opacity 0.1s cubic-bezier(0.64, 0, 0.78, 0) 0.1s;
-    opacity: 0;
-  }
-}
-
-.image-controls {
-  position: absolute;
-  top: 0;
-  width: 100%;
-  padding: var(--size-xxxsmall);
-
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: var(--size-xxxsmall);
-
-  z-index: 100;
-}
-
-.image-mode-controls {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  padding: var(--size-xxxsmall);
-
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  gap: var(--size-xxxsmall);
-
-  z-index: 100;
-}
-
-.image-diff-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
 /* ========== HTML diff ========== */
 
-.html-diff {
-  height: 400px;
+.file-diff.html {
   width: 100%;
+  height: 400px;
   min-height: 100px;
   max-height: 100vh;
   resize: vertical;
