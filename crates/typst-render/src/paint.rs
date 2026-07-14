@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use tiny_skia as sk;
-use typst_library::layout::{Abs, Axes, Point, Ratio, Size};
+use typst_library::layout::{Abs, Axes, Point, Ratio, Size, Transform};
 use typst_library::visualize::{
     Geometry, Gradient, Paint, ProcessColor, RelativeTo, Shape, Tiling,
 };
 
-use crate::{AbsExt, State};
+use crate::{AbsExt, State, to_sk_transform};
 
 /// Trait for sampling of a paint, used as a generic
 /// abstraction over solid colors and gradients.
@@ -102,7 +102,7 @@ impl<'a> TilingSampler<'a> {
             RelativeTo::Self_ => sk::Transform::identity(),
             RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
-        let pattern_transform = tiling_transform(tilings);
+        let pattern_transform = to_sk_transform(&tiling_transform(tilings));
 
         Self {
             pixmap,
@@ -272,7 +272,7 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_concat(tiling_transform(tilings))
+                    .pre_concat(to_sk_transform(&tiling_transform(tilings)))
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
                     .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );
@@ -308,13 +308,7 @@ pub fn render_tiling_frame(state: &State, tilings: &Tiling) -> sk::Pixmap {
     canvas
 }
 
-fn tiling_transform(tiling: &Tiling) -> sk::Transform {
-    sk::Transform::from_row(
-        tiling.angle().cos() as f32,
-        tiling.angle().sin() as f32,
-        -tiling.angle().sin() as f32,
-        tiling.angle().cos() as f32,
-        tiling.offset().x.to_f32(),
-        tiling.offset().y.to_f32(),
-    )
+fn tiling_transform(tiling: &Tiling) -> Transform {
+    Transform::translate(tiling.offset().x, tiling.offset().y)
+        .pre_concat(Transform::rotate(tiling.angle()))
 }

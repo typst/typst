@@ -19,9 +19,9 @@ use crate::visualize::RelativeTo;
 /// filled or stroked. The pattern is defined by a tile
 /// @tiling.constructor.size[`size`] and a body defining the content of each
 /// cell. You can also add horizontal or vertical
-/// @tiling.constructor.spacing[`spacing`] between the cells of the tiling and
-/// @tiling.constructor.offset[`offset`] and
-/// @tiling.constructor.angle[`angle`] the starting placement of the tiling.
+/// @tiling.constructor.spacing[`spacing`] between the cells of the tiling.
+/// The @tiling.constructor.offset[`offset`] and
+/// @tiling.constructor.angle[`angle`] determine the placement of the tiling.
 ///
 /// = Example <example>
 /// ```example
@@ -168,7 +168,8 @@ impl Tiling {
         #[named]
         #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
         offset: Spanned<Axes<Rel<Length>>>,
-        /// Rotates the tiles and the grid clockwise about the origin of the tiling.
+        /// Rotates the tiles and the grid clockwise about the origin of the
+        /// tiling. The rotation is applied before the offset.
         ///
         /// ```example
         /// #let pat = tiling(
@@ -180,8 +181,8 @@ impl Tiling {
         /// #rect(width: 100%, height: 60pt, fill: pat)
         /// ```
         #[named]
-        #[default(Angle::zero())]
-        angle: Angle,
+        #[default(Spanned::detached(Angle::zero()))]
+        angle: Spanned<Angle>,
         /// Determines relative to which element's bounding box the tiling is
         /// drawn.
         ///
@@ -270,8 +271,8 @@ impl Tiling {
             bail!(offset.span, "tile offset must be finite");
         }
 
-        if !angle.is_finite() {
-            bail!(span, "tile angle must be finite");
+        if !angle.v.is_finite() {
+            bail!(angle.span, "tile angle must be finite");
         }
 
         // The size of the frame
@@ -310,7 +311,7 @@ impl Tiling {
             frame: LazyHash::new(frame),
             spacing,
             offset,
-            angle,
+            angle: angle.v,
             relative,
         })))
     }
