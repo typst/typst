@@ -959,28 +959,16 @@ function setUpSymbolSearch() {
 
   const search = (event) => {
     const query = searchBox.value;
-    const matches = new Set(
-      query.length === 0 ? symbols : searchSymbols(symbols, query),
-    );
-
-    // Show matches and hide non-matches.
-    for (const element of symbols) {
-      if (matches.has(element)) {
-        element.style.display = "block";
-      } else {
-        element.style.display = "none";
-      }
+    for (const symbol of symbols) {
+      symbol.style.display = "none";
     }
-
-    // Currently, we don't reorder elements because the predictability of
-    // keeping the alphabetic order is also nice.
-    //
-    // If we wanted to order elements by rank, we could do it like this:
-    // ```
-    // for (const element of matches) {
-    //   element.parentNode.appendChild(element)
-    // }
-    // ```
+    const results =
+      query.length === 0 ? symbols : searchSymbols(symbols, query);
+    for (const result of results) {
+      result.remove();
+      symbolGrid.appendChild(result);
+      result.style.display = "block";
+    }
 
     // Don't trigger global keybindings
     event?.stopPropagation();
@@ -995,7 +983,7 @@ function setUpSymbolSearch() {
     searchBox.value = query;
   }
 
-  if (searchBox.value != "") {
+  if (searchBox.value !== "") {
     search();
   }
 }
@@ -1005,41 +993,225 @@ function setUpSymbolSearch() {
  *
  * @param symbols {HTMLElement[]} Elements with a relevant symbol dataset
  * @param query {string} The search term
- * @returns {HTMLElement[]} The matching elements from `symbols`, ranked order.
+ * @returns {HTMLElement[]} The matching elements from `symbols`, in order of
+ * most relevant to least relevant
  */
 function searchSymbols(symbols, query) {
-  const codepoint = parseInt(
-    query.replace(/^\\?[uU]\{?\+?/, "").replace(/\}$/, ""),
-    16,
-  );
-  let char = codepoint ? String.fromCharCode(codepoint) : null;
+  const computeScore = buildSymbolScoringFunction(query);
+  return symbols
+    .map((symbol) => [symbol, computeScore(symbol)])
+    .filter(([_result, score]) => score > 0.0)
+    .toSorted(([_r1, s1], [_r2, s2]) => s2 - s1)
+    .map(([result, _score]) => result);
+}
 
-  const list = [];
-  for (const element of symbols) {
-    let hit = false;
-    for (const s of [
-      element.dataset.codexName,
-      element.dataset.unicName,
-      element.dataset.latexName,
-      element.dataset.value,
-      element.dataset.keywords,
-      element.dataset.shorthand,
-      element.dataset.mathShorthand,
+/**
+ * Creates a scoring function from a symbol search query.
+ *
+ * The scoring function returns a value between `0.0` and `1.0`. Results with
+ * higher scores should appear higher in the search results. Results with score
+ * zero should be hidden.
+ *
+ * @param query {string} The query
+ * @returns {(result: HTMLElement) => number} A scoring function corresponding to
+ * the query
+ */
+function buildSymbolScoringFunction(query) {
+  // Look for codepoint values following this kind of syntax:
+  // - U +12
+  // - \u{abD3a}
+  // - ua0
+  const codepointText = query.match(
+    /^\s*\\?U\s*[+{]?\s*(?<value>[0-9A-F]+)\s*}?\s*$/i,
+  )?.groups.value;
+  const codepoint =
+    codepointText !== undefined ? parseInt(codepointText, 16) : null;
+  const codepointChar =
+    !Number.isNaN(codepoint) && 0 <= codepoint && codepoint <= 0x10ffff
+      ? String.fromCodePoint(codepoint)
+      : null;
+
+  // To allow searching for Codex names, split the query into parts separated by
+  // whitespace and/or periods.
+  const lowerQuery = query.toLowerCase();
+  const queryParts = lowerQuery
+    .split(/\s*[.\s]\s*/)
+    .filter((part) => part.length > 0);
+
+  return (result) => {
+    // We try multiple ways to match the search result with the query and keep
+    // the best score.
+    let score = 0.0;
+
+    // Match the value of the result against the query itself.
+    if (result.dataset.value.includes(query)) {
+      score = Math.max(
+        score,
+        result.dataset.value.length === query.length ? 1.0 : 0.95,
+      );
+    }
+
+    // Match the value of the result against a codepoint value.
+    if (
+      codepointChar !== null &&
+      result.dataset.value.includes(codepointChar)
+    ) {
+      score = Math.max(
+        score,
+        result.dataset.value.length === codepointChar.length ? 1.0 : 0.95,
+      );
+    }
+
+    // Match shorthands.
+    for (const shorthand of [
+      result.dataset.shorthand,
+      result.dataset.mathShorthand,
     ]) {
-      if (
-        typeof s === "string" &&
-        s.toLowerCase().includes(query.toLowerCase())
-      ) {
-        hit = true;
+      if (shorthand === undefined) {
+        continue;
+      }
+      if (shorthand.includes(query)) {
+        score = Math.max(score, shorthand.length === query.length ? 1.0 : 0.9);
       }
     }
-    hit ||= char && element.dataset.value == char;
-    if (hit) {
-      list.push(element);
+
+    // Match Codex name.
+    if (result.dataset.codexName !== undefined && queryParts.length > 0) {
+      const codexParts = result.dataset.codexName.split(".");
+      let thisScore = 1.0;
+      let bad = false;
+      for (const queryPart of queryParts) {
+        const partScore = Math.max(
+          ...codexParts.entries().map(([i, codexPart]) => {
+            // The edit distance is not symmetric: deletions are more costly than
+            // insertions. This makes it possible to use abbreviations, such as
+            // showing results for "arrows" when the query is "arr", while hiding
+            // results like "arrow.l" when the query is "long" (the user typed all
+            // those letters for a reason).
+            const s =
+              1.0 - normalizedEditDistance(queryPart, codexPart.toLowerCase());
+            if (i === 0) {
+              return s;
+            } else {
+              // We favor matching the base name of a symbol. For example, the
+              // query "arrow" should show `arrow.l` before `emptyset.arrow`.
+              return s * 0.99;
+            }
+          }),
+        );
+        // If a part of the query is not present in this result, we hide it.
+        if (partScore < 0.7) {
+          bad = true;
+          break;
+        }
+        // We cube the part score to be more forgiving for minor typos, and less
+        // forgiving toward major differences. `3.0` was chosen arbitrarily
+        // based on a few tests.
+        thisScore *= Math.pow(partScore, 3.0);
+      }
+      if (!bad) {
+        score = Math.max(score, thisScore);
+      }
+    }
+
+    // Match LaTeX name and keywords.
+    for (const name of [
+      result.dataset.latexName,
+      ...result.dataset.keywords.split(/\s+/).filter((k) => k.length > 0),
+    ]) {
+      if (name === undefined) {
+        continue;
+      }
+      const distance = normalizedEditDistance(lowerQuery, name.toLowerCase());
+      if (distance < 0.3) {
+        score = Math.max(score, 1.0 - distance);
+      }
+    }
+
+    // Match Unicode name.
+    if (result.dataset.unicName !== undefined) {
+      // Similar to the way we match Codex names. The goal is to allow searching
+      // for, e.g., "hebrew" to find all Hebrew letters.
+      let thisScore = 1.0;
+      let bad = false;
+      for (const queryPart of queryParts) {
+        const nameParts = result.dataset.unicName
+          .split(/\s+/)
+          .filter((p) => p.length > 0);
+        const distance = Math.min(
+          ...nameParts.map((namePart) => {
+            return normalizedEditDistance(queryPart, namePart.toLowerCase());
+          }),
+        );
+        // We are very strict about the user typing a word that appears in the
+        // Unicode name, otherwise this yields too many results.
+        if (distance > 0.1) {
+          bad = true;
+          break;
+        }
+        thisScore *= Math.pow(1.0 - distance, 3.0);
+      }
+      if (!bad) {
+        // Results with matching Unicode names should be displayed below the
+        // rest. For example, the query "arrow" already matches Codex names, so
+        // we use the Codex name score, which sorts `arrow.*` variants before
+        // result with `.arrow` modifiers.
+        score = Math.max(score, thisScore * 0.8);
+      }
+    }
+
+    return score;
+  };
+}
+
+/**
+ * Computes the edit-distance between two strings, divided by the sum of the
+ * lengths of the strings.
+ *
+ * Allowed operations are insertion and deletion. Inertion has a slightly lower
+ * cost than deletion, meaning the distance is not symmetric. Notably, there is
+ * no special case for substitution.
+ *
+ * Uses the Wagner–Fischer algorithm.
+ *
+ * @param left {string}
+ * @param right {string}
+ * @returns {number} The normalized edit distance, between `0.0` and `1.0`
+ */
+function normalizedEditDistance(left, right) {
+  // Get the number of codepoints in each string.
+  const leftLength = [...left].length;
+  const rightLength = [...right].length;
+
+  if (leftLength + rightLength === 0) {
+    return 0.0;
+  }
+
+  const INSERTION_COST = 0.7;
+  const DELETION_COST = 1.0;
+  const SUBSTITUTION_COST = Infinity;
+
+  let previous = Array(rightLength + 1).fill(0.0);
+  let current = Array(rightLength + 1).fill(0.0);
+  for (let j = 0; j <= rightLength; j++) {
+    current[j] = j * INSERTION_COST;
+  }
+  for (let i = 1; i <= leftLength; i++) {
+    const tmp = previous;
+    previous = current;
+    current = tmp;
+    current[0] = i * DELETION_COST;
+    for (let j = 1; j <= rightLength; j++) {
+      current[j] = Math.min(
+        current[j - 1] + INSERTION_COST,
+        previous[j] + DELETION_COST,
+        previous[j - 1] +
+          (left[i - 1] === right[j - 1] ? 0.0 : SUBSTITUTION_COST),
+      );
     }
   }
 
-  return list;
+  return current[rightLength] / (leftLength + rightLength);
 }
 
 /** Puts the given `text` into the clipboard. */
