@@ -325,25 +325,12 @@
   stdx.config.insertions.at(name, default: fallback)
 }
 
+// Displays a pill indicating a development build.
 #let dev-version-warning() = {
-  if stdx.is-dev-version {
-    let body = [Dev build #stdx.commit]
-    context if target() == "html" {
-      html.div(class: "dev-version-warning", body)
-    } else {
-      set text(
-        size: sizes.small * 0.9,
-        weight: "medium",
-        fill: colors.genuine.white,
-      )
-      // Same metrics as `ty-pill`.
-      show: box.with(
-        fill: colors.red.shade-50,
-        inset: (x: 0.3em),
-        outset: (y: 0.3em),
-        radius: 0.3em,
-      )
-      upper(body)
-    }
+  let body = [Development build #stdx.commit]
+  context if target() == "html" {
+    html.div(class: "dev-version-warning", body)
+  } else {
+    small(body)
   }
 }

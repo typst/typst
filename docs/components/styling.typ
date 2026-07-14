@@ -72,7 +72,9 @@
     header: {
       set align(right)
       counter(footnote).update(())
-      dev-version-warning()
+      if stdx.is-dev-version {
+        dev-version-warning()
+      }
       h(1fr)
       context {
         let title = title-state.get()

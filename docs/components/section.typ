@@ -123,7 +123,9 @@
     })
 
     html.body(class: classnames("docs", class), {
-      dev-version-warning()
+      if stdx.is-dev-version {
+        dev-version-warning()
+      }
       html.header(class: "w695", {
         html.button(
           class: "hamburger",
