@@ -9,7 +9,8 @@ use crate::layout::{Length, Ratio, Rel};
 /// multiple columns. By default, columns take up the height of their container or the
 /// remaining height on the page and are filled up one after another.
 /// Use @colbreak to explicitly end a column and continue in the next one.
-/// Use @columns.balanced to automatically equalize the height of the columns.
+/// Use the @columns.balanced[`balanced` parameter] to automatically equalize
+/// the height of the columns.
 ///
 /// = Example <example>
 /// ```example
@@ -65,13 +66,9 @@ pub struct ColumnsElem {
     ///
     /// #example(
     ///   ```
-    ///   >>> #set page(background: place(center + horizon, dy: -1cm, rect(
-    ///   >>>   width: 1cm, height: 1cm, stroke: (x: green + 2pt), inset: 0pt,
-    ///   >>>   line(length: 1cm, stroke: green + 2pt)
-    ///   >>> )))
     ///   #set page(columns: 2, height: 5cm)
     ///   #set par(justify: true)
-    ///   #set columns(gutter: 1cm)
+    ///   #set columns(gutter: 15mm)
     ///   #lorem(30)
     ///   ```
     /// )
@@ -84,7 +81,7 @@ pub struct ColumnsElem {
     ///   ```
     ///   #set page(columns: 2, height: 5cm)
     ///   #set par(justify: true)
-    ///   >>> #set columns(gutter: 1cm)
+    ///   >>> #set columns(gutter: 15pt)
     ///   #set columns(balanced: true)
     ///   #lorem(30)
     ///   ```

@@ -171,7 +171,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Column balancing with re-layout
-        if self.config.columns.balanced && self.work.children.is_empty() {
+        if self.config.columns.balanced && self.work.done() {
             let column_height = balancing_height / self.config.columns.count as f64;
             if self.column_balancing.column_height.is_none_or(|h| h < column_height) {
                 self.column_balancing.column_height = Some(column_height);
@@ -265,7 +265,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         distribute(self, regions)
     }
 
-    /// The height limit if column balancing is active
+    /// The height limit if column balancing is active.
     pub fn column_balancing_limit(&self) -> Option<Abs> {
         if self.column < self.config.columns.count - 1 {
             self.column_balancing.column_height
@@ -274,15 +274,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
     }
 
-    /// If the amount fits into the region, taking into account column balancing limits
+    /// Whether the amount fits into the region, taking into account column balancing limits.
     pub fn fits(&self, regions: Regions, amount: Abs) -> bool {
-        let mut fits = regions.size.y.fits(amount);
-        if let Some(target) = self.column_balancing_limit() {
-            // Add elements as long as the balancing target is not reached. By not including
-            // the amount here, we avoid protruding items to cumulate in the last column.
-            fits &= target.fits(self.column_balancing.used_height);
-        }
-        fits
+        regions.size.y.fits(amount)
+            && self
+                .column_balancing_limit()
+                // Add elements as long as the balancing target is not reached. By not including
+                // the amount here, we avoid protruding items to cumulate in the last column.
+                .is_none_or(|target| target.fits(self.column_balancing.used_height))
     }
 
     /// Lays out an item with floating placement.
@@ -681,12 +680,12 @@ struct Insertions<'a, 'b> {
     skips: Vec<Location>,
 }
 
-/// State for column balancing
+/// State for column balancing.
 #[derive(Default)]
 pub struct ColumnBalancing {
-    // The height used by the inner contents (e.g. text) during column layouting.
+    /// The height used by the inner contents (e.g. text) during column layouting.
     pub(crate) used_height: Abs,
-    // The balanced height of the columns
+    /// The balanced height of the columns.
     column_height: Option<Abs>,
 }
 
@@ -733,7 +732,8 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.top_size + self.bottom_size + self.footnote_size
     }
 
-    /// The combined height of the top and bottom area for floats (including clearances) but excluding footnotes.
+    /// The combined height of the top and bottom area for floats (including
+    /// clearances) but excluding footnotes.
     fn float_height(&self) -> Abs {
         self.top_size + self.bottom_size
     }
@@ -745,7 +745,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
         work: &mut Work,
         config: &Config,
         inner: Frame,
-        position_bottom_floats: Option<Abs>,
+        column_height: Option<Abs>,
     ) -> Frame {
         work.extend_skips(&self.skips);
 
@@ -758,8 +758,8 @@ impl<'a, 'b> Insertions<'a, 'b> {
         }
 
         let mut size = inner.size() + Size::with_y(self.height());
-        if let Some(position) = position_bottom_floats {
-            size.y.set_max(position + self.footnote_size);
+        if let Some(height) = column_height {
+            size.y.set_max(height + self.footnote_size);
         }
         let mut output = Frame::soft(size);
 
@@ -792,9 +792,8 @@ impl<'a, 'b> Insertions<'a, 'b> {
         // with `\usepackage[bottom]{footmisc}`. We could also consider adding
         // configuration in the future.
 
-        let mut offset_bottom = position_bottom_floats
-            .unwrap_or(size.y - self.footnote_size)
-            - self.bottom_size;
+        let mut offset_bottom =
+            column_height.unwrap_or(size.y - self.footnote_size) - self.bottom_size;
         for (placed, frame) in self.bottom_floats {
             offset_bottom += placed.clearance;
             let x = placed.align_x.position(size.x - frame.width());

@@ -134,7 +134,7 @@ B
 #set page(width: 300pt)
 #set par(justify: true)
 #rect(inset: 0pt, outset: 0pt, stroke: yellow,
-    columns(3, balanced: true, lorem(40))
+  columns(3, balanced: true, lorem(40))
 )
 
 --- columns-balanced-leftover-2-3 paged ---
@@ -143,11 +143,11 @@ B
 #set text(size: 7pt)
 #set par(justify: true)
 #for (n, mm) in ((2, (31, 37)), (3, (29, 32, 37))) {
-    for m in mm {
-        rect(inset: 0pt, outset: 0pt, stroke: gray,
-            columns(n, balanced: true, lorem(m))
-        )
-    }
+  for m in mm {
+    rect(inset: 0pt, outset: 0pt, stroke: gray,
+      columns(n, balanced: true, lorem(m))
+    )
+  }
 }
 
 --- columns-balanced-leftover-4 paged ---
@@ -156,11 +156,11 @@ B
 #set text(size: 7pt)
 #set par(justify: true)
 #for (n, mm) in ((4, (26, 29, 32, 35)),) {
-    for m in mm {
-        rect(inset: 0pt, outset: 0pt, stroke: gray,
-            columns(n, balanced: true, lorem(m))
-        )
-    }
+  for m in mm {
+    rect(inset: 0pt, outset: 0pt, stroke: gray,
+      columns(n, balanced: true, lorem(m))
+    )
+  }
 }
 
 --- columns-balanced-leftover-5 paged ---
@@ -169,11 +169,11 @@ B
 #set text(size: 7pt)
 #set par(justify: true)
 #for (n, mm) in ((5, (21, 25, 27, 29, 31)),) {
-    for m in mm {
-        rect(inset: 0pt, outset: 0pt, stroke: gray,
-            columns(n, balanced: true, lorem(m))
-        )
-    }
+  for m in mm {
+    rect(inset: 0pt, outset: 0pt, stroke: gray,
+      columns(n, balanced: true, lorem(m))
+    )
+  }
 }
 
 --- columns-balanced-leftover-6 paged ---
@@ -182,11 +182,11 @@ B
 #set text(size: 6pt)
 #set par(justify: true)
 #for (n, mm) in ((6, (29, 31, 33, 35, 37, 39)),) {
-    for m in mm {
-        rect(inset: 0pt, outset: 0pt, stroke: gray,
-            columns(n, balanced: true, lorem(m))
-        )
-    }
+  for m in mm {
+    rect(inset: 0pt, outset: 0pt, stroke: gray,
+      columns(n, balanced: true, lorem(m))
+    )
+  }
 }
 
 --- columns-balanced-leftover-7 paged ---
@@ -196,11 +196,11 @@ B
 #set text(hyphenate: true)
 #set par(justify: true)
 #for (n, mm) in ((7, (28, 30, 31, 32, 34, 36, 38)),) {
-    for m in mm {
-        rect(inset: 0pt, outset: 0pt, stroke: gray,
-            columns(n, balanced: true, lorem(m))
-        )
-    }
+  for m in mm {
+    rect(inset: 0pt, outset: 0pt, stroke: gray,
+      columns(n, balanced: true, lorem(m))
+    )
+  }
 }
 
 --- columns-balanced-widow paged ---
@@ -265,7 +265,6 @@ B
 #set page(width: 350pt, columns: 4)
 #set columns(balanced: true)
 #{
-    8 * [- #lorem(5)]
+  8 * [- #lorem(5)]
 }
-
 
