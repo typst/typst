@@ -1902,6 +1902,7 @@ f8c65043365ded3763112324650e90ac tiling-spacing-negative
 e235b63c455666e921af52eef37980bb tiling-stroke-relative-parent
 942912a02f9875ffc25671074f85201d tiling-text
 ce47bdafefffeeaaf618a83e729d7016 tiling-text-fill
+b5b1459fbbbd9f32ec5292b3c7e4b2fa tiling-text-offset-angle
 41d3d523c15a3df9424f6cb44aafbfce tiling-with-different-size
 e7c9446a20f331a801262b4111c3a92d tiling-with-different-spacing
 85f18dd75a49510a986af8fe84d51784 title

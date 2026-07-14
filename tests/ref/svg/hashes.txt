@@ -512,7 +512,7 @@ a70aa41c2290aaea08d30f4d78be1ad3 grid-stroke-manually-positioned-lines
 ba63fc772feb757b967bf7310f5db3e0 grid-stroke-priority-line
 a48006c1d0e68b65eb893d7844bb12e7 grid-stroke-priority-line-cell
 08883056c92d8a169a2efc11a27798fb grid-stroke-set-on-cell-and-line
-a5d393de77a38627cd9a5b04ca25ea76 grid-stroke-tiling
+250a60d93ee0b8eb41e91bcc659e4179 grid-stroke-tiling
 55ab89301fa22bd072aa32aa5b597a4b grid-stroke-vline-colspan
 5b4f3a7a491b135d6df7669b5fcda2d2 grid-stroke-vline-position-left-and-right
 9843cb82b3d9b405fb4ea86bf3c9e1cb grid-subheaders-alone
@@ -778,7 +778,7 @@ d8822b3d024cdc489028fde3ca8e6e60 issue-5359-column-override-stays-inside-header
 777878d01c25bb65da4d25b1e32c41c0 issue-5496-footnote-never-fits
 0c25aa7b82953a1940e20dd3b55e118c issue-5496-footnote-never-fits-multiple
 fcac30a46994ce0a95eb303558d89f69 issue-5496-footnote-separator-never-fits
-d39112ebfb0f3c4ab206950511f0b972 issue-5499-text-fill-in-clip-block
+bbecd41f7609c38243ef163c8e4ece32 issue-5499-text-fill-in-clip-block
 3280b6efa2dada63fe8a5d0bce7336e9 issue-5503-cite-group-interrupted-by-par-align
 a1266392fcdf3dcda426424b0725d49b issue-5503-cite-in-align
 3ed003d6ecdbd4f35491390155274427 issue-5503-enum-in-align
@@ -1895,6 +1895,7 @@ e6ee69d0625957b792db87e62a868d10 tiling-relative-stack
 45a002f7a35a13fc22c7c5adb71ee488 tiling-stroke-relative-parent
 cd063caf4fc1e6544789966b03bb5f62 tiling-text
 ab5512945a95a2bd0dc9c4720718f3dd tiling-text-fill
+8f39b77afb001d3a39807a7e162cfc29 tiling-text-offset-angle
 6686c47263bb0e54cf869f6e3f2ae360 tiling-with-different-size
 6686c47263bb0e54cf869f6e3f2ae360 tiling-with-different-spacing
 3660e71c43aa3e0ba57771586a0ff6e9 title

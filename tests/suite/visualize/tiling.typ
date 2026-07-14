@@ -252,6 +252,21 @@
   #lorem(10)
 ]))
 
+--- tiling-text-offset-angle paged ---
+// The text should be filled so that it seems invisible on the page.
+#let t = tiling(
+  size: (30pt, 30pt),
+  offset: (7pt, 11pt),
+  angle: 40deg,
+  relative: "parent",
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
+)
+
+#set page(width: 140pt, height: 80pt, margin: 0pt, fill: t)
+#set text(size: 28pt, fill: t)
+
+OFFSET OFFSET
+
 --- tiling-text-fill paged ---
 #let t = tiling(
   size: (30pt, 30pt),
