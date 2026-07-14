@@ -939,7 +939,8 @@ function setUpSymbolSearch() {
     for (const symbol of symbols) {
       symbol.style.display = "none";
     }
-    const results = query.length === 0 ? symbols : searchSymbols(symbols, query);
+    const results =
+      query.length === 0 ? symbols : searchSymbols(symbols, query);
     for (const result of results) {
       result.remove();
       symbolGrid.appendChild(result);
@@ -975,10 +976,10 @@ function setUpSymbolSearch() {
 function searchSymbols(symbols, query) {
   const computeScore = buildSymbolScoringFunction(query);
   return symbols
-      .map(symbol => [symbol, computeScore(symbol)])
-      .filter(([_result, score]) => score > 0.0)
-      .toSorted(([_r1, s1], [_r2, s2]) => s2 - s1)
-      .map(([result, _score]) => result);
+    .map((symbol) => [symbol, computeScore(symbol)])
+    .filter(([_result, score]) => score > 0.0)
+    .toSorted(([_r1, s1], [_r2, s2]) => s2 - s1)
+    .map(([result, _score]) => result);
 }
 
 /**
@@ -997,17 +998,22 @@ function buildSymbolScoringFunction(query) {
   // - U +12
   // - \u{abD3a}
   // - ua0
-  const codepointText = query.match(/^\s*\\?U\s*[+{]?\s*(?<value>[0-9A-F]+)\s*}?\s*$/i)?.groups.value;
-  const codepoint = codepointText !== undefined ? parseInt(codepointText, 16) : null;
-  const codepointChar = !Number.isNaN(codepoint) && 0 <= codepoint && codepoint <= 0x10FFFF
-      ? String.fromCodePoint(codepoint) : null;
+  const codepointText = query.match(
+    /^\s*\\?U\s*[+{]?\s*(?<value>[0-9A-F]+)\s*}?\s*$/i,
+  )?.groups.value;
+  const codepoint =
+    codepointText !== undefined ? parseInt(codepointText, 16) : null;
+  const codepointChar =
+    !Number.isNaN(codepoint) && 0 <= codepoint && codepoint <= 0x10ffff
+      ? String.fromCodePoint(codepoint)
+      : null;
 
-  const lowerQuery = query.toLowerCase();
   // To allow searching for Codex names, split the query into parts separated by
   // whitespace and/or periods.
+  const lowerQuery = query.toLowerCase();
   const queryParts = lowerQuery
-      .split(/\s*[.\s]\s*/)
-      .filter(part => part.length > 0);
+    .split(/\s*[.\s]\s*/)
+    .filter((part) => part.length > 0);
 
   return (result) => {
     // We try multiple ways to match the search result with the query and keep
@@ -1016,12 +1022,21 @@ function buildSymbolScoringFunction(query) {
 
     // Match the value of the result against the query itself.
     if (result.dataset.value.includes(query)) {
-      score = Math.max(score, result.dataset.value.length === query.length ? 1.0 : 0.95);
+      score = Math.max(
+        score,
+        result.dataset.value.length === query.length ? 1.0 : 0.95,
+      );
     }
 
     // Match the value of the result against a codepoint value.
-    if (codepointChar !== null && result.dataset.value.includes(codepointChar)) {
-      score = Math.max(score, result.dataset.value.length === codepointChar.length ? 1.0 : 0.95);
+    if (
+      codepointChar !== null &&
+      result.dataset.value.includes(codepointChar)
+    ) {
+      score = Math.max(
+        score,
+        result.dataset.value.length === codepointChar.length ? 1.0 : 0.95,
+      );
     }
 
     // Match shorthands.
@@ -1043,24 +1058,27 @@ function buildSymbolScoringFunction(query) {
       let thisScore = 1.0;
       let bad = false;
       for (const queryPart of queryParts) {
-        const partScore = Math.max(...codexParts.entries().map(([i, codexPart]) => {
-          // The edit distance is not symmetric: deletions are more costly than
-          // insertions. This makes it possible to use abbreviations, such as
-          // showing results for "arrows" when the query is "arr", while hiding
-          // results like "arrow.l" when the query is "long" (the user typed all
-          // those letters for a reason).
-          const s = 1.0 - normalizedEditDistance(queryPart, codexPart.toLowerCase());
-          if (i === 0) {
-            return s;
-          } else {
-            // We favor matching the base name of a symbol. For example, the
-            // query "arrow" should show `arrow.l` before `emptyset.arrow`.
-            return s * 0.99;
-          }
-        }));
+        const partScore = Math.max(
+          ...codexParts.entries().map(([i, codexPart]) => {
+            // The edit distance is not symmetric: deletions are more costly than
+            // insertions. This makes it possible to use abbreviations, such as
+            // showing results for "arrows" when the query is "arr", while hiding
+            // results like "arrow.l" when the query is "long" (the user typed all
+            // those letters for a reason).
+            const s =
+              1.0 - normalizedEditDistance(queryPart, codexPart.toLowerCase());
+            if (i === 0) {
+              return s;
+            } else {
+              // We favor matching the base name of a symbol. For example, the
+              // query "arrow" should show `arrow.l` before `emptyset.arrow`.
+              return s * 0.99;
+            }
+          }),
+        );
         // If a part of the query is not present in this result, we hide it.
         if (partScore < 0.7) {
-          bad = true
+          bad = true;
           break;
         }
         // We cube the part score to be more forgiving for minor typos, and less
@@ -1076,7 +1094,7 @@ function buildSymbolScoringFunction(query) {
     // Match LaTeX name and keywords.
     for (const name of [
       result.dataset.latexName,
-      ...result.dataset.keywords.split(/\s+/).filter(k => k.length > 0),
+      ...result.dataset.keywords.split(/\s+/).filter((k) => k.length > 0),
     ]) {
       if (name === undefined) {
         continue;
@@ -1094,10 +1112,14 @@ function buildSymbolScoringFunction(query) {
       let thisScore = 1.0;
       let bad = false;
       for (const queryPart of queryParts) {
-        const nameParts = result.dataset.unicName.split(/\s+/).filter(p => p.length > 0);
-        const distance = Math.min(...nameParts.map(namePart => {
-          return normalizedEditDistance(queryPart, namePart.toLowerCase());
-        }));
+        const nameParts = result.dataset.unicName
+          .split(/\s+/)
+          .filter((p) => p.length > 0);
+        const distance = Math.min(
+          ...nameParts.map((namePart) => {
+            return normalizedEditDistance(queryPart, namePart.toLowerCase());
+          }),
+        );
         // We are very strict about the user typing a word that appears in the
         // Unicode name, otherwise this yields too many results.
         if (distance > 0.1) {
@@ -1126,6 +1148,8 @@ function buildSymbolScoringFunction(query) {
  * Allowed operations are insertion and deletion. Inertion has a slightly lower
  * cost than deletion, meaning the distance is not symmetric. Notably, there is
  * no special case for substitution.
+ *
+ * Uses the Wagner–Fischer algorithm.
  *
  * @param left {string}
  * @param right {string}
@@ -1156,12 +1180,14 @@ function normalizedEditDistance(left, right) {
     current[0] = i * DELETION_COST;
     for (let j = 1; j <= rightLength; j++) {
       current[j] = Math.min(
-          current[j - 1] + INSERTION_COST,
-          previous[j] + DELETION_COST,
-          previous[j - 1] + (left[i - 1] === right[j - 1] ? 0.0 : SUBSTITUTION_COST),
+        current[j - 1] + INSERTION_COST,
+        previous[j] + DELETION_COST,
+        previous[j - 1] +
+          (left[i - 1] === right[j - 1] ? 0.0 : SUBSTITUTION_COST),
       );
     }
   }
+
   return current[rightLength] / (leftLength + rightLength);
 }
 
