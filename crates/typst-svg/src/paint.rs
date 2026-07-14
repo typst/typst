@@ -351,14 +351,11 @@ impl SVGRenderer<'_> {
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
+                .attr("patternTransform", SvgTransform(transform))
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
                 })
                 .with(|pattern| {
-                    if !transform.is_identity() {
-                        pattern.attr("patternTransform", SvgTransform(transform));
-                    }
-
                     // Render the frame.
                     let state = State::new(size);
                     self.render_frame(pattern, &state, tiling.frame());
