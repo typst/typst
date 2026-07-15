@@ -1,11 +1,11 @@
-use typst::foundations::{AsOutput, Label, Selector, Value};
+use typst::foundations::{AsOutput, Label, Selector, Value, WorldBindingExt};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
 use crate::utils::globals;
 use crate::{
-    DerefTarget, IdeWorld, NamedItem, WorldBindingExt, analyze_expr, analyze_import,
-    deref_target, named_items,
+    DerefTarget, IdeWorld, NamedItem, analyze_expr, analyze_import, deref_target,
+    named_items,
 };
 
 /// A definition of some item.
@@ -57,7 +57,7 @@ pub fn definition(
             }
 
             if let Some(binding) = globals(world, &leaf).get(&name)
-                && let Ok(value) = binding.read_checked(world.binding_ctx())
+                && let Ok(value) = binding.read_checked(world.discard_ctx())
             {
                 return Some(Definition::Std(value.clone()));
             }

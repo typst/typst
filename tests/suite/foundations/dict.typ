@@ -192,8 +192,11 @@
 #test(dictionary(sys).at("no-crash", default: none), none)
 
 --- dict-from-module-feature-gated-item eval features() ---
-// Error: 18-27 dictionary does not contain key "data-cell"
-#dictionary(pdf).data-cell
+// Error: 20-25 dictionary does not contain key "gated"
+#dictionary(check).gated
+
+--- dict-from-module-deprecation-ignored eval ---
+#dictionary(check).deprecated
 
 --- dict-remove-order eval ---
 // Test that removal keeps order.
