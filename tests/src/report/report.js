@@ -218,6 +218,7 @@ for (const testReport of document.getElementsByClassName("test-report")) {
   if (imageControlsTop != null && imageControlsBottom != null) {
     const imageModes = imageControlsTop.querySelectorAll("input.image-view-mode")
     const imageAntialiasing = imageControlsTop.querySelector("input.image-antialiasing")
+    /** @type {HTMLInputElement} */
     const imageZoom = imageControlsTop.querySelector("input.image-zoom")
     const imageZoomPlus = imageControlsTop.querySelector("button.image-zoom-plus")
     const imageZoomMinus = imageControlsTop.querySelector("button.image-zoom-minus")
@@ -290,6 +291,16 @@ for (const testReport of document.getElementsByClassName("test-report")) {
         images,
       };
 
+      // CTRL+scroll and pinch to zoom.
+      imageDiff.addEventListener("wheel", /** @param e {WheelEvent} */ e => {
+        if (e.ctrlKey) {
+          e.preventDefault();
+
+          imageZoom.value = zoomFactor(Number(imageZoom.value), e);
+          imageDiffChanged(imageState);
+        }
+      });
+
       // Issue a lazy canvas redaw when the images have been decoded.
       let numDecoded = 0;
       for (const img of images) {
@@ -312,6 +323,19 @@ for (const testReport of document.getElementsByClassName("test-report")) {
       imageState.canvases.push(canvasState);
     }
   }
+}
+
+/**
+ * @param previous {number}
+ * @param e {WheelEvent}
+ * @return {number}
+ */
+function zoomFactor(previous, e) {
+  // Make zooming more proportional to the current zoom factor.
+  // When zoomed in closely apply a larger delta because the change from 7x to
+  // 7.1x isn't as noticable as from 0.5x to 0.6x scale.
+  const scaleCorrection = Math.log2(1 + previous);
+  return previous - 0.01 * scaleCorrection * e.deltaY;
 }
 
 let outputs = ["render", "pdf", "pdftags", "svg", "html"]
