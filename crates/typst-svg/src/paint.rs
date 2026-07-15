@@ -104,7 +104,8 @@ impl SVGRenderer<'_> {
             return tiling_id;
         }
 
-        let tiling_ref = TilingRef { id: tiling_id, transform: ts };
+        let transform = ts.pre_concat(tiling_transform(tiling));
+        let tiling_ref = TilingRef { id: tiling_id, transform };
         self.tiling_refs.insert_with(tiling_ref, || tiling_ref)
     }
 
@@ -343,8 +344,7 @@ impl SVGRenderer<'_> {
             self.tilings.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
             let size = tiling.size() + tiling.spacing();
-            let transform = Transform::translate(tiling.offset().x, tiling.offset().y)
-                .pre_concat(Transform::rotate(tiling.angle()));
+            let transform = tiling_transform(&tiling);
 
             defs.elem("pattern")
                 .attr("id", id)
@@ -380,6 +380,12 @@ impl SVGRenderer<'_> {
                 .attr("xlink:href", SvgIdRef(tiling_ref.id));
         }
     }
+}
+
+/// The transform applied to a tiling's pattern grid.
+fn tiling_transform(tiling: &Tiling) -> Transform {
+    Transform::translate(tiling.offset().x, tiling.offset().y)
+        .pre_concat(Transform::rotate(tiling.angle()))
 }
 
 /// A reference to a deduplicated tiling, with a transform matrix.
