@@ -745,6 +745,21 @@ a.pill {
   );
 }
 
+.dev-version-warning {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding-block: 4px;
+  padding-inline: 8px;
+  border-radius: 8px;
+  width: unset;
+  background: #565565;
+  color: #fdfdfd;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
 /* Navigation breadcrumbs */
 
 .breadcrumbs {
