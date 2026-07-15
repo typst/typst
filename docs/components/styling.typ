@@ -5,7 +5,7 @@
 
 #import "system.typ": colors, fonts, sizes
 #import "base.typ": (
-  labelled, small, title-state, with-short-versions, dev-version-warning,
+  dev-version-warning, labelled, small, title-state, with-short-versions,
 )
 #import "example.typ": example, preview, source
 #import "footnote.typ": footnote-rule, with-footnotes

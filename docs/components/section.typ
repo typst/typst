@@ -1,6 +1,6 @@
 #import "base.typ": (
-  classnames, heading-offset, icon, labelled, short-or-long, title-state,
-  tooltip-counter, dev-version-warning,
+  classnames, dev-version-warning, heading-offset, icon, labelled,
+  short-or-long, title-state, tooltip-counter,
 )
 #import "linking.typ": register-def
 #import "nav.typ": nav-breadcrumbs, nav-folding, nav-on-this-page, nav-prev-next

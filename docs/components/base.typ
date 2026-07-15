@@ -325,7 +325,7 @@
   stdx.config.insertions.at(name, default: fallback)
 }
 
-// Displays a pill indicating a development build.
+// Displays an indicator for a development build.
 #let dev-version-warning() = {
   let body = [Development build #stdx.commit]
   context if target() == "html" {
