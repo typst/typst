@@ -15,7 +15,7 @@ use typst::text::{
 use typst::utils::Protected;
 use typst_utils::Scalar;
 
-use crate::{FeaturesBindingCtx, IdeWorld};
+use crate::{DiscardBindingCtx, IdeWorld};
 
 /// Create a temporary engine and run a task on it.
 pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
@@ -184,7 +184,7 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
 /// Checks whether the given value or any of its constituent parts satisfy the
 /// predicate.
 pub fn check_value_recursively(
-    ctx: &FeaturesBindingCtx,
+    ctx: &DiscardBindingCtx,
     value: &Value,
     predicate: impl Fn(&Value) -> bool,
 ) -> bool {
@@ -198,7 +198,7 @@ pub fn check_value_recursively(
 /// Recursively searches for a value that passes the filter, but without
 /// exceeding a maximum number of search steps.
 struct Searcher<'a, F> {
-    ctx: &'a FeaturesBindingCtx,
+    ctx: &'a DiscardBindingCtx,
     max_steps: usize,
     steps: usize,
     predicate: F,

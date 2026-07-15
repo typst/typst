@@ -10,12 +10,12 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 
-use crate::diag::{BindingContext, HintedStrResult, HintedString, StrResult};
+use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
-    Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
-    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol, SymbolElem, Type,
-    Version, fields, ops, repr,
+    Args, Array, AutoValue, BindingContext, Bytes, CastInfo, Content, Datetime, Decimal,
+    Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
+    NativeType, NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol,
+    SymbolElem, Type, Version, fields, ops, repr,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};

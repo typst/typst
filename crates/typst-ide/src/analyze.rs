@@ -1,12 +1,12 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
-use typst::foundations::{AsOutput, Label, Styles, Value};
+use typst::foundations::{AsOutput, Label, Styles, Value, WorldBindingExt};
 use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{LinkedNode, SyntaxKind, ast};
 use typst_layout::PagedDocument;
 
-use crate::{IdeWorld, WorldBindingExt};
+use crate::IdeWorld;
 
 /// Try to determine a set of possible values for an expression.
 pub fn analyze_expr(
@@ -64,16 +64,16 @@ pub fn analyze_expr_with_fallback(
     let globals = crate::utils::globals(world, node);
     let value = match node.cast::<ast::Expr>()? {
         ast::Expr::Ident(ident) => {
-            globals.get(&ident)?.read_checked(world.binding_ctx()).ok()?
+            globals.get(&ident)?.read_checked(world.discard_ctx()).ok()?
         }
         ast::Expr::FieldAccess(access) => match access.target() {
             ast::Expr::Ident(target) => globals
                 .get(&target)?
-                .read_checked(world.binding_ctx())
+                .read_checked(world.discard_ctx())
                 .ok()?
                 .scope()?
                 .get(&access.field())?
-                .read_checked(world.binding_ctx())
+                .read_checked(world.discard_ctx())
                 .ok()?,
             _ => return None,
         },

@@ -10,8 +10,8 @@ use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, NativeElement,
-    NoneValue, Packed, Repr, Smart, StyleChain, Value, elem, func, scope,
+    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, Module, NativeElement,
+    NoneValue, Packed, Repr, Scope, Smart, StyleChain, Value, elem, func, scope,
 };
 use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
@@ -213,6 +213,7 @@ fn library() -> Library {
     let mut lib = Library::builder().with_features(Features::all()).build();
 
     // Hook up helpers into the global scope.
+    lib.global.scope_mut().define("check", check_module());
     lib.global.scope_mut().define_func::<test>();
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
@@ -235,6 +236,16 @@ fn library() -> Library {
     lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
 
     lib
+}
+
+fn check_module() -> Module {
+    let mut check = Scope::new();
+    check
+        .define("deprecated", Value::None)
+        .with_deprecation("this value is useless");
+    check.define("red", Color::RED);
+
+    Module::new("check", check)
 }
 
 #[func(scope)]

@@ -9,10 +9,8 @@ use rustc_hash::FxHashSet;
 use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
 
-use crate::diag::{
-    EngineCtx, HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail,
-};
-use crate::foundations::{Styles, Value};
+use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
+use crate::foundations::{EngineCtx, Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::{Library, World};
 
@@ -118,7 +116,7 @@ impl<'y> Engine<'y> {
         output
     }
 
-    /// Create a struct that implements [`crate::diag::BindingContext`].
+    /// Create a struct that implements [`crate::foundations::BindingContext`].
     pub fn binding_ctx<'x>(&'x mut self, span: Span) -> EngineCtx<'x, 'y> {
         EngineCtx { engine: self, span }
     }

@@ -195,6 +195,9 @@
 // Error: 18-27 dictionary does not contain key "data-cell"
 #dictionary(pdf).data-cell
 
+--- dict-from-module-deprecation-ignored eval ---
+#dictionary(check).deprecated
+
 --- dict-remove-order eval ---
 // Test that removal keeps order.
 #let dict = (a: 1, b: 2, c: 3, d: 4)

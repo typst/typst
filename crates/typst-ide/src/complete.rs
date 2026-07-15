@@ -6,7 +6,7 @@ use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
-    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
+    ParamInfo, Repr, StyleChain, Styles, Type, Value, WorldBindingExt, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -22,8 +22,8 @@ use crate::analyze::analyze_expr_with_fallback;
 use crate::docs::{find_param_docs, find_value_docs};
 use crate::utils::{check_value_recursively, globals, summarize_font_family};
 use crate::{
-    FeaturesBindingCtx, IdeWorld, WorldBindingExt, analyze_expr, analyze_import,
-    analyze_labels, named_items,
+    DiscardBindingCtx, IdeWorld, analyze_expr, analyze_import, analyze_labels,
+    named_items,
 };
 
 /// Autocomplete a cursor position in a source file.
@@ -191,7 +191,7 @@ fn field_access_completions(
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            if let Ok(value) = binding.read_checked(ctx.world.binding_ctx()) {
+            if let Ok(value) = binding.read_checked(ctx.world.discard_ctx()) {
                 ctx.call_completion(name.clone(), value);
             }
         }
@@ -1476,8 +1476,8 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
-    fn binding_ctx(&self) -> FeaturesBindingCtx {
-        self.world.binding_ctx()
+    fn binding_ctx(&self) -> DiscardBindingCtx {
+        self.world.discard_ctx()
     }
 }
 

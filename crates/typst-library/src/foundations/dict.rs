@@ -192,8 +192,10 @@ impl Dict {
             .scope()
             .iter()
             .filter_map(|(key, binding)| {
-                // Filter out values that are in feature gated bindings.
-                let val = binding.read_checked(engine.binding_ctx(to_dict.span)).ok()?;
+                // Filter out values that are in feature gated bindings and
+                // ignore any deprecation warnings that are emitted.
+                let binding_ctx = engine.binding_ctx(to_dict.span).discard_warnings();
+                let val = binding.read_checked(binding_ctx).ok()?;
                 Some((Str::from(key.clone()), val.clone()))
             })
             .collect();

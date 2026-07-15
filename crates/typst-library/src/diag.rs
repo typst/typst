@@ -22,9 +22,8 @@ use typst_syntax::{
 };
 use utf8_iter::ErrorReportingUtf8Chars;
 
-use crate::engine::Engine;
 use crate::loading::{LoadSource, Loaded};
-use crate::{Features, World, WorldExt};
+use crate::{World, WorldExt};
 
 /// Early-return with an error for common result types used in Typst. If you
 /// need to interact with the produced errors more, consider using `error!` or
@@ -160,6 +159,7 @@ macro_rules! __error {
 ///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// );
 /// ```
+/// [`Engine`]: crate::engine::Engine
 #[macro_export]
 #[doc(hidden)]
 #[clippy::format_args]
@@ -409,18 +409,6 @@ impl From<SyntaxDiagnostic> for SourceDiagnostic {
 }
 
 /// Destination for a warning message.
-pub trait BindingContext: WarningSink {
-    /// The features enabled in the current [`crate::Library`].
-    fn features(&self) -> &Features;
-}
-
-impl<T: BindingContext> BindingContext for &mut T {
-    fn features(&self) -> &Features {
-        T::features(self)
-    }
-}
-
-/// Destination for a warning message.
 pub trait WarningSink {
     /// Emits the message as a warning.
     fn emit(&mut self, message: HintedString);
@@ -434,27 +422,6 @@ impl<T: WarningSink> WarningSink for &mut T {
 
 impl WarningSink for () {
     fn emit(&mut self, _: HintedString) {}
-}
-
-/// A stuct that implements [`BindingContext`].
-pub struct EngineCtx<'x, 'y> {
-    pub engine: &'x mut Engine<'y>,
-    pub span: Span,
-}
-
-impl WarningSink for EngineCtx<'_, '_> {
-    fn emit(&mut self, message: HintedString) {
-        self.engine.sink.warn(
-            SourceDiagnostic::warning(self.span, message.message())
-                .with_hints(message.hints().iter().cloned()),
-        );
-    }
-}
-
-impl BindingContext for EngineCtx<'_, '_> {
-    fn features(&self) -> &Features {
-        &self.engine.library.features
-    }
 }
 
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
