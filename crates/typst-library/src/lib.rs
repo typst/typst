@@ -32,7 +32,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
-use typst_utils::{LazyHash, SmallBitSet};
+use typst_utils::LazyHash;
 
 use crate::diag::FileResult;
 use crate::foundations::{
@@ -240,7 +240,7 @@ impl LibraryBuilder {
 ///
 /// Can be collected from an iterator of [`Feature`]s.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct Features(SmallBitSet);
+pub struct Features(usize);
 
 impl Features {
     /// Creates an instance where all features are enabled.
@@ -255,15 +255,15 @@ impl Features {
 
     /// Check whether the given feature is enabled.
     pub fn is_enabled(&self, feature: Feature) -> bool {
-        self.0.contains(feature as usize)
+        (self.0 & (1 << feature as usize)) != 0
     }
 }
 
 impl FromIterator<Feature> for Features {
     fn from_iter<T: IntoIterator<Item = Feature>>(iter: T) -> Self {
-        let mut set = SmallBitSet::default();
+        let mut set = 0;
         for feature in iter {
-            set.insert(feature as usize);
+            set |= 1 << feature as usize;
         }
         Self(set)
     }
