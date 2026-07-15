@@ -1,9 +1,9 @@
 use ecow::EcoString;
-use typst::foundations::{Module, Value};
+use typst::foundations::{Module, Value, WorldBindingExt};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
-use crate::{IdeWorld, WorldBindingExt, analyze_import};
+use crate::{IdeWorld, analyze_import};
 
 /// Find the named items starting from the given position.
 pub fn named_items<T>(
@@ -76,7 +76,7 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
-                            for (name, value) in scope.iter_checked(world.binding_ctx()) {
+                            for (name, value) in scope.iter_checked(world.discard_ctx()) {
                                 let item =
                                     NamedItem::Import(name, value.span, Some(value.v));
                                 if let Some(res) = recv(item) {
@@ -99,7 +99,7 @@ pub fn named_items<T>(
                             for ident in iter {
                                 binding = binding.and_then(|binding| {
                                     binding
-                                        .read_checked(world.binding_ctx())
+                                        .read_checked(world.discard_ctx())
                                         .ok()?
                                         .scope()?
                                         .get(&ident)
@@ -110,7 +110,7 @@ pub fn named_items<T>(
                             let (span, value) = match binding {
                                 Some(binding) => (
                                     binding.span(),
-                                    binding.read_checked(world.binding_ctx()).ok(),
+                                    binding.read_checked(world.discard_ctx()).ok(),
                                 ),
                                 None => (bound.span(), None),
                             };
