@@ -4,8 +4,10 @@ use std::sync::Arc;
 use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::{BindingContext, StrResult, bail};
-use crate::foundations::{BindingAccess, Content, Repr, Scope, Value, ty};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{
+    BindingAccess, BindingContext, Content, Repr, Scope, Value, ty,
+};
 
 /// A collection of variables and functions that are commonly related to a
 /// single theme.

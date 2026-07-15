@@ -8,10 +8,10 @@ use std::sync::LazyLock;
 use ecow::{EcoString, eco_format};
 use typst_utils::{DefSite, Static};
 
-use crate::diag::{BindingContext, StrResult, bail};
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    AutoValue, BindingAccess, Func, NativeFuncData, NoneValue, Repr, Scope, Since, Value,
-    cast, func,
+    AutoValue, BindingAccess, BindingContext, Func, NativeFuncData, NoneValue, Repr,
+    Scope, Since, Value, cast, func,
 };
 
 /// Describes a kind of value.

@@ -7,11 +7,14 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{BindingContext, HintedStrResult, HintedString, StrResult, bail};
+use crate::diag::{
+    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, bail,
+};
+use crate::engine::Engine;
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
-use crate::{Category, Feature, Library};
+use crate::{Category, Feature, Features, Library, World};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -318,9 +321,9 @@ impl Binding {
     }
 
     /// Marks this binding as deprecated, with the given `message`.
-    pub fn with_deprecation(&mut self, deprecation: Deprecation) -> &mut Self {
+    pub fn with_deprecation(&mut self, deprecation: impl Into<Deprecation>) -> &mut Self {
         let info = self.init_info();
-        info.deprecation = Some(deprecation);
+        info.deprecation = Some(deprecation.into());
         self.check_access = info.has_checked_access();
         self
     }
@@ -492,6 +495,12 @@ impl Deprecation {
     }
 }
 
+impl From<&'static str> for Deprecation {
+    fn from(message: &'static str) -> Self {
+        Deprecation::new().with_message(message)
+    }
+}
+
 impl Default for Deprecation {
     fn default() -> Self {
         Self::new()
@@ -565,4 +574,91 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
     }
 
     res
+}
+
+/// Destination for a warning message.
+pub trait BindingContext: WarningSink {
+    /// The features enabled in the current [`crate::Library`].
+    fn features(&self) -> &Features;
+}
+
+impl<T: BindingContext> BindingContext for &mut T {
+    fn features(&self) -> &Features {
+        T::features(self)
+    }
+}
+
+pub trait WorldBindingExt {
+    /// Create a [`BindingContext`] that discards emitted warnings.
+    fn discard_ctx(&self) -> DiscardBindingCtx;
+}
+
+impl<T: World> WorldBindingExt for T {
+    fn discard_ctx(&self) -> DiscardBindingCtx {
+        DiscardBindingCtx { features: self.library().features.clone() }
+    }
+}
+
+/// A [`BindingContext`] that emits warnings to the engine's sink.
+pub struct EngineCtx<'x, 'y> {
+    pub engine: &'x mut Engine<'y>,
+    pub span: Span,
+}
+
+impl EngineCtx<'_, '_> {
+    /// Creates a [`BindingContext`] that discards emitted warnings.
+    pub fn discard_warnings(&self) -> DiscardBindingCtx {
+        DiscardBindingCtx { features: self.engine.library.features.clone() }
+    }
+}
+
+impl WarningSink for EngineCtx<'_, '_> {
+    fn emit(&mut self, message: HintedString) {
+        self.engine.sink.warn(
+            SourceDiagnostic::warning(self.span, message.message())
+                .with_hints(message.hints().iter().cloned()),
+        );
+    }
+}
+
+impl BindingContext for EngineCtx<'_, '_> {
+    fn features(&self) -> &Features {
+        &self.engine.library.features
+    }
+}
+
+/// A [`BindingContext`] that discards emitted warnings.
+#[derive(Clone)]
+pub struct DiscardBindingCtx {
+    pub features: Features,
+}
+
+impl DiscardBindingCtx {
+    pub fn new(features: Features) -> Self {
+        Self { features }
+    }
+}
+
+impl WarningSink for DiscardBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings when gathering information.
+    }
+}
+
+impl WarningSink for &DiscardBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings when gathering information.
+    }
+}
+
+impl BindingContext for DiscardBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
+    }
+}
+
+impl BindingContext for &DiscardBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
+    }
 }
