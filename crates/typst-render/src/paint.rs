@@ -102,7 +102,7 @@ impl<'a> TilingSampler<'a> {
             RelativeTo::Self_ => sk::Transform::identity(),
             RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
-        let pattern_transform = to_sk_transform(&tiling_transform(tilings));
+        let pattern_transform = to_sk_transform(&tilings.transform());
 
         Self {
             pixmap,
@@ -272,7 +272,7 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_concat(to_sk_transform(&tiling_transform(tilings)))
+                    .pre_concat(to_sk_transform(&tilings.transform()))
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
                     .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );
@@ -306,9 +306,4 @@ pub fn render_tiling_frame(state: &State, tilings: &Tiling) -> sk::Pixmap {
     let temp_state = State::new(tilings.size(), ts, state.pixel_per_pt);
     crate::render_frame(&mut canvas, temp_state, tilings.frame());
     canvas
-}
-
-fn tiling_transform(tiling: &Tiling) -> Transform {
-    Transform::translate(tiling.offset().x, tiling.offset().y)
-        .pre_concat(Transform::rotate(tiling.angle()))
 }

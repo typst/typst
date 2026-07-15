@@ -9,7 +9,7 @@ use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Angle, Axes, Frame, Length, Region, Rel, Size};
+use crate::layout::{Abs, Angle, Axes, Frame, Length, Region, Rel, Size, Transform};
 use crate::visualize::RelativeTo;
 
 /// A repeating tiling fill.
@@ -168,8 +168,7 @@ impl Tiling {
         #[named]
         #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
         offset: Spanned<Axes<Rel<Length>>>,
-        /// Rotates the tiles and the grid clockwise about the origin of the
-        /// tiling. The rotation is applied before the offset.
+        /// Rotates the tiles and the grid clockwise about the offset coordinates by a specified angle. The rotation is applied after the offset.
         ///
         /// ```example
         /// #let pat = tiling(
@@ -367,6 +366,12 @@ impl Tiling {
         self.0.relative.unwrap_or_else(|| {
             if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
+    }
+
+    /// Return the transform of the tiling from the `offset` and `angle` parameters.
+    pub fn transform(&self) -> Transform {
+        Transform::translate(self.offset().x, self.offset().y)
+            .pre_concat(Transform::rotate(self.angle()))
     }
 }
 
