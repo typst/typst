@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tiny_skia as sk;
-use typst_library::layout::{Abs, Axes, Point, Ratio, Size, Transform};
+use typst_library::layout::{Abs, Axes, Point, Ratio, Size};
 use typst_library::visualize::{
     Geometry, Gradient, Paint, ProcessColor, RelativeTo, Shape, Tiling,
 };
