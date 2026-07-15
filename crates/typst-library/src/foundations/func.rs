@@ -11,11 +11,11 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, BindingContext, SourceResult, StrResult, bail};
+use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, BindingAccess, Bytes, CastInfo, Content, Context, Element, IntoArgs,
-    PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
+    Args, BindingAccess, BindingContext, Bytes, CastInfo, Content, Context, Element,
+    IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
