@@ -103,7 +103,7 @@ impl SVGRenderer<'_> {
         if ts.is_identity() {
             return tiling_id;
         }
-        // Composition is necessary as the ts patternTransform must not override the tiling's own patternTransform
+        // As the ts  patternTransform overrides the referenced patternTransform, we override instead with the composition.
         let transform = ts.pre_concat(tiling.transform());
         let tiling_ref = TilingRef { id: tiling_id, transform };
         self.tiling_refs.insert_with(tiling_ref, || tiling_ref)
