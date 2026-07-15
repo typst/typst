@@ -300,6 +300,10 @@ impl World for ExampleWorld {
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
+
+    fn today_with_time(&self, _: Option<Duration>) -> Option<Datetime> {
+        Some(Datetime::from_ymd_hms(1970, 1, 1, 0, 0, 0).unwrap())
+    }
 }
 
 static EXAMPLE_LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {

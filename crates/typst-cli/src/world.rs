@@ -142,6 +142,10 @@ impl World for SystemWorld {
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         self.now.today(offset)
     }
+
+    fn today_with_time(&self, offset: Option<Duration>) -> Option<Datetime> {
+        self.now.today_with_time(offset)
+    }
 }
 
 impl DiagnosticWorld for SystemWorld {

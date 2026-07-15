@@ -69,6 +69,11 @@
 #test(datetime.today(offset: -14).display(), "1969-12-31")
 #test(datetime.today(offset: duration(hours: 5, minutes: 45)).display(), "1970-01-01")
 
+// Test today with time of day
+#test(datetime.today(time: true).display(), "1970-01-01 12:00:00")
+#test(datetime.today(offset: auto, time: true).display(), "1970-01-01 12:00:00")
+#test(datetime.today(offset: 2, time: true).display(), "1970-01-01 14:00:00")
+
 --- datetime-ordinal eval ---
 // Test date methods.
 #test(datetime(day: 1, month: 1, year: 2000).ordinal(), 1);

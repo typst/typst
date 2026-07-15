@@ -186,4 +186,8 @@ impl World for ExpressionWorld {
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         self.world.today(offset)
     }
+
+    fn today_with_time(&self, offset: Option<Duration>) -> Option<Datetime> {
+        self.world.today_with_time(offset)
+    }
 }

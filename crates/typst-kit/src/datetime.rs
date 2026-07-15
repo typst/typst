@@ -7,7 +7,7 @@
 
 use std::sync::OnceLock;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Timelike, Utc};
 use chrono::{NaiveDate, NaiveDateTime};
 
 use typst_library::diag::{StrResult, bail};
@@ -73,14 +73,8 @@ impl Time {
         Time(TimeInner::System(OnceLock::new()))
     }
 
-    /// The current date.
-    ///
-    /// A timezone offset can be given to obtain the current date in this
-    /// timezone.
-    ///
-    /// This can directly be used to implement
-    /// [`World::today`](typst_library::World::today).
-    pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
+    /// The time with the given UTC offset applied.
+    fn with_offset(&self, offset: Option<Duration>) -> Option<DateTime<FixedOffset>> {
         let now = match &self.0 {
             TimeInner::Fixed(time) => time.fixed_offset(),
             TimeInner::System(time) => {
@@ -94,9 +88,8 @@ impl Time {
             }
         };
 
-        // The time with the specified UTC offset.
-        let with_offset = match offset {
-            None => now,
+        match offset {
+            None => Some(now),
             Some(offset) => {
                 let seconds = offset.seconds().trunc();
                 // Check whether we can convert seconds from f64 to i32
@@ -106,14 +99,48 @@ impl Time {
                 {
                     return None;
                 }
-                now.with_timezone(&FixedOffset::east_opt(seconds as i32)?)
+                Some(now.with_timezone(&FixedOffset::east_opt(seconds as i32)?))
             }
-        };
+        }
+    }
 
+    /// The current date.
+    ///
+    /// A timezone offset can be given to obtain the current date in this
+    /// timezone.
+    ///
+    /// This can directly be used to implement
+    /// [`World::today`](typst_library::World::today).
+    pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
+        let with_offset = self.with_offset(offset)?;
         Datetime::from_ymd(
             with_offset.year(),
             with_offset.month().try_into().ok()?,
             with_offset.day().try_into().ok()?,
+        )
+    }
+
+    /// The current date and time, including the time of day.
+    ///
+    /// Unlike [`today`](Self::today), this only succeeds if the time is
+    /// [fixed](Self::fixed) or [fixed to a timestamp](Self::fixed_timestamp),
+    /// returning `None` for the live system clock. See [`Datetime::today`] for
+    /// more details.
+    ///
+    /// This can directly be used to implement
+    /// [`World::today_with_time`](typst_library::World::today_with_time).
+    pub fn today_with_time(&self, offset: Option<Duration>) -> Option<Datetime> {
+        if !matches!(self.0, TimeInner::Fixed(_)) {
+            return None;
+        }
+        let with_offset = self.with_offset(offset)?;
+        Datetime::from_ymd_hms(
+            with_offset.year(),
+            with_offset.month().try_into().ok()?,
+            with_offset.day().try_into().ok()?,
+            with_offset.hour().try_into().ok()?,
+            with_offset.minute().try_into().ok()?,
+            with_offset.second().try_into().ok()?,
         )
     }
 
@@ -125,5 +152,32 @@ impl Time {
         if let TimeInner::System(ref mut time_lock) = self.0 {
             time_lock.take();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use typst_library::foundations::Datetime;
+
+    use super::Time;
+
+    #[test]
+    fn today_with_time_succeeds_when_fixed() {
+        let datetime = Datetime::from_ymd_hms(2024, 4, 3, 10, 39, 30).unwrap();
+        let time = Time::fixed(datetime).unwrap();
+        assert_eq!(time.today_with_time(None), Some(datetime));
+    }
+
+    #[test]
+    fn today_with_time_succeeds_when_fixed_timestamp() {
+        let datetime = Datetime::from_ymd_hms(2024, 4, 3, 10, 39, 30).unwrap();
+        let time = Time::fixed_timestamp(1712140770).unwrap();
+        assert_eq!(time.today_with_time(None), Some(datetime));
+    }
+
+    #[test]
+    fn today_with_time_fails_when_system() {
+        let time = Time::system();
+        assert_eq!(time.today_with_time(None), None);
     }
 }

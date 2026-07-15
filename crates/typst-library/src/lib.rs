@@ -95,6 +95,22 @@ pub trait World: Send + Sync {
     /// If this function returns `None`, Typst's `datetime` function will
     /// return an error.
     fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
+
+    /// Get the current date and time, including the time of day. The `offset`
+    /// parameter behaves as in [`today`](Self::today).
+    ///
+    /// Unlike [`today`](Self::today), this should only succeed with a fixed,
+    /// reproducible time source; implementations backed by the live system
+    /// clock should return `None`. See [`Datetime::today`] for more details.
+    ///
+    /// If this function returns `None`, Typst's `datetime` function will return
+    /// an error.
+    ///
+    /// The default implementation returns `None`.
+    fn today_with_time(&self, offset: Option<Duration>) -> Option<Datetime> {
+        let _ = offset;
+        None
+    }
 }
 
 macro_rules! world_impl {
@@ -126,6 +142,10 @@ macro_rules! world_impl {
 
             fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
                 self.deref().today(offset)
+            }
+
+            fn today_with_time(&self, offset: Option<Duration>) -> Option<Datetime> {
+                self.deref().today_with_time(offset)
             }
         }
     };

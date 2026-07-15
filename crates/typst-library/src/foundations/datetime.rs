@@ -377,9 +377,27 @@ impl Datetime {
         #[named]
         #[default]
         offset: Smart<TodayOffset>,
+        /// Whether to include the time of day.
+        ///
+        /// This only succeeds if the current build has a fixed, reproducible
+        /// time source, as described above.
+        ///
+        /// It fails when relying on the live system clock, since the time of
+        /// day would then change on every recompilation, breaking
+        /// reproducibility and incremental compilation in `typst watch`.
+        #[named]
+        #[default(false)]
+        time: bool,
     ) -> StrResult<Datetime> {
         let offset = offset.custom().map(|v| v.0);
-        Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
+        if time {
+            Ok(engine
+                .world
+                .today_with_time(offset)
+                .ok_or("unable to get the current time of day")?)
+        } else {
+            Ok(engine.world.today(offset).ok_or("unable to get the current date")?)
+        }
     }
 
     /// Displays the datetime in a specified format.
