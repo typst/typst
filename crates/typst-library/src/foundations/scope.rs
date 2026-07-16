@@ -339,6 +339,22 @@ impl Binding {
     }
 
     /// Read the value, checking for deprecation and feature gates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use typst_library::foundations::{Binding, BindingAccess, Value};
+    /// use typst_library::diag::{At, SourceResult};
+    /// use typst_library::engine::Engine;
+    /// use typst_syntax::Span;
+    ///
+    /// fn read_var(binding: &Binding, engine: &mut Engine, span: Span) -> SourceResult<Value> {
+    ///     binding.read_checked(engine.binding_ctx(span))
+    ///     .what(format_args!("cannot access variable"))
+    ///     .at(span)
+    ///     .cloned()
+    /// }
+    /// ```
     pub fn read_checked(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
         if self.check_access {
             self.check_access(ctx)?;
@@ -429,11 +445,17 @@ impl BindingInfo {
 }
 
 /// A binding has been accessed but the feature that gates it isn't enabled.
+///
+/// A [`Result<T, FeatureError>`] can be converted into a [`StrResult`] using
+/// the [`BindingAccess`] trait, see [`Binding::read_checked`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FeatureError(Feature);
 
+/// Convert a [`FeatureError`] to a [`StrResult`] by providing a description of
+/// what kind of binding couldn't be accessed.
 pub trait BindingAccess<T> {
-    fn what(self, binding: impl Display) -> StrResult<T>;
+    /// Add a description of what kind of binding couldn't be accessed.
+    fn what(self, what: impl Display) -> StrResult<T>;
 }
 
 impl<T> BindingAccess<T> for Result<T, FeatureError> {
