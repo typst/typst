@@ -623,3 +623,11 @@ d
 - #text(48pt)[E]
 - #block(inset: 10pt, stroke: red)[Hello world!]
 - #rect[Hello world!]
+
+--- issue-8648-enum-gap paged ---
+#set page(height: 150pt)
+#set enum(number-align: top)
+
++ #lines(3)
++ #lines(8)
++ #lines(2)
