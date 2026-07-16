@@ -324,3 +324,13 @@
 #let insertion(name, fallback: none) = context {
   stdx.config.insertions.at(name, default: fallback)
 }
+
+// Displays an indicator for a development build.
+#let dev-version-warning() = {
+  let body = [Development build #stdx.commit]
+  context if target() == "html" {
+    html.div(class: "dev-version-warning", body)
+  } else {
+    small(body)
+  }
+}

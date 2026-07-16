@@ -54,7 +54,7 @@ use crate::loading::{DataSource, Load};
 ///   }
 /// }
 /// ```
-#[func(title = "XML")]
+#[func(title = "XML", since = "forever")]
 pub fn xml(
     engine: &mut Engine,
     /// A path to an XML file or raw XML bytes.

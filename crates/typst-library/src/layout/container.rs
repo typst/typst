@@ -27,7 +27,7 @@ use crate::visualize::{Paint, Stroke};
 /// )
 /// for more information.
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct BoxElem {
     /// The width of the box.
     ///
@@ -247,7 +247,7 @@ pub enum InlineItem {
 /// = Blocky
 /// More text.
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct BlockElem {
     /// The block's width.
     ///

@@ -89,7 +89,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// push a number's fractional digits beyond the limits described above, leading
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.12.0")]
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Decimal(rust_decimal::Decimal);
 
@@ -294,7 +294,7 @@ impl Decimal {
     /// ```example
     /// #decimal("1.222222222222222")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.12.0")]
     pub fn construct(
         engine: &mut Engine,
         /// The value that should be converted to a decimal.

@@ -59,7 +59,7 @@ use crate::foundations::{Repr, repr, ty};
 ///
 /// When ratios are @repr[displayed] in the document, they are rounded to two
 /// significant digits for readability.
-#[ty(cast)]
+#[ty(cast, since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 

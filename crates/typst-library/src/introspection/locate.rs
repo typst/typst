@@ -24,7 +24,7 @@ use crate::introspection::Location;
 ///
 /// = Introduction <intro>
 /// ```
-#[func(contextual)]
+#[func(contextual, since = "forever")]
 pub fn locate(
     engine: &mut Engine,
     context: Tracked<Context>,

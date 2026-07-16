@@ -53,7 +53,7 @@ use crate::visualize::RelativeTo;
 /// #set text(fill: pat)
 /// #lorem(10)
 /// ```
-#[ty(scope, cast, keywords = ["pattern"])]
+#[ty(scope, cast, since = "0.13.0", keywords = ["pattern"])]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Tiling(Arc<TilingInner>);
 
@@ -92,7 +92,7 @@ impl Tiling {
     ///
     /// #rect(width: 100%, height: 60pt, fill: pat)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.13.0")]
     pub fn construct(
         engine: &mut Engine,
         span: Span,

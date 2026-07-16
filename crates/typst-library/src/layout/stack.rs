@@ -22,7 +22,7 @@ use crate::layout::{Dir, Spacing};
 /// Stacks do not carry any special semantics. The contents of the stack are
 /// read by Assistive Technology (AT) in the order in which they have been
 /// passed to this function.
-#[elem]
+#[elem(since = "forever")]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
