@@ -351,17 +351,18 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes a breakable block.
     fn multi(&mut self, multi: &'b MultiChild<'a>) -> FlowResult<()> {
-        // Skip directly if the region is already (over)full. `line` and
-        // `single` implicitly do this through their `fits` checks.
-        if self.regions.is_full() {
-            return Err(Stop::Finish(false));
-        }
+        let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout
-        let mut pod = self.regions;
         if let Some(lim) = self.target {
             let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
+        }
+
+        // Skip directly if the region is already (over)full. `line` and
+        // `single` implicitly do this through their `fits` checks.
+        if pod.is_full() {
+            return Err(Stop::Finish(false));
         }
 
         // Lay out the block.
@@ -391,17 +392,18 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes spillover from a breakable block.
     fn multi_spill(&mut self, spill: MultiSpill<'a, 'b>) -> FlowResult<()> {
-        // Skip directly if the region is already (over)full.
-        if self.regions.is_full() {
-            self.composer.work.spill = Some(spill);
-            return Err(Stop::Finish(false));
-        }
+        let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout.
-        let mut pod = self.regions;
         if let Some(lim) = self.target {
             let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
+        }
+
+        // Skip directly if the region is already (over)full.
+        if pod.is_full() {
+            self.composer.work.spill = Some(spill);
+            return Err(Stop::Finish(false));
         }
 
         // Lay out the spilled remains.
