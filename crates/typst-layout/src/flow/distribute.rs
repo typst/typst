@@ -10,12 +10,19 @@ use super::{
 };
 
 /// Distributes as many children as fit from `composer.work` into the first
-/// region and returns the resulting frame.
-pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame> {
+/// region and returns the resulting frame and the height actually used
+/// by the inner contents (for column balancing).
+pub fn distribute(
+    composer: &mut Composer,
+    regions: Regions,
+    balancing_target: Option<Abs>,
+) -> FlowResult<(Frame, Abs)> {
     let mut distributor = Distributor {
         composer,
         regions,
         items: vec![],
+        used: Size::zero(),
+        target: balancing_target,
         sticky: None,
         stickable: None,
     };
@@ -39,6 +46,10 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     regions: Regions<'z>,
     /// Already laid out items, not yet aligned.
     items: Vec<Item<'a, 'b>>,
+    /// Size used by laid out items.
+    used: Size,
+    /// The target height for column balancing.
+    target: Option<Abs>,
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
@@ -68,6 +79,7 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
 struct DistributionSnapshot<'a, 'b> {
     work: Work<'a, 'b>,
     items: usize,
+    used: Size,
 }
 
 /// A laid out item in a distribution.
@@ -159,7 +171,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Mark the amount of height used and reduce the region height accordingly.
     fn use_height(&mut self, amount: Abs) {
         self.regions.size.y -= amount;
-        self.composer.column_balancing.used_height += amount;
+        self.used.y += amount;
     }
 
     /// Processes relative spacing.
@@ -276,13 +288,21 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         Abs::zero()
     }
 
+    /// Whether the amount fits into the remaining region, taking into account column balancing limits.
+    pub fn fits(&self, amount: Abs) -> bool {
+        self.regions.size.y.fits(amount)
+            && self
+                .target
+                // Add elements as long as the balancing target is not reached. By not including
+                // the amount itself here, we avoid protruding items to cumulate in the last column.
+                .is_none_or(|target| target.fits(self.used.y))
+    }
+
     /// Processes a line of a paragraph.
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.composer.fits(self.regions, line.frame.height())
-            && self.regions.may_progress()
-        {
+        if !self.fits(line.frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -290,7 +310,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // following lines grouped by widow/orphan prevention, does not fit into
         // the current region, but does fit into the next region, finish the
         // region.
-        if !self.composer.fits(self.regions, line.need)
+        if !self.fits(line.need)
             && self
                 .regions
                 .iter()
@@ -322,9 +342,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.composer.fits(self.regions, frame.height())
-            && self.regions.may_progress()
-        {
+        if !self.fits(frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -341,8 +359,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // For column balancing, reduce the region size for layout
         let mut pod = self.regions;
-        if let Some(lim) = self.composer.column_balancing_limit() {
-            let remaining = lim - self.composer.column_balancing.used_height;
+        if let Some(lim) = self.target {
+            let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
         }
 
@@ -381,8 +399,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // For column balancing, reduce the region size for layout.
         let mut pod = self.regions;
-        if let Some(lim) = self.composer.column_balancing_limit() {
-            let remaining = lim - self.composer.column_balancing.used_height;
+        if let Some(lim) = self.target {
+            let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
         }
 
@@ -451,6 +469,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Push an item for the frame.
         self.use_height(frame.height());
+        self.used.x.set_max(frame.width());
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -513,7 +532,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         region: Region,
         init: DistributionSnapshot<'a, 'b>,
         forced: bool,
-    ) -> FlowResult<Frame> {
+    ) -> FlowResult<(Frame, Abs)> {
         if forced {
             // If this is the very end of the flow, flush pending tags.
             self.flush_tags();
@@ -644,7 +663,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             }
         }
 
-        Ok(output)
+        Ok((output, self.used.y))
     }
 
     /// Create a snapshot of the work and items.
@@ -652,6 +671,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         DistributionSnapshot {
             work: self.composer.work.clone(),
             items: self.items.len(),
+            used: self.used,
         }
     }
 
@@ -659,5 +679,6 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn restore(&mut self, snapshot: DistributionSnapshot<'a, 'b>) {
         *self.composer.work = snapshot.work;
         self.items.truncate(snapshot.items);
+        self.used = snapshot.used;
     }
 }

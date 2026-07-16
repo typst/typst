@@ -46,7 +46,7 @@ pub fn compose(
         column: 0,
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
-        column_balancing: ColumnBalancing::default(),
+        column_balancing_height: None,
         work,
         footnote_spill: None,
         footnote_queue: vec![],
@@ -70,7 +70,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
-    pub(crate) column_balancing: ColumnBalancing,
+    pub(crate) column_balancing_height: Option<Abs>,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -110,7 +110,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     fn page_contents(&mut self, locator: Locator, regions: Regions) -> FlowResult<Frame> {
         // No point in create column regions, if there's just one!
         if self.config.columns.count == 1 {
-            return self.column(locator, regions);
+            return self.column(locator, regions).map(|(frame, _)| frame);
         }
 
         // Create a backlog for multi-column layout.
@@ -138,13 +138,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut output = Frame::hard(size);
         let mut offset = Abs::zero();
         let mut locator = locator.split();
-        let mut balancing_height = Abs::zero();
+        let mut total_used_height = Abs::zero();
 
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
             self.column = i;
-            let frame = self.column(locator.next(&()), inner)?;
-            balancing_height += self.column_balancing.used_height;
+            let (frame, used_height) = self.column(locator.next(&()), inner)?;
+            total_used_height += used_height;
 
             if !regions.expand.y {
                 output.size_mut().y.set_max(frame.height());
@@ -172,9 +172,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Column balancing with re-layout
         if self.config.columns.balanced && self.work.done() {
-            let column_height = balancing_height / self.config.columns.count as f64;
-            if self.column_balancing.column_height.is_none_or(|h| h < column_height) {
-                self.column_balancing.column_height = Some(column_height);
+            let height = total_used_height / self.config.columns.count as f64;
+            if self.column_balancing_height.is_none_or(|h| h < height) {
+                self.column_balancing_height = Some(height);
                 return Err(Stop::Relayout(PlacementScope::Parent));
             }
         }
@@ -183,7 +183,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     }
 
     /// Lay out a column, including column insertions.
-    fn column(&mut self, locator: Locator, regions: Regions) -> FlowResult<Frame> {
+    ///
+    /// Returns a `FlowResult` containing a tuple of
+    /// - `0`: The laid out frame.
+    /// - `1`: The height actually used by the inner contents (used for column balancing logic).
+    fn column(&mut self, locator: Locator, regions: Regions) -> FlowResult<(Frame, Abs)> {
         // Reset column insertion when starting a new column.
         self.column_insertions = Insertions::default();
 
@@ -195,17 +199,22 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // This loop can restart column layout when requested to do so by a
         // `Stop`. This happens when there is a column-scoped float.
         let checkpoint = self.work.clone();
-        let inner = loop {
+        let (inner, used_height) = loop {
             // Shrink the available space by the space used by column
             // insertions.
             let mut pod = regions;
             pod.size.y -= self.column_insertions.height();
 
-            // For column balancing, only consider float size, not footnotes
-            self.column_balancing.used_height = self.column_insertions.float_height();
+            // For column balancing, only consider space taken by floats, not footnotes
+            let float_height = self.column_insertions.float_height();
+            let balancing_target = if self.column < self.config.columns.count - 1 {
+                self.column_balancing_height.map(|h| h - float_height)
+            } else {
+                None
+            };
 
-            match self.column_contents(pod) {
-                Ok(frame) => break frame,
+            match self.column_contents(pod, balancing_target) {
+                Ok((frame, used_height)) => break (frame, used_height + float_height),
                 Err(Stop::Finish(_)) => unreachable!(),
                 Err(Stop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
@@ -225,7 +234,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             self.work,
             self.config,
             inner,
-            self.column_balancing.column_height,
+            self.column_balancing_height,
         );
 
         // Lay out per-column line numbers.
@@ -240,7 +249,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             )?;
         }
 
-        Ok(output)
+        Ok((output, used_height))
     }
 
     /// Lay out the inner contents of a column.
@@ -251,7 +260,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// the footnote invariant to be broken, as it would require handling a
     /// [`Stop::Finish`] at this point, but that is exclusively handled by the
     /// distributor.
-    fn column_contents(&mut self, regions: Regions) -> FlowResult<Frame> {
+    fn column_contents(
+        &mut self,
+        regions: Regions,
+        balancing_target: Option<Abs>,
+    ) -> FlowResult<(Frame, Abs)> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
             self.footnote(note, &mut regions.clone(), Abs::zero(), false)?;
@@ -262,26 +275,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             self.float(placed, &regions, false, false)?;
         }
 
-        distribute(self, regions)
-    }
-
-    /// The height limit if column balancing is active.
-    pub fn column_balancing_limit(&self) -> Option<Abs> {
-        if self.column < self.config.columns.count - 1 {
-            self.column_balancing.column_height
-        } else {
-            None
-        }
-    }
-
-    /// Whether the amount fits into the region, taking into account column balancing limits.
-    pub fn fits(&self, regions: Regions, amount: Abs) -> bool {
-        regions.size.y.fits(amount)
-            && self
-                .column_balancing_limit()
-                // Add elements as long as the balancing target is not reached. By not including
-                // the amount here, we avoid protruding items to cumulate in the last column.
-                .is_none_or(|target| target.fits(self.column_balancing.used_height))
+        distribute(self, regions, balancing_target)
     }
 
     /// Lays out an item with floating placement.
@@ -678,15 +672,6 @@ struct Insertions<'a, 'b> {
     footnote_size: Abs,
     width: Abs,
     skips: Vec<Location>,
-}
-
-/// State for column balancing.
-#[derive(Default)]
-pub struct ColumnBalancing {
-    /// The height used by the inner contents (e.g. text) during column layouting.
-    pub(crate) used_height: Abs,
-    /// The balanced height of the columns.
-    column_height: Option<Abs>,
 }
 
 impl<'a, 'b> Insertions<'a, 'b> {
