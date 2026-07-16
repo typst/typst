@@ -550,31 +550,23 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         self.trim_spacing();
 
-        let mut frs = Fr::zero();
-        let mut used = Size::zero();
-        let mut has_fr_child = false;
+        let used_height_without_fr = self.used.y;
 
-        // Determine the amount of used space and the sum of fractionals.
+        // Determine the sum of fractionals.
+        let mut frs = Fr::zero();
+        let mut has_fr_child = false;
         for item in &self.items {
-            match item {
-                Item::Abs(v, _) => used.y += *v,
-                Item::Fr(v, _, child) => {
-                    frs += *v;
-                    has_fr_child |= child.is_some();
-                }
-                Item::Frame(frame, _) => {
-                    used.y += frame.height();
-                    used.x.set_max(frame.width());
-                }
-                Item::Tag(_) | Item::Placed(..) => {}
+            if let Item::Fr(v, _, child) = item {
+                frs += *v;
+                has_fr_child |= child.is_some();
             }
         }
 
         // When we have fractional spacing, occupy the remaining space with it.
         let mut fr_space = Abs::zero();
         if frs.get() > 0.0 && region.size.y.is_finite() {
-            fr_space = region.size.y - used.y;
-            used.y = region.size.y;
+            fr_space = region.size.y - self.used.y;
+            self.used.y = region.size.y;
         }
 
         // Lay out fractionally sized blocks.
@@ -585,19 +577,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 let length = v.share(frs, fr_space);
                 let pod = Region::new(Size::new(region.size.x, length), region.expand);
                 let frame = single.layout(self.composer.engine, pod)?;
-                used.x.set_max(frame.width());
+                self.used.x.set_max(frame.width());
                 fr_frames.push(frame);
             }
         }
 
         // Also consider the width of insertions for alignment.
         if !region.expand.x {
-            used.x.set_max(self.composer.insertion_width());
+            self.used.x.set_max(self.composer.insertion_width());
         }
 
         // Determine the region's size.
-        let size = region.expand.select(region.size, used.min(region.size));
-        let free = size.y - used.y;
+        let size = region.expand.select(region.size, self.used.min(region.size));
+        let free = size.y - self.used.y;
 
         let mut output = Frame::soft(size);
         let mut ruler = FixedAlignment::Start;
@@ -663,7 +655,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             }
         }
 
-        Ok((output, self.used.y))
+        Ok((output, used_height_without_fr))
     }
 
     /// Create a snapshot of the work and items.
