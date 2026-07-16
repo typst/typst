@@ -47,7 +47,7 @@
   "closing": "Closing",
   "diacritic": "Diacritic",
   "fence": "Fence",
-  "glyphpart": "Glyph Part",
+  "glyph-part": "Glyph Part",
   "large": "Large",
   "opening": "Opening",
   "punctuation": "Punctuation",
