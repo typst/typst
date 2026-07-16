@@ -219,7 +219,7 @@ impl Tiling {
         ///   table.cell(fill: pat, none),
         ///
         ///   // These two are both page-relative, so the
-        ///   // pattern is continous.
+        ///   // pattern is continuous.
         ///   table.cell(fill: pat-with-parent, none),
         ///   table.cell(fill: pat-with-parent, none),
         /// )
@@ -369,7 +369,8 @@ impl Tiling {
         })
     }
 
-    /// Return the transform of the tiling from the `offset` and `angle` parameters.
+    /// Returns the transform of the tiling from the `offset` and `angle`
+    /// parameters.
     pub fn transform(&self) -> Transform {
         Transform::translate(self.offset().x, self.offset().y)
             .pre_concat(Transform::rotate(self.angle()))
