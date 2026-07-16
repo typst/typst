@@ -168,7 +168,7 @@ impl Tiling {
         #[named]
         #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
         offset: Spanned<Axes<Rel<Length>>>,
-        /// Rotates the tiles and the grid clockwise about the offset coordinates by a specified angle. The rotation is applied after the offset.
+        /// Rotates the tiles and the grid clockwise about the offset coordinates by the specified angle. The rotation is applied after the offset.
         ///
         /// ```example
         /// #let pat = tiling(
