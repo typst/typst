@@ -292,7 +292,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Err(Stop::Finish(false));
         }
 
-        self.frame(line.frame.clone(), line.align, false, false)
+        // Lines participating in widow/orphan prevention reuse the sticky
+        // logic.
+        let sticky = line.sticky_need.is_some_and(|need| {
+            self.regions.iter().nth(1).is_some_and(|region| region.y.fits(need))
+        });
+
+        self.frame(line.frame.clone(), line.align, sticky, false)
     }
 
     /// Processes an unbreakable block.
@@ -448,12 +454,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
             self.regions.size.y += weak_spacing;
-            self.composer.float(
-                placed,
-                &self.regions,
-                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
-                true,
-            )?;
+            self.composer.float(placed, &self.regions, self.has_frame(), true)?;
             self.regions.size.y -= weak_spacing;
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
@@ -635,6 +636,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             work: self.composer.work.clone(),
             items: self.items.len(),
         }
+    }
+
+    /// Whether we already distributed an in-flow frame into this region.
+    fn has_frame(&self) -> bool {
+        self.items.iter().any(|item| matches!(item, Item::Frame(..)))
     }
 
     /// Restore a snapshot of the work and items.
