@@ -70,7 +70,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_base: Size,
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
-    pub(crate) column_balancing_height: Option<Abs>,
+    column_balancing_height: Option<Abs>,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -774,28 +774,28 @@ impl<'a, 'b> Insertions<'a, 'b> {
         // with `\usepackage[bottom]{footmisc}`. We could also consider adding
         // configuration in the future.
 
-        let mut offset_bottom =
+        let mut float_offset_bottom =
             column_height.unwrap_or(size.y - self.footnote_size) - self.bottom_size;
         for (placed, frame) in self.bottom_floats {
-            offset_bottom += placed.clearance;
+            float_offset_bottom += placed.clearance;
             let x = placed.align_x.position(size.x - frame.width());
-            let y = offset_bottom;
+            let y = float_offset_bottom;
             let delta = placed.delta.zip_map(size, Rel::relative_to).to_point();
-            offset_bottom += frame.height();
+            float_offset_bottom += frame.height();
             output.push_frame(Point::new(x, y) + delta, frame);
         }
 
-        let mut offset_bottom = size.y - self.footnote_size;
+        let mut footnote_offset_bottom = size.y - self.footnote_size;
         if let Some(frame) = self.footnote_separator {
-            offset_bottom += config.footnote.clearance;
-            let y = offset_bottom;
-            offset_bottom += frame.height();
+            footnote_offset_bottom += config.footnote.clearance;
+            let y = footnote_offset_bottom;
+            footnote_offset_bottom += frame.height();
             output.push_frame(Point::with_y(y), frame);
         }
         for frame in self.footnotes {
-            offset_bottom += config.footnote.gap;
-            let y = offset_bottom;
-            offset_bottom += frame.height();
+            footnote_offset_bottom += config.footnote.gap;
+            let y = footnote_offset_bottom;
+            footnote_offset_bottom += frame.height();
             output.push_frame(Point::with_y(y), frame);
         }
 

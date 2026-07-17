@@ -288,7 +288,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         Abs::zero()
     }
 
-    /// Whether the amount fits into the remaining region, taking into account column balancing limits.
+    /// Whether the amount fits into the remaining region, taking into account
+    /// column balancing limits.
     pub fn fits(&self, amount: Abs) -> bool {
         self.regions.size.y.fits(amount)
             && self
@@ -353,7 +354,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn multi(&mut self, multi: &'b MultiChild<'a>) -> FlowResult<()> {
         let mut pod = self.regions;
 
-        // For column balancing, reduce the region size for layout
+        // For column balancing, reduce the region size for layout.
         if let Some(lim) = self.target {
             let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);

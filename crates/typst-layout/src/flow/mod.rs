@@ -359,10 +359,14 @@ impl<'a, 'b> Work<'a, 'b> {
     }
 }
 
+/// Options defining the column layout.
 #[derive(Hash)]
 pub struct ColumnOptions {
+    /// The number of columns.
     pub count: NonZeroUsize,
+    /// Whether column heights are to be equalized.
     pub balanced: bool,
+    /// The spacing between columns.
     pub gutter: Rel<Abs>,
 }
 
