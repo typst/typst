@@ -180,7 +180,6 @@ e32d85331a6c4dff9620a3eb6e282a2b document-set-after-content
 0499c7cfac4ae5fdfec1d21031c4535d emph-and-strong-call-in-word
 2d62691b1060642de6ad5062702e9688 emph-double-underscore-empty-hint
 2704e3f06bda6f7422088ff157f0bbc3 emph-syntax
-36e4f7cd10f79971f4bea606676b00be enum-array-deprecated
 45e229323da8b6f4802838a0a25c47e4 enum-built-in-loop
 cd7410ddeb1ae680e382efc0ebb15551 enum-function-call
 419acd031a6770bf70e2687799a11a9c enum-in-align-centering
@@ -1821,7 +1820,6 @@ ff65264f744f7a610caee14efc2dc7bd table-inset-fold
 b0f17ff177b01ed6ff2a30c33e555656 table-newlines
 f982dd7d55adde63da9e003dee3a0383 table-stroke-vline-position-left-and-right
 9ebf666c94d2264db79c4f7275dcb680 tags-textual
-120d3679f6f9389650000abd15bf4560 terms-array-deprecated
 951a5519fd762020a47339747a67518d terms-built-in-loop
 c3a6e1fabcb49e3a3301ded1464cd191 terms-constructor
 06ad03d831b207e77b02edc37c0db869 terms-grid
