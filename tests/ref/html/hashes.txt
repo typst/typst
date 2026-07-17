@@ -408,6 +408,7 @@ a1415a1210cce6969daa96308df55723 mathml-multiline-alignment-3
 2678cd89ff2cacd73cb048c4d42a2495 mathml-primes
 5106a875b624d5d22d173f3b5eff78f5 mathml-primes-factorial-explicit-class
 aa70e6e6dec9074fd30b6fe0002c7acf mathml-show-rule
+9f2126bdba0246ce57364b0e73af515d mathml-show-rule-accent
 ae1ec94243b16393e712c63a2e51afca mathml-show-rule-math-in-non-math-in-math
 6ca02b4c8a157bdf99fa3e1e9fe8aaaf mathml-show-rule-non-math-in-math
 431573e9e1c3b08713d89f7310479aff mathml-show-rule-non-math-in-math-in-math

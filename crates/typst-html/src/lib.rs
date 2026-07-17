@@ -61,7 +61,7 @@ pub fn module() -> Module {
 ///   A div with _Typst content_ inside!
 /// ]
 /// ```
-#[elem(name = "elem")]
+#[elem(name = "elem", since = "0.13.0")]
 pub struct HtmlElem {
     /// The element's tag.
     #[required]
@@ -133,7 +133,7 @@ impl HtmlElem {
 /// used for PDF, SVG, and PNG export to render a part of your document exactly
 /// how it would appear when exported in one of these formats. It embeds the
 /// content as an inline SVG.
-#[elem]
+#[elem(since = "0.13.0")]
 pub struct FrameElem {
     /// The content that shall be laid out.
     #[positional]

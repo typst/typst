@@ -239,6 +239,8 @@ f9d1863928378f0923b4608b2ad9e437 flow-first-region-placed
 2e00227818d9634af985cb5a195dc101 flow-first-region-zero-sized-item
 acbd64702bef7a7e2e84db8eaaaeef6a flow-fr
 ce021acd6263989175451e7e120ced38 flow-heading-no-orphan
+7ba3685ff8290483c83165e82bc9aba2 flow-heading-no-orphan-with-footnote
+51f3c8b3eb6a1b22371dce8c192a833a flow-heading-orphan-forced-with-footnote
 2375d0e0148d07153cb082836c213ba1 flow-par-no-orphan-and-widow-lines
 f8a5a605c5c664d613b105e67aa6bb19 flow-widow-forced
 b2bdc8e35c5748f9f57446071d3f7d21 fold-vec-order-meta
@@ -845,6 +847,7 @@ ce0a8c8453f682afc61280473b32b856 issue-8261-string-as-non-numeric
 a06b2482f1d0f5ca88d5442e9c2d1d4f issue-8383-headers-pdf-ua
 d1f419b4e576bb3ae9c4b2ed45de67c0 issue-852-mat-type
 d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
+f438c7e72e95fc4b812c573b9ff9494d issue-8648-enum-gap
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
 aa87ad6ade20c3470dd44d260dfa6811 issue-color-mix-luma
 5b94002ca5168ccda6d3200861bb81af issue-columns-heading
@@ -1095,6 +1098,7 @@ c02f19655e64bad9d823d02b6ac0af69 math-call-shadowed-builtin
 888989368f1b77cb455318311d1fd6f1 math-call-spread-shorthand-clash
 143007913a7d1a648bf888761cb05a5a math-cancel-angle-absolute
 a80a0d493b95670928f450696fe557b0 math-cancel-angle-func
+4c21d60ad7f27019fdc5c83791c87f3f math-cancel-background
 f109bd54fad79708ccdfb39900b01c55 math-cancel-cross
 daedea226c3ec806ded5720c59416c6f math-cancel-customized
 76e2be59e17f63a2fe248d056da97889 math-cancel-display

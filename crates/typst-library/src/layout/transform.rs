@@ -25,7 +25,7 @@ use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlig
 /// read in the order it appears in the source, regardless of any visual
 /// movement. If you need to hide content from AT altogether in PDF export,
 /// consider using @pdf.artifact.
-#[elem]
+#[elem(since = "forever")]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -52,7 +52,7 @@ pub struct MoveElem {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -108,7 +108,7 @@ pub struct RotateElem {
 /// #scale(x: -100%)[This is mirrored.]
 /// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct ScaleElem {
     /// The scaling factor for both axes, as a positional argument. This is just
     /// an optional shorthand notation for setting `x` and `y` to the same
@@ -190,7 +190,7 @@ cast! {
 ///   This is some fake italic text.
 /// ]
 /// ```
-#[elem]
+#[elem(since = "0.12.0")]
 pub struct SkewElem {
     /// The horizontal skewing angle.
     ///

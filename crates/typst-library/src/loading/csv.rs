@@ -23,7 +23,7 @@ use crate::loading::{DataSource, Load};
 ///   ..results.flatten(),
 /// )
 /// ```
-#[func(title = "CSV")]
+#[func(title = "CSV", since = "forever")]
 pub fn csv(
     engine: &mut Engine,
     /// A path to a CSV file or raw CSV bytes.

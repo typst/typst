@@ -237,6 +237,8 @@ a0e3748bc060393912dfce0a270db848 flow-first-region-counter-update-placed-and-lin
 40a3075869a733993b8074a37a0a89ed flow-first-region-zero-sized-item
 6079fbb3c165fb3a6de1690537190f5a flow-fr
 8914fc3fd12404579d4dc930c89b6331 flow-heading-no-orphan
+5db176851dcbc5eaf8c008dcb558a99c flow-heading-no-orphan-with-footnote
+e8046657931a2ab3c5d25158905f7b64 flow-heading-orphan-forced-with-footnote
 f06422603ad4fe05d85cdecbd166ac50 flow-par-no-orphan-and-widow-lines
 b40ce458a7e03f9fbf21e865fcd6e85b flow-widow-forced
 041d4c50d19b11dfdc8ba6519d463707 fold-vec-order-meta
@@ -842,6 +844,7 @@ e757b359586c26a3453ab45df86c1591 issue-8261-string-as-non-numeric
 49c58d52a09c8a0e2941f0c9b3e02a26 issue-8372-stretched-glyphs
 c09d6d3c63dcd6a04c2daea43e75e0cb issue-852-mat-type
 d2c75477a39f501e64b586e9154160c4 issue-8520-script-stylistic-set
+32f5c5d2ec1fa8f20c77ac7552e25131 issue-8648-enum-gap
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
 4c01dfc0d145e59abdb4413234dfd836 issue-columns-heading
@@ -1091,6 +1094,7 @@ b7693a8f704a821b1b5c41edced328c4 math-call-non-func-empty-args
 72675e743a35a60ef26160d70e57eb35 math-call-spread-shorthand-clash
 0745e119f75e2074b0ef76720e54bed8 math-cancel-angle-absolute
 380fabc6a69828318f199416c0d146a2 math-cancel-angle-func
+0203aa23aea2245da578c8718f8d2d89 math-cancel-background
 c056a99d37b4909eb3572ce10edaaf0e math-cancel-cross
 f333350646fd8f4e07381e9de0b10153 math-cancel-customized
 0114d1c97f4684bec0c24aff46a03caa math-cancel-display

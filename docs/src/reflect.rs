@@ -50,6 +50,7 @@ fn describe_func(func: &Func) -> Dict {
     dict! {
         "name" => func.name(),
         "title" => func.title(),
+        "since" => func.since(),
         "docs" => func.docs(),
         "def-site" => func.def_site().map(describe_def_site),
         "element" => func.to_element().is_some(),
@@ -94,6 +95,7 @@ fn describe_ty(ty: Type) -> Dict {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),
         "title" => ty.title(),
+        "since" => ty.since(),
         "docs" => ty.docs(),
         "def-site" => describe_def_site(ty.def_site()),
         "keywords" => ty.keywords(),
@@ -158,11 +160,11 @@ fn describe_cast_info(info: &CastInfo) -> Dict {
 
 /// Returns the math class of a character.
 ///
-/// Returns `None` if the provided string has more than one char or if it does
-/// not have a math class.
+/// Returns `None` if the provided string has more than one cluster or if it
+/// does not have a math class.
 #[func]
 pub fn math_class(c: Cluster) -> Option<MathClass> {
-    typst_utils::default_math_class(c.primary)
+    typst_utils::default_math_class(c.primary())
 }
 
 /// Returns whether the given string can be used as an accent with the
@@ -172,10 +174,39 @@ pub fn is_accent(s: Str) -> bool {
     typst::math::Accent::combining(&s).is_some()
 }
 
-/// Returns the full title-cased name of the given character in Unicode.
+/// Returns the name of a symbol in Unicode.
+///
+/// For a single codepoint, that is the full title-cased Unicode name.
+///
+/// For sequences, this is the CLDR short name if it is listed in
+/// [emoji-zwj-sequences.txt](https://www.unicode.org/Public/17.0.0/emoji/emoji-zwj-sequences.txt),
+/// or the Unicode name of the first codepoint otherwise.
 #[func]
-pub fn unicode_name(c: Cluster) -> Option<String> {
-    unicode_names2::name(c.primary).map(|n| n.to_string().to_title_case())
+pub fn unicode_name(c: Cluster) -> Option<EcoString> {
+    static MAP: LazyLock<FxHashMap<EcoString, EcoString>> = LazyLock::new(|| {
+        let data = str::from_utf8(
+            typst_dev_assets::get_by_name("emoji-zwj-sequences.txt").unwrap(),
+        )
+        .unwrap();
+        let mut map = FxHashMap::default();
+        for line in data.lines() {
+            let line = line.split_once('#').map(|(l, _)| l).unwrap_or(line);
+            if line.trim().is_empty() {
+                continue;
+            }
+            let parts = line.split(';').collect::<Vec<_>>();
+            let [code, _, name] = parts[..] else { panic!("malformed data file") };
+            let value = code
+                .split_whitespace()
+                .map(|cp| char::from_u32(u32::from_str_radix(cp, 16).unwrap()).unwrap())
+                .collect();
+            map.insert(value, name.to_title_case().into());
+        }
+        map
+    });
+    MAP.get(&c.value).cloned().or_else(|| {
+        Some(unicode_names2::name(c.primary())?.to_string().to_title_case().into())
+    })
 }
 
 /// Returns the name of a character in LaTeX.
@@ -198,12 +229,22 @@ pub fn latex_name(c: Cluster) -> Option<Str> {
         }
         map
     });
-    NAMES.get(&(c.primary as u32)).copied().map(Into::into)
+    NAMES.get(&(c.primary() as u32)).copied().map(Into::into)
 }
 
 /// A grapheme cluster with an extracted primary char.
 pub struct Cluster {
-    primary: char,
+    value: EcoString,
+}
+
+impl Cluster {
+    /// Returns the primary character for this cluster.
+    fn primary(&self) -> char {
+        // Not every kind of cluster has a well-defined "base", but for our
+        // purposes (getting the math class etc. in presence of a variation
+        // selection) this is good enough.
+        self.value.chars().next().unwrap()
+    }
 }
 
 cast! {
@@ -212,10 +253,7 @@ cast! {
         if s.graphemes(true).count() != 1 {
             bail!("expected exactly one grapheme: `{}`", s.repr());
         }
-        // Not every kind of cluster has a well-defined "base", but for our
-        // purposes (getting the Unicode Name etc. in presence of a variation
-        // selection) this is good enough.
-        Self { primary: s.chars().next().unwrap() }
+        Self { value: s.into() }
     }
 }
 
