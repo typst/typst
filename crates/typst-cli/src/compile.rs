@@ -53,6 +53,8 @@ pub struct CompileConfig {
     pub warnings: Vec<HintedString>,
     /// Whether we are watching.
     pub watching: bool,
+    /// Whether to clear the terminal on recompilation (only while watching)
+    pub clear_terminal: bool,
     /// Path to input Typst file or stdin.
     pub input: Input,
     /// Path to output file (PDF, PNG, SVG, or HTML).
@@ -195,6 +197,8 @@ impl CompileConfig {
             None
         };
 
+        let clear_terminal = watch.map(|command| !command.no_clear).unwrap_or(true);
+
         let mut deps = args.deps.clone();
         let mut deps_format = args.deps_format;
 
@@ -247,6 +251,7 @@ impl CompileConfig {
             deps_format,
             #[cfg(feature = "http-server")]
             server,
+            clear_terminal,
         })
     }
 }
