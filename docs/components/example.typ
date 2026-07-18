@@ -156,20 +156,13 @@
     })
   } else {
     show html.elem.where(tag: "pre"): pre => {
-      if pre.at("label", default: none) == <_stop> {
-        return pre
-      }
-      let copy-button = html.button(
+      show: html.div.with(class: "copyable-code")
+      html.button(
         class: "copy",
         disabled: true,
         use-icon(16, "copy", "Copy"),
       )
-      let reconstructed = html.elem(
-        "pre",
-        attrs: pre.attrs,
-        copy-button + pre.body,
-      )
-      labelled(reconstructed, <_stop>)
+      pre
     }
     html.div(class: "previewed-code", {
       with-hidden-lines(it)
