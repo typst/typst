@@ -130,6 +130,10 @@ pub struct WatchCommand {
     #[cfg(feature = "http-server")]
     #[clap(flatten)]
     pub server: ServerArgs,
+
+    /// Do not the terminal on recompilation
+    #[arg(long, default_value_t = false)]
+    pub no_clear: bool,
 }
 
 /// Initializes a new project from a template.
