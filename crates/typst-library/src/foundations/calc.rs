@@ -996,7 +996,7 @@ pub fn odd(
     value % 2 != 0
 }
 
-/// Calculates the remainder of two numbers.
+/// Calculates the remainder of two numbers (signed modulo).
 ///
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
@@ -1011,7 +1011,7 @@ pub fn odd(
 /// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-#[func(title = "Remainder", since = "0.3.0")]
+#[func(title = "Remainder", since = "0.3.0", keywords = ["modulo", "modulus"])]
 pub fn rem(
     span: Span,
     /// The dividend of the remainder.
@@ -1080,7 +1080,8 @@ pub fn div_euclid(
         .at(span)
 }
 
-/// This calculates the least nonnegative remainder of a division.
+/// This calculates the least nonnegative remainder of a division (nonnegative
+/// modulo).
 ///
 /// Warning: Due to a floating point round-off error, the remainder may equal
 /// the absolute value of the divisor if the dividend is much smaller in
