@@ -55,6 +55,11 @@ _Tiger!_
 
 $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 
+--- eval-string-cyclic-import eval ---
+// Cyclic import of this very file through `eval`.
+// Error: 7-30 cyclic import
+#eval("import \"./eval.typ\"")
+
 --- issue-6067-eval-warnings paged empty ---
 // Test that eval shows warnings from the executed code.
 // Warning: 7-11 no text within stars

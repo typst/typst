@@ -105,6 +105,7 @@ pub fn eval_string(
     library: &LazyHash<Library>,
     mut sink: TrackedMut<Sink>,
     introspector: Tracked<dyn Introspector + '_>,
+    route: Tracked<Route>,
     context: Tracked<Context>,
     string: &str,
     spans: SpanMode,
@@ -144,7 +145,7 @@ pub fn eval_string(
         introspector: Protected::new(introspector),
         traced: traced.track(),
         sink,
-        route: Route::default(),
+        route: Route::extend(route),
     };
 
     // Prepare VM.

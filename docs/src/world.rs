@@ -5,7 +5,7 @@ use az::SaturatingAs;
 use comemo::{Track, TrackedMut};
 use ecow::{EcoString, eco_format};
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
-use typst::engine::Engine;
+use typst::engine::{Engine, Route};
 use typst::foundations::{
     Binding, Bytes, Context, Datetime, Dict, Duration, IntoValue, Label, Module,
     NativeElement, PathOrStr, Repr, Scope, ShowFn, Str, Target, Value, array, elem, func,
@@ -316,6 +316,7 @@ fn eval_mapped(
         engine.library,
         TrackedMut::reborrow_mut(&mut engine.sink),
         EmptyIntrospector.track(),
+        Route::default().track(),
         Context::none().track(),
         &text,
         spans,

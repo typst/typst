@@ -4,7 +4,7 @@ use comemo::Track;
 use ecow::{EcoString, eco_format};
 use typst::World;
 use typst::diag::{HintedStrResult, SourceDiagnostic, StrResult, Warned, bail, warning};
-use typst::engine::Sink;
+use typst::engine::{Route, Sink};
 use typst::foundations::{
     Content, Context, IntoValue, LocatableSelector, Output, Repr, Scope,
 };
@@ -80,6 +80,7 @@ fn retrieve(
         // TODO: propagate warnings
         Sink::new().track_mut(),
         EmptyIntrospector.track(),
+        Route::default().track(),
         Context::none().track(),
         &command.selector,
         SpanMode::Uniform(Span::detached()),

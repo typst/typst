@@ -57,6 +57,7 @@ routines! {
         library: &LazyHash<Library>,
         sink: TrackedMut<Sink>,
         introspector: Tracked<dyn Introspector + '_>,
+        route: Tracked<Route>,
         context: Tracked<Context>,
         string: &str,
         spans: SpanMode,
