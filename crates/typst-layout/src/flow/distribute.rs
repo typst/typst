@@ -1,13 +1,66 @@
+use ecow::EcoVec;
+use typst_library::diag::{SourceDiagnostic, SourceResult};
 use typst_library::introspection::Tag;
 use typst_library::layout::{
-    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, Point, Region, Regions, Rel, Size,
+    Abs, Axes, FixedAlignment, Fr, Frame, FrameItem, PlacementScope, Point, Region,
+    Regions, Rel, Size,
 };
 use typst_utils::Numeric;
 
-use super::{
-    Child, Composer, FlowResult, LineChild, MultiChild, MultiSpill, PlacedChild,
-    SingleChild, Stop, Work,
+use super::compose::{
+    Composer, FloatStop, FootnoteStop, Migration, RelayoutResult, RelayoutStop,
 };
+use super::{Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, Work};
+
+/// The result type for internal distributor control flow.
+///
+/// The `Err(_)` variant incorporate control flow events for finishing and
+/// relayouting regions.
+type FlowResult<T> = Result<T, Stop>;
+
+/// A control flow event during distribution.
+enum Stop {
+    /// Indicates that the current subregion should be finished.
+    Finish(Finish),
+    /// Indicates that the given scope should be relayouted.
+    Relayout(PlacementScope),
+    /// A fatal error.
+    Error(EcoVec<SourceDiagnostic>),
+}
+
+/// The reason why the current region should finish.
+enum Finish {
+    /// A lack of space.
+    Soft,
+    /// An explicit break.
+    Forced,
+}
+
+impl From<EcoVec<SourceDiagnostic>> for Stop {
+    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
+        Self::Error(error)
+    }
+}
+
+impl From<FootnoteStop> for Stop {
+    fn from(stop: FootnoteStop) -> Self {
+        match stop {
+            FootnoteStop::Relayout(()) => Self::Relayout(PlacementScope::Column),
+            FootnoteStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
+            FootnoteStop::Error(error) => Self::Error(error),
+        }
+    }
+}
+
+impl From<FloatStop> for Stop {
+    fn from(stop: FloatStop) -> Self {
+        match stop {
+            FloatStop::Relayout(scope) => Self::Relayout(scope),
+            FloatStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
+            FloatStop::Error(error) => Self::Error(error),
+        }
+    }
+}
 
 /// Distributes as many children as fit from `composer.work` into the first
 /// region and returns the resulting frame and the height actually used
@@ -16,7 +69,7 @@ pub fn distribute(
     composer: &mut Composer,
     regions: Regions,
     balancing_target: Option<Abs>,
-) -> FlowResult<(Frame, Abs)> {
+) -> RelayoutResult<(Frame, Abs)> {
     let mut distributor = Distributor {
         composer,
         regions,
@@ -29,11 +82,18 @@ pub fn distribute(
     let init = distributor.snapshot();
     let forced = match distributor.run() {
         Ok(()) => distributor.composer.work.done(),
-        Err(Stop::Finish(forced)) => forced,
-        Err(err) => return Err(err),
+        Err(Stop::Finish(finish)) => matches!(finish, Finish::Forced),
+        Err(Stop::Relayout(scope)) => {
+            return Err(RelayoutStop::Relayout(scope));
+        }
+        Err(Stop::Error(error)) => {
+            return Err(RelayoutStop::Error(error));
+        }
     };
     let region = Region::new(regions.size, regions.expand);
-    distributor.finalize(region, init, forced)
+    distributor
+        .finalize(region, init, forced)
+        .map_err(RelayoutStop::Error)
 }
 
 /// State for distribution.
@@ -304,7 +364,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
         if !self.fits(line.frame.height()) && self.regions.may_progress() {
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         // If the line's need, which includes its own height and that of
@@ -318,7 +378,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 .nth(1)
                 .is_some_and(|region| region.y.fits(line.need))
         {
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         self.frame(line.frame.clone(), line.align, false, false)
@@ -334,8 +394,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // Handle fractionally sized blocks.
         if let Some(fr) = single.fr {
-            self.composer
-                .footnotes(&self.regions, &frame, Abs::zero(), false, true)?;
+            self.composer.footnotes(
+                &self.regions,
+                &frame,
+                Abs::zero(),
+                false,
+                Migration::ALLOW,
+            )?;
             self.flush_tags();
             self.items.push(Item::Fr(fr, 0, Some(single)));
             return Ok(());
@@ -344,7 +409,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
         if !self.fits(frame.height()) && self.regions.may_progress() {
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         self.frame(frame, single.align, single.sticky, false)
@@ -363,7 +428,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Skip directly if the region is already (over)full. `line` and
         // `single` implicitly do this through their `fits` checks.
         if pod.is_full() {
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         // Lay out the block.
@@ -375,7 +440,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // If the first frame is empty, but there are non-empty frames in
             // the spill, the whole child should be put in the next region to
             // avoid any invisible orphans at the end of this region.
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         self.frame(frame, multi.align, multi.sticky, true)?;
@@ -385,7 +450,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         if let Some(spill) = spill {
             self.composer.work.spill = Some(spill);
             self.composer.work.advance();
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         Ok(())
@@ -404,7 +469,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Skip directly if the region is already (over)full.
         if pod.is_full() {
             self.composer.work.spill = Some(spill);
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         // Lay out the spilled remains.
@@ -416,7 +481,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // region.
         if let Some(spill) = spill {
             self.composer.work.spill = Some(spill);
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
 
         Ok(())
@@ -465,7 +530,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             &frame,
             frame.height(),
             breakable,
-            true,
+            Migration::ALLOW,
         )?;
 
         if !sticky && !frame.is_empty() {
@@ -498,13 +563,18 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 placed,
                 &self.regions,
                 self.items.iter().any(|item| matches!(item, Item::Frame(..))),
-                true,
+                Migration::ALLOW,
             )?;
             self.use_height(weak_spacing);
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
-            self.composer
-                .footnotes(&self.regions, &frame, Abs::zero(), true, true)?;
+            self.composer.footnotes(
+                &self.regions,
+                &frame,
+                Abs::zero(),
+                true,
+                Migration::ALLOW,
+            )?;
             self.flush_tags();
             self.items.push(Item::Placed(frame, placed));
         }
@@ -516,7 +586,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If there are still pending floats, finish the region instead of
         // adding more content to it.
         if !self.composer.work.floats.is_empty() {
-            return Err(Stop::Finish(false));
+            return Err(Stop::Finish(Finish::Soft));
         }
         Ok(())
     }
@@ -528,7 +598,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             && (!self.regions.backlog.is_empty() || self.regions.last.is_some())
         {
             self.composer.work.advance();
-            return Err(Stop::Finish(true));
+            return Err(Stop::Finish(Finish::Forced));
         }
         Ok(())
     }
@@ -541,7 +611,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         region: Region,
         init: DistributionSnapshot<'a, 'b>,
         forced: bool,
-    ) -> FlowResult<(Frame, Abs)> {
+    ) -> SourceResult<(Frame, Abs)> {
         if forced {
             // If this is the very end of the flow, flush pending tags.
             self.flush_tags();
