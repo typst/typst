@@ -318,3 +318,22 @@ See #metadata(none) <t8>
 #document("blog/index.html")[
   #link(<home>)[To home]
 ] <blog>
+
+--- link-bundle-percent-encoding bundle ---
+// Ensure that URIs generated from relative paths in cross-links use percent
+// encoding.
+#let links = context {
+  for doc in query(selector(document).after(<start>)) {
+    list.item(link(doc.location(), doc.body))
+  }
+}
+
+#document("index.pdf", links)
+#document("index.html", links)
+
+#metadata(none) <start>
+#document("A (1).html")[Space]
+#document("A&B.html")[Amp]
+#document("%20.html")[Percent]
+#document("文.html")[Non-ASCII]
+#document("文/b/文.html")[With slash]

@@ -70,7 +70,7 @@ pub fn module() -> Module {
 /// #calc.abs(2fr) \
 /// #calc.abs(decimal("-342.440"))
 /// ```
-#[func(title = "Absolute")]
+#[func(title = "Absolute", since = "forever")]
 pub fn abs(
     /// The value whose absolute value to calculate.
     value: ToAbs,
@@ -99,7 +99,7 @@ cast! {
 /// #calc.pow(2, 3) \
 /// #calc.pow(decimal("2.5"), 2)
 /// ```
-#[func(title = "Power")]
+#[func(title = "Power", since = "forever")]
 pub fn pow(
     span: Span,
     /// The base of the power.
@@ -120,7 +120,7 @@ pub fn pow(
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
-    };
+    }
 
     match (base, exponent.v) {
         (DecNum::Int(a), Num::Int(b)) if b >= 0 => a
@@ -160,7 +160,7 @@ pub fn pow(
 /// ```example
 /// #calc.exp(1)
 /// ```
-#[func(title = "Exponential")]
+#[func(title = "Exponential", since = "0.5.0")]
 pub fn exp(
     span: Span,
     /// The exponent of the power.
@@ -190,7 +190,7 @@ pub fn exp(
 /// #calc.sqrt(16) \
 /// #calc.sqrt(2.5)
 /// ```
-#[func(title = "Square Root")]
+#[func(title = "Square Root", since = "forever")]
 pub fn sqrt(
     /// The number whose square root to calculate. Must be non-negative.
     value: Spanned<Num>,
@@ -209,7 +209,7 @@ pub fn sqrt(
 /// #calc.root(16.0, 4) \
 /// #calc.root(27.0, 3)
 /// ```
-#[func]
+#[func(since = "0.11.0")]
 pub fn root(
     /// The expression to take the root of.
     radicand: f64,
@@ -240,7 +240,7 @@ pub fn root(
 /// #calc.sin(1.5) \
 /// #calc.sin(90deg)
 /// ```
-#[func(title = "Sine")]
+#[func(title = "Sine", since = "forever")]
 pub fn sin(
     /// The angle whose sine to calculate.
     angle: AngleLike,
@@ -260,7 +260,7 @@ pub fn sin(
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
-#[func(title = "Cosine")]
+#[func(title = "Cosine", since = "forever")]
 pub fn cos(
     /// The angle whose cosine to calculate.
     angle: AngleLike,
@@ -280,7 +280,7 @@ pub fn cos(
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
 /// ```
-#[func(title = "Tangent")]
+#[func(title = "Tangent", since = "forever")]
 pub fn tan(
     /// The angle whose tangent to calculate.
     angle: AngleLike,
@@ -298,7 +298,7 @@ pub fn tan(
 /// #calc.asin(0) \
 /// #calc.asin(1)
 /// ```
-#[func(title = "Arcsine")]
+#[func(title = "Arcsine", since = "forever")]
 pub fn asin(
     /// The number whose arcsine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
@@ -316,7 +316,7 @@ pub fn asin(
 /// #calc.acos(0) \
 /// #calc.acos(1)
 /// ```
-#[func(title = "Arccosine")]
+#[func(title = "Arccosine", since = "forever")]
 pub fn acos(
     /// The number whose arccosine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
@@ -334,7 +334,7 @@ pub fn acos(
 /// #calc.atan(0) \
 /// #calc.atan(1)
 /// ```
-#[func(title = "Arctangent")]
+#[func(title = "Arctangent", since = "forever")]
 pub fn atan(
     /// The number whose arctangent to calculate.
     value: Num,
@@ -355,7 +355,7 @@ pub fn atan(
 /// #calc.atan2(1, 1) \
 /// #calc.atan2(-2, -3)
 /// ```
-#[func(title = "Four-quadrant Arctangent")]
+#[func(title = "Four-quadrant Arctangent", since = "0.3.0")]
 pub fn atan2(
     /// The $x$ coordinate.
     x: Num,
@@ -374,7 +374,7 @@ pub fn atan2(
 /// #calc.sinh(0) \
 /// #calc.sinh(1.5)
 /// ```
-#[func(title = "Hyperbolic Sine")]
+#[func(title = "Hyperbolic Sine", since = "forever")]
 pub fn sinh(
     /// The hyperbolic angle whose hyperbolic sine to calculate.
     value: f64,
@@ -391,7 +391,7 @@ pub fn sinh(
 /// #calc.cosh(0) \
 /// #calc.cosh(1.5)
 /// ```
-#[func(title = "Hyperbolic Cosine")]
+#[func(title = "Hyperbolic Cosine", since = "forever")]
 pub fn cosh(
     /// The hyperbolic angle whose hyperbolic cosine to calculate.
     value: f64,
@@ -408,7 +408,7 @@ pub fn cosh(
 /// #calc.tanh(0) \
 /// #calc.tanh(1.5)
 /// ```
-#[func(title = "Hyperbolic Tangent")]
+#[func(title = "Hyperbolic Tangent", since = "forever")]
 pub fn tanh(
     /// The hyperbolic angle whose hyperbolic tangent to calculate.
     value: f64,
@@ -425,7 +425,7 @@ pub fn tanh(
 /// #calc.asinh(0) \
 /// #calc.asinh(1)
 /// ```
-#[func(title = "Inverse Hyperbolic Sine")]
+#[func(title = "Inverse Hyperbolic Sine", since = "0.15.0")]
 pub fn asinh(
     /// The number whose inverse hyperbolic sine to calculate.
     value: f64,
@@ -442,7 +442,7 @@ pub fn asinh(
 /// #calc.acosh(1) \
 /// #calc.acosh(2.5)
 /// ```
-#[func(title = "Inverse Hyperbolic Cosine")]
+#[func(title = "Inverse Hyperbolic Cosine", since = "0.15.0")]
 pub fn acosh(
     /// The number whose inverse hyperbolic cosine to calculate. Must be greater
     /// than or equal to $1$.
@@ -464,7 +464,7 @@ pub fn acosh(
 /// #calc.atanh(0) \
 /// #calc.atanh(0.5)
 /// ```
-#[func(title = "Inverse Hyperbolic Tangent")]
+#[func(title = "Inverse Hyperbolic Tangent", since = "0.15.0")]
 pub fn atanh(
     /// The number whose inverse hyperbolic tangent to calculate. Must be
     /// between $-1$ and $1$ (exclusive).
@@ -484,7 +484,7 @@ pub fn atanh(
 /// ```example
 /// #calc.log(100)
 /// ```
-#[func(title = "Logarithm")]
+#[func(title = "Logarithm", since = "forever")]
 pub fn log(
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
@@ -525,7 +525,7 @@ pub fn log(
 /// ```example
 /// #calc.ln(calc.e)
 /// ```
-#[func(title = "Natural Logarithm")]
+#[func(title = "Natural Logarithm", since = "0.5.0")]
 pub fn ln(
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
@@ -552,7 +552,7 @@ pub fn ln(
 /// ```example
 /// #calc.erf(0.2)
 /// ```
-#[func(title = "Error Function")]
+#[func(title = "Error Function", since = "0.15.0")]
 pub fn erf(
     /// The number at which to calculate the error function.
     value: f64,
@@ -565,7 +565,7 @@ pub fn erf(
 /// ```example
 /// #calc.fact(5)
 /// ```
-#[func(title = "Factorial")]
+#[func(title = "Factorial", since = "0.3.0")]
 pub fn fact(
     /// The number whose factorial to calculate. Must be non-negative.
     number: u64,
@@ -587,7 +587,7 @@ pub fn fact(
 /// ```example
 /// #calc.perm(5, 3)
 /// ```
-#[func(title = "Permutation")]
+#[func(title = "Permutation", since = "0.3.0")]
 pub fn perm(
     /// The value of $n$: The number of items to choose from. Must be
     /// non-negative.
@@ -634,7 +634,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
-#[func(title = "Binomial")]
+#[func(title = "Binomial", since = "0.3.0")]
 pub fn binom(
     /// The value of $n$: The numbers of items to choose from. Must be
     /// non-negative.
@@ -675,7 +675,7 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
-#[func(title = "Greatest Common Divisor")]
+#[func(title = "Greatest Common Divisor", since = "0.3.0")]
 pub fn gcd(
     /// The first integer.
     a: i64,
@@ -697,7 +697,7 @@ pub fn gcd(
 /// ```example
 /// #calc.lcm(96, 13)
 /// ```
-#[func(title = "Least Common Multiple")]
+#[func(title = "Least Common Multiple", since = "0.3.0")]
 pub fn lcm(
     /// The first integer.
     a: i64,
@@ -728,7 +728,7 @@ pub fn lcm(
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(decimal("-3.14")) == -4)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn floor(
     /// The number to round down.
     value: DecNum,
@@ -755,7 +755,7 @@ pub fn floor(
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(decimal("-3.14")) == -3)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn ceil(
     /// The number to round up.
     value: DecNum,
@@ -782,7 +782,7 @@ pub fn ceil(
 /// #assert(calc.trunc(-3.7) == -3)
 /// #assert(calc.trunc(decimal("8493.12949582390")) == 8493)
 /// ```
-#[func(title = "Truncate")]
+#[func(title = "Truncate", since = "0.3.0")]
 pub fn trunc(
     /// The number to truncate.
     value: DecNum,
@@ -804,7 +804,7 @@ pub fn trunc(
 /// #assert(calc.fract(3) == 0)
 /// #assert(calc.fract(decimal("234.23949211")) == decimal("0.23949211"))
 /// ```
-#[func(title = "Fractional")]
+#[func(title = "Fractional", since = "0.3.0")]
 pub fn fract(
     /// The number to truncate.
     value: DecNum,
@@ -850,7 +850,7 @@ pub fn fract(
 /// #assert(calc.round(decimal("3333.45"), digits: -2) == decimal("3300"))
 /// #assert(calc.round(decimal("-48953.45"), digits: -3) == decimal("-49000"))
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn round(
     /// The number to round.
     value: DecNum,
@@ -885,7 +885,7 @@ pub fn round(
 /// #assert(calc.clamp(decimal("5.45"), 2, decimal("45.9")) == decimal("5.45"))
 /// #assert(calc.clamp(decimal("5.45"), decimal("6.75"), 12) == decimal("6.75"))
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn clamp(
     span: Span,
     /// The number to clamp.
@@ -917,7 +917,7 @@ pub fn clamp(
 /// #calc.min(1, -3, -5, 20, 3, 6) \
 /// #calc.min("typst", "is", "cool")
 /// ```
-#[func(title = "Minimum")]
+#[func(title = "Minimum", since = "forever")]
 pub fn min(
     span: Span,
     /// The sequence of values from which to extract the minimum. Must not be
@@ -934,7 +934,7 @@ pub fn min(
 /// #calc.max(1, -3, -5, 20, 3, 6) \
 /// #calc.max("typst", "is", "cool")
 /// ```
-#[func(title = "Maximum")]
+#[func(title = "Maximum", since = "forever")]
 pub fn max(
     span: Span,
     /// The sequence of values from which to extract the maximum. Must not be
@@ -973,7 +973,7 @@ fn minmax(
 /// #calc.even(5) \
 /// #range(10).filter(calc.even)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn even(
     /// The number to check for evenness.
     value: i64,
@@ -988,7 +988,7 @@ pub fn even(
 /// #calc.odd(5) \
 /// #range(10).filter(calc.odd)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn odd(
     /// The number to check for oddness.
     value: i64,
@@ -1011,7 +1011,7 @@ pub fn odd(
 /// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-#[func(title = "Remainder")]
+#[func(title = "Remainder", since = "0.3.0")]
 pub fn rem(
     span: Span,
     /// The dividend of the remainder.
@@ -1055,7 +1055,7 @@ pub fn rem(
 /// #calc.div-euclid(1.75, 0.5) \
 /// #calc.div-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Division")]
+#[func(title = "Euclidean Division", since = "0.10.0")]
 pub fn div_euclid(
     span: Span,
     /// The dividend of the division.
@@ -1098,7 +1098,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Remainder", keywords = ["modulo", "modulus"])]
+#[func(title = "Euclidean Remainder", since = "0.10.0", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(
     span: Span,
     /// The dividend of the remainder.
@@ -1136,7 +1136,7 @@ pub fn rem_euclid(
 ///   "quo"(14, 5) &= #calc.quo(14, 5) \
 ///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) $
 /// ```
-#[func(title = "Quotient")]
+#[func(title = "Quotient", since = "0.3.0")]
 pub fn quo(
     span: Span,
     /// The dividend of the quotient.
@@ -1186,7 +1186,7 @@ pub fn quo(
 /// #calc.norm(1, 2, -3, 0.5) \
 /// #calc.norm(p: 3, 1, 2)
 /// ```
-#[func(title = "𝑝-Norm")]
+#[func(title = "𝑝-Norm", since = "0.13.0")]
 pub fn norm(
     /// The value of $p$. Must be greater than zero.
     ///

@@ -107,7 +107,7 @@ pub fn convert_curve(curve: &Curve) -> Option<sk::Path> {
             CurveItem::Close => {
                 builder.close();
             }
-        };
+        }
     }
     builder.finish()
 }

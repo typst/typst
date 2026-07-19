@@ -190,8 +190,8 @@ fn convert_pattern(
     let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
-        width: (pattern.size().x + pattern.spacing().x).to_pt() as _,
-        height: (pattern.size().y + pattern.spacing().y).to_pt() as _,
+        width: (pattern.size().x + pattern.spacing().x).to_pt() as f32,
+        height: (pattern.size().y + pattern.spacing().y).to_pt() as f32,
     };
 
     Ok((pattern.into(), 255))

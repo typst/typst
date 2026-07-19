@@ -6,8 +6,9 @@ use syn::punctuated::Punctuated;
 use syn::{Ident, Result, Token};
 
 use crate::util::{
-    BlockWithReturn, determine_name_and_title, documentation, foundations, has_attr, kw,
-    oneliner, parse_attr, parse_flag, parse_string, parse_string_array, validate_attrs,
+    BlockWithReturn, Since, determine_name_and_title, documentation, foundations,
+    has_attr, kw, oneliner, parse_attr, parse_flag, parse_key_value, parse_string,
+    parse_string_array, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.
@@ -22,6 +23,8 @@ struct Elem {
     name: String,
     /// The element's title case name.
     title: String,
+    /// The version of Typst the element was introduced in.
+    since: Option<Since>,
     /// Whether this element has an associated scope defined by the `#[scope]` macro.
     scope: bool,
     /// A list of alternate search terms for this element.
@@ -48,11 +51,6 @@ impl Elem {
     /// capability.
     fn cannot(&self, name: &str) -> bool {
         !self.can(name)
-    }
-
-    /// Whether the element has the given trait listed as a capability.
-    fn with(&self, name: &str) -> Option<&Ident> {
-        self.capabilities.iter().find(|capability| *capability == name)
     }
 }
 
@@ -133,6 +131,7 @@ struct Meta {
     scope: bool,
     name: Option<String>,
     title: Option<String>,
+    since: Option<Since>,
     keywords: Vec<String>,
     capabilities: Vec<Ident>,
 }
@@ -143,6 +142,7 @@ impl Parse for Meta {
             scope: parse_flag::<kw::scope>(input)?,
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
             keywords: parse_string_array::<kw::keywords>(input)?,
             capabilities: Punctuated::<Ident, Token![,]>::parse_terminated(input)?
                 .into_iter()
@@ -185,6 +185,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     Ok(Elem {
         name,
         title,
+        since: meta.since,
         scope: meta.scope,
         keywords: meta.keywords,
         docs,
@@ -251,21 +252,12 @@ fn create(element: &Elem) -> Result<TokenStream> {
 
     // Implementations.
     let inherent_impl = create_inherent_impl(element);
-    let native_element_impl = create_native_elem_impl(element);
+    let native_element_impl = create_native_elem_impl(element)?;
     let field_impls =
         element.fields.iter().map(|field| create_field_impl(element, field));
     let construct_impl =
         element.cannot("Construct").then(|| create_construct_impl(element));
     let set_impl = element.cannot("Set").then(|| create_set_impl(element));
-    let unqueriable_impl = element
-        .with("Unqueriable")
-        .map(|cap| create_introspection_impl(element, cap));
-    let locatable_impl = element
-        .with("Locatable")
-        .map(|cap| create_introspection_impl(element, cap));
-    let tagged_impl = element
-        .with("Tagged")
-        .map(|cap| create_introspection_impl(element, cap));
     let mathy_impl = element.can("Mathy").then(|| create_mathy_impl(element));
 
     // We use a const block to create an anonymous scope, as to not leak any
@@ -279,9 +271,6 @@ fn create(element: &Elem) -> Result<TokenStream> {
             #(#field_impls)*
             #construct_impl
             #set_impl
-            #unqueriable_impl
-            #locatable_impl
-            #tagged_impl
             #mathy_impl
         };
     })
@@ -298,7 +287,7 @@ fn create_struct(element: &Elem) -> TokenStream {
     quote! {
         #[doc = #oneliner]
         #[derive(Hash, #debug Clone)]
-        #[allow(rustdoc::broken_intra_doc_links)]
+        #[expect(rustdoc::broken_intra_doc_links)]
         #vis struct #ident {
             #(#fields,)*
         }
@@ -337,7 +326,7 @@ fn create_inherent_impl(element: &Elem) -> TokenStream {
             #new_func
             #(#with_field_methods)*
         }
-        #[allow(non_upper_case_globals)]
+        #[expect(non_upper_case_globals)]
         impl #ident {
             #(#style_consts)*
         }
@@ -393,9 +382,17 @@ fn create_with_field_method(field: &Field) -> TokenStream {
 }
 
 /// Creates the element's `NativeElement` implementation.
-fn create_native_elem_impl(element: &Elem) -> TokenStream {
-    let Elem { name, ident, title, scope, keywords, docs, .. } = element;
+fn create_native_elem_impl(element: &Elem) -> Result<TokenStream> {
+    let Elem {
+        name, ident, title, since, scope, keywords, docs, ..
+    } = element;
     let def_site_key = ident.to_string();
+
+    let since = if let Some(since) = since {
+        quote! { Some(#since) }
+    } else {
+        quote! { None }
+    };
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;
@@ -430,6 +427,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     };
 
     let capable_func = create_capable_func(element);
+    let introspection = create_introspection_capabilities(element)?;
 
     let with_keywords =
         (!keywords.is_empty()).then(|| quote! { .with_keywords(&[#(#keywords),*]) });
@@ -438,7 +436,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
     let with_local_name = element.can("LocalName").then(|| quote! { .with_local_name() });
     let with_scope = scope.then(|| quote! { .with_scope() });
 
-    quote! {
+    Ok(quote! {
         unsafe impl #foundations::NativeElement for #ident {
             const ELEM: #foundations::Element = #foundations::Element::from_vtable({
                 static STORE: #foundations::LazyElementStore
@@ -447,11 +445,13 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                     #foundations::ContentVtable::new::<#ident>(
                         #name,
                         #title,
+                        #since,
                         #docs,
                         ::typst_utils::DefSite { path: file!(), key: #def_site_key },
                         &[#(#fields),*],
                         #field_id,
                         #capable_func,
+                        #introspection,
                         || &STORE,
                     ) #with_keywords
                     #with_repr
@@ -462,7 +462,7 @@ fn create_native_elem_impl(element: &Elem) -> TokenStream {
                 &VTABLE
             });
         }
-    }
+    })
 }
 
 /// Creates the appropriate trait implementation for a field.
@@ -657,9 +657,22 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
 
 /// Creates the element's casting vtable.
 fn create_capable_func(element: &Elem) -> TokenStream {
-    // Forbidden capabilities (i.e capabilities that are not object safe).
-    const FORBIDDEN: &[&str] =
-        &["Debug", "PartialEq", "Hash", "Construct", "Set", "Repr", "LocalName"];
+    // Forbidden capabilities, i.e capabilities that are not object safe or
+    // introspection capabilities that are handled otherwise.
+    const FORBIDDEN: &[&str] = &[
+        // Not object safe.
+        "Debug",
+        "PartialEq",
+        "Hash",
+        "Construct",
+        "Set",
+        "Repr",
+        "LocalName",
+        // Introspection capabilities.
+        "Locatable",
+        "Unqueriable",
+        "Tagged",
+    ];
 
     let ident = &element.ident;
     let relevant = element
@@ -688,10 +701,29 @@ fn create_capable_func(element: &Elem) -> TokenStream {
     }
 }
 
-/// Creates the element's introspection capability implementation.
-fn create_introspection_impl(element: &Elem, capability: &Ident) -> TokenStream {
-    let ident = &element.ident;
-    quote! { impl ::typst_library::introspection::#capability for #foundations::Packed<#ident> {} }
+/// Creates the element's casting vtable.
+fn create_introspection_capabilities(element: &Elem) -> Result<TokenStream> {
+    let find_cap = |name| element.capabilities.iter().find(|ident| *ident == name);
+    let locatable = find_cap("Locatable");
+    let unqueriable = find_cap("Unqueriable");
+    let tagged = find_cap("Tagged");
+
+    if let Some(unqueriable) = unqueriable
+        && locatable.is_none()
+    {
+        bail!(unqueriable, "only `Locatable` element can be marked `Unqueriable`");
+    }
+
+    let locatable = locatable.is_some();
+    let unqueriable = unqueriable.is_some();
+    let tagged = tagged.is_some();
+    Ok(quote! {
+        #foundations::IntrospectionCapabilities {
+            locatable: #locatable,
+            unqueriable: #unqueriable,
+            tagged: #tagged,
+        }
+    })
 }
 
 /// Creates the element's `Mathy` implementation.

@@ -23,7 +23,8 @@
   "0.14.0": "24.10.2025",
   "0.14.1": "03.12.2025",
   "0.14.2": "12.12.2025",
-  "0.15.0": none,
+  "0.15.0": "15.06.2026",
+  "0.15.1": "17.07.2026",
 )
 
 // Converts the human-editable format above into typed (version, datetime)
@@ -97,7 +98,7 @@
     description: "Changes in Typst " + base-version,
     class: "changelog",
     context {
-      set heading(outlined: false) if target() == "paged"
+      set heading(outlined: false, bookmarked: true) if target() == "paged"
       include base-version + ".typ"
       if target() == "html" [
         = Contributors <contributors>
@@ -119,7 +120,7 @@
   route: "/changelog/earlier",
   description: "Changes in early, unversioned Typst",
   context {
-    set heading(outlined: false) if target() == "paged"
+    set heading(outlined: false, bookmarked: true) if target() == "paged"
     include "earlier.typ"
   },
 )

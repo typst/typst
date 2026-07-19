@@ -11,8 +11,8 @@ use typst_utils::{DefSite, Static};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Content, ContentVtable, FieldAccessError, Func, NativeParamInfo, Repr, Scope,
-    Selector, StyleChain, Styles, Value, cast,
+    Args, Content, ContentVtable, Func, NativeParamInfo, Repr, Scope, Selector, Since,
+    StyleChain, Styles, Value, cast,
 };
 use crate::text::{Lang, Region};
 
@@ -38,22 +38,27 @@ impl Element {
 
     /// The element's title case name, for use in documentation
     /// (e.g. `Numbered List`).
-    pub fn title(&self) -> &'static str {
+    pub fn title(self) -> &'static str {
         self.vtable().title
     }
 
+    /// The version of Typst the element was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        self.vtable().since.clone()
+    }
+
     /// Documentation for the element (as Markdown).
-    pub fn docs(&self) -> &'static str {
+    pub fn docs(self) -> &'static str {
         self.vtable().docs
     }
 
     /// Where the element is defined in the Rust source code.
-    pub fn def_site(&self) -> DefSite {
+    pub fn def_site(self) -> DefSite {
         self.vtable().def_site
     }
 
     /// Search keywords for the element.
-    pub fn keywords(&self) -> &'static [&'static str] {
+    pub fn keywords(self) -> &'static [&'static str] {
         self.vtable().keywords
     }
 
@@ -81,6 +86,21 @@ impl Element {
         self.can_type_id(TypeId::of::<C>())
     }
 
+    /// Whether the element is locatable.
+    pub fn is_locatable(self) -> bool {
+        self.vtable().introspection.locatable
+    }
+
+    /// Whether the element is unqueriable.
+    pub fn is_unqueriable(self) -> bool {
+        self.vtable().introspection.unqueriable
+    }
+
+    /// Whether the element is tagged in PDF files.
+    pub fn is_tagged(self) -> bool {
+        self.vtable().introspection.tagged
+    }
+
     /// Whether the element has the given capability where the capability is
     /// given by a `TypeId`.
     pub fn can_type_id(self, type_id: TypeId) -> bool {
@@ -99,12 +119,12 @@ impl Element {
     }
 
     /// The element's associated scope of sub-definition.
-    pub fn scope(&self) -> &'static Scope {
+    pub fn scope(self) -> &'static Scope {
         (self.vtable().store)().scope.get_or_init(|| (self.vtable().scope)())
     }
 
     /// Details about the element's fields.
-    pub fn params(&self) -> &'static [NativeParamInfo] {
+    pub fn params(self) -> &'static [NativeParamInfo] {
         (self.vtable().store)().params.get_or_init(|| {
             self.vtable()
                 .fields
@@ -127,7 +147,7 @@ impl Element {
     }
 
     /// Extract the field ID for the given field name.
-    pub fn field_id(&self, name: &str) -> Option<u8> {
+    pub fn field_id(self, name: &str) -> Option<u8> {
         if name == "label" {
             return Some(255);
         }
@@ -135,32 +155,30 @@ impl Element {
     }
 
     /// Extract the field name for the given field ID.
-    pub fn field_name(&self, id: u8) -> Option<&'static str> {
+    pub fn field_name(self, id: u8) -> Option<&'static str> {
         if id == 255 {
             return Some("label");
         }
         self.vtable().field(id).map(|data| data.name)
     }
 
-    /// Extract the value of the field for the given field ID and style chain.
-    pub fn field_from_styles(
-        &self,
-        id: u8,
-        styles: StyleChain,
-    ) -> Result<Value, FieldAccessError> {
-        self.vtable()
-            .field(id)
-            .and_then(|field| (field.get_from_styles)(styles))
-            .ok_or(FieldAccessError::Unknown)
+    /// The style chain accessor for a settable field of the element. Returns
+    /// `None` if the field is unknown or is not settable.
+    ///
+    /// Note that this will return `None` for `#[ghost]` fields since `field_id`
+    /// returns `None`.
+    pub fn settable_field_accessor(self, name: &str) -> Option<fn(StyleChain) -> Value> {
+        let id = (self.vtable().field_id)(name)?;
+        self.vtable().fields[usize::from(id)].get_from_styles
     }
 
     /// The element's local name, if any.
-    pub fn local_name(&self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
+    pub fn local_name(self, lang: Lang, region: Option<Region>) -> Option<&'static str> {
         self.vtable().local_name.map(|f| f(lang, region))
     }
 
     /// Retrieves the element's vtable for dynamic dispatch.
-    pub(super) fn vtable(&self) -> &'static ContentVtable {
+    pub(super) fn vtable(self) -> &'static ContentVtable {
         (self.0).0
     }
 }

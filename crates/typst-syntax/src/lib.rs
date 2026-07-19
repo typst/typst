@@ -27,7 +27,8 @@ pub use self::node::{
 };
 pub use self::parser::{parse, parse_code, parse_math};
 pub use self::path::{
-    FileId, PathError, RootedPath, VirtualPath, VirtualRoot, VirtualizeError,
+    FileId, PathError, RealizeError, RootedPath, VirtualPath, VirtualRoot,
+    VirtualizeError,
 };
 pub use self::source::Source;
 pub use self::span::{

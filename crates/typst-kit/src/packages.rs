@@ -148,7 +148,7 @@ impl SystemPackages {
 /// - Top-level directories denote namespaces
 /// - Second-level directories denote packages
 /// - Third-level directories denote package versions
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FsPackages(PathBuf);
 
 impl FsPackages {
@@ -496,6 +496,6 @@ mod tests {
         assert_eq!(
             ams_version,
             Err("failed to find package @preview/unequivocal-ams".into())
-        )
+        );
     }
 }

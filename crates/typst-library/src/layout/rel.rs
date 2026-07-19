@@ -73,7 +73,7 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// #(100% - 50pt).length \
 /// #(100% - 50pt).ratio
 /// ```
-#[ty(cast, name = "relative", title = "Relative Length")]
+#[ty(cast, name = "relative", title = "Relative Length", since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Rel<T: NumericLength = Length> {
     /// The relative part.

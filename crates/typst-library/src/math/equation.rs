@@ -9,7 +9,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
+use crate::introspection::{Count, Counter, CounterUpdate};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, OuterHAlignment, SpecificAlignment, VAlignment,
 };
@@ -44,7 +44,17 @@ use crate::text::{FontFamily, FontList, FontWeight, LocalName, Locale, TextElem}
 /// dollar signs to create an equation. Starting and ending the equation with
 /// whitespace lifts it into a separate block that is centered horizontally. For
 /// more details about math syntax, see the @math[main math page].
-#[elem(Locatable, Tagged, Synthesize, ShowSet, Count, LocalName, Refable, Outlinable)]
+#[elem(
+    since = "forever",
+    Locatable,
+    Tagged,
+    Synthesize,
+    ShowSet,
+    Count,
+    LocalName,
+    Refable,
+    Outlinable
+)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]

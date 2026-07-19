@@ -1,5 +1,4 @@
 use crate::foundations::{Cast, Content, Smart, elem, scope};
-use crate::introspection::{Locatable, Tagged, Unqueriable};
 use crate::layout::{Alignment, Em, Length, Rel};
 
 /// Places content relatively to its parent container.
@@ -72,7 +71,7 @@ use crate::layout::{Alignment, Em, Length, Rel};
 /// where it logically appears in the document, regardless of where this
 /// function physically moved it. Put its markup where it would make the most
 /// sense in the reading order.
-#[elem(scope, Unqueriable, Locatable, Tagged)]
+#[elem(scope, since = "forever", Unqueriable, Locatable, Tagged)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -210,5 +209,5 @@ pub enum PlacementScope {
 ///
 /// This text appears after the figure.
 /// ```
-#[elem]
+#[elem(since = "0.12.0")]
 pub struct FlushElem {}

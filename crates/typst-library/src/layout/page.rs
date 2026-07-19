@@ -50,7 +50,7 @@ use crate::visualize::Paint;
 /// instead configure the @page.header[`header`], @page.footer[`footer`],
 /// @page.background[`background`], and @page.foreground[`foreground`]
 /// properties with a set rule.
-#[elem(Construct)]
+#[elem(since = "forever", Construct)]
 pub struct PageElem {
     /// A standard paper size to set width and height.
     ///
@@ -549,7 +549,7 @@ impl LocalName for PageElem {
 /// Pagination tries to avoid single lines of text at the top or bottom of a
 /// page (these are called _widows_ and _orphans_). You can adjust the
 /// @text.costs parameter to disable this behavior.
-#[elem(title = "Page Break")]
+#[elem(title = "Page Break", since = "forever")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.
@@ -775,14 +775,14 @@ impl PageRanges {
 
     /// Check if a page, given its number, should be included when exporting the
     /// document while restricting the exported pages to these page ranges.
-    /// This is the one-indexed version of 'includes_page_index'.
+    /// This is the one-indexed version of [`Self::includes_page_index`].
     pub fn includes_page(&self, page: NonZeroUsize) -> bool {
         self.includes_page_index(page.get() - 1)
     }
 
     /// Check if a page, given its index, should be included when exporting the
     /// document while restricting the exported pages to these page ranges.
-    /// This is the zero-indexed version of 'includes_page'.
+    /// This is the zero-indexed version of [`Self::includes_page`].
     pub fn includes_page_index(&self, page: usize) -> bool {
         let page = NonZeroUsize::try_from(page + 1).unwrap();
         self.0.iter().any(|range| match (range.start(), range.end()) {

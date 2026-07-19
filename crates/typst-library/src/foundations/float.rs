@@ -26,7 +26,7 @@ use crate::layout::Ratio;
 /// #1e4 \
 /// #(10 / 4)
 /// ```
-#[ty(scope, cast, name = "float")]
+#[ty(scope, cast, name = "float", since = "forever")]
 type f64;
 
 #[scope(ext)]
@@ -56,7 +56,7 @@ impl f64 {
     /// #float("2.7") \
     /// #float("1e5")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to a float.
         value: ToFloat,
@@ -74,7 +74,7 @@ impl f64 {
     /// #float.is-nan(1) \
     /// #float.is-nan(float.nan)
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn is_nan(self) -> bool {
         f64::is_nan(self)
     }
@@ -89,7 +89,7 @@ impl f64 {
     /// #float.is-infinite(1) \
     /// #float.is-infinite(float.inf)
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn is_infinite(self) -> bool {
         f64::is_infinite(self)
     }
@@ -106,7 +106,7 @@ impl f64 {
     /// #(0.0).signum() \
     /// #float.nan.signum()
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn signum(self) -> f64 {
         f64::signum(self)
     }
@@ -117,7 +117,7 @@ impl f64 {
     /// #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))) \
     /// #float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big")
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn from_bytes(
         /// The bytes that should be converted to a float.
         ///
@@ -137,13 +137,13 @@ impl f64 {
                 Endianness::Little => f64::from_le_bytes(buffer),
                 Endianness::Big => f64::from_be_bytes(buffer),
             });
-        };
+        }
         if let Ok(buffer) = <[u8; 4]>::try_from(bytes.as_ref()) {
             return Ok(match endian {
                 Endianness::Little => f32::from_le_bytes(buffer),
                 Endianness::Big => f32::from_be_bytes(buffer),
             } as f64);
-        };
+        }
 
         bail!("bytes must have a length of 4 or 8");
     }
@@ -154,7 +154,7 @@ impl f64 {
     /// #array(1.0.to-bytes(endian: "big")) \
     /// #array(1.0.to-bytes())
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn to_bytes(
         self,
         /// The endianness of the conversion.

@@ -392,7 +392,7 @@ fn resolve_cell_headers<F>(
     );
 
     if let Some(header) = cell_ids {
-        for id in header.cell_ids.iter() {
+        for id in &header.cell_ids {
             if !cell.data.headers.contains(id) {
                 cell.data.headers.push(id.clone());
             }
@@ -483,7 +483,7 @@ fn place_explicit_lines<F>(
             pos = LinePosition::After;
         } else if line.index + 1 == block_end as usize {
             pos = LinePosition::Before;
-        };
+        }
 
         let block_idx = match pos {
             LinePosition::Before => (line.index - 1) as u32,
@@ -574,7 +574,7 @@ fn resolve_cell_border_and_background(
     // defines `BorderStyle::None` as the default. So make sure to write
     // the correct border styles.
     let border_style = resolve_sides(&fixed, None, Some(kt::BorderStyle::None), |s| {
-        s.map(|s| match s.dash {
+        Some(match s.dash {
             Some(_) => kt::BorderStyle::Dashed,
             None => kt::BorderStyle::Solid,
         })
@@ -586,11 +586,11 @@ fn resolve_cell_border_and_background(
     // sides that should be omitted.
     let border_thickness =
         resolve_sides(&fixed, parent_border_thickness, Some(0.0), |s| {
-            s.map(|s| s.thickness.to_f32())
+            Some(s.thickness.to_f32())
         });
 
     let border_color = resolve_sides(&fixed, parent_border_color, None, |s| {
-        s.and_then(|s| util::paint_to_color(&s.paint))
+        util::paint_to_color(&s.paint)
     });
 
     tag.set_border_style(border_style);
@@ -613,18 +613,18 @@ fn resolve_cell_border_and_background(
 ///
 /// Using an already present value has the benefit of saving storage space in
 /// the resulting PDF, if all sides have the same value, because then a
-/// [kt::Sides::uniform] value can be written instead of an 4-element array.
+/// [`kt::Sides::uniform`] value can be written instead of a 4-element array.
 fn resolve_sides<F, T>(
     sides: &Sides<Option<FixedStroke>>,
     parent: Option<T>,
     default: Option<T>,
-    map: F,
+    map_stroke: F,
 ) -> Option<kt::Sides<T>>
 where
     T: Copy + PartialEq,
-    F: Copy + Fn(Option<&FixedStroke>) -> Option<T>,
+    F: Copy + Fn(&FixedStroke) -> Option<T>,
 {
-    let mapped = sides.as_ref().map(|s| map(s.as_ref()));
+    let mapped = sides.as_ref().map(|s| s.as_ref().and_then(map_stroke));
 
     if mapped.iter().flatten().all(|v| Some(*v) == parent) {
         // All present values are equal to the parent value.

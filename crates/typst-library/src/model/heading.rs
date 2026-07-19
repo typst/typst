@@ -8,7 +8,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
 };
-use crate::introspection::{Count, Counter, CounterUpdate, Locatable, Tagged};
+use crate::introspection::{Count, Counter, CounterUpdate};
 use crate::layout::{BlockElem, Em, Length};
 use crate::model::{Numbering, Outlinable, Refable, Supplement};
 use crate::text::{FontWeight, LocalName, TextElem, TextSize};
@@ -73,7 +73,17 @@ use crate::text::{FontWeight, LocalName, TextElem, TextSize};
 /// For this reason, in HTML export, a @title element will turn into an `<h1>`
 /// and headings turn into `<h2>` and lower (a level 1 heading thus turns into
 /// `<h2>`, a level 2 heading into `<h3>`, etc).
-#[elem(Locatable, Tagged, Synthesize, Count, ShowSet, LocalName, Refable, Outlinable)]
+#[elem(
+    since = "forever",
+    Locatable,
+    Tagged,
+    Synthesize,
+    Count,
+    ShowSet,
+    LocalName,
+    Refable,
+    Outlinable
+)]
 pub struct HeadingElem {
     /// The absolute nesting depth of the heading, starting from one. If set to
     /// `{auto}`, it is computed from `{offset + depth}`.

@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::Tagged;
 
 /// Hides content without affecting layout.
 ///
@@ -22,7 +21,7 @@ use crate::introspection::Tagged;
 /// Note that, depending on the circumstances, it may be possible for content to
 /// be reverse engineered based on its size in the layout. We thus do not
 /// recommend using this function to hide highly sensitive information.
-#[elem(Tagged)]
+#[elem(since = "forever", Tagged)]
 pub struct HideElem {
     /// The content to hide.
     #[required]

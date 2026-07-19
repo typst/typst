@@ -11,9 +11,7 @@ use crate::foundations::{
     Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
     Styles, Synthesize, cast, elem, scope, select_where,
 };
-use crate::introspection::{
-    Count, Counter, CounterKey, CounterUpdate, Locatable, Location, Tagged,
-};
+use crate::introspection::{Count, Counter, CounterKey, CounterUpdate, Location};
 use crate::layout::{
     AlignElem, Alignment, BlockElem, Em, Length, OuterVAlignment, PlacementScope,
     VAlignment,
@@ -119,7 +117,17 @@ use crate::visualize::ImageElem;
 /// AT will always read the figure at the point where it appears in the
 /// document, regardless of its @figure.placement[`placement`]. Put its markup
 /// where it would make the most sense in the reading order.
-#[elem(scope, Locatable, Tagged, Synthesize, Count, ShowSet, Refable, Outlinable)]
+#[elem(
+    scope,
+    since = "forever",
+    Locatable,
+    Tagged,
+    Synthesize,
+    Count,
+    ShowSet,
+    Refable,
+    Outlinable
+)]
 pub struct FigureElem {
     /// The content of the figure. Often, an @image[image].
     #[required]
@@ -499,7 +507,7 @@ impl Outlinable for Packed<FigureElem> {
 ///   caption: [A rectangle],
 /// )
 /// ```
-#[elem(name = "caption", Locatable, Tagged, Synthesize)]
+#[elem(name = "caption", since = "0.8.0", Locatable, Tagged, Synthesize)]
 pub struct FigureCaption {
     /// The caption's position in the figure. Either `{top}` or `{bottom}`.
     ///

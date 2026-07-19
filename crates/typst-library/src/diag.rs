@@ -17,7 +17,9 @@ use std::string::FromUtf8Error;
 use az::SaturatingAs;
 use comemo::Tracked;
 use typst_syntax::package::{PackageSpec, PackageVersion};
-use typst_syntax::{DiagSpan, Lines, Span, Spanned, SyntaxDiagnostic, VirtualRoot};
+use typst_syntax::{
+    DiagSpan, Lines, RealizeError, Span, Spanned, SyntaxDiagnostic, VirtualRoot,
+};
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
@@ -512,7 +514,7 @@ pub type HintedStrResult<T> = Result<T, HintedString>;
 /// This is internally represented by a vector of strings.
 /// - The first element of the vector contains the message.
 /// - The remaining elements are the hints.
-/// - This is done to reduce the size of a HintedString.
+/// - This is done to reduce the size of a [`HintedString`].
 /// - The vector is guaranteed to not be empty.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct HintedString(EcoVec<EcoString>);
@@ -612,6 +614,9 @@ pub enum FileError {
     NotSource,
     /// The file was not valid UTF-8, but should have been.
     InvalidUtf8,
+    /// A virtual Typst path could not be realized into a real path on the
+    /// current platform.
+    Realize(RealizeError),
     /// The package the file is part of could not be loaded.
     Package(PackageError),
     /// Another error.
@@ -648,7 +653,8 @@ impl Display for FileError {
             Self::IsDirectory => f.pad("failed to load file (is a directory)"),
             Self::NotSource => f.pad("not a Typst source file"),
             Self::InvalidUtf8 => f.pad("file is not valid UTF-8"),
-            Self::Package(error) => error.fmt(f),
+            Self::Realize(err) => write!(f, "failed to load file ({err})"),
+            Self::Package(err) => err.fmt(f),
             Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
             Self::Other(None) => f.pad("failed to load file"),
         }
@@ -664,6 +670,12 @@ impl From<Utf8Error> for FileError {
 impl From<FromUtf8Error> for FileError {
     fn from(_: FromUtf8Error) -> Self {
         Self::InvalidUtf8
+    }
+}
+
+impl From<RealizeError> for FileError {
+    fn from(err: RealizeError) -> Self {
+        Self::Realize(err)
     }
 }
 
@@ -1015,7 +1027,6 @@ impl LineCol {
     pub fn try_from_byte_pos(pos: usize, bytes: &[u8]) -> Option<Self> {
         let bytes = &bytes[..pos];
         let mut line = 0;
-        #[allow(clippy::double_ended_iterator_last)]
         let line_start = memchr::memchr_iter(b'\n', bytes)
             .inspect(|_| line += 1)
             .last()

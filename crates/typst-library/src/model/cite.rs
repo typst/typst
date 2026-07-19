@@ -5,7 +5,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
 };
-use crate::introspection::Locatable;
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
 use crate::text::{Lang, Region, TextElem};
@@ -35,14 +34,13 @@ use crate::text::{Lang, Region, TextElem};
 /// ```typ
 /// Computer Modern is an example of a modernist serif typeface.
 /// #cite(label("DBLP:books/lib/Knuth86a")).
-/// >>> #bibliography("works.bib")
 /// ```
 ///
 /// = Syntax <syntax>
 /// This function indirectly has dedicated syntax. @ref[References] can be used
 /// to cite works from the bibliography. The label then corresponds to the
 /// citation key.
-#[elem(Locatable, Synthesize)]
+#[elem(since = "forever", Locatable, Synthesize)]
 pub struct CiteElem {
     /// The citation key that identifies the entry in the bibliography that
     /// shall be cited, as a label.

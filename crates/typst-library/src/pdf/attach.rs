@@ -4,7 +4,6 @@ use typst_syntax::Spanned;
 use crate::World;
 use crate::diag::At;
 use crate::foundations::{Bytes, Cast, Derived, PathOrStr, elem};
-use crate::introspection::Locatable;
 
 /// A file that will be attached to the output PDF.
 ///
@@ -29,7 +28,7 @@ use crate::introspection::Locatable;
 /// - This element is ignored if exporting to a format other than PDF.
 /// - File attachments are not currently supported for PDF/A-2, even if the
 ///   attached file conforms to PDF/A-1 or PDF/A-2.
-#[elem(keywords = ["embed"], Locatable)]
+#[elem(since = "0.14.0", keywords = ["embed"], Locatable)]
 pub struct AttachElem {
     /// The path of the file to be attached.
     ///

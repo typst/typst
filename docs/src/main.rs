@@ -114,6 +114,8 @@ struct Config {
     output: Option<PathBuf>,
     /// The kind of output to produce.
     output_format: OutputFormat,
+    /// Whether to include a "development version" warning in the documentation.
+    is_dev_version: bool,
     /// A live reload server for the `watch` subcommand.
     server: Option<HttpServer>,
     /// Whether to open the output after compilation.
@@ -131,6 +133,7 @@ impl Config {
                 OutputFormat::Website => Some(SITE_PATH.into()),
             }),
             output_format: args.format,
+            is_dev_version: !args.release,
             server: (serve && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),
             open: args.open,
@@ -200,12 +203,12 @@ fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
 fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
     std::fs::create_dir_all(root).unwrap();
     fs.par_iter().for_each(|(path, data)| {
-        let realized = path.realize(root);
+        let realized = path.realize(root).unwrap();
         if let Some(parent) = realized.parent() {
             std::fs::create_dir_all(parent).unwrap();
         }
         std::fs::write(&realized, data).unwrap();
-    })
+    });
 }
 
 /// Exports a document to PDF and writes it to disk.

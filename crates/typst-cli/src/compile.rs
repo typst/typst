@@ -14,6 +14,7 @@ use typst::layout::PageRanges;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
+use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::timer::Timer;
 use typst_layout::{Page, PagedDocument};
 use typst_pdf::{PdfOptions, PdfStandards, Timestamp};
@@ -266,7 +267,7 @@ pub fn compile_once(
     let Warned { output, mut warnings } = compile_and_export(world, config);
 
     // Add static warnings (for deprecated CLI flags and such).
-    for warning in config.warnings.iter() {
+    for warning in &config.warnings {
         warnings.push(
             SourceDiagnostic::warning(Span::detached(), warning.message())
                 .with_hints(warning.hints().iter().map(Into::into)),
@@ -420,7 +421,9 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) -> StrResult<Vec<Output>> {
 
     fs.par_iter()
         .map(|(path, data)| {
-            let realized = path.realize(root);
+            let realized = path
+                .realize(root)
+                .map_err(|err| eco_format!("failed to realize path ({err})"))?;
 
             if let Some(parent) = realized.parent() {
                 std::fs::create_dir_all(parent)
@@ -713,7 +716,7 @@ fn open_path(path: &OsStr, viewer: Option<&str>) -> StrResult<()> {
 
 /// Print diagnostic messages to the terminal.
 pub fn print_diagnostics(
-    world: &SystemWorld,
+    world: &dyn DiagnosticWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
     format: DiagnosticFormat,

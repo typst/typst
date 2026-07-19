@@ -49,7 +49,7 @@ use crate::visualize::{Color, Gradient, Paint, Tiling};
 /// constructor function. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{stroke(red).cap}` is `{auto}` because it's unspecified. Fields
 /// set to `{auto}` are inherited.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
@@ -96,7 +96,7 @@ impl Stroke {
     /// #my-func(red) \
     /// #my-func(stroke(cap: "round", thickness: 1pt))
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         args: &mut Args,
 
@@ -299,8 +299,6 @@ impl Stroke<Abs> {
 
     /// Unpack the stroke, filling missing fields with the default values.
     pub fn unwrap_or_default(self) -> FixedStroke {
-        // we want to do this; the Clippy lint is not type-aware
-        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or(FixedStroke::default())
     }
 }
@@ -503,9 +501,9 @@ impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
         let mut r = EcoString::from("(array: (");
         for (i, elem) in self.array.iter().enumerate() {
             if i != 0 {
-                r.push_str(", ")
+                r.push_str(", ");
             }
-            r.push_str(&elem.repr())
+            r.push_str(&elem.repr());
         }
         r.push_str("), phase: ");
         r.push_str(&self.phase.repr());

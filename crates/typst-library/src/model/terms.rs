@@ -2,7 +2,6 @@ use crate::diag::{bail, warning};
 use crate::foundations::{
     Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};
 
@@ -22,7 +21,7 @@ use crate::model::{ListItemLike, ListLike};
 /// = Syntax <syntax>
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Locatable, Tagged)]
+#[elem(scope, title = "Term List", since = "forever", Locatable, Tagged)]
 pub struct TermsElem {
     /// Defines the default @terms.spacing[spacing] of the term list. If it is
     /// `{false}`, the items are spaced apart with
@@ -99,7 +98,7 @@ pub struct TermsElem {
     /// ```
     #[variadic]
     #[parse(
-        for item in args.items.iter() {
+        for item in &args.items {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,
@@ -126,7 +125,7 @@ impl TermsElem {
 }
 
 /// A term list item.
-#[elem(name = "item", title = "Term List Item", Tagged)]
+#[elem(name = "item", title = "Term List Item", since = "0.4.0", Tagged)]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]

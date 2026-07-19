@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::{Locatable, Tagged};
 
 /// Emphasizes content by toggling italics.
 ///
@@ -24,7 +23,7 @@ use crate::introspection::{Locatable, Tagged};
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-#[elem(title = "Emphasis", keywords = ["italic"], Locatable, Tagged)]
+#[elem(title = "Emphasis", since = "forever", keywords = ["italic"], Locatable, Tagged)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]

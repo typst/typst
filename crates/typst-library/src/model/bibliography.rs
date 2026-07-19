@@ -32,8 +32,7 @@ use crate::foundations::{
     Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, elem,
 };
 use crate::introspection::{
-    EmptyIntrospector, History, Introspect, Introspector, Locatable, Location,
-    QueryIntrospection,
+    EmptyIntrospector, History, Introspect, Introspector, Location, QueryIntrospection,
 };
 use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
@@ -108,7 +107,7 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 /// thematic bibliographies. For more fine-grained control, citations can be
 /// explicitly targeted by a bibliography through a
 /// @bibliography.target[`target`] selector.
-#[elem(Locatable, Synthesize, ShowSet, LocalName)]
+#[elem(since = "forever", Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
     /// BibLaTeX `.bib` files.
@@ -297,11 +296,11 @@ impl BibliographyElem {
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Vec<(Label, Option<EcoString>)> {
         let mut vec = vec![];
-        for elem in introspector.query(&Self::ELEM.select()).iter() {
+        for elem in &introspector.query(&Self::ELEM.select()) {
             let this = elem.to_packed::<Self>().unwrap();
             for (key, entry) in this.sources.derived.iter() {
                 let detail = entry.title().map(|title| title.value.to_str().into());
-                vec.push((key, detail))
+                vec.push((key, detail));
             }
         }
         vec
@@ -373,7 +372,7 @@ impl Bibliography {
         let mut duplicates = Vec::<EcoString>::new();
 
         // We might have multiple bib/yaml files
-        for d in data.iter() {
+        for d in data {
             let library = decode_library(d)?;
             for entry in library {
                 let label = Label::new(PicoStr::intern(entry.key()))
@@ -535,7 +534,9 @@ impl CslStyle {
                 typst_utils::hash128(&(TypeId::of::<ArchivedStyle>(), archived)),
             ))),
             // Ensured by `test_bibliography_load_builtin_styles`.
-            _ => unreachable!("archive should not contain dependent styles"),
+            citationberg::Style::Dependent(_) => {
+                unreachable!("archive should not contain dependent styles")
+            }
         }
     }
 
@@ -1093,18 +1094,39 @@ fn render<'a>(
 
     if let Some(offset) = offset
         && let Some(bib) = &rendered.bibliography
-        // Check whether the style uses numbering.
-        && rendered.citations.iter().any(|rendered| {
-            rendered
-                .citation
-                .find_meta(&hayagriva::ElemMeta::CitationNumber)
-                .is_some()
-        })
+        // Check whether the bibliography or any citation displays citation
+        // numbers. Only then does the bibliography occupy a numbering range
+        // that subsequent bibliographies in the same group must skip.
+        && (bib.items.iter().any(displays_citation_number)
+            || rendered.citations.iter().any(|rendered| {
+                rendered
+                    .citation
+                    .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                    .is_some()
+            }))
     {
         *offset += bib.items.len();
     }
 
     rendered
+}
+
+/// Whether a rendered bibliography item displays a citation number.
+///
+/// For styles with `second-field-align` (like IEEE), the number resides in
+/// the item's first field rather than in its content.
+fn displays_citation_number(item: &hayagriva::BibliographyItem) -> bool {
+    item.content.find_meta(&hayagriva::ElemMeta::CitationNumber).is_some()
+        || item.first_field.as_ref().is_some_and(|child| match child {
+            hayagriva::ElemChild::Elem(elem) => {
+                elem.meta == Some(hayagriva::ElemMeta::CitationNumber)
+                    || elem
+                        .children
+                        .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                        .is_some()
+            }
+            _ => false,
+        })
 }
 
 /// Creates a hayagriva citation item for a citation element.
@@ -1389,7 +1411,7 @@ fn show_elem_child(
         hayagriva::ElemChild::Markup(markup) => show_math(ctx, markup),
         hayagriva::ElemChild::Link { text, url } => show_link(ctx, text, url)?,
         hayagriva::ElemChild::Transparent { cite_idx, format } => {
-            show_transparent(ctx, *cite_idx, format)
+            show_transparent(ctx, *cite_idx, *format)
         }
     })
 }
@@ -1476,7 +1498,7 @@ fn show_link(
 }
 
 /// Displays transparent pass-through content.
-fn show_transparent(ctx: &ShowCtx, i: usize, format: &hayagriva::Formatting) -> Content {
+fn show_transparent(ctx: &ShowCtx, i: usize, format: hayagriva::Formatting) -> Content {
     let content = (ctx.supplement)(i).unwrap_or_default();
     show_with_formatting(content, format)
 }
@@ -1491,11 +1513,11 @@ fn show_formatted(
         if trim_start { formatted.text.trim_start() } else { formatted.text.as_str() };
 
     let content = TextElem::packed(formatted_text).spanned(ctx.span);
-    show_with_formatting(content, &formatted.formatting)
+    show_with_formatting(content, formatted.formatting)
 }
 
 /// Applies hayagriva formatting to content.
-fn show_with_formatting(mut content: Content, format: &hayagriva::Formatting) -> Content {
+fn show_with_formatting(mut content: Content, format: hayagriva::Formatting) -> Content {
     match format.font_style {
         citationberg::FontStyle::Normal => {}
         citationberg::FontStyle::Italic => {
@@ -1553,7 +1575,7 @@ fn locale(lang: Lang, region: Option<Region>) -> citationberg::LocaleCode {
     value.push_str(lang.as_str());
     if let Some(region) = region {
         value.push('-');
-        value.push_str(region.as_str())
+        value.push_str(region.as_str());
     }
     citationberg::LocaleCode(value)
 }

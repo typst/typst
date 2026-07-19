@@ -4,7 +4,7 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
-use syntect::highlighting::{self as synt};
+use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
@@ -20,7 +20,6 @@ use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
@@ -251,6 +250,7 @@ use crate::visualize::Color;
 #[elem(
     scope,
     title = "Raw Text / Code",
+    since = "forever",
     Synthesize,
     Locatable,
     Tagged,
@@ -618,7 +618,7 @@ impl Packed<RawElem> {
             }
         } else {
             seq.extend(non_highlighted_result(lines));
-        };
+        }
 
         seq
     }
@@ -810,7 +810,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", Tagged, PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", since = "0.9.0", Tagged, PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
@@ -932,7 +932,7 @@ impl<'a> ThemedHighlighter<'a> {
         for child in self.node.children() {
             let mut scopes = self.scopes.clone();
             if let Some(tag) = typst_syntax::highlight(&child) {
-                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap());
             }
 
             std::mem::swap(&mut scopes, &mut self.scopes);

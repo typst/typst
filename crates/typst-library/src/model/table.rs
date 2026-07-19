@@ -9,7 +9,6 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::resolve::{CellGrid, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
@@ -134,7 +133,7 @@ use crate::visualize::{Paint, Stroke};
 /// visually, you should consider making the core information in your table
 /// available as text as well. You can do this by wrapping your table in a
 /// @figure[figure] and using its caption to summarize the table's content.
-#[elem(scope, Locatable, Tagged, Synthesize, LocalName, Figurable)]
+#[elem(scope, since = "forever", Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct TableElem {
     /// The column sizes. See the @grid:track-size[grid documentation] for more
     /// information on track sizing.
@@ -492,7 +491,7 @@ impl TryFrom<Content> for TableItem {
 ///   [7.34], [57],  [2],
 /// )
 /// ```
-#[elem(name = "header", title = "Table Header")]
+#[elem(name = "header", title = "Table Header", since = "0.11.0")]
 pub struct TableHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
@@ -522,7 +521,7 @@ pub struct TableHeader {
 /// other information that should be visible on every page.
 ///
 /// No other table cells may be placed after the footer.
-#[elem(name = "footer", title = "Table Footer")]
+#[elem(name = "footer", title = "Table Footer", since = "0.11.0")]
 pub struct TableFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
@@ -565,7 +564,7 @@ pub struct TableFooter {
 ///   [19:00], [Day 1 Attendee Mixer],
 /// )
 /// ```
-#[elem(name = "hline", title = "Table Horizontal Line")]
+#[elem(name = "hline", title = "Table Horizontal Line", since = "0.11.0")]
 pub struct TableHLine {
     /// The row above which the horizontal line is placed (zero-indexed).
     /// Functions identically to the `y` field in @grid.hline.y[`grid.hline`].
@@ -610,7 +609,7 @@ pub struct TableHLine {
 /// @table.stroke[table's `stroke`] field or
 /// @table.cell.stroke[`table.cell`'s `stroke`] field instead if the line you
 /// want to place is part of all your tables' designs.
-#[elem(name = "vline", title = "Table Vertical Line")]
+#[elem(name = "vline", title = "Table Vertical Line", since = "0.11.0")]
 pub struct TableVLine {
     /// The column before which the vertical line is placed (zero-indexed).
     /// Functions identically to the `x` field in @grid.vline.
@@ -730,7 +729,7 @@ pub struct TableVLine {
 ///   [Vikram], [49], [Perseverance],
 /// )
 /// ```
-#[elem(name = "cell", title = "Table Cell")]
+#[elem(name = "cell", title = "Table Cell", since = "0.11.0")]
 pub struct TableCell {
     /// The cell's body.
     #[required]
@@ -799,7 +798,6 @@ impl Default for Packed<TableCell> {
 
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

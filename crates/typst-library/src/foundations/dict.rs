@@ -75,7 +75,7 @@ pub use crate::__dict as dict;
 /// #dict.insert("city", "Berlin")
 /// #("name" in dict)
 /// ```
-#[ty(scope, cast, name = "dictionary")]
+#[ty(scope, cast, name = "dictionary", since = "forever")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
 
@@ -158,7 +158,7 @@ impl Dict {
             _ => "unexpected keys ",
         });
 
-        msg.push_str(&format_as_list(&unexpected[..]));
+        msg.push_str(&format_as_list(&unexpected));
 
         if let Some(expected) = hint_expected {
             msg.push_str(", valid keys are ");
@@ -181,7 +181,7 @@ impl Dict {
     /// ```example
     /// #dictionary(sys).at("version")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to a dictionary.
         value: ToDict,
@@ -190,7 +190,7 @@ impl Dict {
     }
 
     /// The number of pairs in the dictionary.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "forever")]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -204,7 +204,7 @@ impl Dict {
     ///
     /// Values may also be accessed with field syntax (e.g. `{(key: 42).key}`)
     /// if no default is needed.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The key at which to retrieve the item.
@@ -225,7 +225,7 @@ impl Dict {
     ///
     /// To insert multiple pairs at once, you can alternatively add another
     /// dictionary with the `+=` operator.
-    #[func]
+    #[func(since = "forever")]
     pub fn insert(
         &mut self,
         /// The key of the pair that should be inserted.
@@ -237,7 +237,7 @@ impl Dict {
     }
 
     /// Removes a pair from the dictionary by key and return the value.
-    #[func]
+    #[func(since = "forever")]
     pub fn remove(
         &mut self,
         /// The key of the pair to remove.
@@ -253,20 +253,20 @@ impl Dict {
     }
 
     /// Returns the keys of the dictionary as an array in insertion order.
-    #[func]
+    #[func(since = "forever")]
     pub fn keys(&self) -> Array {
         self.0.keys().cloned().map(Value::Str).collect()
     }
 
     /// Returns the values of the dictionary as an array in insertion order.
-    #[func]
+    #[func(since = "forever")]
     pub fn values(&self) -> Array {
         self.0.values().cloned().collect()
     }
 
     /// Returns the keys and values of the dictionary as an array of pairs. Each
     /// pair is represented as an array of length two.
-    #[func]
+    #[func(since = "forever")]
     pub fn pairs(&self) -> Array {
         self.0
             .iter()
@@ -298,7 +298,7 @@ impl Dict {
     ///   }
     ///   ```
     /// )
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn filter(
         self,
         engine: &mut Engine,
@@ -322,7 +322,7 @@ impl Dict {
     /// ```example
     /// #(a: 0, b: 1, c: 2).map(v => v + 1)
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn map(
         self,
         engine: &mut Engine,

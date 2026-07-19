@@ -439,7 +439,6 @@ fn parse_features(feature_list: &str) -> StrResult<Features> {
             Err(_) => {
                 crate::print_error(&format!("unknown runtime feature: `{feature}`"))
                     .map_err(|e| eco_format!("{e}"))?;
-                continue;
             }
         }
     }

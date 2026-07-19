@@ -6,7 +6,6 @@ use crate::diag::{bail, warning};
 use crate::foundations::{
     Array, Content, Packed, Reflect, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Alignment, Em, HAlignment, Length};
 use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 
@@ -67,7 +66,7 @@ use crate::model::{ListItemLike, ListLike, Numbering, NumberingPattern};
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-#[elem(scope, title = "Numbered List", Locatable, Tagged)]
+#[elem(scope, title = "Numbered List", since = "forever", Locatable, Tagged)]
 pub struct EnumElem {
     /// Defines the default @enum.spacing[spacing] of the enumeration. If it is
     /// `{false}`, the items are spaced apart with
@@ -215,7 +214,7 @@ pub struct EnumElem {
     /// ```
     #[variadic]
     #[parse(
-        for item in args.items.iter() {
+        for item in &args.items {
             if item.name.is_none() && Array::castable(&item.value.v) {
                 engine.sink.warn(warning!(
                     item.value.span,
@@ -243,7 +242,7 @@ impl EnumElem {
 }
 
 /// An enumeration item.
-#[elem(name = "item", title = "Numbered List Item", Tagged)]
+#[elem(name = "item", title = "Numbered List Item", since = "0.4.0", Tagged)]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

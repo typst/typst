@@ -7,11 +7,12 @@ use std::fmt::Debug;
 use ttf_parser::GlyphId;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
-use typst_library::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::MathSize;
 use typst_library::math::ir::MathProperties;
 use typst_library::text::{FontInstance, TextElem};
 use typst_library::visualize::{FixedStroke, Paint};
+use typst_utils::Get;
 use unicode_math_class::MathClass;
 
 use self::glyph::kern_at_height;
@@ -32,7 +33,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size,
             Self::Frame(fragment) => fragment.frame.size(),
             Self::Space(amount) => Size::with_x(*amount),
-            _ => Size::zero(),
+            Self::Tag(_) => Size::zero(),
         }
     }
 
@@ -41,7 +42,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size.x,
             Self::Frame(fragment) => fragment.frame.width(),
             Self::Space(amount) => *amount,
-            _ => Abs::zero(),
+            Self::Tag(_) => Abs::zero(),
         }
     }
 
@@ -126,6 +127,13 @@ impl MathFragment {
         }
     }
 
+    pub fn is_stretchable(&self, axis: Axis) -> bool {
+        match self {
+            Self::Glyph(glyph) => glyph.stretchable_axes.get(axis),
+            _ => false,
+        }
+    }
+
     pub fn is_text_like(&self) -> bool {
         match self {
             Self::Glyph(glyph) => !glyph.extended_shape,
@@ -159,7 +167,7 @@ impl MathFragment {
                 frame.push(Point::zero(), FrameItem::Tag(tag));
                 frame
             }
-            _ => Frame::soft(self.size()),
+            Self::Space(_) => Frame::soft(self.size()),
         }
     }
 

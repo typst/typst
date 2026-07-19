@@ -46,7 +46,7 @@ use crate::foundations::{
 /// $arrow.r$ \
 /// $arrow.t.quad$
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(SymbolInner);
 
@@ -215,7 +215,7 @@ impl Symbol {
     /// #envelope.lightning
     /// #envelope.fly
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         span: Span,
         /// The variants of the symbol.
@@ -269,7 +269,7 @@ impl Symbol {
             }
 
             // Canonicalize the modifier order.
-            modifiers.sort();
+            modifiers.sort_unstable();
 
             // Ensure that there are no duplicate modifiers.
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {

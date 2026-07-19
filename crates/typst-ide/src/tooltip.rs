@@ -35,7 +35,7 @@ pub fn tooltip(
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
-        .or_else(|| output.and_then(|output| label_tooltip(output, &leaf)))
+        .or_else(|| label_tooltip(output?, &leaf))
         .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
         .or_else(|| closure_tooltip(&leaf))

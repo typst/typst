@@ -745,6 +745,21 @@ a.pill {
   );
 }
 
+.dev-version-warning {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  padding-block: 4px;
+  padding-inline: 8px;
+  border-radius: 8px;
+  width: unset;
+  background: #565565;
+  color: #fdfdfd;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
 /* Navigation breadcrumbs */
 
 .breadcrumbs {
@@ -1633,6 +1648,22 @@ p + .symbol-grid {
 .symbol-flyout .info {
   display: flex;
   gap: 16px;
+}
+
+.symbol-flyout .info .props {
+  min-width: 0;
+}
+
+.symbol-flyout .info .escape {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+}
+
+.symbol-flyout .info .escape > code {
+  margin-inline-start: 0.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .symbol-flyout .info .accent > img {

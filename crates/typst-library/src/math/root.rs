@@ -8,7 +8,7 @@ use crate::math::Mathy;
 /// ```example
 /// $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
 /// ```
-#[func(title = "Square Root")]
+#[func(title = "Square Root", since = "forever")]
 pub fn sqrt(
     span: Span,
     /// The expression to take the square root of.
@@ -22,7 +22,7 @@ pub fn sqrt(
 /// ```example
 /// $ root(3, x) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]

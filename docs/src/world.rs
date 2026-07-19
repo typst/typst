@@ -25,7 +25,7 @@ use typst_html::{HtmlAttrs, HtmlElem, attr, tag};
 use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
 use typst_kit::files::{FileLoader, FileStore, FsRoot};
-use typst_utils::{LazyHash, PicoStr};
+use typst_utils::{LazyHash, PicoStr, display_commit};
 
 use crate::Config;
 use crate::example::FRAME_RULE;
@@ -67,7 +67,7 @@ impl DocWorld {
     /// and entrypoint file.
     pub fn new(config: &Config) -> Self {
         Self {
-            library: LazyHash::new(library()),
+            library: LazyHash::new(library(config.is_dev_version)),
             files: FileStore::new(DocsFiles::new(config.input.as_deref())),
             now: Time::system(),
         }
@@ -160,7 +160,7 @@ impl DocsFiles {
     }
 
     fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     fn root(&self, id: FileId) -> FileResult<FsRoot> {
@@ -198,10 +198,10 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// A standard library that is extended for docs compilation. Includes
 /// - an `stdx` module with various utilities
 /// - a few patched show rules
-fn library() -> Library {
+fn library(is_dev_version: bool) -> Library {
     let mut lib = Library::builder().with_features(Features::all()).build();
     let scope = lib.global.scope_mut();
-    scope.define("stdx", stdx_module());
+    scope.define("stdx", stdx_module(is_dev_version));
     lib.rules.replace(Target::Html, PATCHED_LINK_RULE);
     lib.rules.replace(Target::Html, PATCHED_IMAGE_RULE);
     lib.rules.register(Target::Paged, FRAME_RULE);
@@ -209,7 +209,7 @@ fn library() -> Library {
 }
 
 /// A module with various utilities for the docs.
-fn stdx_module() -> Module {
+fn stdx_module(is_dev_version: bool) -> Module {
     let mut scope = Scope::new();
     scope.define_elem::<ConfigElem>();
     scope.define_func::<str_from_path>();
@@ -227,6 +227,8 @@ fn stdx_module() -> Module {
     scope.define_func::<crate::reflect::is_global_html_attr>();
     scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
+    scope.define("commit", display_commit(typst_utils::version().commit()));
+    scope.define("is-dev-version", is_dev_version);
     Module::new("stdx", scope)
 }
 

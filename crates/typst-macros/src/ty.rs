@@ -4,8 +4,8 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, Result};
 
 use crate::util::{
-    BareType, determine_name_and_title, documentation, foundations, kw, oneliner,
-    parse_flag, parse_string, parse_string_array,
+    BareType, Since, determine_name_and_title, documentation, foundations, kw, oneliner,
+    parse_flag, parse_key_value, parse_string, parse_string_array,
 };
 
 /// Expand the `#[ty]` macro.
@@ -49,6 +49,7 @@ struct Meta {
     cast: bool,
     name: Option<String>,
     title: Option<String>,
+    since: Option<Since>,
     keywords: Vec<String>,
 }
 
@@ -59,6 +60,7 @@ impl Parse for Meta {
             cast: parse_flag::<kw::cast>(input)?,
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
             keywords: parse_string_array::<kw::keywords>(input)?,
         })
     }
@@ -75,10 +77,15 @@ fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
 
 /// Produce the output of the macro.
 fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
-    let Type { ident, name, long, title, docs, meta, .. } = ty;
+    let Type { ident, name, long, title, docs, meta } = ty;
     let Meta { keywords, .. } = meta;
     let def_site_key = ident.to_string();
     let oneliner = oneliner(docs);
+    let since = if let Some(since) = &meta.since {
+        quote! { Some(#since) }
+    } else {
+        quote! { None }
+    };
 
     let constructor = if meta.scope {
         quote! { <#ident as #foundations::NativeScope>::constructor() }
@@ -103,6 +110,7 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
             name: #name,
             long_name: #long,
             title: #title,
+            since: #since,
             docs: #docs,
             def_site: ::typst_utils::DefSite { path: file!(), key: #def_site_key },
             keywords: &[#(#keywords),*],

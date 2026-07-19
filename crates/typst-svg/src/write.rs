@@ -183,7 +183,7 @@ pub trait SvgDisplay {
 
 impl<T: SvgDisplay> SvgDisplay for &T {
     fn fmt(&self, f: &mut impl SvgWrite) {
-        <T as SvgDisplay>::fmt(self, f)
+        <T as SvgDisplay>::fmt(self, f);
     }
 }
 
@@ -239,7 +239,7 @@ impl SvgDisplay for SvgTransform {
             } else {
                 f.push_nums([sx, sy]);
             }
-            f.push_str(")")
+            f.push_str(")");
         } else if self.0.is_only_translate() {
             f.push_str("translate(");
             if ty == 0.0 {
