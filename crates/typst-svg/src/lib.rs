@@ -11,7 +11,7 @@ use comemo::Tracked;
 pub use image::{WebImage, convert_image_scaling};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use typst_library::model::{Destination, LateLinkResolver};
 
 use std::hash::Hash;
@@ -193,7 +193,7 @@ struct SVGRenderer<'a> {
     /// Prepared glyphs.
     glyphs: Deduplicator<Option<RenderedGlyph>>,
     /// Glyphs used in the text items, separated by font. Used for subsetting.
-    fonts_for_subset: HashMap<FontInstance, HashSet<u32>>,
+    fonts_for_subset: IndexMap<FontInstance, HashSet<u32>, FxBuildHasher>,
     /// Clip paths are used to clip a group. A clip path is a path that defines
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
@@ -277,7 +277,7 @@ impl<'a> SVGRenderer<'a> {
         SVGRenderer {
             link_resolver,
             glyphs: Deduplicator::new('g'),
-            fonts_for_subset: HashMap::new(),
+            fonts_for_subset: IndexMap::default(),
             clip_paths: Deduplicator::new('c'),
             gradients: Deduplicator::new('f'),
             gradient_refs: Deduplicator::new('r'),

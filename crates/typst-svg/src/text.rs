@@ -316,7 +316,6 @@ impl SVGRenderer<'_> {
         }
 
         let mut style = String::new();
-        #[allow(clippy::iter_over_hash_type)]
         // the order doesn't matter as long as it's the same for every input / run
         for (font, glyphs) in &self.fonts_for_subset {
             let b64 = B64_STANDARD.encode(subset_font(font, glyphs));
