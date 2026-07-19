@@ -358,15 +358,17 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     let mut head: Head = fr.head().unwrap().to_owned_table();
     let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
     let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
-    let mut os2: Os2 = fr.os2().unwrap().to_owned_table();
+    let mut os2: Option<Os2> = fr.os2().ok().map(|table| table.to_owned_table());
     let name: Name = fr.name().unwrap().to_owned_table();
 
-    os2.panose_10[3] = 0; // force set `Proportion` field to `Any`
+    if let Some(os2) = &mut os2 {
+        os2.panose_10[3] = 0; // force set `Proportion` field to `Any`
 
-    // make ascender/descender/line_gap consistent
-    os2.s_typo_ascender = hhea.ascender.to_i16();
-    os2.s_typo_descender = hhea.descender.to_i16();
-    os2.s_typo_line_gap = hhea.line_gap.to_i16();
+        // make ascender/descender/line_gap consistent
+        os2.s_typo_ascender = hhea.ascender.to_i16();
+        os2.s_typo_descender = hhea.descender.to_i16();
+        os2.s_typo_line_gap = hhea.line_gap.to_i16();
+    }
 
     let mut needed_pairs = HashMap::with_capacity(glyphs.len());
     for subtable in ttf.tables().cmap.unwrap().subtables {
@@ -432,7 +434,13 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
 
     let cmap = Cmap::from_mappings(needed_pairs).unwrap();
 
-    FontBuilder::new()
+    let mut builder = FontBuilder::new();
+
+    if let Some(os2) = os2 {
+        builder.add_table(&os2).unwrap();
+    }
+
+    builder
         .add_table(&head)
         .unwrap()
         .add_table(&hhea)
@@ -457,8 +465,6 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
             max_component_elements: Some(0),
             max_component_depth: Some(1),
         })
-        .unwrap()
-        .add_table(&os2)
         .unwrap()
         .add_table(&name)
         .unwrap()
