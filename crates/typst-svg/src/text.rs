@@ -382,13 +382,14 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
 
     let n_glyphs = needed_pairs.len() + 1;
 
-    let glyph_names = [".notdef"].into_iter().chain(
-        needed_pairs
-            .values()
-            .map(|gid| ttf.glyph_name(GlyphId(gid.to_u32() as u16)).unwrap()),
-    );
+    let mut glyph_names = vec![".notdef".to_string()];
+    glyph_names.extend(needed_pairs.values().map(|gid| {
+        ttf.glyph_name(GlyphId(gid.to_u32() as u16))
+            .map(|name| name.to_string())
+            .unwrap_or_else(|| format!("unknown.{gid}"))
+    }));
 
-    let post = Post::new_v2(glyph_names);
+    let post = Post::new_v2(glyph_names.iter().map(String::as_str));
 
     let mut glyf = GlyfLocaBuilder::new();
 
