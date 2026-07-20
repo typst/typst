@@ -460,17 +460,6 @@ impl<'a> ShapedText<'a> {
                 }
             } else {
                 frame.push(pos, FrameItem::Text(item.clone()));
-                let pos = pos + Point::with_x(par_x);
-                for (_, data, intersections) in &mut *par_decos {
-                    deco::deco_intersect(
-                        pos,
-                        &item,
-                        data.offset,
-                        intersections,
-                        None,
-                        // Some(Transform::translate_point(pos)),
-                    );
-                }
             }
 
             offset += width;

@@ -609,6 +609,17 @@ pub fn commit(
                     &mut decos,
                     offset,
                 );
+                let frame_pos = Point::with_x(offset);
+                for (_, data, intersections) in &mut decos {
+                    deco::deco_intersect_frames(
+                        &frame,
+                        frame_pos,
+                        frame.baseline(),
+                        data.offset,
+                        intersections,
+                        Some(Transform::translate_point(frame_pos)),
+                    );
+                }
                 push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
