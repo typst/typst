@@ -613,11 +613,10 @@ pub fn commit(
                 for (_, data, intersections) in &mut decos {
                     deco::deco_intersect_frames(
                         &frame,
-                        frame_pos,
                         frame.baseline(),
                         data.offset,
                         intersections,
-                        Some(Transform::translate_point(frame_pos)),
+                        Transform::translate_point(frame_pos),
                     );
                 }
                 push(&mut offset, frame, idx);
@@ -627,11 +626,10 @@ pub fn commit(
                 for (_, data, intersections) in &mut decos {
                     deco::deco_intersect_frames(
                         frame,
-                        frame_pos,
                         frame.baseline(),
                         data.offset,
                         intersections,
-                        Some(Transform::translate_point(frame_pos)),
+                        Transform::translate_point(frame_pos),
                     );
                 }
                 push(&mut offset, frame.clone(), idx);

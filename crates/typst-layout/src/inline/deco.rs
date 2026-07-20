@@ -1,8 +1,6 @@
 use kurbo::{Affine, BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst_library::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Rect, Size, Transform,
-};
+use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Rect, Size, Transform};
 use typst_library::text::{
     BottomEdge, DecoLine, Decoration, Font, TextEdgeBounds, TextItem, TopEdge,
 };
@@ -279,25 +277,24 @@ pub fn init_decos(
 /// Compute intersections between a line at the given y-offset and each glyph
 /// of a text item.
 pub fn deco_intersect(
-    pos: Point,
     text: &TextItem,
     offset: Abs,
     intersections: &mut Vec<Abs>,
-    transform: Option<Transform>,
+    transform: Transform,
 ) {
-    let width = if let Some(transform) = &transform {
+    let width = if transform.is_identity() {
         // TODO: what about infinity?
         // dbg!(transform);
         // dbg!(text.bbox());
         // dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
-        parallelogram_width(transform_rect(text.bbox(), transform))
+        parallelogram_width(transform_rect(text.bbox(), &transform))
     } else {
         // Cheaper...
         text.width()
     };
     let line = Line::new(
-        kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
-        kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
+        kurbo::Point::new(0.0, offset.to_raw()),
+        kurbo::Point::new(width.to_raw(), offset.to_raw()),
     );
     let mut x = Abs::zero();
 
@@ -313,11 +310,11 @@ pub fn deco_intersect(
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let mut path = builder.finish();
 
-        if let Some(transform) = &transform {
+        if !transform.is_identity() {
             // TODO: clean this up (remnants from my peek at typst-render)
             // let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
             // &transform.pre_concat(Transform::translate(Abs::zero(), -dy)),
-            path.apply_affine(affine_from_transform(transform));
+            path.apply_affine(affine_from_transform(&transform));
         }
 
         x += glyph.x_advance.at(text.size);
@@ -328,11 +325,11 @@ pub fn deco_intersect(
             let mut y_min = -text.font.to_em(bbox.y_max).at(text.size);
             let mut y_max = -text.font.to_em(bbox.y_min).at(text.size);
 
-            if let Some(transform) = &transform {
+            if !transform.is_identity() {
                 let x_min = -text.font.to_em(bbox.x_max).at(text.size);
                 let x_max = -text.font.to_em(bbox.x_min).at(text.size);
                 let rect = Rect::new(Point::new(x_min, y_min), Point::new(x_max, y_max));
-                let parallelogram = transform_rect(rect, transform);
+                let parallelogram = transform_rect(rect, &transform);
                 y_max = parallelogram.iter().max_by_key(|p| p.y).unwrap().y;
                 y_min = parallelogram.iter().min_by_key(|p| p.y).unwrap().y;
             }
@@ -341,7 +338,7 @@ pub fn deco_intersect(
         });
 
         // TODO: use transform to compute whether intersect can happen...
-        if intersect || transform.is_some() {
+        if intersect || !transform.is_identity() {
             // Find all intersections of segments with the line.
             intersections.extend(dbg!(
                 path.segments()
@@ -405,11 +402,10 @@ fn affine_from_transform(transform: &Transform) -> Affine {
 /// (`parent_baseline`) by `offset`.
 pub fn deco_intersect_frames(
     frame: &Frame,
-    frame_pos: Point,
     parent_baseline: Abs,
     offset: Abs,
     intersections: &mut Vec<Abs>,
-    transform: Option<Transform>,
+    transform: Transform,
 ) {
     for (pos, item) in frame.items() {
         match item {
@@ -418,29 +414,20 @@ pub fn deco_intersect_frames(
             // Therefore, adjust the line's position for intersections so that it is relative to where the text actually is,
             // by moving the top of the frame to the top of the text, i.e. by subtracting its height from the top of the frame.
             FrameItem::Text(text) => deco_intersect(
-                *pos + frame_pos,
                 text,
                 parent_baseline + offset,
                 intersections,
-                Some(
-                    transform
-                        .unwrap_or_default()
-                        .pre_concat(Transform::translate_point(*pos)), // + frame_pos)),
-                ),
+                transform.pre_concat(Transform::translate_point(*pos)), // + frame_pos)),
             ),
             FrameItem::Group(group) => {
                 deco_intersect_frames(
                     &group.frame,
-                    *pos + frame_pos,
                     parent_baseline,
                     offset,
                     intersections,
-                    Some(
-                        transform
-                            .unwrap_or_default()
-                            .pre_concat(Transform::translate_point(*pos))
-                            .pre_concat(group.transform),
-                    ),
+                    transform
+                        .pre_concat(Transform::translate_point(*pos))
+                        .pre_concat(group.transform),
                 );
             }
             _ => {}
