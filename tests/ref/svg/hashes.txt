@@ -942,6 +942,7 @@ ad83b91531986cfde5131017e71661c5 linebreak-cite-punctuation
 ec2290f56d9653acec9fc323446976ca linebreak-hyphen-nbsp
 3013687a93f65461f3bc28723753ea7a linebreak-link
 1e42bc7f5b95fcbb186f11df1f3a32ac linebreak-link-end
+ee7cde40887e362fb9ca621466ecddac linebreak-link-ip-host
 0ef838b8ac972bc440f3a54ffe2cf91e linebreak-link-justify
 2b0b8d20a22bf9a9e2b03bf00b8df093 linebreak-manual
 72b86070f0f0f14838dc5c8e83d61744 linebreak-manual-consecutive
