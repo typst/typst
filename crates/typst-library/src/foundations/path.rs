@@ -163,6 +163,14 @@ impl RootedPath {
     ) -> SourceResult<RootedPath> {
         path.v.resolve_if_some(path.span.id()).at(path.span)
     }
+
+    ///Returns the string representation of the absolute path.
+    #[func]
+    pub fn value(
+        &self,
+    ) -> Str {
+        self.vpath().get_with_slash().into()
+    }
 }
 
 impl Repr for RootedPath {
