@@ -196,7 +196,6 @@ dd9b5fe57e921c62917743d9272d68ac ellipse
 7032b2bfab9dd86c1b4c4a6ea99765a6 emph-and-strong-call-in-word
 ee4b834945e3d4ee98adbb83cc24e440 emph-double-underscore-empty-hint
 5e5bd91b7531b364c972a4b54c5bca3e emph-syntax
-c9a7bcc0995006716a0f6ea019f0f381 enum-array-deprecated
 1fbee69c2a83c9ebad54eaa13ff4a2e8 enum-built-in-loop
 25c9b6cb4ef0514e8e10d9fcb175f04c enum-function-call
 ab546e776c589625d584cc2fb8d3f931 enum-in-align-centering
@@ -1842,7 +1841,6 @@ a7abe27f562feb7cad67977e16f9e51a table-inset
 2feba4dabc7ec7f87ddd683ea0003ad7 table-newlines
 c20d7b0452399cb36979023ae3ec8933 table-stroke-vline-position-left-and-right
 6bc2fa9b013cd685f8a20fe24f16a51a tags-textual
-ca206876eddba15d455f9e742136f5ad terms-array-deprecated
 2831f586aff16984721f700f4d22e909 terms-built-in-loop
 4977ad3d17be95afcc2b9f87e76a8000 terms-constructor
 13aa51a5ffd1b7ce9eb4aed4252a02df terms-grid
