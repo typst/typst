@@ -1,5 +1,7 @@
 use crate::foundations::{Content, Smart, cast, elem};
-use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlignment};
+use crate::layout::{
+    Abs, Alignment, Angle, HAlignment, Length, Point, Ratio, Rel, VAlignment,
+};
 
 /// Moves content without affecting layout.
 ///
@@ -266,6 +268,11 @@ impl Transform {
     /// A translate transform.
     pub const fn translate(tx: Abs, ty: Abs) -> Self {
         Self { tx, ty, ..Self::identity() }
+    }
+
+    /// A translate transform, using a point's coordinates.
+    pub const fn translate_point(point: Point) -> Self {
+        Self::translate(point.x, point.y)
     }
 
     /// A scale transform.

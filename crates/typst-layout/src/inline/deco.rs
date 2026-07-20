@@ -1,7 +1,7 @@
 use kurbo::{Affine, BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{
-    Abs, Em, Frame, FrameItem, GroupItem, Point, Rect, Size, Transform,
+    Abs, Em, Frame, FrameItem, GroupItem, Point, Ratio, Rect, Size, Transform,
 };
 use typst_library::text::{
     BottomEdge, DecoLine, Decoration, Font, TextEdgeBounds, TextItem, TopEdge,
@@ -287,9 +287,10 @@ pub fn deco_intersect(
 ) {
     let width = if let Some(transform) = &transform {
         // TODO: what about infinity?
-        dbg!(transform);
-        dbg!(text.bbox());
-        dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
+        // dbg!(transform);
+        // dbg!(text.bbox());
+        // dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
+        parallelogram_width(transform_rect(text.bbox(), transform))
     } else {
         // Cheaper...
         text.width()
@@ -298,12 +299,14 @@ pub fn deco_intersect(
         kurbo::Point::new(pos.x.to_raw(), offset.to_raw()),
         kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
     );
-    let mut x = pos.x;
+    let mut x = Abs::zero();
+
     let font_metrics = text.font.metrics();
 
-    //let proper_transform = transform.unwrap_or_default();
     for glyph in text.glyphs.iter() {
+        // TODO: is y_offset necessary too? Didn't make a difference in basic tests.
         let dx = glyph.x_offset.at(text.size) + x;
+
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
@@ -311,6 +314,9 @@ pub fn deco_intersect(
         let mut path = builder.finish();
 
         if let Some(transform) = &transform {
+            // TODO: clean this up (remnants from my peek at typst-render)
+            // let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
+            // &transform.pre_concat(Transform::translate(Abs::zero(), -dy)),
             path.apply_affine(affine_from_transform(transform));
         }
 
@@ -393,6 +399,10 @@ fn affine_from_transform(transform: &Transform) -> Affine {
     ])
 }
 
+/// Intersect a decoration line with a frame's items.
+///
+/// A decoration line's height is given relative to the baseline
+/// (`parent_baseline`) by `offset`.
 pub fn deco_intersect_frames(
     frame: &Frame,
     frame_pos: Point,
@@ -410,9 +420,13 @@ pub fn deco_intersect_frames(
             FrameItem::Text(text) => deco_intersect(
                 *pos + frame_pos,
                 text,
-                parent_baseline + offset - pos.y - frame_pos.y,
+                parent_baseline + offset,
                 intersections,
-                transform,
+                Some(
+                    transform
+                        .unwrap_or_default()
+                        .pre_concat(Transform::translate_point(*pos)), // + frame_pos)),
+                ),
             ),
             FrameItem::Group(group) => {
                 deco_intersect_frames(
@@ -421,11 +435,12 @@ pub fn deco_intersect_frames(
                     parent_baseline,
                     offset,
                     intersections,
-                    Some(if let Some(transform) = transform {
-                        transform.post_concat(group.transform)
-                    } else {
-                        group.transform
-                    }),
+                    Some(
+                        transform
+                            .unwrap_or_default()
+                            .pre_concat(Transform::translate_point(*pos))
+                            .pre_concat(group.transform),
+                    ),
                 );
             }
             _ => {}

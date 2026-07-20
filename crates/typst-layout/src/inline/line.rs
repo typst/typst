@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point, Transform};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{Lang, TextElem, variant};
 use typst_utils::Numeric;
@@ -612,14 +612,15 @@ pub fn commit(
                 push(&mut offset, frame, idx);
             }
             Item::Frame(frame) => {
+                let frame_pos = Point::with_x(offset);
                 for (_, data, intersections) in &mut decos {
                     deco::deco_intersect_frames(
                         frame,
-                        Point::with_x(offset),
+                        frame_pos,
                         frame.baseline(),
                         data.offset,
                         intersections,
-                        None,
+                        Some(Transform::translate_point(frame_pos)),
                     );
                 }
                 push(&mut offset, frame.clone(), idx);

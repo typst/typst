@@ -11,7 +11,9 @@ use ttf_parser::gsub::SubstitutionSubtable;
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Regex, Smart, StyleChain};
-use typst_library::layout::{Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size};
+use typst_library::layout::{
+    Abs, Dir, Em, Frame, FrameItem, Point, Rel, Size, Transform,
+};
 use typst_library::model::{JustificationLimits, ParElem};
 use typst_library::text::{
     Font, FontFamily, FontVariant, Glyph, Lang, Region, ShiftSettings, TextEdgeBounds,
@@ -458,13 +460,15 @@ impl<'a> ShapedText<'a> {
                 }
             } else {
                 frame.push(pos, FrameItem::Text(item.clone()));
+                let pos = pos + Point::with_x(par_x);
                 for (_, data, intersections) in &mut *par_decos {
                     deco::deco_intersect(
-                        pos + Point::with_x(par_x),
+                        pos,
                         &item,
                         data.offset,
                         intersections,
                         None,
+                        // Some(Transform::translate_point(pos)),
                     );
                 }
             }
