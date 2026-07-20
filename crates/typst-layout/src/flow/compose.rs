@@ -168,6 +168,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
             output.push_frame(Point::with_x(x), frame);
             inner.next();
+
+            if !regions.expand.y
+                && regions.size.y.is_finite()
+                && !output.size().y.is_zero()
+            {
+                inner.full = output.size().y;
+            }
         }
 
         // Column balancing with re-layout
