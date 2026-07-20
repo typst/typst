@@ -611,10 +611,14 @@ pub fn commit(
                 );
                 let frame_pos = Point::with_x(offset);
                 for (_, data, intersections) in &mut decos {
+                    let line_y = frame.baseline() + data.offset;
+                    let line = kurbo::Line::new(
+                        kurbo::Point::new(0.0, line_y.to_raw()),
+                        kurbo::Point::new(width.to_raw(), line_y.to_raw()),
+                    );
                     deco::deco_intersect_frames(
                         &frame,
-                        frame.baseline(),
-                        data.offset,
+                        line,
                         intersections,
                         Transform::translate_point(frame_pos),
                     );
@@ -624,10 +628,14 @@ pub fn commit(
             Item::Frame(frame) => {
                 let frame_pos = Point::with_x(offset);
                 for (_, data, intersections) in &mut decos {
+                    let line_y = frame.baseline() + data.offset;
+                    let line = kurbo::Line::new(
+                        kurbo::Point::new(0.0, line_y.to_raw()),
+                        kurbo::Point::new(width.to_raw(), line_y.to_raw()),
+                    );
                     deco::deco_intersect_frames(
                         frame,
-                        frame.baseline(),
-                        data.offset,
+                        line,
                         intersections,
                         Transform::translate_point(frame_pos),
                     );

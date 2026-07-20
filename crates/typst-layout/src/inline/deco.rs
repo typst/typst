@@ -91,7 +91,7 @@ pub fn decorate(
     for glyph in text.glyphs.iter() {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
-            BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
+            BezPathBuilder::new(font_metrics.units_per_em, text.size, (dx.to_raw(), 0.0));
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
@@ -164,16 +164,16 @@ struct BezPathBuilder {
     path: BezPath,
     units_per_em: f64,
     font_size: Abs,
-    x_offset: f64,
+    offset: (f64, f64),
 }
 
 impl BezPathBuilder {
-    fn new(units_per_em: f64, font_size: Abs, x_offset: f64) -> Self {
+    fn new(units_per_em: f64, font_size: Abs, offset: (f64, f64)) -> Self {
         Self {
             path: BezPath::new(),
             units_per_em,
             font_size,
-            x_offset,
+            offset,
         }
     }
 
@@ -182,7 +182,7 @@ impl BezPathBuilder {
     }
 
     fn p(&self, x: f32, y: f32) -> kurbo::Point {
-        kurbo::Point::new(self.s(x) + self.x_offset, -self.s(y))
+        kurbo::Point::new(self.s(x) + self.offset.0, -self.s(y) - self.offset.1)
     }
 
     fn s(&self, v: f32) -> f64 {
@@ -278,75 +278,76 @@ pub fn init_decos(
 /// of a text item.
 pub fn deco_intersect(
     text: &TextItem,
-    offset: Abs,
+    deco_line: Line,
     intersections: &mut Vec<Abs>,
     transform: Transform,
 ) {
-    let width = if transform.is_identity() {
+    let width = // if transform.is_identity() {
         // TODO: what about infinity?
         // dbg!(transform);
         // dbg!(text.bbox());
         // dbg!(parallelogram_width(transform_rect(text.bbox(), transform)))
-        parallelogram_width(transform_rect(text.bbox(), &transform))
-    } else {
-        // Cheaper...
-        text.width()
-    };
-    let line = Line::new(
-        kurbo::Point::new(0.0, offset.to_raw()),
-        kurbo::Point::new(width.to_raw(), offset.to_raw()),
-    );
-    let mut x = Abs::zero();
+        parallelogram_width(transform_rect(text.bbox(), &transform));
+    // } else {
+    // Cheaper...
+    //     text.width()
+    // };
 
+    let mut text_pos = Point::zero();
     let font_metrics = text.font.metrics();
 
     for glyph in text.glyphs.iter() {
         // TODO: is y_offset necessary too? Didn't make a difference in basic tests.
-        let dx = glyph.x_offset.at(text.size) + x;
+        let glyph_pos = text_pos
+            + Point::new(glyph.x_offset.at(text.size), glyph.y_offset.at(text.size));
 
-        let mut builder =
-            BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
+        let mut builder = BezPathBuilder::new(
+            font_metrics.units_per_em,
+            text.size,
+            (glyph_pos.x.to_raw(), glyph_pos.y.to_raw()),
+        );
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let mut path = builder.finish();
 
-        if !transform.is_identity() {
-            // TODO: clean this up (remnants from my peek at typst-render)
-            // let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
-            // &transform.pre_concat(Transform::translate(Abs::zero(), -dy)),
-            path.apply_affine(affine_from_transform(&transform));
-        }
+        // if !transform.is_identity() {
+        // TODO: clean this up (remnants from my peek at typst-render)
+        // let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
+        // &transform.pre_concat(Transform::translate(Abs::zero(), -dy)),
+        path.apply_affine(affine_from_transform(&transform));
+        // }
 
-        x += glyph.x_advance.at(text.size);
+        text_pos +=
+            Point::new(glyph.x_advance.at(text.size), glyph.y_advance.at(text.size));
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        let intersect = bbox.is_some_and(|bbox| {
-            let mut y_min = -text.font.to_em(bbox.y_max).at(text.size);
-            let mut y_max = -text.font.to_em(bbox.y_min).at(text.size);
-
-            if !transform.is_identity() {
-                let x_min = -text.font.to_em(bbox.x_max).at(text.size);
-                let x_max = -text.font.to_em(bbox.x_min).at(text.size);
-                let rect = Rect::new(Point::new(x_min, y_min), Point::new(x_max, y_max));
-                let parallelogram = transform_rect(rect, &transform);
-                y_max = parallelogram.iter().max_by_key(|p| p.y).unwrap().y;
-                y_min = parallelogram.iter().min_by_key(|p| p.y).unwrap().y;
-            }
-
-            offset >= y_min && offset <= y_max
-        });
+        // let intersect = bbox.is_some_and(|bbox| {
+        //     let mut y_min = -text.font.to_em(bbox.y_max).at(text.size);
+        //     let mut y_max = -text.font.to_em(bbox.y_min).at(text.size);
+        //
+        //     // if !transform.is_identity() {
+        //     let x_min = -text.font.to_em(bbox.x_max).at(text.size);
+        //     let x_max = -text.font.to_em(bbox.x_min).at(text.size);
+        //     let rect = Rect::new(Point::new(x_min, y_min), Point::new(x_max, y_max));
+        //     let parallelogram = transform_rect(rect, &transform);
+        //     y_max = parallelogram.iter().max_by_key(|p| p.y).unwrap().y;
+        //     y_min = parallelogram.iter().min_by_key(|p| p.y).unwrap().y;
+        //     // }
+        //
+        //     offset >= y_min && offset <= y_max
+        // });
 
         // TODO: use transform to compute whether intersect can happen...
-        if intersect || !transform.is_identity() {
-            // Find all intersections of segments with the line.
-            intersections.extend(dbg!(
-                path.segments()
-                    .flat_map(|seg| seg.intersect_line(line))
-                    .map(|is| Abs::raw(line.eval(is.line_t).x))
-                    .collect::<Vec<_>>() // TODO: remove this
-            ));
-        }
+        // if intersect || !transform.is_identity() {
+        // Find all intersections of segments with the line.
+        intersections.extend(
+            path.segments()
+                .flat_map(|seg| seg.intersect_line(deco_line))
+                .map(|is| Abs::raw(deco_line.eval(is.line_t).x))
+                .collect::<Vec<_>>(), // TODO: remove this
+        );
+        // }
     }
 }
 
@@ -402,8 +403,7 @@ fn affine_from_transform(transform: &Transform) -> Affine {
 /// (`parent_baseline`) by `offset`.
 pub fn deco_intersect_frames(
     frame: &Frame,
-    parent_baseline: Abs,
-    offset: Abs,
+    deco_line: Line,
     intersections: &mut Vec<Abs>,
     transform: Transform,
 ) {
@@ -413,17 +413,18 @@ pub fn deco_intersect_frames(
             // But the line offset is assumed to be relative to the text's position, not to the top of the frame.
             // Therefore, adjust the line's position for intersections so that it is relative to where the text actually is,
             // by moving the top of the frame to the top of the text, i.e. by subtracting its height from the top of the frame.
-            FrameItem::Text(text) => deco_intersect(
-                text,
-                parent_baseline + offset,
-                intersections,
-                transform.pre_concat(Transform::translate_point(*pos)), // + frame_pos)),
-            ),
+            FrameItem::Text(text) => {
+                deco_intersect(
+                    text,
+                    deco_line,
+                    intersections,
+                    transform.pre_concat(Transform::translate_point(*pos)),
+                );
+            }
             FrameItem::Group(group) => {
                 deco_intersect_frames(
                     &group.frame,
-                    parent_baseline,
-                    offset,
+                    deco_line,
                     intersections,
                     transform
                         .pre_concat(Transform::translate_point(*pos))

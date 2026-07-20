@@ -5,7 +5,11 @@
 ]
 
 #underline[
-  good #box(baseline: 0.5em)[good] #box(move(dy: 0.5em)[good]) #box(rotate(-30deg)[good]) #box(scale(200%, reflow: true)[good])
+  good
+  #box(baseline: 0.5em)[good]
+  #box(move(dy: 0.5em)[good])
+  #box(rotate(-30deg)[good])
+  #box(scale(200%, reflow: true)[good])
 ]
 
 #v(1em)
