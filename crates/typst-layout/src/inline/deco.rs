@@ -91,7 +91,7 @@ pub fn decorate(
     for glyph in text.glyphs.iter() {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
-            BezPathBuilder::new(font_metrics.units_per_em, text.size, (dx.to_raw(), 0.0));
+            BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
@@ -164,16 +164,16 @@ struct BezPathBuilder {
     path: BezPath,
     units_per_em: f64,
     font_size: Abs,
-    offset: (f64, f64),
+    x_offset: f64,
 }
 
 impl BezPathBuilder {
-    fn new(units_per_em: f64, font_size: Abs, offset: (f64, f64)) -> Self {
+    fn new(units_per_em: f64, font_size: Abs, x_offset: f64) -> Self {
         Self {
             path: BezPath::new(),
             units_per_em,
             font_size,
-            offset,
+            x_offset,
         }
     }
 
@@ -182,7 +182,7 @@ impl BezPathBuilder {
     }
 
     fn p(&self, x: f32, y: f32) -> kurbo::Point {
-        kurbo::Point::new(self.s(x) + self.offset.0, -self.s(y) - self.offset.1)
+        kurbo::Point::new(self.s(x) + self.x_offset, -self.s(y))
     }
 
     fn s(&self, v: f32) -> f64 {
@@ -261,8 +261,8 @@ pub fn init_decos(
         metrics.thickness.at(text_size),
     ));
 
-    let gap_padding = 0.08 * text_size;
-    let min_width = 0.162 * text_size;
+    let gap_padding = Abs::zero(); // 0.08 * text_size;
+    let min_width = Abs::pt(0.01); // 0.162 * text_size;
 
     Some(DecoData {
         stroke,
@@ -293,19 +293,15 @@ pub fn deco_intersect(
     //     text.width()
     // };
 
-    let mut text_pos = Point::zero();
+    let mut x = Abs::zero();
     let font_metrics = text.font.metrics();
 
     for glyph in text.glyphs.iter() {
         // TODO: is y_offset necessary too? Didn't make a difference in basic tests.
-        let glyph_pos = text_pos
-            + Point::new(glyph.x_offset.at(text.size), glyph.y_offset.at(text.size));
+        let dx = glyph.x_offset.at(text.size) + x;
 
-        let mut builder = BezPathBuilder::new(
-            font_metrics.units_per_em,
-            text.size,
-            (glyph_pos.x.to_raw(), glyph_pos.y.to_raw()),
-        );
+        let mut builder =
+            BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let mut path = builder.finish();
@@ -317,8 +313,7 @@ pub fn deco_intersect(
         path.apply_affine(affine_from_transform(&transform));
         // }
 
-        text_pos +=
-            Point::new(glyph.x_advance.at(text.size), glyph.y_advance.at(text.size));
+        x += glyph.x_advance.at(text.size);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
@@ -342,6 +337,7 @@ pub fn deco_intersect(
         // if intersect || !transform.is_identity() {
         // Find all intersections of segments with the line.
         intersections.extend(
+            // TODO: Sanity check if number of intersection is even.
             path.segments()
                 .flat_map(|seg| seg.intersect_line(deco_line))
                 .map(|is| Abs::raw(deco_line.eval(is.line_t).x))
@@ -449,7 +445,7 @@ pub fn deco_draw(
     let end = pos.x + width + deco.extent;
 
     let mut push_segment = |from: Abs, to: Abs, prepend: bool| {
-        let origin = Point::new(from, pos.y + baseline + data.offset + Abs::pt(0.5));
+        let origin = Point::new(from, pos.y + baseline + data.offset);
         let target = Point::new(to - from, Abs::zero());
 
         if target.x >= data.min_width || !data.evade {
@@ -475,7 +471,7 @@ pub fn deco_draw(
     // right. The intersections are not necessarily in this order, yet.
     intersections.sort();
 
-    for edge in intersections.windows(2) {
+    for edge in intersections.chunks(2) {
         let l = edge[0];
         let r = edge[1];
 

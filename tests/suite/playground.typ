@@ -1,4 +1,5 @@
 --- playground paged ---
+#set underline(stroke: red)
 #underline[
   Hello world! Some $x + y$ and $display(sum_(k = 1)^n b i g = a_n)$ stuff \
   is real! $x + y$, $a_n$
