@@ -696,6 +696,7 @@ e3cf07b2d0add6f46fb349c411ffdaf8 issue-2214-baseline-math
 c41d51f569dcf27f881bd7d3d3648396 issue-2259-raw-color-overwrite
 64574ea652fc253da6b6ccc52e61086f issue-2268-mat-augment-color
 1728a5c539e06e657bd36624b31341fc issue-2326-context-set-page
+36a487e1f8e53dbe8ec6107cb0cfee5f issue-2348-justify-indented-cjk-punctuation
 c2119b24bb6b1ff384ccded517e1f643 issue-2419-justify-hanging-indent
 f150a3001d1ea721bb7deb3cd1724473 issue-2480-counter-reset
 1dbe2cc7346f383b84d83eb9440abc11 issue-2480-counter-reset-2

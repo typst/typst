@@ -698,6 +698,7 @@ e8d3e33e8d893bdaccdd7240f0d2518e issue-2162-pagebreak-set-style
 a90ccee256ce36426b07ae7ee6042f5b issue-2259-raw-color-overwrite
 d23048675b0fdb3d50f783e34962076f issue-2268-mat-augment-color
 2e9dfe37225338ea2e7c7bab438b5030 issue-2326-context-set-page
+def9b91341066018499d9ac43557af05 issue-2348-justify-indented-cjk-punctuation
 e15b94d2ec03515083427d1651230204 issue-2419-justify-hanging-indent
 9d78028cf96f75aae7f9cd14e5d474bf issue-2480-counter-reset
 56e8619353795e961e7e8601b4579d1d issue-2480-counter-reset-2
