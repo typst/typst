@@ -1898,6 +1898,9 @@ a1998ab2816b028e3de6b20c1c122d8e text-spacing-relative
 e8c38348f3c3758af450e3b6e9f39cc6 text-tracking-mark-placement
 6dcee9c5d25ba3b758aa0359880cfa8a text-tracking-negative
 13e055782445e90a2967be4fbc896e9b text-unknown-font-family-warning
+39f9be8e858a31fb09fd547a708c2c3f tiling-angle
+715f940e598b07c02925b94a80ae8797 tiling-angle-with-offset
+66a337acf08c271ebb244778b62a6aa8 tiling-angle-with-relative-offset-and-spacing
 2225f575b4cc95ea99e228048dea6daa tiling-line
 70a2534434e265405cb4f15dac4f623c tiling-lines
 0bbfa19437ad13aa77b7579124da2d56 tiling-negative-area
@@ -1917,6 +1920,7 @@ f8c65043365ded3763112324650e90ac tiling-spacing-negative
 e235b63c455666e921af52eef37980bb tiling-stroke-relative-parent
 942912a02f9875ffc25671074f85201d tiling-text
 ce47bdafefffeeaaf618a83e729d7016 tiling-text-fill
+b5b1459fbbbd9f32ec5292b3c7e4b2fa tiling-text-offset-angle
 41d3d523c15a3df9424f6cb44aafbfce tiling-with-different-size
 e7c9446a20f331a801262b4111c3a92d tiling-with-different-spacing
 85f18dd75a49510a986af8fe84d51784 title
