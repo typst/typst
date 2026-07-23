@@ -8,13 +8,15 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
-    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
+    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, HAlignment,
+    Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Separator,
+    Size, VAlignment,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_library::pdf::ArtifactKind;
+use typst_library::visualize::Geometry;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -47,6 +49,7 @@ pub fn compose(
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
         column_balancing_height: None,
+        column_separator_height: Abs::zero(),
         work,
         footnote_spill: None,
         footnote_queue: vec![],
@@ -71,6 +74,7 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
     column_balancing_height: Option<Abs>,
+    column_separator_height: Abs,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
@@ -139,6 +143,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut offset = Abs::zero();
         let mut locator = locator.split();
         let mut total_used_height = Abs::zero();
+        let mut last_column_height_separator = Abs::zero();
 
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
@@ -165,6 +170,52 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             if i == 0 && frame.has_baseline() {
                 output.set_baseline(frame.baseline());
             }
+
+            // Column separators.
+            if let Some(separator) = &self.config.columns.separator
+                && !self
+                    .column_separator_height
+                    .min(last_column_height_separator)
+                    .is_zero()
+            {
+                let mut xsep = x - 0.5 * self.config.columns.gutter;
+                if self.config.columns.dir == Dir::RTL {
+                    xsep += width + self.config.columns.gutter;
+                }
+                let ysep = self.column_separator_height.max(last_column_height_separator);
+                match separator {
+                    Separator::Stroke(stroke) => {
+                        let stroke = stroke.clone().resolve(self.config.shared);
+                        let line = Geometry::Line(Point::with_y(ysep))
+                            .stroked(stroke.unwrap_or_default());
+                        output.prepend(
+                            // Prepend so it's behind both adjacent columns.
+                            Point::with_x(xsep),
+                            FrameItem::Shape(line, Span::detached()),
+                        );
+                    }
+                    Separator::Content(content) => {
+                        let frame = crate::layout_frame(
+                            self.engine,
+                            &content
+                                .clone()
+                                .aligned(HAlignment::Center + VAlignment::Horizon),
+                            Locator::root(),
+                            self.config.shared,
+                            Region::new(
+                                Size::new(self.config.columns.gutter, ysep),
+                                Axes::new(true, true),
+                            ),
+                        )?;
+                        output.prepend_frame(
+                            // Prepend so it's behind both adjacent columns.
+                            Point::with_x(xsep - 0.5 * frame.width()),
+                            frame,
+                        );
+                    }
+                }
+            }
+            last_column_height_separator = self.column_separator_height;
 
             output.push_frame(Point::with_x(x), frame);
             inner.next();
@@ -223,6 +274,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             }
         };
         drop(checkpoint);
+
+        self.column_separator_height = if self.column_insertions.bottom_floats.is_empty()
+        {
+            used_height
+        } else {
+            self.column_balancing_height
+                .unwrap_or(inner.height() + self.column_insertions.float_height())
+        };
 
         self.work.footnotes.extend(self.footnote_queue.drain(..));
         if let Some(spill) = self.footnote_spill.take() {

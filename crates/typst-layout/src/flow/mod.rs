@@ -22,7 +22,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Regions, Rel, Separator, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
@@ -75,6 +75,7 @@ pub fn layout_fragment(
             count: NonZeroUsize::ONE,
             balanced: false,
             gutter: Rel::zero(),
+            separator: None,
         },
     )
 }
@@ -106,6 +107,7 @@ pub fn layout_columns(
             count: elem.count.get(styles),
             balanced: elem.balanced.get(styles),
             gutter: elem.gutter.resolve(styles),
+            separator: elem.separator.get_cloned(styles),
         },
     )
 }
@@ -261,6 +263,7 @@ fn configuration<'x>(
                 gutter,
                 dir,
                 balanced: column.balanced,
+                separator: column.separator,
             }
         },
         footnote: FootnoteConfig {
@@ -368,6 +371,7 @@ pub struct ColumnOptions {
     pub balanced: bool,
     /// The spacing between columns.
     pub gutter: Rel<Abs>,
+    pub separator: Option<Separator>,
 }
 
 /// Shared configuration for the whole flow.
@@ -411,6 +415,8 @@ struct ColumnConfig {
     dir: Dir,
     /// Whether to equalize the height of columns by breaking columns early.
     balanced: bool,
+    /// The separator between columns.
+    separator: Option<Separator>,
 }
 
 /// Configuration of line numbers.
