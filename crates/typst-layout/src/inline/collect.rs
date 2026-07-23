@@ -1,9 +1,11 @@
+use rustc_hash::FxHashMap;
 use typst_library::diag::warning;
-use typst_library::foundations::{Packed, Resolve};
+use typst_library::foundations::{NativeElement, Packed, Resolve, Style};
 use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
+use typst_library::model::{Destination, LinkElem};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -13,7 +15,9 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
+use crate::modifiers::{
+    FrameModifiers, FrameModify, layout_and_modify, layout_and_reset_modifications,
+};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -96,6 +100,12 @@ impl<'a> Item<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum Event {
+    StartLink(Destination),
+    EndLink(Destination),
+}
+
 /// An item or not-yet shaped text. We can't shape text until we have collected
 /// all items because only then we can compute BiDi, and we need to split shape
 /// runs at level boundaries.
@@ -106,6 +116,8 @@ pub enum Segment<'a> {
     Text(usize, StyleChain<'a>),
     /// An already prepared item.
     Item(Item<'a>),
+    /// An event.
+    Event(Event),
 }
 
 impl Segment<'_> {
@@ -114,6 +126,7 @@ impl Segment<'_> {
         match self {
             Self::Text(len, _) => *len,
             Self::Item(item) => item.textual_len(),
+            Self::Event(_) => 0,
         }
     }
 }
@@ -142,8 +155,63 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    let prev_styles = None;
+    let mut active_links: Vec<(Destination, &LazyHash<Style>)> = vec![];
     for &(child, styles) in children {
         let prev_len = collector.full.len();
+
+        // 1. End active links.
+        let mut hit = false;
+        for style in styles.entries() {
+            if let Some(link_pos) =
+                active_links.iter().position(|(_, s)| std::ptr::eq(*s, style))
+            {
+                for (link, _) in active_links.drain(link_pos + 1..).rev() {
+                    collector.push_event(Event::EndLink(link));
+                }
+                hit = true;
+                break;
+            }
+        }
+
+        // All links are gone!!
+        if !hit {
+            for (link, style) in active_links.drain(..) {
+                println!("Bye {link:?} {:p}!", style);
+                collector.push_event(Event::EndLink(link));
+            }
+        }
+
+        // 2. Append new links.
+        let common_styles =
+            prev_styles.and_then(|prev| StyleChain::trunk([prev, styles]));
+        let first_common_entry = common_styles.and_then(|c| c.entries().next());
+        for new_style in styles
+            .entries()
+            .skip_while(|&s| first_common_entry.is_some_and(|c| !std::ptr::eq(c, s)))
+        {
+            if first_common_entry.is_some_and(|c| std::ptr::eq(c, new_style)) {
+                continue;
+            }
+            if active_links.last().is_some_and(|(_, s)| std::ptr::eq(*s, new_style)) {
+                continue;
+            }
+            if let Some(property) = new_style.property()
+                && property.is(LinkElem::ELEM, LinkElem::current.index())
+            {
+                let link = styles.get_cloned(LinkElem::current);
+                if let Some(link) = link {
+                    println!("Hi {link:?} {:p}!", new_style);
+                    collector.push_event(Event::StartLink(link.clone()));
+                    active_links.push((link, new_style));
+                } else {
+                    // What to do if setting link to none? probably nothing? or
+                    // maybe add end and later start event again for the same
+                    // link?
+                    todo!()
+                }
+            }
+        }
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
@@ -225,9 +293,11 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width.get(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let mut frame = layout_and_modify(styles, |styles| {
-                    layout_box(elem, engine, loc, styles, region)
-                })?;
+                let (modifiers, mut frame) =
+                    layout_and_reset_modifications(styles, |styles| {
+                        layout_box(elem, engine, loc, styles, region)
+                    })?;
+
                 apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
@@ -249,6 +319,66 @@ pub fn collect<'a>(
 
     Ok((collector.full, collector.segments, collector.spans))
 }
+//
+//   BB
+//  AAAAA
+// -------
+//  |
+//  A
+//  S
+// active_links: [] --> [A,]
+// common_styles: -
+// style_diff: A- \ - = A
+//
+//   BB
+//  AAAAA
+// -------
+//   |
+//  AB
+//  SS
+// active_links: [A,] --> [A, B]
+// common_styles: A-
+// style_diff: BA- \ A- = B
+//
+//   BB
+//  AAAAA
+// -------
+//    |
+//  AB
+//  SS
+// active_links: [A, B]
+// common_styles: BA-
+// style_diff: BA- \ BA- = 0
+//
+//   BB
+//  AAAAA
+// -------
+//     |
+//  AB B
+//  SS E
+// active_links: [A, B] --> [A, ] (check if top is still in the style)
+// common_styles: A-
+// style_diff: A- \ A- = 0
+//
+//   BB
+//  AAAAA
+// -------
+//      |
+//  AB B
+//  SS E
+// active_links: [A, ]
+// common_styles: A-
+// style_diff: A- \ A- = 0
+//
+//   BB
+//  AAAAA*
+// -------
+//       |
+//  AB B A
+//  SS E E
+// active_links: [A, ] --> []
+// common_styles: -
+// style_diff: *- \ - = * (not a link, okay)
 
 /// Collects segments.
 struct Collector<'a> {
@@ -304,6 +434,10 @@ impl<'a> Collector<'a> {
                 self.segments.push(Segment::Item(item));
             }
         }
+    }
+
+    fn push_event(&mut self, event: Event) {
+        self.segments.push(Segment::Event(event));
     }
 }
 

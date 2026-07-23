@@ -92,9 +92,17 @@ pub fn prepare<'a>(
 
         match segment {
             Segment::Text(_, styles) => {
+                println!("\"{}\"", &text[range.clone()]);
                 shape_range(&mut items, engine, text, &bidi, range, styles);
             }
-            Segment::Item(item) => items.push((range, item)),
+            Segment::Item(item) => {
+                println!("{item:?}");
+                items.push((range, item));
+            }
+            // todo...
+            Segment::Event(event) => {
+                println!("{event:?}");
+            }
         }
 
         cursor = end;
