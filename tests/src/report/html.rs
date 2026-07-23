@@ -491,9 +491,13 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                             test_report_header(div, test_report, test_idx, close);
                         });
 
+                        let image_kind = match &test_report.files[0].diffs[0] {
+                            Diff::Image(_) => " image",
+                            Diff::Text(_) | Diff::Html(_) => "",
+                        };
                         div.div()
                             .id(display!("test-report-body-{test_idx}"))
-                            .class("test-report-body")
+                            .class(display!("test-report-body{image_kind}"))
                             .hidden(close)
                             .with(|div| {
                                 test_report_source(div, test_report, test_idx);
@@ -508,6 +512,15 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                                         test_idx,
                                         file_idx,
                                     );
+                                }
+
+                                // There is one set of image controls for the
+                                // image diffs of all outputs of a test report.
+                                let has_image_diff = (test_report.files.iter())
+                                    .flat_map(|f| f.diffs.iter())
+                                    .any(Diff::is_image);
+                                if has_image_diff {
+                                    image_diff_controls(div, test_idx);
                                 }
                             });
                     });
@@ -778,7 +791,7 @@ fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx:
         .hidden(true)
         .id(display!("test-report-source-{test_idx}"))
         .with(|div| {
-            div.table().class("text-diff").with(|table| {
+            div.table().class("file-diff html").with(|table| {
                 table.colgroup().with(|colgroup| {
                     colgroup.col().attr("span", 1).class("col-line-gutter");
                     colgroup.col().attr("span", 1).class("col-source-line-body");
@@ -983,11 +996,12 @@ fn file_diff_tabpanel(
         .role("tabpanel")
         .aria_labelledby(display!("file-diff-tab-{n}-{}", diff.mode()))
         .hidden(diff_idx != 0)
-        .class("file-diff")
+        .class(display!("file-diff {}", diff.kind()))
+        .data_attr("kind", diff.kind())
         .with(|div| match diff {
             Diff::Text(diff) => text_diff(div, diff),
             Diff::Image(diff) => {
-                image_diff(div, &test_report.name, report_file.output, diff, n);
+                image_diff(div, &test_report.name, report_file.output, diff);
             }
             Diff::Html(diff) => html_diff(div, diff),
         });
@@ -1072,8 +1086,34 @@ fn image_diff(
     name: &str,
     output: TestOutput,
     diff: &FileDiff<Image>,
-    n: usize,
 ) {
+    let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
+        parent
+            .img()
+            .src(data_url)
+            .alt(display!("The {output} image of `{name}` test"));
+    };
+
+    parent
+        .canvas()
+        .class("image-canvas")
+        .data_attr("output", output)
+        .with(|canvas| {
+            let data_url = (diff.left())
+                .and_then(|old| old.data())
+                .map(|img| img.data_url.as_str())
+                .unwrap_or("");
+            image(canvas, data_url);
+
+            let data_url = (diff.right())
+                .and_then(|res| res.as_ref().ok())
+                .map(|img| img.data_url.as_str())
+                .unwrap_or("");
+            image(canvas, data_url);
+        });
+}
+
+fn image_diff_controls(parent: &mut HtmlElem, n: usize) {
     let radio_icon_button = |parent: &mut HtmlElem, name, value, title, icon, checked| {
         parent.label().class("icon-toggle-button").with(|label| {
             label
@@ -1148,165 +1188,136 @@ fn image_diff(
         });
     };
 
-    parent.div().class("image-diff").with(|div| {
-        div.div().class("image-controls").with(|div| {
-            div.fieldset().class("control-group").with(|fieldset| {
+    parent.div().class("image-controls top").with(|div| {
+        div.fieldset().class("control-group").with(|fieldset| {
+            radio_icon_button(
+                fieldset,
+                "image-view-mode",
+                "side-by-side",
+                "View Mode side by side",
+                icons::VIEW_SIDE_BY_SIDE,
+                true,
+            );
+            radio_icon_button(
+                fieldset,
+                "image-view-mode",
+                "swipe",
+                "View Mode swipe",
+                icons::VIEW_SWIPE,
+                false,
+            );
+            radio_icon_button(
+                fieldset,
+                "image-view-mode",
+                "blend",
+                "View Mode blend",
+                icons::VIEW_BLEND,
+                false,
+            );
+            radio_icon_button(
+                fieldset,
+                "image-view-mode",
+                "difference",
+                "View Mode difference",
+                icons::VIEW_DIFFERENCE,
+                false,
+            );
+        });
+
+        div.fieldset().class("control-group").with(|fieldset| {
+            checkbox_icon_button(
+                fieldset,
+                "image-antialiasing",
+                "Antialiasing",
+                icons::ANTIALIASING,
+                true,
+            );
+        });
+
+        div.fieldset().class("control-group").with(|fieldset| {
+            icon_button(fieldset, "image-zoom-minus", "Zoom out", icons::MINUS);
+            icon_button(fieldset, "image-zoom-plus", "Zoom in", icons::PLUS);
+
+            slider(
+                fieldset,
+                "image-zoom",
+                "Zoom",
+                None,
+                SliderOpts { min: 0.5, max: 8.0, value: 2.0, step: 0.05 },
+            );
+        });
+    });
+
+    parent.div().class("image-controls bottom").with(|div| {
+        div.fieldset()
+            .class("control-group image-align-y-control")
+            .with(|fieldset| {
                 radio_icon_button(
                     fieldset,
-                    "image-view-mode",
-                    "side-by-side",
-                    "View Mode side by side",
-                    icons::VIEW_SIDE_BY_SIDE,
+                    "image-align-y",
+                    "top",
+                    "Vertical-align top",
+                    icons::ALIGN_TOP,
                     true,
                 );
                 radio_icon_button(
                     fieldset,
-                    "image-view-mode",
-                    "swipe",
-                    "View Mode swipe",
-                    icons::VIEW_SWIPE,
+                    "image-align-y",
+                    "center",
+                    "Vertical-align center",
+                    icons::ALIGN_HORIZON,
                     false,
                 );
                 radio_icon_button(
                     fieldset,
-                    "image-view-mode",
-                    "blend",
-                    "View Mode blend",
-                    icons::VIEW_BLEND,
-                    false,
-                );
-                radio_icon_button(
-                    fieldset,
-                    "image-view-mode",
-                    "difference",
-                    "View Mode difference",
-                    icons::VIEW_DIFFERENCE,
+                    "image-align-y",
+                    "bottom",
+                    "Vertical-align bottom",
+                    icons::ALIGN_BOTTOM,
                     false,
                 );
             });
 
-            div.fieldset().class("control-group").with(|fieldset| {
-                checkbox_icon_button(
+        div.fieldset()
+            .class("control-group image-align-x-control")
+            .with(|fieldset| {
+                radio_icon_button(
                     fieldset,
-                    "image-antialiasing",
-                    "Antialiasing",
-                    icons::ANTIALIASING,
+                    "image-align-x",
+                    "left",
+                    "Horizontal-align left",
+                    icons::ALIGN_LEFT,
                     true,
                 );
+                radio_icon_button(
+                    fieldset,
+                    "image-align-x",
+                    "center",
+                    "Horizontal-align center",
+                    icons::ALIGN_CENTER,
+                    false,
+                );
+                radio_icon_button(
+                    fieldset,
+                    "image-align-x",
+                    "right",
+                    "Horizontal-align right",
+                    icons::ALIGN_RIGHT,
+                    false,
+                );
             });
 
-            div.fieldset().class("control-group").with(|fieldset| {
-                icon_button(fieldset, "image-zoom-minus", "Zoom out", icons::MINUS);
-                icon_button(fieldset, "image-zoom-plus", "Zoom in", icons::PLUS);
-
-                // HACK: Scale factor of HTML pt (`1/72 inch`) to px (`1/96 inch`).
-                // Since PNG images are rendered with 1 px/pt and PDFs converted
-                // to SVGs don't currently specify a unit thus default to px.
-                let factor = if output == TestOutput::Svg { 72.0 / 96.0 } else { 1.0 };
+        div.fieldset()
+            .class("control-group image-blend-control")
+            .with(|fieldset| {
                 slider(
                     fieldset,
-                    "image-zoom",
-                    "Zoom",
-                    None,
-                    factor * SliderOpts { min: 0.5, max: 8.0, value: 2.0, step: 0.05 },
+                    "image-blend",
+                    "Blend",
+                    Some(icons::VIEW_BLEND),
+                    SliderOpts { min: 0.0, max: 1.0, value: 0.5, step: 0.01 },
                 );
             });
-        });
-
-        div.div().class("image-diff-wrapper").with(|div| {
-            let image = |parent: &mut HtmlElem<'_>, data_url: &str| {
-                parent
-                    .img()
-                    .src(data_url)
-                    .alt(display!("The {output} image of `{name}` test"));
-            };
-
-            div.canvas().class("image-canvas").with(|canvas| {
-                let data_url = (diff.left())
-                    .and_then(|old| old.data())
-                    .map(|img| img.data_url.as_str())
-                    .unwrap_or("");
-                image(canvas, data_url);
-
-                let data_url = (diff.right())
-                    .and_then(|res| res.as_ref().ok())
-                    .map(|img| img.data_url.as_str())
-                    .unwrap_or("");
-                image(canvas, data_url);
-            });
-        });
-
-        div.div().class("image-mode-controls").with(|div| {
-            div.fieldset().class("control-group image-align-y-control").with(
-                |fieldset| {
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-y",
-                        "top",
-                        "Vertical-align top",
-                        icons::ALIGN_TOP,
-                        true,
-                    );
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-y",
-                        "center",
-                        "Vertical-align center",
-                        icons::ALIGN_HORIZON,
-                        false,
-                    );
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-y",
-                        "bottom",
-                        "Vertical-align bottom",
-                        icons::ALIGN_BOTTOM,
-                        false,
-                    );
-                },
-            );
-
-            div.fieldset().class("control-group image-align-x-control").with(
-                |fieldset| {
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-x",
-                        "left",
-                        "Horizontal-align left",
-                        icons::ALIGN_LEFT,
-                        true,
-                    );
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-x",
-                        "center",
-                        "Horizontal-align center",
-                        icons::ALIGN_CENTER,
-                        false,
-                    );
-                    radio_icon_button(
-                        fieldset,
-                        "image-align-x",
-                        "right",
-                        "Horizontal-align right",
-                        icons::ALIGN_RIGHT,
-                        false,
-                    );
-                },
-            );
-
-            div.fieldset()
-                .class("control-group image-blend-control")
-                .with(|fieldset| {
-                    slider(
-                        fieldset,
-                        "image-blend",
-                        "Blend",
-                        Some(icons::VIEW_BLEND),
-                        SliderOpts { min: 0.0, max: 1.0, value: 0.5, step: 0.01 },
-                    );
-                });
-        });
     });
 }
 
@@ -1320,19 +1331,17 @@ fn html_diff(parent: &mut HtmlElem, diff: &FileDiff<diff::Html>) {
             .opt_attr("style", data_url.is_empty().then_some("visibility: hidden"));
     };
 
-    parent.div().class("html-diff").with(|div| {
-        let data_url = (diff.left())
-            .and_then(|old| old.data())
-            .map(|html| html.data_url.as_str())
-            .unwrap_or("");
-        iframe(div, data_url);
+    let data_url = (diff.left())
+        .and_then(|old| old.data())
+        .map(|html| html.data_url.as_str())
+        .unwrap_or("");
+    iframe(parent, data_url);
 
-        let data_url = (diff.right())
-            .and_then(|res| res.as_ref().ok())
-            .map(|html| html.data_url.as_str())
-            .unwrap_or("");
-        iframe(div, data_url);
-    });
+    let data_url = (diff.right())
+        .and_then(|res| res.as_ref().ok())
+        .map(|html| html.data_url.as_str())
+        .unwrap_or("");
+    iframe(parent, data_url);
 }
 
 #[rustfmt::skip]
