@@ -166,10 +166,18 @@ fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<
 
 /// Handles for the `/` route. Serves the compiled HTML.
 fn handle_body(req: Request, reload: bool, mut body: HttpBody) -> io::Result<()> {
+    // requests for index.html without trailing / should be redirected for
+    // adding /, e.g. /foo -> /foo/, because otherwise relative links on the
+    // page doesn't work
+    let mut should_redirect_index = false;
     let (data, mime) = match &mut body {
         HttpBody::Html(html) => {
             if reload {
                 inject_live_reload_script(html);
+            }
+            let url = req.url();
+            if !url.ends_with(".html") && !url.ends_with("/") {
+                should_redirect_index = true;
             }
             (html.as_bytes(), Some("text/html"))
         }
@@ -180,8 +188,14 @@ fn handle_body(req: Request, reload: bool, mut body: HttpBody) -> io::Result<()>
     if let Some(mime) = mime {
         headers.push(Header::from_bytes("Content-Type", mime).unwrap());
     }
+    let code = if should_redirect_index {
+        headers.push(Header::from_bytes("location", req.url().to_owned() + "/").unwrap());
+        307
+    } else {
+        200
+    };
 
-    req.respond(Response::new(StatusCode(200), headers, data, Some(data.len()), None))
+    req.respond(Response::new(StatusCode(code), headers, data, Some(data.len()), None))
 }
 
 /// Handler for the `/__events` route.
