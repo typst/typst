@@ -1505,6 +1505,7 @@ a57d370e15462359d602a9d2d4076492 par-leading-and-spacing
 5a1122a261de359724d115f7a2729ede par-show-children
 06720a140825273c867ee09348474f25 par-show-styles
 7cb2f79030b05a0e329cb8b8bad31e42 par-spacing-and-first-line-indent
+e30950392999e9f4b7e9349fc28c68e2 par-thai-distributed
 fcf39cacf4cbc391f5384173d337657f par-trailing-whitespace
 2b0169479fa2903a37f5b6711f75daf5 parser-backtracking-destructuring-whitespace
 57cbc73ac0d7bdd190178b0a573ff820 place-basic

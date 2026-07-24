@@ -110,6 +110,10 @@ pub fn prepare<'a>(
         add_cjk_latin_spacing(&mut items);
     }
 
+    if config.thai_distributed {
+        mark_thai_distributed(&mut items);
+    }
+
     Ok(Preparation {
         config,
         text,
@@ -171,5 +175,50 @@ fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
             }
         }
         prev = item;
+    }
+}
+
+/// Mark distributed text glyphs as justifiable for Thai distributed alignment.
+///
+/// When Thai distributed justification is enabled, extra space is distributed
+/// evenly between Thai grapheme clusters and Latin glyph clusters. This
+/// function iterates through all shaped glyphs and sets `is_justifiable = true`
+/// on the previous distributed glyph whenever a new distributed cluster starts.
+///
+/// This marks the last glyph of the previous distributed cluster because
+/// justification adds extra space after marked glyphs.
+fn mark_thai_distributed(items: &mut [(Range, Item)]) {
+    use super::shaping::is_distributed_cluster_boundary;
+
+    for (_, item) in items.iter_mut() {
+        if let Item::Text(text_item) = item {
+            let glyphs = text_item.glyphs.to_mut();
+            let mut prev_cluster: Option<(Range, usize)> = None;
+
+            for i in 0..glyphs.len() {
+                let c = glyphs[i].c;
+                let range = glyphs[i].range.clone();
+
+                if glyphs[i].is_space() {
+                    glyphs[i].is_justifiable = false;
+                    glyphs[i].adjustability.stretchability = (Em::zero(), Em::zero());
+                    prev_cluster = None;
+                    continue;
+                }
+
+                if !is_distributed_cluster_boundary(c) {
+                    prev_cluster = None;
+                    continue;
+                }
+
+                if let Some((prev_range, prev_index)) = &prev_cluster
+                    && *prev_range != range
+                {
+                    glyphs[*prev_index].is_justifiable = true;
+                }
+
+                prev_cluster = Some((range, i));
+            }
+        }
     }
 }

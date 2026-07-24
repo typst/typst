@@ -241,6 +241,29 @@ pub struct ParElem {
     #[default(false)]
     pub justify: bool,
 
+    /// Whether to use Thai distributed justification.
+    ///
+    /// When enabled alongside @par.justify[`justify`], this distributes extra
+    /// space evenly between Thai grapheme clusters and Latin glyph clusters
+    /// (rather than only between word spaces) to fill each line. This produces
+    /// the clean, formally justified look expected in Thai typography, where
+    /// words are not separated by spaces and mixed English terms should align
+    /// with the same paragraph edges.
+    ///
+    /// This property is intended for Thai and mixed Thai/Latin paragraphs.
+    /// Other scripts in the same paragraph continue to use normal word-space
+    /// justification.
+    ///
+    /// ```example
+    /// #set text(lang: "th")
+    /// #set par(justify: true, thai-distributed: true)
+    ///
+    /// ภาษาไทยเป็นภาษาที่ไม่มีการเว้นวรรคระหว่างคำ
+    /// การจัดเรียงแบบกระจายจะช่วยให้ข้อความดูเป็นระเบียบ
+    /// ```
+    #[default(false)]
+    pub thai_distributed: bool,
+
     /// How much the spacing between words and characters may be adjusted during
     /// justification.
     ///

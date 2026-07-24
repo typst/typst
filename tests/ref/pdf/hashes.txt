@@ -1510,6 +1510,7 @@ bdc6d86984d0182d1a47409cff68e327 par-semantic
 a1bdb99a562d2db97dace81f9b42c711 par-show-children
 61c9dd3b4a1d2bbd774557a1fc16838e par-show-styles
 a64fdf9e65b08988b5332f472e0810bc par-spacing-and-first-line-indent
+d53da4921f4895f3b8a512af6584b30a par-thai-distributed
 c8dfdb306c5bfaef407e5d566743952b par-trailing-whitespace
 3a1ed824e4aad2d224bf8b639543dbac parser-backtracking-destructuring-whitespace
 8feb968e768955c679562662c69c7ee0 pdf-validation-multiple-standards

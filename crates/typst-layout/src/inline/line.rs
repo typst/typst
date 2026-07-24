@@ -151,6 +151,7 @@ pub fn line<'a>(
     // Trim the line at the end, if necessary for this breakpoint.
     let trim = breakpoint.trim(range.start, full);
     let trimmed_range = range.start..trim.layout;
+    let trimmed_end = trimmed_range.end;
 
     // Collect the items for the line.
     let mut items = Items::new();
@@ -180,12 +181,18 @@ pub fn line<'a>(
     // Ensure that there is no weak spacing at the start and end of the line.
     trim_weak_spacing(&mut items);
 
+    // Deal with distributed spacing at the start of the line.
+    adjust_thai_distributed_at_line_start(p, &mut items);
+
     // Deal with CJ characters at line boundaries.
     // Use the trimmed range for robust boundary checks.
     adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
 
     // Deal with stretchability of glyphs at the end of the line.
     adjust_glyph_stretch_at_line_end(p, &mut items);
+
+    // Deal with distributed spacing at the end of the line.
+    adjust_thai_distributed_at_line_end(p, trimmed_end, &mut items);
 
     // Compute the line's width.
     let width = items.iter().map(Item::natural_width).sum();
@@ -370,6 +377,82 @@ fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
     // cleanup.
     let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.to_mut().last_mut() else { return };
+    glyph.adjustability = Adjustability::default();
+}
+
+/// Remove Thai distributed spacing and trailing spaces from the line end.
+fn adjust_thai_distributed_at_line_end(
+    p: &Preparation,
+    line_end: usize,
+    items: &mut Items,
+) {
+    if !p.config.thai_distributed {
+        return;
+    }
+
+    for (_, item) in items.iter_mut().rev() {
+        if item.is_tag() {
+            continue;
+        }
+
+        let Some(shaped) = item.text_mut() else { break };
+        let glyphs = shaped.glyphs.to_mut();
+
+        let Some(last_non_space) = glyphs.iter().rposition(|glyph| !glyph.is_space())
+        else {
+            for glyph in glyphs.iter_mut() {
+                clear_boundary_space(glyph);
+            }
+            continue;
+        };
+
+        for glyph in glyphs.iter_mut().skip(last_non_space + 1) {
+            clear_boundary_space(glyph);
+        }
+
+        let glyph = &mut glyphs[last_non_space];
+        if glyph.range.end <= line_end
+            && crate::inline::shaping::is_distributed_cluster_boundary(glyph.c)
+        {
+            glyph.is_justifiable = false;
+        }
+        break;
+    }
+}
+
+/// Remove leading spaces from Thai distributed lines.
+fn adjust_thai_distributed_at_line_start(p: &Preparation, items: &mut Items) {
+    if !p.config.thai_distributed {
+        return;
+    }
+
+    for (_, item) in items.iter_mut() {
+        if item.is_tag() {
+            continue;
+        }
+
+        let Some(shaped) = item.text_mut() else { break };
+        let glyphs = shaped.glyphs.to_mut();
+
+        let Some(first_non_space) = glyphs.iter().position(|glyph| !glyph.is_space())
+        else {
+            for glyph in glyphs.iter_mut() {
+                clear_boundary_space(glyph);
+            }
+            continue;
+        };
+
+        for glyph in glyphs.iter_mut().take(first_non_space) {
+            clear_boundary_space(glyph);
+        }
+        break;
+    }
+}
+
+fn clear_boundary_space(glyph: &mut ShapedGlyph) {
+    glyph.x_advance = Em::zero();
+    glyph.x_offset = Em::zero();
+    glyph.is_justifiable = false;
     glyph.adjustability = Adjustability::default();
 }
 

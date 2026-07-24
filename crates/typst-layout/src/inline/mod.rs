@@ -115,6 +115,7 @@ fn layout_par_impl(
         Some(situation),
         &ConfigBase {
             justify: elem.justify.get(styles),
+            thai_distributed: elem.thai_distributed.get(styles),
             linebreaks: elem.linebreaks.get(styles),
             first_line_indent: elem.first_line_indent.get(styles),
             hanging_indent: elem.hanging_indent.resolve(styles),
@@ -141,6 +142,7 @@ pub fn layout_inline<'a>(
         None,
         &ConfigBase {
             justify: shared.get(ParElem::justify),
+            thai_distributed: shared.get(ParElem::thai_distributed),
             linebreaks: shared.get(ParElem::linebreaks),
             first_line_indent: shared.get(ParElem::first_line_indent),
             hanging_indent: shared.resolve(ParElem::hanging_indent),
@@ -190,6 +192,7 @@ fn configuration(
 
     Config {
         justify,
+        thai_distributed: base.thai_distributed,
         justification_limits: shared.get(ParElem::justification_limits),
         linebreaks: base.linebreaks.unwrap_or_else(|| {
             if justify { Linebreaks::Optimized } else { Linebreaks::Simple }
@@ -260,6 +263,7 @@ pub enum ParSituation {
 /// Raw values from a `ParElem` or style chain. Used to initialize a [`Config`].
 struct ConfigBase {
     justify: bool,
+    thai_distributed: bool,
     linebreaks: Smart<Linebreaks>,
     first_line_indent: FirstLineIndent,
     hanging_indent: Abs,
@@ -269,6 +273,8 @@ struct ConfigBase {
 struct Config {
     /// Whether to justify text.
     justify: bool,
+    /// Whether to use Thai distributed justification.
+    thai_distributed: bool,
     /// Settings for justification.
     justification_limits: JustificationLimits,
     /// How to determine line breaks.
