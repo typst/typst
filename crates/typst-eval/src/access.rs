@@ -1,6 +1,6 @@
 use ecow::eco_format;
 use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
-use typst_library::foundations::{BindingAccess, Dict, Value};
+use typst_library::foundations::{Dict, Value};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Eval, Vm, call_method_access, is_accessor_method};
@@ -32,17 +32,15 @@ impl Access for ast::Ident<'_> {
         let ident = self.as_str();
         if vm.inspected == Some(span)
             && let Ok(binding) = vm.scopes.get(ident)
+            && let Ok(value) =
+                binding.read(vm.engine.binding_ctx(span).discard_warnings())
         {
-            let value = binding
-                .read(vm.engine.binding_ctx(span))
-                .what(format_args!("cannot access variable `{ident}`"))
-                .at(span)?
-                .clone();
-            vm.trace(value);
+            vm.trace(value.clone());
         }
+
         vm.scopes
             .get_mut(&self)
-            .and_then(|b| b.write().map_err(Into::into))
+            .and_then(|b| b.write(vm.engine.binding_ctx(span)).map_err(Into::into))
             .at(span)
     }
 }

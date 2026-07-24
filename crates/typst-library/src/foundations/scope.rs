@@ -350,6 +350,28 @@ impl Binding {
         Ok(&self.value)
     }
 
+    /// Try to write to the value.
+    ///
+    /// This fails if the value is a read-only closure capture.
+    pub fn write(&mut self, ctx: impl BindingContext) -> StrResult<&mut Value> {
+        match self.kind {
+            BindingKind::Normal => {
+                if self.check_access {
+                    self.check_access(ctx).what("cannot access variable")?;
+                }
+                Ok(&mut self.value)
+            }
+            BindingKind::Captured(capturer) => bail!(
+                "variables from outside the {} are \
+                 read-only and cannot be modified",
+                match capturer {
+                    Capturer::Function => "function",
+                    Capturer::Context => "context expression",
+                },
+            ),
+        }
+    }
+
     /// Check if the binding is gated behind a feature or if it is deprecated.
     #[cold]
     fn check_access(&self, mut ctx: impl BindingContext) -> Result<(), FeatureError> {
@@ -366,23 +388,6 @@ impl Binding {
         }
 
         Ok(())
-    }
-
-    /// Try to write to the value.
-    ///
-    /// This fails if the value is a read-only closure capture.
-    pub fn write(&mut self) -> StrResult<&mut Value> {
-        match self.kind {
-            BindingKind::Normal => Ok(&mut self.value),
-            BindingKind::Captured(capturer) => bail!(
-                "variables from outside the {} are \
-                 read-only and cannot be modified",
-                match capturer {
-                    Capturer::Function => "function",
-                    Capturer::Context => "context expression",
-                },
-            ),
-        }
     }
 
     /// Create a copy of the binding for closure capturing.
