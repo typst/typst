@@ -10,8 +10,9 @@ use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, Module, NativeElement,
-    NoneValue, Packed, Repr, Scope, Smart, StyleChain, Value, elem, func, scope,
+    Array, Bytes, Content, Context, Datetime, Deprecation, Duration, IntoValue, Module,
+    NativeElement, NoneValue, Packed, Repr, Scope, Smart, StyleChain, Value, elem, func,
+    scope,
 };
 use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
@@ -242,10 +243,9 @@ fn check_module() -> Module {
     let mut check = Scope::new();
     check
         .define("deprecated", Value::None)
-        .with_deprecation("this value is useless");
+        .with_deprecation(Deprecation::new().with_message("this value is useless"));
     check.define("gated", Value::None).with_feature(Feature::Html);
     check.define("red", Color::RED);
-
     Module::new("check", check)
 }
 

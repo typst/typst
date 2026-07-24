@@ -227,7 +227,12 @@ where
                 self.find_iter(content.fields().iter().map(|(_, v)| v))?;
             }
             Value::Module(module) => {
-                self.find_iter(module.scope().iter_checked(self.ctx).map(|(_, v)| v.v))?;
+                let binding_ctx = self.ctx;
+                self.find_iter(
+                    module.scope().iter().filter_map(move |(_name, binding)| {
+                        binding.read(binding_ctx).ok()
+                    }),
+                )?;
             }
             _ => {}
         }

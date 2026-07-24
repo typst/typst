@@ -503,6 +503,12 @@ This is never reached.
 --- import-deprecated-item eval ---
 // Warning: 15-25 this function is useless
 #import test: deprecated
+// Warning: 16-26 this value is useless
+#import check: deprecated
+
+--- import-feature-gated-value eval features() ---
+// Error: 16-21 cannot import `gated` because the `html` feature is not enabled
+#import check: gated
 
 --- import-feature-gated-field-of-type eval features() ---
 // Error: 15-20 cannot import `gated` because the `html` feature is not enabled

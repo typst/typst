@@ -159,6 +159,7 @@ macro_rules! __error {
 ///     hint[hint_span]: "hints can have custom spans and {}", "formatting";
 /// );
 /// ```
+///
 /// [`Engine`]: crate::engine::Engine
 #[macro_export]
 #[doc(hidden)]

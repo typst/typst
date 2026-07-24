@@ -252,7 +252,7 @@ fn eval_field_callee(
         is_method_call = true;
         let ty = target.ty().short_name();
         method
-            .read_checked(ctx)
+            .read(ctx)
             .what(format_args!("cannot call method `{field}` on value of type `{ty}`"))
             .at(field_span)?
             .clone()
@@ -261,7 +261,7 @@ fn eval_field_callee(
     {
         is_method_call = true;
         method
-            .read_checked(ctx)
+            .read(ctx)
             .what(format_args!("cannot call method `{field}` on content"))
             .at(field_span)?
             .clone()
