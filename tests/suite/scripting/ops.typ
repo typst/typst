@@ -267,6 +267,12 @@
 #test("sys" in std, true)
 #test("system" in std, false)
 
+--- ops-in-cannot-apply-to-elem eval ---
+// If this will become possible, the contains function needs to be adjusted to
+// consider feature gates.
+// Error: 3-25 cannot apply 'in' to string and function
+#("whatever" in document)
+
 --- ops-not-trailing eval ---
 // Error: 10 expected keyword `in`
 #("a" not)
