@@ -373,6 +373,10 @@ impl Binding {
     /// This fails if the value is a read-only closure capture.
     pub fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
+            // We don't need to do binding acesses checks here, because all
+            // feature gated or deprecated bindings live in the `std` binding,
+            // which is immutable, and thus a cannot modify constant error will
+            // be generated in any case.
             BindingKind::Normal => Ok(&mut self.value),
             BindingKind::Captured(capturer) => bail!(
                 "variables from outside the {} are \
