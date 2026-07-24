@@ -18,7 +18,7 @@ pub use self::tooltip::{Tooltip, tooltip};
 
 use ecow::EcoString;
 use typst::World;
-use typst::foundations::{DiscardBindingCtx, WorldBindingExt};
+use typst::foundations::DiscardBindingCtx;
 use typst::syntax::FileId;
 use typst::syntax::package::PackageSpec;
 
@@ -48,12 +48,6 @@ pub trait IdeWorld: World {
     /// experience by enabling autocompletion for file paths.
     fn files(&self) -> Vec<FileId> {
         vec![]
-    }
-}
-
-impl WorldBindingExt for dyn IdeWorld + '_ {
-    fn discard_ctx(&self) -> DiscardBindingCtx {
-        DiscardBindingCtx { features: self.library().features.clone() }
     }
 }
 
