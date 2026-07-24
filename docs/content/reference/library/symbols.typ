@@ -1,5 +1,5 @@
 #import "../../../components/index.typ": (
-  classnames, colors, docs-category, docs-section, fonts, icon,
+  classnames, colors, details, docs-category, docs-section, fonts, icon,
   paged-heading-offset, prose-styling, search-box, ty-pill, use-icon,
 )
 
@@ -47,7 +47,7 @@
   "closing": "Closing",
   "diacritic": "Diacritic",
   "fence": "Fence",
-  "glyphpart": "Glyph Part",
+  "glyph-part": "Glyph Part",
   "large": "Large",
   "opening": "Opening",
   "punctuation": "Punctuation",
@@ -308,6 +308,11 @@
         par[Click on a #ty-pill(symbol) to copy it to the clipboard.]
         search-box(id: "symbol-search", placeholder: "Search in symbols")
       })
+      details[Show search features][
+        - Use "class:#html.i[\<class>]" to search for symbols with a specific
+          math class (e.g., "class:large" or "class:none").
+        - Negate a filter with a leading hyphen-minus (e.g., "-class:relation").
+      ]
     }
     symbol-name-list(mod, emoji: emoji)
     context if target() == "html" {
