@@ -1,5 +1,6 @@
 //! Structuring elements that define the document model.
 
+mod accessibility;
 mod asset;
 mod bibliography;
 mod cite;
@@ -24,6 +25,7 @@ mod table;
 mod terms;
 mod title;
 
+pub use self::accessibility::*;
 pub use self::asset::*;
 pub use self::bibliography::*;
 pub use self::cite::*;

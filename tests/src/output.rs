@@ -14,19 +14,19 @@ use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
-use typst::model::ParbreakElem;
+use typst::model::{Document, ParbreakElem};
 use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_bundle::{BundleOptions, VirtualFs};
-use typst_html::{HtmlDocument, HtmlOptions};
+use typst_html::{HtmlDocument, HtmlFormatOptions, HtmlOptions};
 use typst_layout::PagedDocument;
-use typst_pdf::{PdfOptions, PdfStandard, PdfStandards};
-use typst_render::RenderOptions;
-use typst_svg::SvgOptions;
+use typst_pdf::{PdfFormatOptions, PdfOptions, PdfStandard, PdfStandards};
+use typst_render::{PngFormatOptions, RenderOptions};
+use typst_svg::{SvgFormatOptions, SvgOptions};
 use typst_syntax::Span;
 use typst_utils::Scalar;
 
-use crate::collect::{Test, TestOutput};
+use crate::collect::TestOutput;
 use crate::report::{Diff, File, Old, ReportFile};
 use crate::{pdftags, report};
 
@@ -140,7 +140,7 @@ pub trait OutputType: Sized {
     fn is_empty(doc: &Self::Doc, live: &Self::Live) -> bool;
 
     /// Produces the live output.
-    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live>;
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live>;
 
     /// Converts the live output to bytes that can be saved to disk.
     fn save_live(doc: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]>;
@@ -189,7 +189,7 @@ impl OutputType for Render {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
         Ok(render(doc, 1.0))
     }
 
@@ -200,7 +200,7 @@ impl OutputType for Render {
         let slot;
         let scale = crate::ARGS.scale;
         if scale != 1.0 {
-            slot = render(doc, scale);
+            slot = render(doc, scale as f32);
             pixmap_live = &slot;
         }
         pixmap_live.encode_png().unwrap()
@@ -244,16 +244,19 @@ impl OutputType for Pdf {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
         // If another standard is specified in the test, run that as well.
-        let default_pdf = generate_pdf(doc, &[]);
-        let ua1_pdf = generate_pdf(doc, &[PdfStandard::Ua_1]);
-        match test.attrs.pdf_standard.as_slice() {
-            &[] => default_pdf,
-            &[PdfStandard::Ua_1] => ua1_pdf,
-            others => generate_pdf(doc, others),
+        let default_pdf = generate_pdf(doc, Some(&[]));
+        let ua1_pdf = generate_pdf(doc, Some(&[PdfStandard::UA_1]));
+        let doc_opts = doc.options().get::<typst_pdf::Pdf>();
+        let standards = doc_opts.standard.v.standards().collect::<Vec<_>>();
+        match *standards.as_slice() {
+            [] => default_pdf,
+            [PdfStandard::V_1_7, PdfStandard::UA_1] => ua1_pdf,
+            // Use the standards specified by the document.
+            _ => generate_pdf(doc, None),
         }
     }
 
@@ -341,16 +344,23 @@ impl HashOutputType for Pdf {
     const INDEX: usize = 0;
 }
 
-fn generate_pdf(doc: &PagedDocument, standards: &[PdfStandard]) -> SourceResult<Vec<u8>> {
+fn generate_pdf(
+    doc: &PagedDocument,
+    standards: Option<&[PdfStandard]>,
+) -> SourceResult<Vec<u8>> {
     let options = pdf_options(standards)?;
     typst_pdf::pdf(doc, &options)
 }
 
-fn pdf_options(standards: &[PdfStandard]) -> SourceResult<PdfOptions> {
-    let standards = PdfStandards::new(standards).at(Span::detached())?;
+fn pdf_options(standards: Option<&[PdfStandard]>) -> SourceResult<PdfOptions> {
+    let standard = standards
+        .map(|s| PdfStandards::new(s.iter().copied()))
+        .transpose()
+        .at(Span::detached())?;
+    // TODO: Maybe enable pretty here too?
     Ok(PdfOptions {
-        standards,
         creator: Smart::Custom(Some("Typst Test Runner".into())),
+        format: PdfFormatOptions { standard, ..Default::default() },
         ..Default::default()
     })
 }
@@ -367,7 +377,7 @@ impl OutputType for Pdftags {
         live.is_empty()
     }
 
-    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
         pdftags::format(doc).at(Span::detached())
     }
 
@@ -404,8 +414,11 @@ impl OutputType for Svg {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let options = SvgOptions { pretty: true, ..Default::default() };
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let options = SvgOptions {
+            format: SvgFormatOptions { pretty: Some(true) },
+            ..Default::default()
+        };
         Ok(typst_svg::svg_merged(doc, &options, Abs::pt(1.0)))
     }
 
@@ -453,8 +466,8 @@ impl OutputType for Html {
         live == EMPTY_HTML_DOC
     }
 
-    fn make_live(_: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let options = HtmlOptions { pretty: true };
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+        let options = HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } };
         typst_html::html(doc, &options)
     }
 
@@ -491,16 +504,18 @@ impl OutputType for Bundle {
         live.is_empty()
     }
 
-    fn make_live(test: &Test, doc: &Self::Doc) -> SourceResult<Self::Live> {
-        let standards = test.attrs.pdf_standard.as_slice();
+    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
         let options = BundleOptions {
-            html: HtmlOptions { pretty: true },
-            pdf: pdf_options(standards)?,
+            html: HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } },
+            pdf: pdf_options(None)?,
             png: RenderOptions {
-                pixel_per_pt: Scalar::new(1.0),
+                format: PngFormatOptions { pixel_per_pt: Some(Scalar::new(1.0)) },
                 ..Default::default()
             },
-            svg: SvgOptions { pretty: true, ..Default::default() },
+            svg: SvgOptions {
+                format: SvgFormatOptions { pretty: Some(true) },
+                ..Default::default()
+            },
         };
         typst_bundle::export(doc, &options)
     }
@@ -593,7 +608,9 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
 
     let gap = Abs::pt(1.0);
     let opts = typst_render::RenderOptions {
-        pixel_per_pt: Scalar::new(pixel_per_pt as f64),
+        format: PngFormatOptions {
+            pixel_per_pt: Some(Scalar::new(pixel_per_pt as f64)),
+        },
         render_bleed: false,
     };
     let mut pixmap =

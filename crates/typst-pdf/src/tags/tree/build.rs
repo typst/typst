@@ -24,6 +24,7 @@ use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, assert_internal, bail, error,
     panic_internal,
 };
+use typst_library::format::Complete;
 use typst_library::foundations::{Content, ContextElem};
 use typst_library::introspection::Location;
 use typst_library::layout::{
@@ -32,11 +33,11 @@ use typst_library::layout::{
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
-    HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem, QuoteElem,
-    StrongElem, TableCell, TableElem, TermsElem, TitleElem,
+    ArtifactElem, Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
+    FootnoteEntry, HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem,
+    PdfMarkerTag, PdfMarkerTagKind, QuoteElem, StrongElem, TableCell, TableElem,
+    TermsElem, TitleElem,
 };
-use typst_library::pdf::{ArtifactElem, PdfMarkerTag, PdfMarkerTagKind};
 use typst_library::text::{
     HighlightElem, OverlineElem, RawElem, RawLine, StrikeElem, SubElem, SuperElem,
     UnderlineElem,
@@ -54,7 +55,7 @@ use crate::tags::util::{ArtifactKindExt, PropertyValCopied};
 use crate::util::ValidatorsExt;
 
 pub struct TreeBuilder<'a> {
-    options: &'a PdfOptions,
+    options: &'a PdfOptions<Complete>,
 
     /// Each [`FrameItem::Tag`] and each [`FrameItem::Group`] with a parent
     /// will append a progression to this tree. This list of progressions is
@@ -76,7 +77,7 @@ pub struct TreeBuilder<'a> {
 }
 
 impl<'a> TreeBuilder<'a> {
-    pub fn new(document: &PagedDocument, options: &'a PdfOptions) -> Self {
+    pub fn new(document: &PagedDocument, options: &'a PdfOptions<Complete>) -> Self {
         let doc_lang = document.info().locale.custom();
         let mut groups = Groups::new();
         let doc = groups.new_virtual(
@@ -177,7 +178,10 @@ struct StackEntry {
     prog_idx: u32,
 }
 
-pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tree> {
+pub fn build(
+    document: &PagedDocument,
+    options: &PdfOptions<Complete>,
+) -> SourceResult<Tree> {
     let mut tree = TreeBuilder::new(document, options);
     for page in document.pages() {
         visit_frame(&mut tree, &page.frame)?;
@@ -202,7 +206,7 @@ pub fn build(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tre
             .expect_internal("parent group")
             .at(Span::detached())?;
 
-        if let Some(a11y) = options.standards.config.validators().accessibility()
+        if let Some(a11y) = options.validators().accessibility()
             && located.multiple_parents
         {
             let validator = a11y.as_str();
@@ -456,7 +460,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
         let title = heading.body.plain_text().to_string();
         if title.is_empty()
-            && let Some(accessibility) = tree.options.accessibility_validator()
+            && let Some(accessibility) = tree.options.validators().accessibility()
         {
             let contains_context = heading.body.traverse(&mut |c| {
                 if c.is::<ContextElem>() {
@@ -606,7 +610,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
 
     // There are overlapping tags in the tag tree. Figure out whether breaking
     // up the current tag stack is semantically ok, and how to do it.
-    let is_pdf_ua = tree.options.accessibility_validator().is_some();
+    let is_pdf_ua = tree.options.validators().accessibility().is_some();
     let mut inner_break_priority = Some(BreakPriority::MAX);
     let mut inner_non_breakable_span = Span::detached();
     let mut inner_non_breakable_in_pdf_ua = false;
@@ -651,7 +655,7 @@ fn progress_tree_end(tree: &mut TreeBuilder, loc: Location) -> SourceResult<Grou
 
             if non_breakable_in_pdf_ua {
                 let validator =
-                    tree.options.standards.config.validators().to_comma_list();
+                    tree.options.format.standard.v.config.validators().to_comma_list();
                 bail!(
                     non_breakable_span,
                     "{validator} error: invalid document structure, \

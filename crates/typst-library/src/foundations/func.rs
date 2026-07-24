@@ -11,11 +11,12 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, BindingAccess, BindingContext, Bytes, CastInfo, Content, Context, Element,
-    IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
+    Args, BindingAccess, BindingContext, Bytes, CastInfo, Content, Context, Dict,
+    Element, IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Str, Type, Value,
+    WorldBindingExt, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -448,6 +449,22 @@ impl Func {
             .collect::<StrResult<smallvec::SmallVec<_>>>()?;
 
         Ok(element.where_(fields))
+    }
+
+    /// Returns the scope of this function as a dictionary.
+    #[func(name = "scope")]
+    pub fn to_scope(&self, engine: &mut Engine) -> HintedStrResult<Dict> {
+        let Some(scope) = self.scope() else {
+            bail!(
+                "function doesn't have a scope";
+                hint: "only native, element, or pre-applied functions \
+                       have a scope";
+            );
+        };
+        Ok(scope
+            .iter_checked(engine.world.discard_ctx())
+            .map(|(name, value)| (Str::from(name.clone()), value.v.clone()))
+            .collect())
     }
 }
 

@@ -5,7 +5,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{BareType, foundations, kw, parse_flag};
+use crate::util::{BareType, foundations, kw, parse_flag, parse_ident};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -32,6 +32,7 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
 
     let mut definitions = vec![];
     let mut constructor = quote! { None };
+    let mut custom_defs = None;
     for child in &mut item.items {
         let bare: BareType;
         let (mut def, attrs) = match child {
@@ -43,6 +44,10 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                     FnKind::Member(tokens) => tokens,
                     FnKind::Constructor(tokens) => {
                         constructor = tokens;
+                        continue;
+                    }
+                    FnKind::CustomDefs(tokens) => {
+                        custom_defs = Some(tokens);
                         continue;
                     }
                 },
@@ -105,6 +110,10 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
         Some(ident_ext) => rewrite_primitive_base(&item, ident_ext),
     };
 
+    let category = meta.category.map(|category| {
+        quote! { scope.start_category(::typst_library::Category::#category); }
+    });
+
     Ok(quote! {
         #base
 
@@ -116,7 +125,9 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
             #[expect(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
+                #category
                 #(#definitions;)*
+                #custom_defs
                 scope
             }
         }
@@ -128,11 +139,16 @@ struct Meta {
     /// Whether this the scope should be implemented through an extension
     /// trait instead of an inherent impl.
     ext: bool,
+    /// The category of the scope.
+    category: Option<syn::Ident>,
 }
 
 impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self { ext: parse_flag::<kw::ext>(input)? })
+        Ok(Self {
+            ext: parse_flag::<kw::ext>(input)?,
+            category: parse_ident::<kw::category>(input)?,
+        })
     }
 }
 
@@ -157,13 +173,35 @@ fn handle_type_or_elem(item: &BareType) -> Result<TokenStream> {
 /// Process a function, return its definition, and register it as a constructor
 /// if applicable.
 fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> {
-    let Some(attr) = item.attrs.iter_mut().find(|attr| attr.meta.path().is_ident("func"))
-    else {
-        bail!(item, "scope function is missing #[func] attribute");
-    };
+    let mut ret = None;
+    item.attrs.retain_mut(|attr| {
+        if attr.meta.path().is_ident("func") {
+            let ident_data = quote::format_ident!("{}_data", item.sig.ident);
+            ret = Some(handle_fn_member(self_ty, ident_data, attr));
+            // Retain, but possibly modify the `#[func]` attribute.
+            true
+        } else if attr.meta.path().is_ident("defs") {
+            let ident = &item.sig.ident;
+            let call = quote! { #self_ty::#ident(&mut scope); };
+            ret = Some(Ok(FnKind::CustomDefs(call)));
+            // Remove the `#[defs]` attribute.
+            false
+        } else {
+            true
+        }
+    });
 
-    let ident_data = quote::format_ident!("{}_data", item.sig.ident);
+    match ret {
+        Some(ret) => ret,
+        None => bail!(item, "scope function is missing #[func] or #[defs] attribute"),
+    }
+}
 
+fn handle_fn_member(
+    self_ty: &syn::Type,
+    ident_data: syn::Ident,
+    attr: &mut syn::Attribute,
+) -> Result<FnKind> {
     match &mut attr.meta {
         syn::Meta::Path(_) => {
             *attr = parse_quote! { #[func(parent = #self_ty)] };
@@ -185,6 +223,7 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
 enum FnKind {
     Constructor(TokenStream),
     Member(TokenStream),
+    CustomDefs(TokenStream),
 }
 
 /// Rewrite an impl block for a primitive into a trait + trait impl.

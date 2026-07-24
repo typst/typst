@@ -25,19 +25,48 @@ pub use self::link::create_link_anchors;
 pub use self::rules::{html_mathml_body, html_span_filled, register};
 
 use ecow::EcoString;
-use typst_library::Category;
-use typst_library::foundations::{Content, Module, Scope};
+use typst_library::Feature;
+use typst_library::diag::{SourceResult, bail};
+use typst_library::engine::Engine;
+use typst_library::format::{Format, FormatElement};
+use typst_library::foundations::{Args, Construct, Content, Scope};
 use typst_library::introspection::Location;
-use typst_macros::elem;
+use typst_macros::{elem, scope};
 
-/// Creates the module with all HTML definitions.
-pub fn module() -> Module {
-    let mut html = Scope::deduplicating();
-    html.start_category(Category::Html);
-    html.define_elem::<HtmlElem>();
-    html.define_elem::<FrameElem>();
-    crate::typed::define(&mut html);
-    Module::new("html", html)
+pub fn format() -> Format {
+    Format::new::<Html>().feature(Feature::Html)
+}
+
+/// The HTML format.
+#[elem(scope, Construct)]
+pub struct Html {
+    /// Wether to format the PDF in a human readable way.
+    #[default(false)]
+    pub pretty: bool,
+}
+
+impl Construct for Html {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually")
+    }
+}
+
+impl FormatElement for Html {
+    type Options = HtmlFormatOptions;
+}
+
+#[scope(category = Html)]
+impl Html {
+    #[elem]
+    type HtmlElem;
+
+    #[elem]
+    type FrameElem;
+
+    #[defs]
+    fn definitions(scope: &mut Scope) {
+        crate::typed::define(scope);
+    }
 }
 
 /// An HTML element that can contain Typst content.

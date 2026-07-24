@@ -1,6 +1,7 @@
 // Test citations and bibliographies.
 
---- bibliography-basic paged html pdftags pdfstandard(ua-1) ---
+--- bibliography-basic paged html pdftags ---
+#set pdf(standard: "ua-1")
 #show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details

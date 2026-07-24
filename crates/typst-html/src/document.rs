@@ -2,6 +2,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::FormatOptions;
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
@@ -10,7 +11,7 @@ use typst_library::math::EquationElem;
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::{Library, World};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
@@ -159,9 +160,11 @@ fn html_document_common(
     let mut info = DocumentInfo::default();
     info.populate(styles);
     info.populate_locale(styles);
+    let mut options = FormatOptions::new(&library.formats);
+    options.populate(Spanned::detached(styles));
 
     let children = (engine.library.routines.realize)(
-        RealizationKind::Document { info: &mut info },
+        RealizationKind::Document { info: &mut info, options: &mut options },
         &mut engine,
         &mut locator,
         &arenas,
@@ -214,7 +217,7 @@ fn html_document_common(
         );
     }
 
-    Ok(HtmlDocument::new(output, info))
+    Ok(HtmlDocument::new(output, info, options))
 }
 
 /// The introspectible output of HTML compilation.

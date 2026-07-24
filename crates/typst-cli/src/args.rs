@@ -324,8 +324,13 @@ pub struct CompileArgs {
     /// This formats the output in a more human-readable, but less
     /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
     /// export.
-    #[arg(long = "pretty")]
-    pub pretty: bool,
+    #[arg(
+        long = "pretty",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pretty: Option<bool>,
 
     /// Which pages to export. When unspecified, all pages are exported.
     ///
@@ -349,12 +354,25 @@ pub struct CompileArgs {
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances (for example when trying to reduce the size of a document)
     /// it can be desirable to disable tagged PDF.
-    #[arg(long = "no-pdf-tags")]
+    // TODO: Remove deprecated flag in the 0.16 release cycle.
+    #[arg(long = "no-pdf-tags", hide = true)]
     pub no_pdf_tags: bool,
 
+    #[arg(
+        long = "pdf-tagged",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pdf_tagged: Option<bool>,
+
     /// The PPI (pixels per inch) to use for PNG export.
-    #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f64,
+    ///
+    /// [default: 144]
+    // TODO: Is there a cleaner way of providing a default value hint?
+    // Maybe we should just reference the format element default value here.
+    #[arg(long = "ppi")]
+    pub ppi: Option<f64>,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.

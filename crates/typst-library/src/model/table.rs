@@ -2,6 +2,7 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use ecow::EcoString;
+use typst_macros::Cast;
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
@@ -15,7 +16,6 @@ use crate::layout::{
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -799,5 +799,47 @@ impl Default for Packed<TableCell> {
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
         value.unpack::<Self>().unwrap_or_else(Self::new)
+    }
+}
+
+/// Describes what kind of table cell this is.
+///
+/// The full Typst table model only supports header and footer rows, this is
+/// currently only used for PDF export.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TableCellKind {
+    Header(NonZeroU32, TableHeaderScope),
+    Footer,
+    #[default]
+    Data,
+}
+
+/// Which table track a header cell labels.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TableHeaderScope {
+    /// The header cell refers to both the row and the column.
+    Both,
+    /// The header cell refers to the column.
+    #[default]
+    Column,
+    /// The header cell refers to the row.
+    Row,
+}
+
+impl TableHeaderScope {
+    pub fn refers_to_column(&self) -> bool {
+        match self {
+            TableHeaderScope::Both => true,
+            TableHeaderScope::Column => true,
+            TableHeaderScope::Row => false,
+        }
+    }
+
+    pub fn refers_to_row(&self) -> bool {
+        match self {
+            TableHeaderScope::Both => true,
+            TableHeaderScope::Column => false,
+            TableHeaderScope::Row => true,
+        }
     }
 }

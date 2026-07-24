@@ -2,6 +2,7 @@
 
 #nav-separation[Export]
 
+#include "format.typ"
 #include "pdf.typ"
 #include "html.typ"
 #include "png.typ"
