@@ -53,8 +53,8 @@ impl Eval for ast::MathIdent<'_> {
             .scopes
             .get_in_math(&self)
             .at(span)?
-            .read(vm.engine.binding_ctx(span))
-            .what(format_args!("cannot access variable `{}`", self.get()))
+            .read(vm.engine.binding_guard(span))
+            .or_cannot(format_args!("access variable `{}`", self.get()))
             .at(span)?
             .clone())
     }

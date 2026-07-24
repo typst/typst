@@ -10,8 +10,8 @@ use typst_utils::{DefSite, Static};
 
 use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    AutoValue, BindingAccess, BindingContext, Func, NativeFuncData, NoneValue, Repr,
-    Scope, Since, Value, cast, func,
+    AutoValue, BindingAccess, BindingGuard, Func, NativeFuncData, NoneValue, Repr, Scope,
+    Since, Value, cast, func,
 };
 
 /// Describes a kind of value.
@@ -124,12 +124,12 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        ctx: impl BindingContext,
+        guard: impl BindingGuard,
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => binding
-                .read(ctx)
-                .what(format_args!("cannot access field `{field}` on type {self}")),
+                .read(guard)
+                .or_cannot(format_args!("access field `{field}` on type {self}")),
             None => bail!("type {self} does not contain field `{field}`"),
         }
     }

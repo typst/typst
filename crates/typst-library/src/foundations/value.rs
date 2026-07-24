@@ -12,7 +12,7 @@ use typst_syntax::{Span, ast};
 
 use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
-    Args, Array, AutoValue, BindingContext, Bytes, CastInfo, Content, Datetime, Decimal,
+    Args, Array, AutoValue, BindingGuard, Bytes, CastInfo, Content, Datetime, Decimal,
     Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
     NativeType, NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol,
     SymbolElem, Type, Version, fields, ops, repr,
@@ -154,16 +154,18 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str, ctx: impl BindingContext) -> StrResult<Value> {
+    pub fn field(&self, field: &str, guard: impl BindingGuard) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(ctx, field).map(Self::Symbol),
+            Self::Symbol(symbol) => {
+                symbol.clone().modified(guard, field).map(Self::Symbol)
+            }
             Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
             Self::Args(args) => args.field(field).cloned(),
             Self::Content(content) => content.field_by_name(field),
-            Self::Type(ty) => ty.field(field, ctx).cloned(),
-            Self::Func(func) => func.field(field, ctx).cloned(),
-            Self::Module(module) => module.field(field, ctx).cloned(),
+            Self::Type(ty) => ty.field(field, guard).cloned(),
+            Self::Func(func) => func.field(field, guard).cloned(),
+            Self::Module(module) => module.field(field, guard).cloned(),
             _ => fields::field(self, field),
         }
     }

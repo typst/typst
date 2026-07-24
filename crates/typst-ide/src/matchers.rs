@@ -77,7 +77,9 @@ pub fn named_items<T>(
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
                             for (name, binding) in scope.iter() {
-                                let Ok(value) = binding.read(world.discard_ctx()) else {
+                                let Ok(value) =
+                                    binding.read(world.silent_binding_guard())
+                                else {
                                     continue;
                                 };
 
@@ -103,7 +105,7 @@ pub fn named_items<T>(
                             for ident in iter {
                                 binding = binding.and_then(|binding| {
                                     binding
-                                        .read(world.discard_ctx())
+                                        .read(world.silent_binding_guard())
                                         .ok()?
                                         .scope()?
                                         .get(&ident)
@@ -114,7 +116,7 @@ pub fn named_items<T>(
                             let (span, value) = match binding {
                                 Some(binding) => (
                                     binding.span(),
-                                    binding.read(world.discard_ctx()).ok(),
+                                    binding.read(world.silent_binding_guard()).ok(),
                                 ),
                                 None => (bound.span(), None),
                             };
