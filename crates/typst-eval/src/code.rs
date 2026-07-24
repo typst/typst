@@ -164,7 +164,7 @@ impl Eval for ast::Ident<'_> {
             .scopes
             .get(&self)
             .at(span)?
-            .read_checked(vm.engine.binding_ctx(span))
+            .read(vm.engine.binding_ctx(span))
             .what(format_args!("cannot access variable `{}`", self.get()))
             .at(span)?
             .clone())

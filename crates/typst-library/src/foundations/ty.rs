@@ -128,8 +128,8 @@ impl Type {
     ) -> StrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => binding
-                .read_checked(ctx)
-                .what(format_args!("cannot access field `{field}` of type `{self}`")),
+                .read(ctx)
+                .what(format_args!("cannot access field `{field}` on type {self}")),
             None => bail!("type {self} does not contain field `{field}`"),
         }
     }
