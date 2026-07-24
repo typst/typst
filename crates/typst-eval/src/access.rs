@@ -32,8 +32,7 @@ impl Access for ast::Ident<'_> {
         let ident = self.as_str();
         if vm.inspected == Some(span)
             && let Ok(binding) = vm.scopes.get(ident)
-            && let Ok(value) =
-                binding.read(vm.engine.binding_ctx(span).discard_warnings())
+            && let Ok(value) = binding.read(vm.engine.binding_guard(span).silent())
         {
             vm.trace(value.clone());
         }

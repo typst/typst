@@ -343,7 +343,7 @@ impl Binding {
     ///         .cloned()
     /// }
     /// ```
-    pub fn read(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
+    pub fn read(&self, ctx: impl BindingGuard) -> Result<&Value, FeatureError> {
         if self.check_access {
             self.check_access(ctx)?;
         }
@@ -352,7 +352,7 @@ impl Binding {
 
     /// Check if the binding is gated behind a feature or if it is deprecated.
     #[cold]
-    fn check_access(&self, mut ctx: impl BindingContext) -> Result<(), FeatureError> {
+    fn check_access(&self, mut ctx: impl BindingGuard) -> Result<(), FeatureError> {
         let Some(info) = &self.info else { return Ok(()) };
 
         if let Some(feature) = info.feature
@@ -448,13 +448,13 @@ pub struct FeatureError(Feature);
 /// what kind of binding couldn't be accessed.
 pub trait BindingAccess<T> {
     /// Add a description of what kind of binding couldn't be accessed.
-    fn what(self, what: impl Display) -> StrResult<T>;
+    fn or_cannot(self, what: impl Display) -> StrResult<T>;
 }
 
 impl<T> BindingAccess<T> for Result<T, FeatureError> {
-    fn what(self, what: impl Display) -> StrResult<T> {
+    fn or_cannot(self, what: impl Display) -> StrResult<T> {
         self.map_err(|FeatureError(feature)| {
-            error!("{what} because the `{feature}` feature is not enabled")
+            error!("cannot {what} because the `{feature}` feature is not enabled")
         })
     }
 }
@@ -583,12 +583,12 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
 }
 
 /// Provides the currently enabled features when reading from a [`Binding`].
-pub trait BindingContext: WarningSink {
+pub trait BindingGuard: WarningSink {
     /// The features enabled in the current [`crate::Library`].
     fn features(&self) -> &Features;
 }
 
-impl<T: BindingContext> BindingContext for &mut T {
+impl<T: BindingGuard> BindingGuard for &mut T {
     fn features(&self) -> &Features {
         T::features(self)
     }
@@ -598,29 +598,29 @@ impl<T: BindingContext> BindingContext for &mut T {
 /// emitted warnings.
 pub trait WorldBindingExt {
     /// Create a [`BindingContext`] that discards emitted warnings.
-    fn discard_ctx(&self) -> DiscardBindingCtx;
+    fn silent_binding_guard(&self) -> SilentBindingGuard;
 }
 
 impl<T: World + ?Sized> WorldBindingExt for T {
-    fn discard_ctx(&self) -> DiscardBindingCtx {
-        DiscardBindingCtx { features: self.library().features.clone() }
+    fn silent_binding_guard(&self) -> SilentBindingGuard {
+        SilentBindingGuard { features: self.library().features.clone() }
     }
 }
 
 /// A [`BindingContext`] that emits warnings to the engine's sink.
-pub struct EngineCtx<'x, 'y> {
+pub struct NormalBindingGuard<'x, 'y> {
     pub engine: &'x mut Engine<'y>,
     pub span: Span,
 }
 
-impl EngineCtx<'_, '_> {
+impl NormalBindingGuard<'_, '_> {
     /// Creates a [`BindingContext`] that discards emitted warnings.
-    pub fn discard_warnings(&self) -> DiscardBindingCtx {
-        DiscardBindingCtx { features: self.engine.library.features.clone() }
+    pub fn silent(&self) -> SilentBindingGuard {
+        SilentBindingGuard { features: self.engine.library.features.clone() }
     }
 }
 
-impl WarningSink for EngineCtx<'_, '_> {
+impl WarningSink for NormalBindingGuard<'_, '_> {
     fn emit(&mut self, message: HintedString) {
         self.engine.sink.warn(
             SourceDiagnostic::warning(self.span, message.message())
@@ -629,7 +629,7 @@ impl WarningSink for EngineCtx<'_, '_> {
     }
 }
 
-impl BindingContext for EngineCtx<'_, '_> {
+impl BindingGuard for NormalBindingGuard<'_, '_> {
     fn features(&self) -> &Features {
         &self.engine.library.features
     }
@@ -637,35 +637,35 @@ impl BindingContext for EngineCtx<'_, '_> {
 
 /// A [`BindingContext`] that discards emitted warnings.
 #[derive(Clone)]
-pub struct DiscardBindingCtx {
+pub struct SilentBindingGuard {
     features: Features,
 }
 
-impl DiscardBindingCtx {
+impl SilentBindingGuard {
     pub fn new(features: Features) -> Self {
         Self { features }
     }
 }
 
-impl WarningSink for DiscardBindingCtx {
+impl WarningSink for SilentBindingGuard {
     fn emit(&mut self, _message: HintedString) {
         // Just discard warnings.
     }
 }
 
-impl WarningSink for &DiscardBindingCtx {
+impl WarningSink for &SilentBindingGuard {
     fn emit(&mut self, _message: HintedString) {
         // Just discard warnings.
     }
 }
 
-impl BindingContext for DiscardBindingCtx {
+impl BindingGuard for SilentBindingGuard {
     fn features(&self) -> &Features {
         &self.features
     }
 }
 
-impl BindingContext for &DiscardBindingCtx {
+impl BindingGuard for &SilentBindingGuard {
     fn features(&self) -> &Features {
         &self.features
     }

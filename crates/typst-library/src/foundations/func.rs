@@ -14,7 +14,7 @@ use typst_utils::{DefSite, LazyHash, Static, singleton};
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, BindingAccess, BindingContext, Bytes, CastInfo, Content, Context, Element,
+    Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
     IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
 };
 
@@ -291,13 +291,13 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        ctx: impl BindingContext,
+        guard: impl BindingGuard,
     ) -> StrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
             Some(binding) => {
-                binding.read(ctx).what(format_args!("cannot access field `{field}`"))
+                binding.read(guard).or_cannot(format_args!("access field `{field}`"))
             }
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),

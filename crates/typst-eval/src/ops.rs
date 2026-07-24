@@ -1,6 +1,6 @@
 use ecow::eco_format;
 use typst_library::diag::{At, HintedStrResult, SourceResult, bail, error};
-use typst_library::foundations::{EngineCtx, IntoValue, Value, ops};
+use typst_library::foundations::{IntoValue, NormalBindingGuard, Value, ops};
 use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 
@@ -78,11 +78,11 @@ fn apply_binary(
 fn apply_binary_with(
     binary: ast::Binary,
     vm: &mut Vm,
-    op: fn(EngineCtx, Value, Value) -> HintedStrResult<Value>,
+    op: fn(NormalBindingGuard, Value, Value) -> HintedStrResult<Value>,
 ) -> SourceResult<Value> {
     let lhs = binary.lhs().eval(vm)?;
     let rhs = binary.rhs().eval(vm)?;
-    op(vm.engine.binding_ctx(Span::detached()), lhs, rhs).at(binary.span())
+    op(vm.engine.binding_guard(Span::detached()), lhs, rhs).at(binary.span())
 }
 
 /// Apply an assignment operation.
