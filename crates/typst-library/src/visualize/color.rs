@@ -326,8 +326,8 @@ impl Color {
 
     /// Create a grayscale color.
     ///
-    /// A grayscale color is represented internally by a single `lightness`
-    /// component.
+    /// A grayscale color is represented by `lightness` (@ratio) and `alpha`
+    /// (@ratio) components.
     ///
     /// These components are also available using the
     /// @color.components[`components`] method.
@@ -348,7 +348,7 @@ impl Color {
         alpha: RatioComponent,
         /// Alternatively: The color to convert to grayscale.
         ///
-        /// If this is given, the `lightness` should not be given.
+        /// If this is given, the individual components should not be given.
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -356,11 +356,10 @@ impl Color {
             if let Some(color) = args.find::<Color>()? {
                 color.to_luma()
             } else {
-                let Component(gray) =
-                    args.expect("gray component").unwrap_or(Component(Ratio::one()));
+                let Component(l) = args.expect("lightness component")?;
                 let RatioComponent(alpha) =
                     args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-                Luma::new(gray.get() as f32, alpha.get() as f32)
+                Luma::new(l.get() as f32, alpha.get() as f32)
             },
         )))
     }

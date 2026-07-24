@@ -206,9 +206,25 @@
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
+--- color-luma-empty-arguments eval ---
+// Error: 7-13 missing argument: lightness component
+#test(luma(), white)
+
+--- color-luma-invalid-alpha eval ---
+// Error: 7-16 expected integer or ratio, found string
+#luma("invalid")
+
+--- color-luma-invalid-lightness eval ---
+// Error: 12-21 expected ratio, found string
+#luma(10%, "invalid")
+
 --- color-luma-unexpected-argument eval ---
-// Error: 10-20 unexpected argument: key
-#luma(1, key: "val")
+// Error: 12-22 unexpected argument: key
+#luma(255, key: "val")
+
+--- color-luma-unexpected-pos-argument eval ---
+// Error: 17-22 unexpected argument
+#luma(25%, 50%, "val")
 
 --- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
