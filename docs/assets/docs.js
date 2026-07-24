@@ -417,7 +417,7 @@ function setUpTooltip(target) {
  * side-by-side vs top/bottom.
  */
 function setUpPreviewSplits() {
-  for (const example of document.querySelectorAll(".previewed-code > pre")) {
+  for (const example of document.querySelectorAll(".previewed-code > :first-child")) {
     if (example.clientWidth < example.scrollWidth) {
       example.classList.add("big");
     }
@@ -428,18 +428,17 @@ function setUpPreviewSplits() {
  * Sets up the Copy button on example codes.
  */
 function setUpPreviewCopy() {
-  for (const button of document.querySelectorAll("pre > button.copy")) {
-    const pre = button.parentElement;
-    // Display the Copy button for 30s when the `<pre>` is tapped on touch
-    // screens.
+  for (const button of document.querySelectorAll(".copyable-code > button.copy")) {
+    const example = button.parentElement;
+    // Display the Copy button for 30s when example is tapped on touch screens.
     let timeoutId;
-    pre.addEventListener("click", () => {
-      pre.classList.add("tapped");
+    example.addEventListener("click", () => {
+      example.classList.add("tapped");
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => pre.classList.remove("tapped"), 30_000);
+      timeoutId = setTimeout(() => example.classList.remove("tapped"), 30_000);
     });
     button.addEventListener("click", () => {
-      copyText(pre.innerText);
+      copyText(example.innerText);
     });
     button.disabled = false;
   }
