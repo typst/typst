@@ -76,9 +76,13 @@ pub fn named_items<T>(
                     // ```
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
-                            for (name, value) in scope.iter_checked(world.discard_ctx()) {
+                            for (name, binding) in scope.iter() {
+                                let Ok(value) = binding.read(world.discard_ctx()) else {
+                                    continue;
+                                };
+
                                 let item =
-                                    NamedItem::Import(name, value.span, Some(value.v));
+                                    NamedItem::Import(name, binding.span(), Some(value));
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -99,7 +103,7 @@ pub fn named_items<T>(
                             for ident in iter {
                                 binding = binding.and_then(|binding| {
                                     binding
-                                        .read_checked(world.discard_ctx())
+                                        .read(world.discard_ctx())
                                         .ok()?
                                         .scope()?
                                         .get(&ident)
@@ -110,7 +114,7 @@ pub fn named_items<T>(
                             let (span, value) = match binding {
                                 Some(binding) => (
                                     binding.span(),
-                                    binding.read_checked(world.discard_ctx()).ok(),
+                                    binding.read(world.discard_ctx()).ok(),
                                 ),
                                 None => (bound.span(), None),
                             };

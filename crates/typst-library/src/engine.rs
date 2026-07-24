@@ -35,7 +35,7 @@ pub struct Engine<'a> {
     pub route: Route<'a>,
 }
 
-impl<'y> Engine<'y> {
+impl<'a> Engine<'a> {
     /// Handles a result without immediately terminating execution. Instead, it
     /// produces a delayed error that is only promoted to a fatal one if it
     /// remains by the end of the introspection loop.
@@ -117,7 +117,7 @@ impl<'y> Engine<'y> {
     }
 
     /// Create a struct that implements [`crate::foundations::BindingContext`].
-    pub fn binding_ctx<'x>(&'x mut self, span: Span) -> EngineCtx<'x, 'y> {
+    pub fn binding_ctx(&'_ mut self, span: Span) -> EngineCtx<'_, 'a> {
         EngineCtx { engine: self, span }
     }
 }

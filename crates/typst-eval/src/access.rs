@@ -34,7 +34,7 @@ impl Access for ast::Ident<'_> {
             && let Ok(binding) = vm.scopes.get(ident)
         {
             let value = binding
-                .read_checked(vm.engine.binding_ctx(span))
+                .read(vm.engine.binding_ctx(span))
                 .what(format_args!("cannot access variable `{ident}`"))
                 .at(span)?
                 .clone();

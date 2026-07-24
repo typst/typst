@@ -185,17 +185,17 @@ impl Dict {
     pub fn construct(
         engine: &mut Engine,
         /// The value that should be converted to a dictionary.
-        to_dict: Spanned<ToDict>,
+        value: Spanned<ToDict>,
     ) -> SourceResult<Dict> {
-        let ToDict(module) = to_dict.v;
+        let ToDict(module) = value.v;
         let dict = module
             .scope()
             .iter()
             .filter_map(|(key, binding)| {
                 // Filter out values that are in feature gated bindings and
                 // ignore any deprecation warnings that are emitted.
-                let binding_ctx = engine.binding_ctx(to_dict.span).discard_warnings();
-                let val = binding.read_checked(binding_ctx).ok()?;
+                let binding_ctx = engine.binding_ctx(value.span).discard_warnings();
+                let val = binding.read(binding_ctx).ok()?;
                 Some((Str::from(key.clone()), val.clone()))
             })
             .collect();

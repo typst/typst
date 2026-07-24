@@ -63,17 +63,15 @@ pub fn analyze_expr_with_fallback(
 
     let globals = crate::utils::globals(world, node);
     let value = match node.cast::<ast::Expr>()? {
-        ast::Expr::Ident(ident) => {
-            globals.get(&ident)?.read_checked(world.discard_ctx()).ok()?
-        }
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(world.discard_ctx()).ok()?,
         ast::Expr::FieldAccess(access) => match access.target() {
             ast::Expr::Ident(target) => globals
                 .get(&target)?
-                .read_checked(world.discard_ctx())
+                .read(world.discard_ctx())
                 .ok()?
                 .scope()?
                 .get(&access.field())?
-                .read_checked(world.discard_ctx())
+                .read(world.discard_ctx())
                 .ok()?,
             _ => return None,
         },

@@ -180,7 +180,7 @@ fn field_access_completions(
     // Autocomplete methods from the element's or type's scope. We only complete
     // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        if let Ok(value) = binding.read_checked(ctx.binding_ctx())
+        if let Ok(value) = binding.read(ctx.binding_ctx())
             && let Ok(func) = value.clone().cast::<Func>()
             && let Some(param) = func.params().next()
             && param.name() == Some("self")
@@ -191,7 +191,7 @@ fn field_access_completions(
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            if let Ok(value) = binding.read_checked(ctx.world.discard_ctx()) {
+            if let Ok(value) = binding.read(ctx.world.discard_ctx()) {
                 ctx.call_completion(name.clone(), value);
             }
         }
@@ -331,7 +331,7 @@ fn import_item_completions<'a>(
 
     for (name, binding) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name)
-            && let Ok(value) = binding.read_checked(ctx.binding_ctx())
+            && let Ok(value) = binding.read(ctx.binding_ctx())
         {
             ctx.value_completion(name.clone(), value);
         }
@@ -1467,7 +1467,7 @@ impl<'a> CompletionContext<'a> {
         }
 
         for (name, binding) in globals(self.world, self.leaf).iter() {
-            if let Ok(value) = binding.read_checked(self.binding_ctx())
+            if let Ok(value) = binding.read(self.binding_ctx())
                 && filter(value)
                 && !defined.contains_key(name)
             {

@@ -140,9 +140,9 @@ impl Module {
     /// Try to access a definition in the module.
     pub fn field(&self, field: &str, ctx: impl BindingContext) -> StrResult<&Value> {
         match self.scope().get(field) {
-            Some(binding) => binding
-                .read_checked(ctx)
-                .what(format_args!("cannot access field `{field}`")),
+            Some(binding) => {
+                binding.read(ctx).what(format_args!("cannot access field `{field}`"))
+            }
             None => match &self.name {
                 Some(name) => bail!("module `{name}` does not contain `{field}`"),
                 None => bail!("module does not contain `{field}`"),

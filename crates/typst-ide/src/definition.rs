@@ -57,7 +57,7 @@ pub fn definition(
             }
 
             if let Some(binding) = globals(world, &leaf).get(&name)
-                && let Ok(value) = binding.read_checked(world.discard_ctx())
+                && let Ok(value) = binding.read(world.discard_ctx())
             {
                 return Some(Definition::Std(value.clone()));
             }

@@ -126,7 +126,7 @@ impl Eval for ast::ModuleImport<'_> {
                         };
 
                         let value = binding
-                            .read_checked(vm.engine.binding_ctx(component.span()))
+                            .read(vm.engine.binding_ctx(component.span()))
                             .what(format_args!("cannot import `{field}`"))
                             .at(component.span())?;
 

@@ -5,10 +5,10 @@ use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::Span;
 
 use crate::diag::{
-    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, bail,
+    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, bail, error,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -217,18 +217,6 @@ impl Scope {
     pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Binding)> {
         self.map.iter()
     }
-
-    /// Iterate over all definitions filtering out values that couldn't be
-    /// accessed using the [`BindingContext`].
-    pub fn iter_checked(
-        &self,
-        mut ctx: impl BindingContext,
-    ) -> impl Iterator<Item = (&EcoString, Spanned<&Value>)> {
-        self.map.iter().filter_map(move |(name, binding)| {
-            let value = binding.read_checked(&mut ctx).ok()?;
-            Some((name, Spanned::new(value, binding.span())))
-        })
-    }
 }
 
 impl Debug for Scope {
@@ -306,7 +294,7 @@ impl Binding {
         Self::new(value, Span::detached())
     }
 
-    /// Gates this binding behind the given [`Feature`].
+    /// Sets the category of this binding.
     pub fn with_category(&mut self, category: Category) -> &mut Self {
         self.init_info().category = Some(category);
         self
@@ -321,9 +309,9 @@ impl Binding {
     }
 
     /// Marks this binding as deprecated, with the given `message`.
-    pub fn with_deprecation(&mut self, deprecation: impl Into<Deprecation>) -> &mut Self {
+    pub fn with_deprecation(&mut self, deprecation: Deprecation) -> &mut Self {
         let info = self.init_info();
-        info.deprecation = Some(deprecation.into());
+        info.deprecation = Some(deprecation);
         self.check_access = info.has_checked_access();
         self
     }
@@ -349,19 +337,20 @@ impl Binding {
     /// use typst_syntax::Span;
     ///
     /// fn read_var(binding: &Binding, engine: &mut Engine, span: Span) -> SourceResult<Value> {
-    ///     binding.read_checked(engine.binding_ctx(span))
-    ///     .what(format_args!("cannot access variable"))
-    ///     .at(span)
-    ///     .cloned()
+    ///     binding.read(engine.binding_ctx(span))
+    ///         .what(format_args!("cannot access variable"))
+    ///         .at(span)
+    ///         .cloned()
     /// }
     /// ```
-    pub fn read_checked(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
+    pub fn read(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
         if self.check_access {
             self.check_access(ctx)?;
         }
         Ok(&self.value)
     }
 
+    /// Check if the binding is gated behind a feature or if it is deprecated.
     #[cold]
     fn check_access(&self, mut ctx: impl BindingContext) -> Result<(), FeatureError> {
         let Some(info) = &self.info else { return Ok(()) };
@@ -447,7 +436,7 @@ impl BindingInfo {
 /// A binding has been accessed but the feature that gates it isn't enabled.
 ///
 /// A [`Result<T, FeatureError>`] can be converted into a [`StrResult`] using
-/// the [`BindingAccess`] trait, see [`Binding::read_checked`].
+/// the [`BindingAccess`] trait, see [`Binding::read`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FeatureError(Feature);
 
@@ -460,12 +449,9 @@ pub trait BindingAccess<T> {
 
 impl<T> BindingAccess<T> for Result<T, FeatureError> {
     fn what(self, what: impl Display) -> StrResult<T> {
-        match self {
-            Ok(val) => Ok(val),
-            Err(FeatureError(feature)) => {
-                bail!("{what} because the `{feature}` feature is not enabled")
-            }
-        }
+        self.map_err(|FeatureError(feature)| {
+            error!("{what} because the `{feature}` feature is not enabled")
+        })
     }
 }
 
@@ -514,12 +500,6 @@ impl Deprecation {
     /// The version in which the binding is planned to be removed.
     pub fn until(&self) -> Option<&'static str> {
         self.until
-    }
-}
-
-impl From<&'static str> for Deprecation {
-    fn from(message: &'static str) -> Self {
-        Deprecation::new().with_message(message)
     }
 }
 
@@ -598,7 +578,7 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
     res
 }
 
-/// Destination for a warning message.
+/// Provides the currently enabled features when reading from a [`Binding`].
 pub trait BindingContext: WarningSink {
     /// The features enabled in the current [`crate::Library`].
     fn features(&self) -> &Features;
@@ -610,12 +590,14 @@ impl<T: BindingContext> BindingContext for &mut T {
     }
 }
 
+/// Create a [`BindingContext`] from a [`World`]s libaray, that discards all
+/// emitted warnings.
 pub trait WorldBindingExt {
     /// Create a [`BindingContext`] that discards emitted warnings.
     fn discard_ctx(&self) -> DiscardBindingCtx;
 }
 
-impl<T: World> WorldBindingExt for T {
+impl<T: World + ?Sized> WorldBindingExt for T {
     fn discard_ctx(&self) -> DiscardBindingCtx {
         DiscardBindingCtx { features: self.library().features.clone() }
     }
@@ -652,7 +634,7 @@ impl BindingContext for EngineCtx<'_, '_> {
 /// A [`BindingContext`] that discards emitted warnings.
 #[derive(Clone)]
 pub struct DiscardBindingCtx {
-    pub features: Features,
+    features: Features,
 }
 
 impl DiscardBindingCtx {
@@ -663,13 +645,13 @@ impl DiscardBindingCtx {
 
 impl WarningSink for DiscardBindingCtx {
     fn emit(&mut self, _message: HintedString) {
-        // Just discard warnings when gathering information.
+        // Just discard warnings.
     }
 }
 
 impl WarningSink for &DiscardBindingCtx {
     fn emit(&mut self, _message: HintedString) {
-        // Just discard warnings when gathering information.
+        // Just discard warnings.
     }
 }
 
