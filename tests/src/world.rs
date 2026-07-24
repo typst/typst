@@ -2,13 +2,17 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use comemo::Tracked;
+use parking_lot::Mutex;
+use rustc_hash::FxHashMap;
 use typst::diag::{At, FileError, FileResult, SourceResult, StrResult, bail};
 use typst::engine::Engine;
 use typst::foundations::{
-    Array, Bytes, Content, Context, Datetime, Duration, IntoValue, NativeElement,
-    NoneValue, Packed, Repr, Smart, StyleChain, Value, elem, func,
+    Array, Bytes, Content, Context, Datetime, Deprecation, Duration, IntoValue, Module,
+    NativeElement, NoneValue, Packed, Repr, Scope, Smart, StyleChain, Value, elem, func,
+    scope,
 };
 use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
@@ -17,7 +21,7 @@ use typst::syntax::{FileId, Source, Span};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
-use typst::{Features, Library, LibraryExt, World};
+use typst::{Feature, Features, Library, LibraryExt, World};
 use typst_kit::datetime::Time;
 use typst_kit::files::{FileLoader, FileStore};
 use typst_layout::layout_fragment;
@@ -29,6 +33,8 @@ use unscanny::Scanner;
 #[derive(Clone)]
 pub struct TestWorld {
     main: Source,
+    /// The library that should be used with this test world.
+    library: Arc<LazyHash<Library>>,
     base: &'static TestBase,
 }
 
@@ -37,17 +43,16 @@ impl TestWorld {
     ///
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
-    pub fn new(source: Source) -> Self {
-        Self {
-            main: source,
-            base: singleton!(TestBase, TestBase::default()),
-        }
+    pub fn new(source: Source, features: Option<Features>) -> Self {
+        let base = singleton!(TestBase, TestBase::default());
+        let library = base.lib.with_features(features);
+        Self { main: source, library, base }
     }
 }
 
 impl World for TestWorld {
     fn library(&self) -> &LazyHash<Library> {
-        &self.base.library
+        &self.library
     }
 
     fn book(&self) -> &LazyHash<FontBook> {
@@ -86,7 +91,7 @@ impl World for TestWorld {
 
 /// Shared foundation of all test worlds.
 struct TestBase {
-    library: LazyHash<Library>,
+    lib: Libraries,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
     files: FileStore<TestFiles>,
@@ -100,11 +105,46 @@ impl Default for TestBase {
             .collect();
 
         Self {
-            library: LazyHash::new(library()),
+            lib: Libraries::new(library()),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
             files: FileStore::new(TestFiles),
         }
+    }
+}
+
+/// The base library, and a set of interned libraries with overrides.
+struct Libraries {
+    /// The default base library.
+    base: Arc<LazyHash<Library>>,
+    /// Interned libraries that only have a subset of features enabled.
+    overrides: Mutex<FxHashMap<Features, Arc<LazyHash<Library>>>>,
+}
+
+impl Libraries {
+    fn new(base: Library) -> Self {
+        Self {
+            base: Arc::new(LazyHash::new(base)),
+            overrides: Mutex::new(FxHashMap::default()),
+        }
+    }
+}
+
+impl Libraries {
+    /// Retrieve a library with the specific set of features enabled.
+    /// If `features` is `None` the default base library is returned.
+    fn with_features(&self, features: Option<Features>) -> Arc<LazyHash<Library>> {
+        let Some(features) = features else {
+            return Arc::clone(&self.base);
+        };
+
+        let mut overrides = self.overrides.lock();
+        let lib = overrides.entry(features.clone()).or_insert_with(|| {
+            let mut lib = Library::clone(&*self.base);
+            lib.features = features;
+            Arc::new(LazyHash::new(lib))
+        });
+        Arc::clone(lib)
     }
 }
 
@@ -174,6 +214,7 @@ fn library() -> Library {
     let mut lib = Library::builder().with_features(Features::all()).build();
 
     // Hook up helpers into the global scope.
+    lib.global.scope_mut().define("check", check_module());
     lib.global.scope_mut().define_func::<test>();
     lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
@@ -198,12 +239,37 @@ fn library() -> Library {
     lib
 }
 
-#[func]
+fn check_module() -> Module {
+    let mut check = Scope::new();
+    check
+        .define("deprecated", Value::None)
+        .with_deprecation(Deprecation::new().with_message("this value is useless"));
+    check.define("gated", Value::None).with_feature(Feature::Html);
+    check.define("red", Color::RED);
+    Module::new("check", check)
+}
+
+#[func(scope)]
 fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
     if lhs != rhs {
         bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
     }
     Ok(NoneValue)
+}
+
+#[scope]
+impl test {
+    #[func]
+    #[deprecated(message = "this function is useless")]
+    fn deprecated() -> StrResult<Value> {
+        Ok(Value::None)
+    }
+
+    #[func]
+    #[feature = Html]
+    fn gated() -> StrResult<Value> {
+        Ok(Value::None)
+    }
 }
 
 #[func]

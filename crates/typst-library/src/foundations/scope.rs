@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 use ecow::{EcoString, eco_format};
@@ -7,11 +7,14 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink, bail};
+use crate::diag::{
+    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, bail, error,
+};
+use crate::engine::Engine;
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
 };
-use crate::{Category, Library};
+use crate::{Category, Feature, Features, Library, World};
 
 /// A stack of scopes.
 #[derive(Debug, Default, Clone)]
@@ -180,7 +183,7 @@ impl Scope {
         }
 
         let mut binding = Binding::detached(value);
-        binding.category = self.category;
+        binding.init_info().category = self.category;
         self.bind(name.into(), binding)
     }
 }
@@ -220,7 +223,7 @@ impl Debug for Scope {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.map.iter().map(|(k, v)| (k, v.read())))
+            .entries(self.map.iter().map(|(k, v)| (k, &v.value)))
             .finish()
     }
 }
@@ -254,10 +257,15 @@ pub struct Binding {
     kind: BindingKind,
     /// A span associated with the binding.
     span: Span,
-    /// The category of the binding.
-    category: Option<Category>,
-    /// The deprecation information if this item is deprecated.
-    deprecation: Option<Box<Deprecation>>,
+    /// Whether this binding has additional checks that should be performed
+    /// before accessing it. This boolean is just an optimization, so the happy
+    /// path stays fast. The concrete checks are performed on the properties of
+    /// additional binding information in [`Self::info`].
+    check_access: bool,
+    /// Infrequently accessed properties of the binding that are stored out of
+    /// band. These should only ever be set for built-in bindings in the
+    /// standard library.
+    info: Option<Box<BindingInfo>>,
 }
 
 /// The different kinds of slots.
@@ -276,8 +284,8 @@ impl Binding {
             value: value.into_value(),
             span,
             kind: BindingKind::Normal,
-            category: None,
-            deprecation: None,
+            check_access: false,
+            info: None,
         }
     }
 
@@ -286,35 +294,73 @@ impl Binding {
         Self::new(value, Span::detached())
     }
 
-    /// Marks this binding as deprecated, with the given `message`.
-    pub fn deprecated(&mut self, deprecation: Deprecation) -> &mut Self {
-        self.deprecation = Some(Box::new(deprecation));
+    /// Sets the category of this binding.
+    pub fn with_category(&mut self, category: Category) -> &mut Self {
+        self.init_info().category = Some(category);
         self
     }
 
-    /// Read the value.
-    pub fn read(&self) -> &Value {
+    /// Gates this binding behind the given [`Feature`].
+    pub fn with_feature(&mut self, feature: Feature) -> &mut Self {
+        let info = self.init_info();
+        info.feature = Some(feature);
+        self.check_access = info.has_checked_access();
+        self
+    }
+
+    /// Marks this binding as deprecated, with the given `message`.
+    pub fn with_deprecation(&mut self, deprecation: Deprecation) -> &mut Self {
+        let info = self.init_info();
+        info.deprecation = Some(deprecation);
+        self.check_access = info.has_checked_access();
+        self
+    }
+
+    fn init_info(&mut self) -> &mut BindingInfo {
+        self.info.get_or_insert_default()
+    }
+
+    /// Read the value, without checking for deprecation and feature gates.
+    /// The caller must justify why it's okay to avoid the checks.
+    pub fn read_unchecked(&self, _justification: &'static str) -> &Value {
         &self.value
     }
 
-    /// Read the value, checking for deprecation.
+    /// Read the value, checking for deprecation and feature gates.
     ///
-    /// As the `sink`
-    /// - pass `()` to ignore the message.
-    /// - pass `(&mut engine, span)` to emit a warning into the engine.
-    pub fn read_checked(&self, mut sink: impl WarningSink) -> &Value {
-        if let Some(message) = &self.deprecation {
-            sink.emit((**message).into());
+    /// # Example
+    ///
+    /// ```
+    /// use typst_library::foundations::{Binding, BindingAccess, Value};
+    /// use typst_library::diag::{At, SourceResult};
+    /// use typst_library::engine::Engine;
+    /// use typst_syntax::Span;
+    ///
+    /// fn read_var(binding: &Binding, engine: &mut Engine, span: Span) -> SourceResult<Value> {
+    ///     binding.read(engine.binding_ctx(span))
+    ///         .what(format_args!("cannot access variable"))
+    ///         .at(span)
+    ///         .cloned()
+    /// }
+    /// ```
+    pub fn read(&self, ctx: impl BindingContext) -> Result<&Value, FeatureError> {
+        if self.check_access {
+            self.check_access(ctx)?;
         }
-        &self.value
+        Ok(&self.value)
     }
 
     /// Try to write to the value.
     ///
     /// This fails if the value is a read-only closure capture.
-    pub fn write(&mut self) -> StrResult<&mut Value> {
+    pub fn write(&mut self, ctx: impl BindingContext) -> StrResult<&mut Value> {
         match self.kind {
-            BindingKind::Normal => Ok(&mut self.value),
+            BindingKind::Normal => {
+                if self.check_access {
+                    self.check_access(ctx).what("cannot access variable")?;
+                }
+                Ok(&mut self.value)
+            }
             BindingKind::Captured(capturer) => bail!(
                 "variables from outside the {} are \
                  read-only and cannot be modified",
@@ -324,6 +370,24 @@ impl Binding {
                 },
             ),
         }
+    }
+
+    /// Check if the binding is gated behind a feature or if it is deprecated.
+    #[cold]
+    fn check_access(&self, mut ctx: impl BindingContext) -> Result<(), FeatureError> {
+        let Some(info) = &self.info else { return Ok(()) };
+
+        if let Some(feature) = info.feature
+            && !ctx.features().is_enabled(feature)
+        {
+            return Err(FeatureError(feature));
+        }
+
+        if let Some(message) = info.deprecation {
+            ctx.emit(message.into());
+        }
+
+        Ok(())
     }
 
     /// Create a copy of the binding for closure capturing.
@@ -339,14 +403,60 @@ impl Binding {
         self.span
     }
 
-    /// A deprecation message for the value, if any.
-    pub fn deprecation(&self) -> Option<&Deprecation> {
-        self.deprecation.as_deref()
+    /// The category of the binding, if any.
+    pub fn category(&self) -> Option<Category> {
+        self.info.as_ref()?.category
     }
 
-    /// The category of the value, if any.
-    pub fn category(&self) -> Option<Category> {
-        self.category
+    /// The feature that gates the binding, if any.
+    pub fn feature(&self) -> Option<Feature> {
+        self.info.as_ref()?.feature
+    }
+
+    /// The deprecation of the binding, if any.
+    pub fn deprecation(&self) -> Option<Deprecation> {
+        self.info.as_ref()?.deprecation
+    }
+}
+
+/// Infrequently accessed information related to a binding.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+struct BindingInfo {
+    /// The category of the binding.
+    category: Option<Category>,
+    /// A feature required to access this binding.
+    feature: Option<Feature>,
+    /// The deprecation information if this item is deprecated.
+    deprecation: Option<Deprecation>,
+}
+
+impl BindingInfo {
+    /// Whether the binding info has a property set that requires checking
+    /// it when it's accessed.
+    fn has_checked_access(self) -> bool {
+        self.feature.is_some() || self.deprecation.is_some()
+    }
+}
+
+/// A binding has been accessed but the feature that gates it isn't enabled.
+///
+/// A [`Result<T, FeatureError>`] can be converted into a [`StrResult`] using
+/// the [`BindingAccess`] trait, see [`Binding::read`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct FeatureError(Feature);
+
+/// Convert a [`FeatureError`] to a [`StrResult`] by providing a description of
+/// what kind of binding couldn't be accessed.
+pub trait BindingAccess<T> {
+    /// Add a description of what kind of binding couldn't be accessed.
+    fn what(self, what: impl Display) -> StrResult<T>;
+}
+
+impl<T> BindingAccess<T> for Result<T, FeatureError> {
+    fn what(self, what: impl Display) -> StrResult<T> {
+        self.map_err(|FeatureError(feature)| {
+            error!("{what} because the `{feature}` feature is not enabled")
+        })
     }
 }
 
@@ -471,4 +581,93 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
     }
 
     res
+}
+
+/// Provides the currently enabled features when reading from a [`Binding`].
+pub trait BindingContext: WarningSink {
+    /// The features enabled in the current [`crate::Library`].
+    fn features(&self) -> &Features;
+}
+
+impl<T: BindingContext> BindingContext for &mut T {
+    fn features(&self) -> &Features {
+        T::features(self)
+    }
+}
+
+/// Create a [`BindingContext`] from a [`World`]s libaray, that discards all
+/// emitted warnings.
+pub trait WorldBindingExt {
+    /// Create a [`BindingContext`] that discards emitted warnings.
+    fn discard_ctx(&self) -> DiscardBindingCtx;
+}
+
+impl<T: World + ?Sized> WorldBindingExt for T {
+    fn discard_ctx(&self) -> DiscardBindingCtx {
+        DiscardBindingCtx { features: self.library().features.clone() }
+    }
+}
+
+/// A [`BindingContext`] that emits warnings to the engine's sink.
+pub struct EngineCtx<'x, 'y> {
+    pub engine: &'x mut Engine<'y>,
+    pub span: Span,
+}
+
+impl EngineCtx<'_, '_> {
+    /// Creates a [`BindingContext`] that discards emitted warnings.
+    pub fn discard_warnings(&self) -> DiscardBindingCtx {
+        DiscardBindingCtx { features: self.engine.library.features.clone() }
+    }
+}
+
+impl WarningSink for EngineCtx<'_, '_> {
+    fn emit(&mut self, message: HintedString) {
+        self.engine.sink.warn(
+            SourceDiagnostic::warning(self.span, message.message())
+                .with_hints(message.hints().iter().cloned()),
+        );
+    }
+}
+
+impl BindingContext for EngineCtx<'_, '_> {
+    fn features(&self) -> &Features {
+        &self.engine.library.features
+    }
+}
+
+/// A [`BindingContext`] that discards emitted warnings.
+#[derive(Clone)]
+pub struct DiscardBindingCtx {
+    features: Features,
+}
+
+impl DiscardBindingCtx {
+    pub fn new(features: Features) -> Self {
+        Self { features }
+    }
+}
+
+impl WarningSink for DiscardBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings.
+    }
+}
+
+impl WarningSink for &DiscardBindingCtx {
+    fn emit(&mut self, _message: HintedString) {
+        // Just discard warnings.
+    }
+}
+
+impl BindingContext for DiscardBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
+    }
+}
+
+impl BindingContext for &DiscardBindingCtx {
+    fn features(&self) -> &Features {
+        &self.features
+    }
 }

@@ -6,7 +6,7 @@ use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
-    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
+    ParamInfo, Repr, StyleChain, Styles, Type, Value, WorldBindingExt, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -21,7 +21,10 @@ use unscanny::Scanner;
 use crate::analyze::analyze_expr_with_fallback;
 use crate::docs::{find_param_docs, find_value_docs};
 use crate::utils::{check_value_recursively, globals, summarize_font_family};
-use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
+use crate::{
+    DiscardBindingCtx, IdeWorld, analyze_expr, analyze_import, analyze_labels,
+    named_items,
+};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -177,17 +180,20 @@ fn field_access_completions(
     // Autocomplete methods from the element's or type's scope. We only complete
     // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
-        if let Some(param) = func.params().next()
+        if let Ok(value) = binding.read(ctx.binding_ctx())
+            && let Ok(func) = value.clone().cast::<Func>()
+            && let Some(param) = func.params().next()
             && param.name() == Some("self")
         {
-            ctx.call_completion(name.clone(), binding.read());
+            ctx.call_completion(name.clone(), value);
         }
     }
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            ctx.call_completion(name.clone(), binding.read());
+            if let Ok(value) = binding.read(ctx.world.discard_ctx()) {
+                ctx.call_completion(name.clone(), value);
+            }
         }
     }
 
@@ -197,7 +203,9 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field, ()).unwrap());
+        if let Ok(value) = value.field(field, ctx.binding_ctx()) {
+            ctx.value_completion(field, &value);
+        }
     }
 
     match value {
@@ -322,8 +330,10 @@ fn import_item_completions<'a>(
     }
 
     for (name, binding) in scope.iter() {
-        if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), binding.read());
+        if existing.iter().all(|item| item.original_name().as_str() != name)
+            && let Ok(value) = binding.read(ctx.binding_ctx())
+        {
+            ctx.value_completion(name.clone(), value);
         }
     }
 }
@@ -1424,12 +1434,14 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for definitions that are available at the cursor.
     ///
     /// Filters the global/math scope with the given filter.
-    fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
+    fn scope_completions(&mut self, parens: bool, filter_fn: impl Fn(&Value) -> bool) {
         // When any of the constituent parts of the value matches the filter,
         // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
         // we propose colors, but also dictionaries and modules that contain
         // colors.
-        let filter = |value: &Value| check_value_recursively(value, &filter);
+        let binding_ctx = self.binding_ctx();
+        let filter =
+            |value: &Value| check_value_recursively(&binding_ctx, value, &filter_fn);
 
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {
@@ -1455,11 +1467,17 @@ impl<'a> CompletionContext<'a> {
         }
 
         for (name, binding) in globals(self.world, self.leaf).iter() {
-            let value = binding.read();
-            if filter(value) && !defined.contains_key(name) {
+            if let Ok(value) = binding.read(self.binding_ctx())
+                && filter(value)
+                && !defined.contains_key(name)
+            {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
         }
+    }
+
+    fn binding_ctx(&self) -> DiscardBindingCtx {
+        self.world.discard_ctx()
     }
 }
 

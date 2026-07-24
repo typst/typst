@@ -1,6 +1,8 @@
 use ecow::eco_format;
 use typst_library::diag::{At, SourceResult};
-use typst_library::foundations::{Content, NativeElement, Symbol, SymbolElem, Value};
+use typst_library::foundations::{
+    BindingAccess, Content, NativeElement, Symbol, SymbolElem, Value,
+};
 use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
@@ -51,7 +53,9 @@ impl Eval for ast::MathIdent<'_> {
             .scopes
             .get_in_math(&self)
             .at(span)?
-            .read_checked((&mut vm.engine, span))
+            .read(vm.engine.binding_ctx(span))
+            .what(format_args!("cannot access variable `{}`", self.get()))
+            .at(span)?
             .clone())
     }
 }

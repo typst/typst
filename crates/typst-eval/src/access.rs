@@ -29,14 +29,18 @@ impl Access for ast::Expr<'_> {
 impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
+        let ident = self.as_str();
         if vm.inspected == Some(span)
-            && let Ok(binding) = vm.scopes.get(&self)
+            && let Ok(binding) = vm.scopes.get(ident)
+            && let Ok(value) =
+                binding.read(vm.engine.binding_ctx(span).discard_warnings())
         {
-            vm.trace(binding.read().clone());
+            vm.trace(value.clone());
         }
+
         vm.scopes
             .get_mut(&self)
-            .and_then(|b| b.write().map_err(Into::into))
+            .and_then(|b| b.write(vm.engine.binding_ctx(span)).map_err(Into::into))
             .at(span)
     }
 }

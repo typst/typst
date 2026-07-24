@@ -15,7 +15,7 @@ use typst::text::{
 use typst::utils::Protected;
 use typst_utils::Scalar;
 
-use crate::IdeWorld;
+use crate::{DiscardBindingCtx, IdeWorld};
 
 /// Create a temporary engine and run a task on it.
 pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
@@ -184,10 +184,11 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
 /// Checks whether the given value or any of its constituent parts satisfy the
 /// predicate.
 pub fn check_value_recursively(
+    ctx: &DiscardBindingCtx,
     value: &Value,
     predicate: impl Fn(&Value) -> bool,
 ) -> bool {
-    let mut searcher = Searcher { steps: 0, predicate, max_steps: 1000 };
+    let mut searcher = Searcher { ctx, steps: 0, predicate, max_steps: 1000 };
     match searcher.find(value) {
         ControlFlow::Break(matching) => matching,
         ControlFlow::Continue(()) => false,
@@ -196,13 +197,14 @@ pub fn check_value_recursively(
 
 /// Recursively searches for a value that passes the filter, but without
 /// exceeding a maximum number of search steps.
-struct Searcher<F> {
+struct Searcher<'a, F> {
+    ctx: &'a DiscardBindingCtx,
     max_steps: usize,
     steps: usize,
     predicate: F,
 }
 
-impl<F> Searcher<F>
+impl<F> Searcher<'_, F>
 where
     F: Fn(&Value) -> bool,
 {
@@ -225,7 +227,12 @@ where
                 self.find_iter(content.fields().iter().map(|(_, v)| v))?;
             }
             Value::Module(module) => {
-                self.find_iter(module.scope().iter().map(|(_, b)| b.read()))?;
+                let binding_ctx = self.ctx;
+                self.find_iter(
+                    module.scope().iter().filter_map(move |(_name, binding)| {
+                        binding.read(binding_ctx).ok()
+                    }),
+                )?;
             }
             _ => {}
         }

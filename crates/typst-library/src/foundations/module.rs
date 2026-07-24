@@ -4,8 +4,10 @@ use std::sync::Arc;
 use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::{StrResult, WarningSink, bail};
-use crate::foundations::{Content, Repr, Scope, Value, ty};
+use crate::diag::{StrResult, bail};
+use crate::foundations::{
+    BindingAccess, BindingContext, Content, Repr, Scope, Value, ty,
+};
 
 /// A collection of variables and functions that are commonly related to a
 /// single theme.
@@ -136,9 +138,11 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<&Value> {
+    pub fn field(&self, field: &str, ctx: impl BindingContext) -> StrResult<&Value> {
         match self.scope().get(field) {
-            Some(binding) => Ok(binding.read_checked(sink)),
+            Some(binding) => {
+                binding.read(ctx).what(format_args!("cannot access field `{field}`"))
+            }
             None => match &self.name {
                 Some(name) => bail!("module `{name}` does not contain `{field}`"),
                 None => bail!("module does not contain `{field}`"),

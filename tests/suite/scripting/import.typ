@@ -492,6 +492,28 @@ This is never reached.
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
 
+--- import-feature-gated-item eval features() ---
+// Error: 14-18 cannot import `html` because the `html` feature is not enabled
+#import std: html
+
+--- import-feature-gated-field eval features() ---
+// Error: 18-31 cannot import `table-summary` because the `a11y-extras` feature is not enabled
+#import std: pdf.table-summary
+
+--- import-deprecated-item eval ---
+// Warning: 15-25 this function is useless
+#import test: deprecated
+// Warning: 16-26 this value is useless
+#import check: deprecated
+
+--- import-feature-gated-value eval features() ---
+// Error: 16-21 cannot import `gated` because the `html` feature is not enabled
+#import check: gated
+
+--- import-feature-gated-field-of-type eval features() ---
+// Error: 15-20 cannot import `gated` because the `html` feature is not enabled
+#import test: gated
+
 --- issue-7393-import-error-string-unclosed eval ---
 // More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`
 // Error: 1:9-3:1 unclosed string

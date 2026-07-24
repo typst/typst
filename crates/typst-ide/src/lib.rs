@@ -18,6 +18,7 @@ pub use self::tooltip::{Tooltip, tooltip};
 
 use ecow::EcoString;
 use typst::World;
+use typst::foundations::DiscardBindingCtx;
 use typst::syntax::FileId;
 use typst::syntax::package::PackageSpec;
 

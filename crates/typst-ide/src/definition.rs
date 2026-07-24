@@ -1,4 +1,4 @@
-use typst::foundations::{AsOutput, Label, Selector, Value};
+use typst::foundations::{AsOutput, Label, Selector, Value, WorldBindingExt};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
@@ -56,8 +56,10 @@ pub fn definition(
                 }
             }
 
-            if let Some(binding) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(binding.read().clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name)
+                && let Ok(value) = binding.read(world.discard_ctx())
+            {
+                return Some(Definition::Std(value.clone()));
             }
         }
 
