@@ -9,6 +9,7 @@ use typst_syntax::Span;
 use crate::diag::{At, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{Context, Func, Str, Value, cast, func};
+use std::sync::LazyLock;
 
 /// Applies a numbering to a sequence of numbers.
 ///
@@ -289,30 +290,39 @@ fn apply_system_with_fallback(
     })
 }
 
+static SHORTHANDS: LazyLock<Vec<(&'static str, NamedNumeralSystem)>> =
+    LazyLock::new(|| {
+        let mut v: Vec<_> = NamedNumeralSystem::iter()
+            .filter_map(|system| system.shorthand().map(|s| (s, system)))
+            .collect();
+        v.sort_by_key(|(s, _)| std::cmp::Reverse(s.len()));
+        v
+    });
+
 impl FromStr for NumberingPattern {
     type Err = &'static str;
 
     fn from_str(pattern: &str) -> Result<Self, Self::Err> {
         let mut pieces = EcoVec::new();
         let mut handled = 0;
-
-        for (i, c) in pattern.char_indices() {
-            let Some(kind) =
-                NamedNumeralSystem::from_shorthand(c.encode_utf8(&mut [0; 4]))
+        let mut i = 0;
+        while i < pattern.len() {
+            let rest = &pattern[i..];
+            let Some(&(shorthand, kind)) =
+                SHORTHANDS.iter().find(|(s, _)| rest.starts_with(s))
             else {
+                i += rest.chars().next().unwrap().len_utf8();
                 continue;
             };
-
             let prefix = pattern[handled..i].into();
             pieces.push((prefix, kind));
-            handled = c.len_utf8() + i;
+            i += shorthand.len();
+            handled = i;
         }
-
         let suffix = pattern[handled..].into();
         if pieces.is_empty() {
             return Err("invalid numbering pattern");
         }
-
         Ok(Self { pieces, suffix, trimmed: false })
     }
 }
