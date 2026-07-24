@@ -19,6 +19,7 @@
 #let icons = (
   "12-tooltip.svg",
   "16-check.svg",
+  "16-check-box.svg",
   "16-chevron-right.svg",
   "16-close.svg",
   "16-code.svg",
@@ -27,6 +28,7 @@
   "16-hamburger-dark.svg",
   "16-link.svg",
   "16-search-gray.svg",
+  "16-toggles.svg",
   "16-warn.svg",
   "32-reference-c.svg",
   "32-tutorial-c.svg",

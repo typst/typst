@@ -1,6 +1,6 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, deprecation, folding-details, heading-offset, html-heading-n,
+  classnames, definition-info, folding-details, heading-offset, html-heading-n,
   labelled, oneliner, paged-heading-offset, short-or-long, small, use-icon,
   title-case, to-func, with-tooltip,
 )
@@ -265,7 +265,7 @@
 //
 // When the labels are changed here, `docs/content/reference/index.typ` needs to
 // change, too.
-#let func-subtitle(info, deprecation-info) = context {
+#let func-subtitle(info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if info.element {
     set text(0.75em)
@@ -289,12 +289,12 @@
     panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
   }
   gap
-  deprecation(deprecation-info)
+  definition-info(binding-info)
   sources-link(info)
 }
 
 // Displays additional details about a type.
-#let ty-subtitle(ty-info, deprecation-info) = context {
+#let ty-subtitle(ty-info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if ty-info.since != none {
     set text(0.75em)
@@ -303,7 +303,7 @@
   } else {
     panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
   }
-  deprecation(deprecation-info)
+  definition-info(binding-info)
   sources-link(ty-info)
 }
 
@@ -312,7 +312,7 @@
 #let func-member(
   func,
   base-label: none,
-  deprecation-info: none,
+  binding-info: none,
   definitions-section: none,
 ) = {
   let info = stdx.describe(to-func(func))
@@ -337,7 +337,7 @@
           it.level + 1,
           class: classnames(
             "scoped-definition",
-            deprecated: deprecation-info != none,
+            deprecated: binding-info != none and binding-info.deprecation != none,
           ),
           it.body,
         )
@@ -345,7 +345,7 @@
     }
     let title = short-or-long(
       info.title,
-      raw(info.name) + func-subtitle(info, deprecation-info),
+      raw(info.name) + func-subtitle(info, binding-info),
     )
     labelled(heading(depth: 2, title), base-label)
   }
@@ -425,7 +425,7 @@
 #let ty-member(
   ty,
   base-label: none,
-  deprecation-info: none,
+  binding-info: none,
   definitions-section: none,
 ) = {
   let info = stdx.describe(ty)
@@ -447,7 +447,7 @@
           it.level + 1,
           class: classnames(
             "scoped-definition",
-            deprecated: deprecation-info != none,
+            deprecated: binding-info != none,
           ),
           it.body
         )
@@ -455,7 +455,7 @@
     }
     let title = short-or-long(
       info.title,
-      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, deprecation-info),
+      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, binding-info),
     )
     labelled(heading(depth: 2, title), base-label)
   }
@@ -503,14 +503,14 @@
       func-member(
         value,
         base-label: base-label,
-        deprecation-info: stdx.binding(mod, name).deprecation,
+        binding-info: stdx.binding(mod, name),
         definitions-section: definitions-section,
       )
     } else if type(value) == type {
       ty-member(
         value,
         base-label: base-label,
-        deprecation-info: stdx.binding(mod, name).deprecation,
+        binding-info: stdx.binding(mod, name),
         definitions-section: definitions-section,
       )
     }
@@ -531,13 +531,13 @@
 }
 
 // Renders a section for a function.
-#let func-section(base-route, name, func, info, deprecation-info) = {
+#let func-section(base-route, name, func, info, binding-info) = {
   show: func-or-ty-section.with(
     kind: "Function",
     route: base-route + "/" + name,
     title: info.title,
     title-fmt: raw(info.name),
-    subtitle: func-subtitle(info, deprecation-info),
+    subtitle: func-subtitle(info, binding-info),
     has-summary: true,
     keywords: info.keywords,
     def-target: func,
@@ -565,12 +565,12 @@
 }
 
 // Renders a section for a type.
-#let ty-section(base-route, name, ty, ty-info, deprecation-info) = {
+#let ty-section(base-route, name, ty, ty-info, binding-info) = {
   show: func-or-ty-section.with(
     route: base-route + "/" + name,
     title: ty-info.title,
     title-fmt: ty-pill(ty, linked: false),
-    subtitle: ty-subtitle(ty-info, deprecation-info),
+    subtitle: ty-subtitle(ty-info, binding-info),
     has-summary: true,
     kind: "Type",
     keywords: ty-info.keywords,
@@ -755,7 +755,7 @@
         k,
         v,
         stdx.describe(v),
-        stdx.binding(scope, k).deprecation,
+        stdx.binding(scope, k),
       ))
 
     // Manual ddditions.
@@ -785,11 +785,11 @@
 
   // The individual sections for all definitions.
   show: paged-heading-offset.with(1)
-  for (name, value, info, deprecation-info) in definitions {
+  for (name, value, info, binding-info) in definitions {
     if type(value) == function {
-      func-section(route, name, value, info, deprecation-info)
+      func-section(route, name, value, info, binding-info)
     } else if type(value) == type {
-      ty-section(route, name, value, info, deprecation-info)
+      ty-section(route, name, value, info, binding-info)
     } else {
       group-section(route, def-target, info)
     }
