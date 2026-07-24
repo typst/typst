@@ -194,8 +194,8 @@ impl Dict {
             .filter_map(|(key, binding)| {
                 // Filter out values that are in feature gated bindings and
                 // ignore any deprecation warnings that are emitted.
-                let binding_ctx = engine.binding_ctx(value.span).discard_warnings();
-                let val = binding.read(binding_ctx).ok()?;
+                let guard = engine.binding_guard(value.span).silent();
+                let val = binding.read(guard).ok()?;
                 Some((Str::from(key.clone()), val.clone()))
             })
             .collect();

@@ -164,8 +164,8 @@ impl Eval for ast::Ident<'_> {
             .scopes
             .get(&self)
             .at(span)?
-            .read(vm.engine.binding_ctx(span))
-            .what(format_args!("cannot access variable `{}`", self.get()))
+            .read(vm.engine.binding_guard(span))
+            .or_cannot(format_args!("access variable `{}`", self.get()))
             .at(span)?
             .clone())
     }
@@ -368,7 +368,9 @@ pub(crate) fn access_field(
     field: &str,
     field_span: Span,
 ) -> SourceResult<Value> {
-    let err = match target.field(field, vm.engine.binding_ctx(field_span)).at(field_span)
+    let err = match target
+        .field(field, vm.engine.binding_guard(field_span))
+        .at(field_span)
     {
         Ok(value) => return Ok(value),
         Err(err) => err,

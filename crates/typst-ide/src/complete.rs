@@ -22,7 +22,7 @@ use crate::analyze::analyze_expr_with_fallback;
 use crate::docs::{find_param_docs, find_value_docs};
 use crate::utils::{check_value_recursively, globals, summarize_font_family};
 use crate::{
-    DiscardBindingCtx, IdeWorld, analyze_expr, analyze_import, analyze_labels,
+    IdeWorld, SilentBindingGuard, analyze_expr, analyze_import, analyze_labels,
     named_items,
 };
 
@@ -180,7 +180,7 @@ fn field_access_completions(
     // Autocomplete methods from the element's or type's scope. We only complete
     // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        if let Ok(value) = binding.read(ctx.binding_ctx())
+        if let Ok(value) = binding.read(ctx.binding_guard())
             && let Ok(func) = value.clone().cast::<Func>()
             && let Some(param) = func.params().next()
             && param.name() == Some("self")
@@ -191,7 +191,7 @@ fn field_access_completions(
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            if let Ok(value) = binding.read(ctx.world.discard_ctx()) {
+            if let Ok(value) = binding.read(ctx.world.silent_binding_guard()) {
                 ctx.call_completion(name.clone(), value);
             }
         }
@@ -203,7 +203,7 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        if let Ok(value) = value.field(field, ctx.binding_ctx()) {
+        if let Ok(value) = value.field(field, ctx.binding_guard()) {
             ctx.value_completion(field, &value);
         }
     }
@@ -331,7 +331,7 @@ fn import_item_completions<'a>(
 
     for (name, binding) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name)
-            && let Ok(value) = binding.read(ctx.binding_ctx())
+            && let Ok(value) = binding.read(ctx.binding_guard())
         {
             ctx.value_completion(name.clone(), value);
         }
@@ -1438,7 +1438,7 @@ impl<'a> CompletionContext<'a> {
         // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
         // we propose colors, but also dictionaries and modules that contain
         // colors.
-        let binding_ctx = self.binding_ctx();
+        let binding_ctx = self.binding_guard();
         let filter =
             |value: &Value| check_value_recursively(&binding_ctx, value, &filter_fn);
 
@@ -1466,7 +1466,7 @@ impl<'a> CompletionContext<'a> {
         }
 
         for (name, binding) in globals(self.world, self.leaf).iter() {
-            if let Ok(value) = binding.read(self.binding_ctx())
+            if let Ok(value) = binding.read(self.binding_guard())
                 && filter(value)
                 && !defined.contains_key(name)
             {
@@ -1475,8 +1475,8 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
-    fn binding_ctx(&self) -> DiscardBindingCtx {
-        self.world.discard_ctx()
+    fn binding_guard(&self) -> SilentBindingGuard {
+        self.world.silent_binding_guard()
     }
 }
 

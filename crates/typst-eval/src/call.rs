@@ -245,15 +245,15 @@ fn eval_field_callee(
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let ctx = vm.engine.binding_ctx(field_span);
+    let guard = vm.engine.binding_guard(field_span);
 
     let mut is_method_call = false;
     let callee_value = if let Some(method) = target.ty().scope().get(field) {
         is_method_call = true;
         let ty = target.ty().short_name();
         method
-            .read(ctx)
-            .what(format_args!("cannot call method `{field}` on value of type `{ty}`"))
+            .read(guard)
+            .or_cannot(format_args!("call method `{field}` on value of type {ty}"))
             .at(field_span)?
             .clone()
     } else if let Value::Content(content) = &target
@@ -261,17 +261,17 @@ fn eval_field_callee(
     {
         is_method_call = true;
         method
-            .read(ctx)
-            .what(format_args!("cannot call method `{field}` on content"))
+            .read(guard)
+            .or_cannot(format_args!("call method `{field}` on content"))
             .at(field_span)?
             .clone()
     } else if matches!(target, Value::Symbol(_) | Value::Type(_) | Value::Module(_)) {
         // These types are allowed to use field call syntax on non-methods.
-        target.field(field, ctx).at(field_span)?
+        target.field(field, guard).at(field_span)?
     } else if let Value::Func(func) = &target {
         // Functions can also use field call syntax on non-methods, but not for
         // settable fields accessed from context.
-        match target.field(field, ctx).at(field_span) {
+        match target.field(field, guard).at(field_span) {
             Ok(callee_value) => callee_value,
             Err(err) => {
                 if let Some(element) = func.to_element()
@@ -293,7 +293,7 @@ fn eval_field_callee(
         }
     } else {
         // Otherwise we are not allowed to call the field and produce an error.
-        match target.field(field, ctx) {
+        match target.field(field, guard) {
             // The field does exist.
             Ok(callee_value) => {
                 bail!(disallowed_field_call_error(

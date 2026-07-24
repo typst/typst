@@ -10,7 +10,7 @@ use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
 
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
-use crate::foundations::{EngineCtx, Styles, Value};
+use crate::foundations::{NormalBindingGuard, Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::{Library, World};
 
@@ -117,8 +117,8 @@ impl<'a> Engine<'a> {
     }
 
     /// Create a struct that implements [`crate::foundations::BindingContext`].
-    pub fn binding_ctx(&'_ mut self, span: Span) -> EngineCtx<'_, 'a> {
-        EngineCtx { engine: self, span }
+    pub fn binding_guard(&'_ mut self, span: Span) -> NormalBindingGuard<'_, 'a> {
+        NormalBindingGuard { engine: self, span }
     }
 }
 

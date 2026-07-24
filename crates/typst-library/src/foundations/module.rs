@@ -5,9 +5,7 @@ use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
 use crate::diag::{StrResult, bail};
-use crate::foundations::{
-    BindingAccess, BindingContext, Content, Repr, Scope, Value, ty,
-};
+use crate::foundations::{BindingAccess, BindingGuard, Content, Repr, Scope, Value, ty};
 
 /// A collection of variables and functions that are commonly related to a
 /// single theme.
@@ -138,10 +136,10 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str, ctx: impl BindingContext) -> StrResult<&Value> {
+    pub fn field(&self, field: &str, guard: impl BindingGuard) -> StrResult<&Value> {
         match self.scope().get(field) {
             Some(binding) => {
-                binding.read(ctx).what(format_args!("cannot access field `{field}`"))
+                binding.read(guard).or_cannot(format_args!("access field `{field}`"))
             }
             None => match &self.name {
                 Some(name) => bail!("module `{name}` does not contain `{field}`"),
