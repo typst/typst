@@ -345,7 +345,7 @@ impl Color {
         lightness: Component,
         /// The alpha component.
         #[external]
-        alpha: RatioComponent,
+        alpha: Component,
         /// Alternatively: The color to convert to grayscale.
         ///
         /// If this is given, the individual components should not be given.
@@ -357,8 +357,7 @@ impl Color {
                 color.to_luma()
             } else {
                 let Component(l) = args.expect("lightness component")?;
-                let RatioComponent(alpha) =
-                    args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
+                let Component(alpha) = args.eat()?.unwrap_or(Component(Ratio::one()));
                 Luma::new(l.get() as f32, alpha.get() as f32)
             },
         )))
