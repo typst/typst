@@ -20,6 +20,92 @@ As seen in @intro, we proceed.
 // Error: 1-5 label `<foo>` occurs multiple times in the document
 @foo
 
+--- ref-within-label-path bundle ---
+#set heading(numbering: "1.")
+
+#[
+  #document("alpha.pdf")[
+    = #lorem(3) <heading-1>
+    #[
+      == #lorem(5) <subheading>
+    ] <subscope-1>
+  ] <doc-1>
+  #document("beta.pdf")[
+    = #lorem(4) <subheading>
+  ] <doc-2>
+] <scope>
+
+#document("gamma.pdf")[
+  @doc-1/subheading
+  @subscope-1/subheading
+  @doc-1/subscope-1/subheading
+  #ref(<doc-1/subscope-1/subheading>)
+  #ref(<doc-1>/<subscope-1>/<subheading>)
+
+  #context test(str(<doc-1>/<subscope-1>), "doc-1/subscope-1")
+  #context test(query(<doc-1/subscope-1/subheading>).len(), 1)
+  #context test(query(<subscope-1/doc-1/subheading>).len(), 0)
+]
+
+--- ref-within-label-path-ambiguous bundle ---
+#set heading(numbering: "1.")
+
+#[
+  #document("alpha.pdf")[
+    = #lorem(3) <heading-1>
+    #[
+      == #lorem(5) <subheading>
+    ] <subscope-1>
+  ] <doc-1>
+  #document("beta.pdf")[
+    = #lorem(4) <subheading>
+  ] <doc-2>
+] <scope>
+
+#document("gamma.pdf")[
+  // Error: 3-14 label `<subheading>` occurs multiple times in the document
+  @subheading
+
+  // Error: 3-20 selector matches multiple elements
+  @scope/subheading
+]
+
+--- ref-within-label-path-repeat bundle ---
+#set heading(numbering: "1.")
+#set math.equation(numbering: "(1)")
+
+#let ct = [
+  $ E = m c^2 $ <eq1>
+  $ F = m a $ <eq2>
+  #[= #lorem(2) <head>] <scope1>
+  #[= #lorem(2) <head>] <scope2>
+  - See @eq1, @eq2, @scope1/head, @scope2/head
+  - Also look at @doc-a/eq1 and @doc-b/eq1.
+]
+
+#let prefix-reference(it, prefix: "") = if not str(it.target).contains("doc-") {
+  ref(label(prefix + "/" + str(it.target)))
+} else {
+  it
+}
+
+#document("a.pdf")[
+  #show ref: prefix-reference.with(prefix: "doc-a")
+  #ct
+] <doc-a>
+
+#counter(heading).update(0)
+#counter(math.equation).update(0)
+
+#document("b.pdf")[
+  #show ref: prefix-reference.with(prefix: "doc-b")
+  #ct
+] <doc-b>
+
+--- ref-label-contains-paths eval ---
+// Error: 11-27 label paths cannot be used to label content
+= Heading <heading/syntax>
+
 --- ref-supplements paged ---
 #set heading(numbering: "1.", supplement: [Chapter])
 #set math.equation(numbering: "(1)", supplement: [Eq.])

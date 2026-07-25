@@ -1,6 +1,6 @@
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::foundations::{
-    Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
+    Content, IntoValue, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -50,6 +50,12 @@ fn eval_markup<'a>(
                 seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?);
             }
             expr => match expr.eval(vm)? {
+                Value::Label(label) if label.resolve().as_str().contains('/') => {
+                    bail!(
+                        expr.span(),
+                        "label paths cannot be used to label content";
+                    );
+                }
                 Value::Label(label) => {
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
@@ -186,9 +192,9 @@ impl Eval for ast::Label<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(
-            Label::new(PicoStr::intern(self.get())).expect("unexpected empty label"),
-        ))
+        Ok(Label::new(PicoStr::intern(self.get()))
+            .expect("unexpected empty label")
+            .into_value())
     }
 }
 

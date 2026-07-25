@@ -3,11 +3,11 @@
 use std::cmp::Ordering;
 
 use ecow::eco_format;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, PicoStr};
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, IntoValue, Label as LabelValue, Regex, Repr, SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
@@ -290,6 +290,11 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     use Value::*;
     if is_zero(&rhs) {
         bail!("cannot divide by zero");
+    }
+
+    if let (Label(lhs), Label(rhs)) = (&lhs, &rhs) {
+        let path = eco_format!("{}/{}", lhs.resolve().as_str(), rhs.resolve().as_str());
+        return Ok(Label(LabelValue::new(PicoStr::intern(&path)).unwrap()).into_value());
     }
 
     Ok(match (lhs, rhs) {

@@ -574,20 +574,30 @@ impl Lexer<'_> {
     }
 
     fn ref_marker(&mut self) -> SyntaxKind {
-        self.s.eat_while(is_valid_in_label_literal);
+        let start = self.s.cursor();
+        self.s.eat_while(is_valid_in_label_path);
 
         // Don't include the trailing characters likely to be part of text.
         while matches!(self.s.scout(-1), Some('.' | ':')) {
             self.s.uneat();
         }
 
+        let target = self.s.from(start);
+        if has_empty_label_path_component(target) {
+            return self.error("label path cannot contain empty components");
+        }
+
         SyntaxKind::RefMarker
     }
 
     fn label(&mut self) -> SyntaxKind {
-        let label = self.s.eat_while(is_valid_in_label_literal);
+        let label = self.s.eat_while(is_valid_in_label_path);
         if label.is_empty() {
             return self.error("label cannot be empty");
+        }
+
+        if has_empty_label_path_component(label) {
+            return self.error("label path cannot contain empty components");
         }
 
         if !self.s.eat_if('>') {
@@ -1269,6 +1279,18 @@ fn is_math_id_continue(c: char) -> bool {
 #[inline]
 fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
+}
+
+/// Whether a character can be part of a label or reference path literal.
+#[inline]
+fn is_valid_in_label_path(c: char) -> bool {
+    is_valid_in_label_literal(c) || c == '/'
+}
+
+/// Whether a label path contains an empty component.
+#[inline]
+fn has_empty_label_path_component(path: &str) -> bool {
+    path.starts_with('/') || path.ends_with('/') || path.contains("//")
 }
 
 /// Returns true if this string is valid in a label literal.
