@@ -975,7 +975,7 @@ fn string_is_empty() -> EcoString {
 /// #link("https://docs.rs/regex/latest/regex/#syntax")[See here] for a
 /// specification of the supported syntax.
 ///
-/// = Example <example>
+/// = Examples <example>
 /// ```example
 /// // Works with string methods.
 /// #"a,b;c".split(regex("[,;]"))
@@ -984,6 +984,17 @@ fn string_is_empty() -> EcoString {
 /// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
+/// ```
+///
+/// You can also use `regex`-based show rules with @str[string methods]:
+/// ```example
+/// #let pattern = regex("\|([^|]*)\|")
+/// #show pattern: it => {
+///   let inner = it.text.matches(pattern).at(0).captures.at(0)
+///   highlight(inner)
+/// }
+///
+/// A |handy-dandy| highlighter!
 /// ```
 #[ty(scope, since = "forever")]
 #[derive(Debug, Clone)]
