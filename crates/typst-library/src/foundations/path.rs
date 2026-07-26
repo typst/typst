@@ -166,7 +166,7 @@ impl RootedPath {
 
     ///Returns the string representation of the absolute path.
     #[func]
-    pub fn value(&self) -> Str {
+    pub fn absolute(&self) -> Str {
         self.vpath().get_with_slash().into()
     }
 }
