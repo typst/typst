@@ -156,13 +156,13 @@ pub fn collect<'a>(
     }
 
     let prev_styles = None;
-    let mut active_links: Vec<(Destination, &LazyHash<Style>)> = vec![];
+    let mut active_links: Vec<(Destination, &[LazyHash<Style>])> = vec![];
     for &(child, styles) in children {
         let prev_len = collector.full.len();
 
         // 1. End active links.
         let mut hit = false;
-        for style in styles.entries() {
+        for style in styles.links() {
             if let Some(link_pos) =
                 active_links.iter().position(|(_, s)| std::ptr::eq(*s, style))
             {
@@ -185,25 +185,27 @@ pub fn collect<'a>(
         // 2. Append new links.
         let common_styles =
             prev_styles.and_then(|prev| StyleChain::trunk([prev, styles]));
-        let first_common_entry = common_styles.and_then(|c| c.entries().next());
-        for new_style in styles
-            .entries()
+        let first_common_entry = common_styles.and_then(|c| c.links().next());
+        for new_entry in styles
+            .links()
             .skip_while(|&s| first_common_entry.is_some_and(|c| !std::ptr::eq(c, s)))
         {
-            if first_common_entry.is_some_and(|c| std::ptr::eq(c, new_style)) {
+            if first_common_entry.is_some_and(|c| std::ptr::eq(c, new_entry)) {
                 continue;
             }
-            if active_links.last().is_some_and(|(_, s)| std::ptr::eq(*s, new_style)) {
+            if active_links.last().is_some_and(|(_, s)| std::ptr::eq(*s, new_entry)) {
                 continue;
             }
-            if let Some(property) = new_style.property()
-                && property.is(LinkElem::ELEM, LinkElem::current.index())
-            {
+
+            if new_entry.iter().any(|s| {
+                s.property()
+                    .is_some_and(|p| p.is(LinkElem::ELEM, LinkElem::current.index()))
+            }) {
                 let link = styles.get_cloned(LinkElem::current);
                 if let Some(link) = link {
-                    println!("Hi {link:?} {:p}!", new_style);
+                    println!("Hi {link:?} {:p}!", new_entry);
                     collector.push_event(Event::StartLink(link.clone()));
-                    active_links.push((link, new_style));
+                    active_links.push((link, new_entry));
                 } else {
                     // What to do if setting link to none? probably nothing? or
                     // maybe add end and later start event again for the same
