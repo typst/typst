@@ -359,7 +359,11 @@ fn subset_font(font: &FontInstance, glyphs: &HashSet<u32>) -> Vec<u8> {
     let mut hhea: Hhea = fr.hhea().unwrap().to_owned_table();
     let mut hmtx: Hmtx = fr.hmtx().unwrap().to_owned_table();
     let mut os2: Option<Os2> = fr.os2().ok().map(|table| table.to_owned_table());
-    let name: Name = fr.name().unwrap().to_owned_table();
+
+    // `name` entries need to be unique & sorted to pass validation
+    let mut name: Name = fr.name().unwrap().to_owned_table();
+    name.name_record.sort();
+    name.name_record.dedup();
 
     if let Some(os2) = &mut os2 {
         os2.panose_10[3] = 0; // force set `Proportion` field to `Any`
