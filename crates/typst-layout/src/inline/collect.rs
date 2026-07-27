@@ -186,12 +186,11 @@ pub fn collect<'a>(
         let common_styles =
             prev_styles.and_then(|prev| StyleChain::trunk([prev, styles]));
         let first_common_entry = common_styles.and_then(|c| c.links().next());
-        for new_entry in styles
-            .links()
-            .skip_while(|&s| first_common_entry.is_some_and(|c| !std::ptr::eq(c, s)))
+        for new_entry in styles.links()
+        // .skip_while(|&s| first_common_entry.is_some_and(|c| !std::ptr::eq(c, s)))
         {
             if first_common_entry.is_some_and(|c| std::ptr::eq(c, new_entry)) {
-                continue;
+                break;
             }
             if active_links.last().is_some_and(|(_, s)| std::ptr::eq(*s, new_entry)) {
                 continue;
@@ -210,7 +209,7 @@ pub fn collect<'a>(
                     // What to do if setting link to none? probably nothing? or
                     // maybe add end and later start event again for the same
                     // link?
-                    todo!()
+                    break;
                 }
             }
         }
