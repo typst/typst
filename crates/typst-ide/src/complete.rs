@@ -5,8 +5,8 @@ use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
-    AsOutput, AutoValue, CastInfo, Func, Label, NativeElement, NoneValue, Output,
-    ParamInfo, Repr, StyleChain, Styles, Type, Value, fields_on, repr,
+    AsOutput, AutoValue, CastInfo, Func, Label, NoneValue, Output, ParamInfo, Repr,
+    StyleChain, Styles, Type, Value, fields_on, repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -617,8 +617,7 @@ fn path_completion(func: &Func, param: &ParamInfo) -> Option<&'static [&'static 
         (Some("cite"), "style") => &["csl"],
         (Some("raw"), "syntaxes") => &["sublime-syntax"],
         (Some("raw"), "theme") => &["tmtheme"],
-        (Some("attach"), "path") if *func == typst::pdf::AttachElem::ELEM => &[],
-        (None, "path") => &[],
+        (_, "path") => &[],
         _ => return None,
     })
 }
@@ -1872,6 +1871,7 @@ mod tests {
             .with_source("content/c.typ", "#include \"\"")
             .with_source("content/d.typ", "#pdf.attach(\"\")")
             .with_source("content/e.typ", "#math.attach(\"\")")
+            .with_source("content/f.typ", "#read(\"\")")
             .with_asset_at("assets/tiger.jpg", "tiger.jpg")
             .with_asset_at("assets/rhino.png", "rhino.png")
             .with_asset_at("data/example.csv", "example.csv");
@@ -1893,7 +1893,15 @@ mod tests {
         test(&world, ("content/d.typ", -2))
             .must_include([q!("../assets/tiger.jpg"), q!("../data/example.csv")]);
 
-        test(&world, ("content/e.typ", -2)).must_exclude([q!("data/example.csv")]);
+        test(&world, ("content/e.typ", -2)).must_exclude([q!("../data/example.csv")]);
+
+        test(&world, ("content/f.typ", -2))
+            .must_include([
+                q!("a.typ"),
+                q!("../assets/tiger.jpg"),
+                q!("../data/example.csv"),
+            ])
+            .must_exclude([q!("f.typ")]);
     }
 
     #[test]
