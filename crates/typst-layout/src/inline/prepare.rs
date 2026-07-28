@@ -95,9 +95,7 @@ pub fn prepare<'a>(
                 shape_range(&mut items, engine, text, &bidi, range, styles);
             }
             Segment::Item(item) => items.push((range, item)),
-            Segment::Event(event) => {
-                println!("{event:?}");
-            }
+            Segment::Event(event) => items.push((range, Item::Event(event))),
         }
 
         cursor = end;
