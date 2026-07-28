@@ -13,7 +13,8 @@ use typst_syntax::{Spanned, is_ident};
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Context, Func, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
+    Array, Context, Func, Module, Repr, Str, Value, WorldBindingExt, array, cast, func,
+    repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -194,7 +195,7 @@ impl Dict {
             .filter_map(|(key, binding)| {
                 // Filter out values that are in feature gated bindings and
                 // ignore any deprecation warnings that are emitted.
-                let guard = engine.binding_guard(value.span).silent();
+                let guard = engine.world.silent_binding_guard();
                 let val = binding.read(guard).ok()?;
                 Some((Str::from(key.clone()), val.clone()))
             })

@@ -116,7 +116,7 @@ impl<'a> Engine<'a> {
         output
     }
 
-    /// Create a struct that implements [`crate::foundations::BindingContext`].
+    /// Create a struct that implements [`crate::foundations::BindingGuard`].
     pub fn binding_guard(&'_ mut self, span: Span) -> NormalBindingGuard<'_, 'a> {
         NormalBindingGuard { engine: self, span }
     }

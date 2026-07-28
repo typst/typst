@@ -227,7 +227,7 @@
 // Warning: 9-14 this import has no effect
 #import mymod
 // The name `chap1` is not bound.
-// Error: 2-7 unknown variable: chap1
+// Error: 2-7 unknown variable `chap1`
 #chap1
 
 --- import-module-nested eval ---
@@ -351,7 +351,7 @@ This is never reached.
 // Renaming does not import the old name (without items).
 #import "./modules/chap1.typ" as something
 #test(something.name, "Klaus")
-// Error: 7-12 unknown variable: chap1
+// Error: 7-12 unknown variable `chap1`
 #test(chap1.name, "Klaus")
 
 --- import-items-renamed-old-name eval ---
@@ -359,7 +359,7 @@ This is never reached.
 #import "./modules/chap1.typ" as something: name as other
 #test(other, "Klaus")
 #test(something.name, "Klaus")
-// Error: 7-12 unknown variable: chap1
+// Error: 7-12 unknown variable `chap1`
 #test(chap1.b, "Klaus")
 
 --- import-nested-invalid-type eval ---
@@ -513,6 +513,27 @@ This is never reached.
 --- import-feature-gated-field-of-type eval features() ---
 // Error: 15-20 cannot import `gated` because the `html` feature is not enabled
 #import test: gated
+
+--- import-feature-gated-wildcard-unused eval features() ---
+#let func() = {
+  import check: *
+}
+
+--- import-feature-gated-wildcard-shadowed eval features() ---
+#let gated() = {}
+#let func() = {
+  import check: *
+  gated()
+}
+#func()
+
+--- import-feature-gated-wildcard-used eval features() ---
+#let func() = {
+  import check: *
+  // Error: 3-8 unknown variable `gated`
+  gated()
+}
+#func()
 
 --- issue-7393-import-error-string-unclosed eval ---
 // More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`

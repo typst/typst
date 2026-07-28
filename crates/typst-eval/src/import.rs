@@ -6,7 +6,7 @@ use typst_library::diag::{
 };
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Binding, BindingAccess, Content, Module, PathOrStr, Reflect, Value,
+    Binding, BindingAccess, Content, Module, PathOrStr, Reflect, Value, WorldBindingExt,
 };
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
@@ -109,7 +109,11 @@ impl Eval for ast::ModuleImport<'_> {
             }
             Some(ast::Imports::Wildcard) => {
                 for (var, binding) in scope.iter() {
-                    vm.scopes.top.bind(var.clone(), binding.clone());
+                    // Filter out values that are in feature gated bindings and
+                    // ignore any deprecation warnings that are emitted.
+                    if binding.read(vm.engine.world.silent_binding_guard()).is_ok() {
+                        vm.scopes.top.bind(var.clone(), binding.clone());
+                    }
                 }
             }
             Some(ast::Imports::Items(items)) => {

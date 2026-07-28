@@ -3,7 +3,9 @@ use ecow::eco_format;
 use typst_library::World;
 use typst_library::diag::{HintedString, warning};
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Context, IntoValue, Scopes, Value};
+use typst_library::foundations::{
+    Binding, Context, IntoValue, Scopes, Value, WorldBindingExt,
+};
 use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 
@@ -56,16 +58,9 @@ impl<'a> Vm<'a> {
     /// This will insert the value into the top-most scope and make it available
     /// for dynamic tracing, assisting IDE functionality.
     pub fn bind(&mut self, var: ast::Ident, binding: Binding) {
-        self.trace_at(
-            var.span(),
-            binding.read_unchecked(
-                "we only read the value for tracing, \
-                 so normal compilation isn't affected.
-                 additionally this function is currently only called with \
-                 bindings that are constructed ad-hoc or when importing, \
-                 where the access is checked.",
-            ),
-        );
+        if let Ok(value) = binding.read(self.engine.world.silent_binding_guard()) {
+            self.trace_at(var.span(), value);
+        }
 
         // This will become an error in the parser if `is` becomes a keyword.
         if var.get() == "is" {

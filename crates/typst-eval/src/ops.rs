@@ -41,10 +41,10 @@ impl Eval for ast::Binary<'_> {
             ast::BinOp::Gt => apply_binary(self, vm, ops::gt),
             ast::BinOp::Geq => apply_binary(self, vm, ops::geq),
             ast::BinOp::In => {
-                apply_binary_with(self, vm, |ctx, a, b| ops::in_(ctx, a, b))
+                apply_binary_with(self, vm, |guard, a, b| ops::in_(guard, a, b))
             }
             ast::BinOp::NotIn => {
-                apply_binary_with(self, vm, |ctx, a, b| ops::not_in(ctx, a, b))
+                apply_binary_with(self, vm, |guard, a, b| ops::not_in(guard, a, b))
             }
             ast::BinOp::Assign => apply_assignment(self, vm, |_, b| Ok(b)),
             ast::BinOp::AddAssign => apply_assignment(self, vm, ops::add),
@@ -74,7 +74,9 @@ fn apply_binary(
     op(lhs, rhs).at(binary.span())
 }
 
-/// Apply a basic binary operation with an [`EngineCtx`].
+/// Apply a basic binary operation with a [`BindingGuard`].
+///
+/// [`BindingGuard`]: typst_library::foundations::BindingGuard
 fn apply_binary_with(
     binary: ast::Binary,
     vm: &mut Vm,
