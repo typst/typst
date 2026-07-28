@@ -155,9 +155,22 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    let mut initial_links: Vec<Destination> = vec![];
     let mut active_links: Vec<(Destination, Location)> = vec![];
+    let mut added_initial_links = false;
     for &(child, styles) in children {
         let prev_len = collector.full.len();
+
+        if !added_initial_links {
+            for style in styles.entries() {
+                if let Some(property) = style.property()
+                    && property.is(LinkElem::ELEM, LinkElem::current.index())
+                {
+                }
+            }
+
+            added_initial_links = true;
+        }
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
