@@ -8,7 +8,7 @@ use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
 use crate::diag::{
-    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, bail, error,
+    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, error,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -45,8 +45,28 @@ impl<'a> Scopes<'a> {
         self.top = self.scopes.pop().expect("no pushed scope");
     }
 
-    /// Try to access a binding immutably.
-    pub fn get(&self, var: &str) -> HintedStrResult<&Binding> {
+    /// Try to access a binding value immutably.
+    pub fn get(&self, var: &str, guard: impl BindingGuard) -> HintedStrResult<&Value> {
+        Ok(self
+            .get_binding(var)?
+            .read(guard)
+            .or_cannot(format_args!("access variable `{var}`"))?)
+    }
+
+    /// Try to access a binding value immutably in math.
+    pub fn get_in_math(
+        &self,
+        var: &str,
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<&Value> {
+        Ok(self
+            .get_binding_in_math(var)?
+            .read(guard)
+            .or_cannot(format_args!("access variable `{var}`"))?)
+    }
+
+    /// Try to access a binding.
+    pub fn get_binding(&self, var: &str) -> HintedStrResult<&Binding> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
@@ -61,22 +81,8 @@ impl<'a> Scopes<'a> {
             .ok_or_else(|| unknown_variable(var))
     }
 
-    /// Try to access a binding mutably.
-    pub fn get_mut(&mut self, var: &str) -> HintedStrResult<&mut Binding> {
-        std::iter::once(&mut self.top)
-            .chain(&mut self.scopes.iter_mut().rev())
-            .find_map(|scope| scope.get_mut(var))
-            .ok_or_else(|| {
-                match self.base.and_then(|base| base.global.scope().get(var)) {
-                    Some(_) => cannot_mutate_constant(var),
-                    _ if var == "std" => cannot_mutate_constant(var),
-                    _ => unknown_variable(var),
-                }
-            })
-    }
-
-    /// Try to access a binding immutably in math.
-    pub fn get_in_math(&self, var: &str) -> HintedStrResult<&Binding> {
+    /// Try to access a binding in math.
+    pub fn get_binding_in_math(&self, var: &str) -> HintedStrResult<&Binding> {
         std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .find_map(|scope| scope.get(var))
@@ -93,6 +99,37 @@ impl<'a> Scopes<'a> {
                     var,
                     self.base.is_some_and(|base| base.global.scope().get(var).is_some()),
                 )
+            })
+    }
+
+    /// Try to access a binding mutably.
+    pub fn get_mut(
+        &mut self,
+        var: &str,
+        mut guard: impl BindingGuard,
+    ) -> HintedStrResult<&mut Value> {
+        std::iter::once(&mut self.top)
+            .chain(&mut self.scopes.iter_mut().rev())
+            .find_map(|scope| {
+                Some(
+                    scope
+                        .get_mut(var)?
+                        .write(&mut guard)
+                        .or_cannot(format_args!("access variable `{var}`")),
+                )
+            })
+            .transpose()?
+            .ok_or_else(|| {
+                match self.base.and_then(|base| base.global.scope().get(var)) {
+                    Some(binding) => match binding.read(guard) {
+                        Err(err) => {
+                            err.cannot(format_args!("access variable `{var}`")).into()
+                        }
+                        _ => cannot_mutate_constant(var),
+                    },
+                    _ if var == "std" => cannot_mutate_constant(var),
+                    _ => unknown_variable(var),
+                }
             })
     }
 
@@ -204,7 +241,7 @@ impl Scope {
     }
 
     /// Try to access a binding immutably.
-    pub fn get(&self, var: &str) -> Option<&Binding> {
+    pub fn get<'a>(&'a self, var: &str) -> Option<&'a Binding> {
         self.map.get(var)
     }
 
@@ -320,13 +357,9 @@ impl Binding {
         self.info.get_or_insert_default()
     }
 
-    /// Read the value, without checking for deprecation and feature gates.
-    /// The caller must justify why it's okay to avoid the checks.
-    pub fn read_unchecked(&self, _justification: &'static str) -> &Value {
-        &self.value
-    }
-
-    /// Read the value, checking for deprecation and feature gates.
+    /// Try to read the binding value.
+    ///
+    /// The guard is used to check for deprecation and feature gates.
     ///
     /// # Example
     ///
@@ -337,56 +370,51 @@ impl Binding {
     /// use typst_syntax::Span;
     ///
     /// fn read_var(binding: &Binding, engine: &mut Engine, span: Span) -> SourceResult<Value> {
-    ///     binding.read(engine.binding_ctx(span))
-    ///         .what(format_args!("cannot access variable"))
+    ///     binding.read(engine.binding_guard(span))
+    ///         .or_cannot("access variable")
     ///         .at(span)
     ///         .cloned()
     /// }
     /// ```
-    pub fn read(&self, ctx: impl BindingGuard) -> Result<&Value, FeatureError> {
+    pub fn read(&self, guard: impl BindingGuard) -> Result<&Value, FeatureError> {
         if self.check_access {
-            self.check_access(ctx)?;
+            self.check_access(guard)?;
         }
         Ok(&self.value)
     }
 
+    /// Try to write to the binding.
+    pub fn write(
+        &mut self,
+        guard: impl BindingGuard,
+    ) -> Result<&mut Value, BindingError> {
+        if self.check_access {
+            self.check_access(guard)?;
+        }
+
+        if let BindingKind::Captured(capturer) = self.kind {
+            return Err(BindingError::Captured(capturer));
+        }
+
+        Ok(&mut self.value)
+    }
+
     /// Check if the binding is gated behind a feature or if it is deprecated.
     #[cold]
-    fn check_access(&self, mut ctx: impl BindingGuard) -> Result<(), FeatureError> {
+    fn check_access(&self, mut guard: impl BindingGuard) -> Result<(), FeatureError> {
         let Some(info) = &self.info else { return Ok(()) };
 
         if let Some(feature) = info.feature
-            && !ctx.features().is_enabled(feature)
+            && !guard.features().is_enabled(feature)
         {
             return Err(FeatureError(feature));
         }
 
         if let Some(message) = info.deprecation {
-            ctx.emit(message.into());
+            guard.emit(message.into());
         }
 
         Ok(())
-    }
-
-    /// Try to write to the value.
-    ///
-    /// This fails if the value is a read-only closure capture.
-    pub fn write(&mut self) -> StrResult<&mut Value> {
-        match self.kind {
-            // We don't need to do binding acesses checks here, because all
-            // feature gated or deprecated bindings live in the `std` binding,
-            // which is immutable, and thus a cannot modify constant error will
-            // be generated in any case.
-            BindingKind::Normal => Ok(&mut self.value),
-            BindingKind::Captured(capturer) => bail!(
-                "variables from outside the {} are \
-                 read-only and cannot be modified",
-                match capturer {
-                    Capturer::Function => "function",
-                    Capturer::Context => "context expression",
-                },
-            ),
-        }
     }
 
     /// Create a copy of the binding for closure capturing.
@@ -437,25 +465,71 @@ impl BindingInfo {
     }
 }
 
-/// A binding has been accessed but the feature that gates it isn't enabled.
+/// There was an error accessing a binding.
+///
+/// A [`Result<T, BindingError>`] can be converted into a [`StrResult`] using
+/// the [`BindingAccess`] trait, see [`Binding::read`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BindingError {
+    /// The binding cannot be written to, because it is captured.
+    Captured(Capturer),
+    /// The feature that gates it isn't enabled.
+    ///
+    /// A [`Result<T, BindingError>`] can be converted into a [`StrResult`]
+    /// using the [`BindingAccess`] trait, see [`Binding::read`].
+    Feature(FeatureError),
+}
+
+impl BindingError {
+    pub fn cannot(self, what: impl Display) -> EcoString {
+        match self {
+            BindingError::Captured(capturer) => {
+                error!(
+                    "variables from outside the {capturer} are \
+                     read-only and cannot be modified",
+                )
+            }
+            BindingError::Feature(error) => error.cannot(what),
+        }
+    }
+}
+
+impl From<FeatureError> for BindingError {
+    fn from(v: FeatureError) -> Self {
+        Self::Feature(v)
+    }
+}
+
+/// There was an error accessing a binding.
 ///
 /// A [`Result<T, FeatureError>`] can be converted into a [`StrResult`] using
 /// the [`BindingAccess`] trait, see [`Binding::read`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FeatureError(Feature);
 
-/// Convert a [`FeatureError`] to a [`StrResult`] by providing a description of
+impl FeatureError {
+    pub fn cannot(self, what: impl Display) -> EcoString {
+        let Self(feature) = self;
+        error!("cannot {what} because the `{feature}` feature is not enabled")
+    }
+}
+
+/// Convert a [`BindingError`] to a [`StrResult`] by providing a description of
 /// what kind of binding couldn't be accessed.
 pub trait BindingAccess<T> {
     /// Add a description of what kind of binding couldn't be accessed.
     fn or_cannot(self, what: impl Display) -> StrResult<T>;
 }
 
+impl<T> BindingAccess<T> for Result<T, BindingError> {
+    fn or_cannot(self, what: impl Display) -> StrResult<T> {
+        self.map_err(|err| err.cannot(what))
+    }
+}
+
 impl<T> BindingAccess<T> for Result<T, FeatureError> {
     fn or_cannot(self, what: impl Display) -> StrResult<T> {
-        self.map_err(|FeatureError(feature)| {
-            error!("cannot {what} because the `{feature}` feature is not enabled")
-        })
+        self.map_err(|err| err.cannot(what))
     }
 }
 
@@ -466,6 +540,15 @@ pub enum Capturer {
     Function,
     /// Captured by a context expression.
     Context,
+}
+
+impl Display for Capturer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Capturer::Function => "function",
+            Capturer::Context => "context expression",
+        })
+    }
 }
 
 /// Information about a deprecated binding.
@@ -533,7 +616,7 @@ fn cannot_mutate_constant(var: &str) -> HintedString {
 /// The error message when a variable wasn't found.
 #[cold]
 fn unknown_variable(var: &str) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
+    let mut res = HintedString::new(eco_format!("unknown variable `{var}`"));
 
     if var.contains('-') {
         res.hint(eco_format!(
@@ -550,7 +633,7 @@ fn unknown_variable(var: &str) -> HintedString {
 /// The error message when a variable wasn't found it math.
 #[cold]
 fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
-    let mut res = HintedString::new(eco_format!("unknown variable: {var}"));
+    let mut res = HintedString::new(eco_format!("unknown variable `{var}`"));
 
     if matches!(var, "none" | "auto" | "false" | "true") {
         res.hint(eco_format!(
@@ -586,6 +669,11 @@ fn unknown_variable_math(var: &str, in_global: bool) -> HintedString {
 pub trait BindingGuard: WarningSink {
     /// The features enabled in the current [`crate::Library`].
     fn features(&self) -> &Features;
+
+    /// Creates a [`BindingGuard`] that discards emitted warnings.
+    fn silent(&self) -> SilentBindingGuard {
+        SilentBindingGuard::new(self.features().clone())
+    }
 }
 
 impl<T: BindingGuard> BindingGuard for &mut T {
@@ -594,10 +682,10 @@ impl<T: BindingGuard> BindingGuard for &mut T {
     }
 }
 
-/// Create a [`BindingContext`] from a [`World`]s libaray, that discards all
+/// Create a [`BindingGuard`] from a [`World`]s libaray, that discards all
 /// emitted warnings.
 pub trait WorldBindingExt {
-    /// Create a [`BindingContext`] that discards emitted warnings.
+    /// Create a [`BindingGuard`] that discards emitted warnings.
     fn silent_binding_guard(&self) -> SilentBindingGuard;
 }
 
@@ -607,17 +695,10 @@ impl<T: World + ?Sized> WorldBindingExt for T {
     }
 }
 
-/// A [`BindingContext`] that emits warnings to the engine's sink.
+/// A [`BindingGuard`] that emits warnings to the engine's sink.
 pub struct NormalBindingGuard<'x, 'y> {
     pub engine: &'x mut Engine<'y>,
     pub span: Span,
-}
-
-impl NormalBindingGuard<'_, '_> {
-    /// Creates a [`BindingContext`] that discards emitted warnings.
-    pub fn silent(&self) -> SilentBindingGuard {
-        SilentBindingGuard { features: self.engine.library.features.clone() }
-    }
 }
 
 impl WarningSink for NormalBindingGuard<'_, '_> {
@@ -635,7 +716,7 @@ impl BindingGuard for NormalBindingGuard<'_, '_> {
     }
 }
 
-/// A [`BindingContext`] that discards emitted warnings.
+/// A [`BindingGuard`] that discards emitted warnings.
 #[derive(Clone)]
 pub struct SilentBindingGuard {
     features: Features,

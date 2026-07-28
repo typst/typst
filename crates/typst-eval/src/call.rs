@@ -253,7 +253,7 @@ fn eval_field_callee(
         let ty = target.ty().short_name();
         method
             .read(guard)
-            .or_cannot(format_args!("call method `{field}` on value of type {ty}"))
+            .or_cannot(format_args!("call method `{field}` on {ty}"))
             .at(field_span)?
             .clone()
     } else if let Value::Content(content) = &target
@@ -782,9 +782,11 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
+            Some(ast::Expr::Ident(ident)) => {
+                self.capture(ident.get(), Scopes::get_binding);
+            }
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math);
+                self.capture(ident.get(), Scopes::get_binding_in_math);
             }
 
             // Code and content blocks create a scope.
@@ -908,7 +910,13 @@ impl<'a> CapturesVisitor<'a> {
         ident: &EcoString,
         getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Binding>,
     ) {
-        if self.internal.get(ident).is_ok() {
+        if self.internal.get_binding(ident).is_ok() {
+            return;
+        }
+
+        // If the variable has already been captured, there is no need to look
+        // it up again, since the external scopes don't change.
+        if self.captures.get(ident).is_some() {
             return;
         }
 

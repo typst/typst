@@ -504,7 +504,7 @@ $harpoon(i, dotless: #not false)$
 
 --- ops-assign-unknown-var-lhs eval ---
 #{
-  // Error: 3-6 unknown variable: a-1
+  // Error: 3-6 unknown variable `a-1`
   // Hint: 3-6 if you meant to use subtraction, try adding spaces around the minus sign: `a - 1`
   a-1 = 2
 }
@@ -515,17 +515,17 @@ $harpoon(i, dotless: #not false)$
   a = 1-a
   a = a -1
 
-  // Error: 7-10 unknown variable: a-1
+  // Error: 7-10 unknown variable `a-1`
   // Hint: 7-10 if you meant to use subtraction, try adding spaces around the minus sign: `a - 1`
   a = a-1
 }
 
 --- ops-assign-unknown-parenthesized-variable eval ---
-// Error: 4-5 unknown variable: x
+// Error: 4-5 unknown variable `x`
 #((x) = "")
 
 --- ops-assign-destructuring-unknown-variable eval ---
-// Error: 4-5 unknown variable: x
+// Error: 4-5 unknown variable `x`
 #((x,) = (1,))
 
 --- ops-assign-to-temporary eval ---
@@ -543,11 +543,11 @@ $harpoon(i, dotless: #not false)$
 #(not x = "a")
 
 --- ops-assign-to-invalid-binary-op eval ---
-// Error: 7-8 unknown variable: x
+// Error: 7-8 unknown variable `x`
 #(1 + x += 3)
 
 --- ops-assign-unknown-variable eval ---
-// Error: 3-4 unknown variable: z
+// Error: 3-4 unknown variable `z`
 #(z = 1)
 
 --- ops-assign-to-std-constant eval ---
