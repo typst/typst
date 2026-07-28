@@ -3,7 +3,7 @@ use std::fmt::Write;
 use ecow::{EcoString, eco_format};
 use typst::engine::Sink;
 use typst::foundations::{
-    AsOutput, Capturer, CastInfo, Func, ParamInfo, Repr, Value, repr,
+    AsOutput, Capturer, CastInfo, Func, ParamInfo, Repr, Value, WorldBindingExt, repr,
 };
 use typst::layout::Length;
 use typst::syntax::ast::AstNode;
@@ -38,7 +38,7 @@ pub fn tooltip(
         .or_else(|| label_tooltip(output?, &leaf))
         .or_else(|| import_tooltip(world, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
-        .or_else(|| closure_tooltip(&leaf))
+        .or_else(|| closure_tooltip(world, &leaf))
 }
 
 /// A hover tooltip.
@@ -140,7 +140,7 @@ fn import_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
 }
 
 /// Tooltip for a hovered closure.
-fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
+fn closure_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     // Only show this tooltip when hovering over the equals sign or arrow of
     // the closure. Showing it across the whole subtree is too noisy.
     if !matches!(leaf.kind(), SyntaxKind::Eq | SyntaxKind::Arrow) {
@@ -154,7 +154,8 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     }
 
     // Analyze the closure's captures.
-    let mut visitor = CapturesVisitor::new(None, Capturer::Function);
+    let mut visitor =
+        CapturesVisitor::new(world.silent_binding_guard(), None, Capturer::Function);
     visitor.visit(parent);
 
     let captures = visitor.finish();

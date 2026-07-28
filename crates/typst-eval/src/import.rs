@@ -6,7 +6,7 @@ use typst_library::diag::{
 };
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Binding, BindingAccess, Content, Module, PathOrStr, Reflect, Value,
+    Binding, BindingAccess, Content, Module, PathOrStr, Reflect, Value, WorldBindingExt,
 };
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
@@ -108,9 +108,8 @@ impl Eval for ast::ModuleImport<'_> {
                 }
             }
             Some(ast::Imports::Wildcard) => {
-                for (var, binding) in scope.iter() {
-                    vm.scopes.top.bind(var.clone(), binding.clone());
-                }
+                let guard = vm.engine.world.silent_binding_guard();
+                vm.scopes.top.wildcard_import(scope, guard);
             }
             Some(ast::Imports::Items(items)) => {
                 let mut errors = eco_vec![];
@@ -125,10 +124,11 @@ impl Eval for ast::ModuleImport<'_> {
                             break;
                         };
 
-                        let value = binding
-                            .read(vm.engine.binding_guard(component.span()))
+                        let binding = binding
+                            .read_binding(vm.engine.binding_guard(component.span()))
                             .or_cannot(format_args!("import `{field}`"))
                             .at(component.span())?;
+                        let value = binding.read();
 
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.

@@ -4,8 +4,8 @@ use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, BindingAccess, Capturer, Closure, ClosureNode, Content, ContextElem, Dict,
-    Func, NativeElement, Selector, Str, Value, ops,
+    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
+    NativeElement, Selector, Str, Value, WorldBindingExt, ops,
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
@@ -160,14 +160,7 @@ impl Eval for ast::Ident<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
-        Ok(vm
-            .scopes
-            .get(&self)
-            .at(span)?
-            .read(vm.engine.binding_guard(span))
-            .or_cannot(format_args!("access variable `{}`", self.get()))
-            .at(span)?
-            .clone())
+        vm.scopes.get(&self, vm.engine.binding_guard(span)).at(span).cloned()
     }
 }
 
@@ -397,7 +390,11 @@ impl Eval for ast::Contextual<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Context);
+            let mut visitor = CapturesVisitor::new(
+                vm.engine.world.silent_binding_guard(),
+                Some(&vm.scopes),
+                Capturer::Context,
+            );
             visitor.visit(body.to_untyped());
             visitor.finish()
         };

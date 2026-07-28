@@ -9,9 +9,10 @@ use ecow::EcoString;
 use heck::ToTitleCase;
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
+use typst::engine::Engine;
 use typst::foundations::{
     Array, CastInfo, Dict, Func, IntoValue, Module, NativeParamInfo, Repr, Str, Symbol,
-    Type, Value, cast, dict, func,
+    Type, Value, WorldBindingExt, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
 use typst::text::RawElem;
@@ -24,8 +25,9 @@ use crate::world::REPO_ROOT;
 
 /// Provides details about a binding in a module.
 #[func]
-pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
+pub fn binding(engine: &mut Engine, module: Module, name: EcoString) -> Option<Dict> {
     let binding = module.scope().get(&name)?;
+    let binding = binding.read_binding(engine.world.silent_binding_guard()).ok()?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
         "feature" => binding.feature().map(|f| f.to_string()),

@@ -1,13 +1,13 @@
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format};
 use typst_library::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint,
-    bail, error,
+    At, HintedString, SourceDiagnostic, SourceResult, Trace, Tracepoint, bail, error,
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, BindingAccess, Capturer, Closure, ClosureNode, Content, Context,
-    Func, NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
+    Arg, Args, Binding, BindingAccess, BindingRead, Capturer, Closure, ClosureNode,
+    Content, Context, Func, NativeElement, Scope, Scopes, SequenceElem,
+    SilentBindingGuard, SymbolElem, Value, WorldBindingExt,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -245,26 +245,32 @@ fn eval_field_callee(
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let guard = vm.engine.binding_guard(field_span);
+    let mut guard = vm.engine.binding_guard(field_span);
+
+    // Store feature gated binding error to provide more details.
+    // Without a feature gated field on `Content`, this can't be easily tested.
+    let mut inaccessible = None;
+    let mut resolve_field = |scope: &Scope| -> Option<Value> {
+        let binding = scope.get(field)?;
+
+        match binding.read(&mut guard) {
+            Ok(value) => Some(value.clone()),
+            Err(err) => {
+                inaccessible = inaccessible.or(Some(err));
+                None
+            }
+        }
+    };
 
     let mut is_method_call = false;
-    let callee_value = if let Some(method) = target.ty().scope().get(field) {
+    let callee_value = if let Some(method) = resolve_field(target.ty().scope()) {
         is_method_call = true;
-        let ty = target.ty().short_name();
         method
-            .read(guard)
-            .or_cannot(format_args!("call method `{field}` on value of type {ty}"))
-            .at(field_span)?
-            .clone()
     } else if let Value::Content(content) = &target
-        && let Some(method) = content.elem().scope().get(field)
+        && let Some(method) = resolve_field(content.elem().scope())
     {
         is_method_call = true;
         method
-            .read(guard)
-            .or_cannot(format_args!("call method `{field}` on content"))
-            .at(field_span)?
-            .clone()
     } else if matches!(target, Value::Symbol(_) | Value::Type(_) | Value::Module(_)) {
         // These types are allowed to use field call syntax on non-methods.
         target.field(field, guard).at(field_span)?
@@ -304,11 +310,19 @@ fn eval_field_callee(
                     in_math
                 ));
             }
-            // The field does not exist. We don't try as hard on the error here
-            // to avoid assuming the user's intent.
             Err(_) => {
-                let (kind, name) = element_or_type_with_name(&target);
-                bail!(access.span(), "{kind} {name} has no method `{field}`");
+                if let Some(err) = inaccessible {
+                    // The field exists, but it's feature gated.
+                    let ty = target.ty().short_name();
+                    return Err(err)
+                        .or_cannot(format_args!("call method `{field}` on {ty}"))
+                        .at(field_span);
+                } else {
+                    // The field does not exist. We don't try as hard on the error here
+                    // to avoid assuming the user's intent.
+                    let (kind, name) = element_or_type_with_name(&target);
+                    bail!(access.span(), "{kind} {name} has no method `{field}`");
+                }
             }
         }
     };
@@ -618,7 +632,11 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(Some(&vm.scopes), Capturer::Function);
+            let mut visitor = CapturesVisitor::new(
+                vm.engine.world.silent_binding_guard(),
+                Some(&vm.scopes),
+                Capturer::Function,
+            );
             visitor.visit(self.to_untyped());
             visitor.finish()
         };
@@ -753,6 +771,7 @@ pub fn eval_closure(
 
 /// A visitor that determines which variables to capture for a closure.
 pub struct CapturesVisitor<'a> {
+    guard: SilentBindingGuard,
     external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
@@ -761,8 +780,13 @@ pub struct CapturesVisitor<'a> {
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: Option<&'a Scopes<'a>>, capturer: Capturer) -> Self {
+    pub fn new(
+        guard: SilentBindingGuard,
+        external: Option<&'a Scopes<'a>>,
+        capturer: Capturer,
+    ) -> Self {
         Self {
+            guard,
             external,
             internal: Scopes::new(None),
             captures: Scope::new(),
@@ -782,9 +806,9 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
+            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::capture),
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math);
+                self.capture(ident.get(), Scopes::capture_in_math);
             }
 
             // Code and content blocks create a scope.
@@ -906,35 +930,51 @@ impl<'a> CapturesVisitor<'a> {
     fn capture(
         &mut self,
         ident: &EcoString,
-        getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Binding>,
+        getter: impl FnOnce(
+            &'a Scopes<'a>,
+            &str,
+            &SilentBindingGuard,
+        ) -> Option<BindingRead<'a>>,
     ) {
-        if self.internal.get(ident).is_ok() {
+        if self.internal.get(ident, &self.guard).is_ok() {
             return;
         }
 
-        let binding = match self.external {
-            Some(external) => match getter(external, ident) {
-                Ok(binding) => binding.capture(self.capturer),
-                Err(_) => return,
-            },
+        // If the variable has already been captured, there is no need to look
+        // it up again, since the external scopes don't change.
+        if self.captures.get(ident).is_some() {
+            return;
+        }
+
+        match self.external {
+            Some(external) => {
+                if let Some(binding) = getter(external, ident, &self.guard) {
+                    self.captures.capture_from(ident.clone(), binding, self.capturer);
+                }
+            }
             // The external scopes are only `None` when we are doing IDE capture
             // analysis, in which case the concrete value doesn't matter.
-            None => Binding::detached(Value::None),
-        };
-
-        self.captures.bind(ident.clone(), binding);
+            None => {
+                self.captures.bind(ident.clone(), Binding::detached(Value::None));
+            }
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use typst_library::Features;
     use typst_syntax::parse;
 
     use super::*;
 
     #[track_caller]
     fn test(scopes: &Scopes, text: &str, result: &[&str]) {
-        let mut visitor = CapturesVisitor::new(Some(scopes), Capturer::Function);
+        let mut visitor = CapturesVisitor::new(
+            SilentBindingGuard::new(Features::none()),
+            Some(scopes),
+            Capturer::Function,
+        );
         let root = parse(text);
         visitor.visit(&root);
 

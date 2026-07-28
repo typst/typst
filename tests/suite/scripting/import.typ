@@ -514,6 +514,27 @@ This is never reached.
 // Error: 15-20 cannot import `gated` because the `html` feature is not enabled
 #import test: gated
 
+--- import-feature-gated-wildcard-unused eval features() ---
+#let func() = {
+  import check: *
+}
+
+--- import-feature-gated-wildcard-shadowed eval features() ---
+#let gated() = {}
+#let func() = {
+  import check: *
+  gated()
+}
+#func()
+
+--- import-feature-gated-wildcard-used eval features() ---
+#let func() = {
+  import check: *
+  // Error: 3-8 cannot access variable `gated` because the `html` feature is not enabled
+  gated()
+}
+#func()
+
 --- issue-7393-import-error-string-unclosed eval ---
 // More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`
 // Error: 1:9-3:1 unclosed string

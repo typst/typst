@@ -77,14 +77,17 @@ pub fn named_items<T>(
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
                             for (name, binding) in scope.iter() {
-                                let Ok(value) =
-                                    binding.read(world.silent_binding_guard())
+                                let Ok(binding) =
+                                    binding.read_binding(world.silent_binding_guard())
                                 else {
                                     continue;
                                 };
 
-                                let item =
-                                    NamedItem::Import(name, binding.span(), Some(value));
+                                let item = NamedItem::Import(
+                                    name,
+                                    binding.span(),
+                                    Some(binding.read()),
+                                );
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -100,24 +103,27 @@ pub fn named_items<T>(
                             let mut binding = source_value
                                 .and_then(Value::scope)
                                 .zip(iter.next())
-                                .and_then(|(scope, first)| scope.get(&first));
+                                .and_then(|(scope, first)| {
+                                    scope
+                                        .get(&first)?
+                                        .read_binding(world.silent_binding_guard())
+                                        .ok()
+                                });
 
                             for ident in iter {
                                 binding = binding.and_then(|binding| {
                                     binding
-                                        .read(world.silent_binding_guard())
-                                        .ok()?
+                                        .read()
                                         .scope()?
-                                        .get(&ident)
+                                        .get(&ident)?
+                                        .read_binding(world.silent_binding_guard())
+                                        .ok()
                                 });
                             }
 
                             let bound = item.bound_name();
                             let (span, value) = match binding {
-                                Some(binding) => (
-                                    binding.span(),
-                                    binding.read(world.silent_binding_guard()).ok(),
-                                ),
+                                Some(binding) => (binding.span(), Some(binding.read())),
                                 None => (bound.span(), None),
                             };
 
