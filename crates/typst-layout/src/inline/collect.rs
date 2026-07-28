@@ -1,10 +1,10 @@
 use typst_library::diag::warning;
-use typst_library::foundations::{NativeElement, Packed, Resolve, Style};
-use typst_library::introspection::{SplitLocator, Tag, TagElem};
+use typst_library::foundations::{Packed, Resolve};
+use typst_library::introspection::{Location, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
-use typst_library::model::{Destination, LinkElem};
+use typst_library::model::{Destination, LinkElem, LinkMarker};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -44,6 +44,9 @@ pub enum Item<'a> {
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
+    /// An event for a secondary effect on the paragraph, such as a link start
+    /// or end.
+    Event(Event),
 }
 
 impl<'a> Item<'a> {
@@ -68,7 +71,7 @@ impl<'a> Item<'a> {
     pub fn is_skippable(&self) -> bool {
         match self {
             Self::Text(text) => text.glyphs.is_empty(),
-            Self::Tag(_) => true,
+            Self::Tag(_) | Self::Event(_) => true,
             Self::Skip(_) => true,
             _ => false,
         }
@@ -81,7 +84,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text,
             Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
             Self::Frame(_) => OBJ_REPLACE,
-            Self::Tag(_) => "",
+            Self::Tag(_) | Self::Event(_) => "",
             Self::Skip(s) => s,
         }
     }
@@ -97,7 +100,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) | Self::Event(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
@@ -158,65 +161,18 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    let prev_styles = None;
-    let mut active_links: Vec<(Destination, &[LazyHash<Style>])> = vec![];
+    let mut initial_link = None;
+    let mut active_links: Vec<(Destination, Location)> = vec![];
+    let mut checked_initial_link_tags = false;
+    let mut added_initial_link = false;
     for &(child, styles) in children {
         let prev_len = collector.full.len();
-
-        // 1. End active links.
-        let mut hit = false;
-        for style in styles.links() {
-            if let Some(link_pos) =
-                active_links.iter().position(|(_, s)| std::ptr::eq(*s, style))
-            {
-                for (link, _) in active_links.drain(link_pos + 1..).rev() {
-                    collector.push_event(Event::EndLink(link));
-                }
-                hit = true;
-                break;
-            }
+        if !added_initial_link {
+            added_initial_link = true;
+            initial_link = styles.get_cloned(LinkElem::current);
         }
 
-        // All links are gone!!
-        if !hit {
-            for (link, style) in active_links.drain(..) {
-                println!("Bye {link:?} {:p}!", style);
-                collector.push_event(Event::EndLink(link));
-            }
-        }
-
-        // 2. Append new links.
-        let common_styles =
-            prev_styles.and_then(|prev| StyleChain::trunk([prev, styles]));
-        let first_common_entry = common_styles.and_then(|c| c.links().next());
-        for new_entry in styles.links()
-        // .skip_while(|&s| first_common_entry.is_some_and(|c| !std::ptr::eq(c, s)))
-        {
-            if first_common_entry.is_some_and(|c| std::ptr::eq(c, new_entry)) {
-                break;
-            }
-            if active_links.last().is_some_and(|(_, s)| std::ptr::eq(*s, new_entry)) {
-                continue;
-            }
-
-            if new_entry.iter().any(|s| {
-                s.property()
-                    .is_some_and(|p| p.is(LinkElem::ELEM, LinkElem::current.index()))
-            }) {
-                let link = styles.get_cloned(LinkElem::current);
-                if let Some(link) = link {
-                    println!("Hi {link:?} {:p}!", new_entry);
-                    collector.push_event(Event::StartLink(link.clone()));
-                    active_links.push((link, new_entry));
-                } else {
-                    // What to do if setting link to none? probably nothing? or
-                    // maybe add end and later start event again for the same
-                    // link?
-                    break;
-                }
-            }
-        }
-
+        let mut was_link_tag = false;
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
@@ -307,6 +263,24 @@ pub fn collect<'a>(
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
             collector.push_item(Item::Tag(&elem.tag));
+
+            match &elem.tag {
+                Tag::Start(content, _) => {
+                    if let Some(link_marker) = content.to_packed::<LinkMarker>() {
+                        was_link_tag = true;
+                        let link = link_marker.dest.clone();
+                        collector.push_event(Event::StartLink(link.clone()));
+                        active_links.push((link, elem.tag.location()));
+                    }
+                }
+                Tag::End(location, _, _) => {
+                    if let Some((link, _)) =
+                        active_links.pop_if(|(_, loc)| loc == location)
+                    {
+                        collector.push_event(Event::EndLink(link));
+                    }
+                }
+            }
         } else {
             // Non-paragraph inline layout should never trigger this since it
             // only won't be triggered if we see any non-inline content.
@@ -317,72 +291,14 @@ pub fn collect<'a>(
             ));
         }
 
+        checked_initial_link_tags |= !was_link_tag;
+
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
     }
 
     Ok((collector.full, collector.segments, collector.spans))
 }
-//
-//   BB
-//  AAAAA
-// -------
-//  |
-//  A
-//  S
-// active_links: [] --> [A,]
-// common_styles: -
-// style_diff: A- \ - = A
-//
-//   BB
-//  AAAAA
-// -------
-//   |
-//  AB
-//  SS
-// active_links: [A,] --> [A, B]
-// common_styles: A-
-// style_diff: BA- \ A- = B
-//
-//   BB
-//  AAAAA
-// -------
-//    |
-//  AB
-//  SS
-// active_links: [A, B]
-// common_styles: BA-
-// style_diff: BA- \ BA- = 0
-//
-//   BB
-//  AAAAA
-// -------
-//     |
-//  AB B
-//  SS E
-// active_links: [A, B] --> [A, ] (check if top is still in the style)
-// common_styles: A-
-// style_diff: A- \ A- = 0
-//
-//   BB
-//  AAAAA
-// -------
-//      |
-//  AB B
-//  SS E
-// active_links: [A, ]
-// common_styles: A-
-// style_diff: A- \ A- = 0
-//
-//   BB
-//  AAAAA*
-// -------
-//       |
-//  AB B A
-//  SS E E
-// active_links: [A, ] --> []
-// common_styles: -
-// style_diff: *- \ - = * (not a link, okay)
 
 /// Collects segments.
 struct Collector<'a> {
