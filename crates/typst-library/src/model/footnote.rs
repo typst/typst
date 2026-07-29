@@ -87,6 +87,8 @@ pub struct FootnoteElem {
     #[default(FootnotePlacement::Bottom)]
     pub placement: FootnotePlacement,
 
+    #[default(FootnoteOverflow::Keep)]
+    pub overflow: FootnoteOverflow,
     /// The content to put into the footnote. Can also be the label of another
     /// footnote this one should point to.
     #[required]
@@ -211,6 +213,15 @@ pub enum FootnotePlacement {
     Bottom,
     /// Display the entry in the side note column.
     Side,
+}
+
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FootnoteOverflow {
+    /// Keep a sidenote entry on the same page as it's marker.
+    #[default]
+    Keep,
+    /// Allow the entry to spill onto the next page.
+    Spill,
 }
 
 /// The side on which side notes are displayed.
