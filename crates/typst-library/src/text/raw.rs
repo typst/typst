@@ -232,7 +232,7 @@ use crate::visualize::Color;
 /// first character not valid for an identifier will be interpreted as starting
 /// the raw text.
 ///
-/// For example, in the current verion of Typst, if a raw block starts with
+/// For example, in the current version of Typst, if a raw block starts with
 /// `C++`, the identifier `C` will be the language tag, and the raw text will
 /// start with `++`. If a raw block starts with `++C`, it will have no language
 /// tag and the raw text will start with `++C`.
