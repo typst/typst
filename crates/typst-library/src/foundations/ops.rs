@@ -7,7 +7,7 @@ use typst_utils::{Numeric, PicoStr};
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Label as LabelValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
@@ -292,12 +292,12 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
         bail!("cannot divide by zero");
     }
 
-    if let (Label(lhs), Label(rhs)) = (&lhs, &rhs) {
-        let path = eco_format!("{}/{}", lhs.resolve().as_str(), rhs.resolve().as_str());
-        return Ok(Label(LabelValue::new(PicoStr::intern(&path)).unwrap()).into_value());
-    }
-
     Ok(match (lhs, rhs) {
+        (Label(a), Label(b)) => {
+            let path = eco_format!("{}/{}", a.resolve().as_str(), b.resolve().as_str());
+            Label(crate::foundations::Label::new(PicoStr::intern(&path)).unwrap())
+        }
+
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),

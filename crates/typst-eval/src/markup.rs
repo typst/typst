@@ -1,6 +1,6 @@
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::foundations::{
-    Content, IntoValue, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
+    Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -192,9 +192,9 @@ impl Eval for ast::Label<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Label::new(PicoStr::intern(self.get()))
-            .expect("unexpected empty label")
-            .into_value())
+        Ok(Value::Label(
+            Label::new(PicoStr::intern(self.get())).expect("unexpected empty label"),
+        ))
     }
 }
 

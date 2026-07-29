@@ -89,7 +89,7 @@ impl Introspector for BundleIntrospector {
         self.elements.query_unique(selector)
     }
 
-    fn query_label(&self, label: Label) -> StrResult<&Content> {
+    fn query_label(&self, label: Label) -> StrResult<Content> {
         self.elements.query_label(label)
     }
 

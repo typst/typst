@@ -105,7 +105,7 @@ pub enum Selector {
 }
 
 impl Selector {
-    /// Convert a slash-separated label path into nested within selectors.
+    /// Converts a slash-separated label path into nested within selectors.
     pub fn label_path(label: Label) -> Self {
         let resolved = label.resolve();
         let path = resolved.as_str();

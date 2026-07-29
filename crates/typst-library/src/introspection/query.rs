@@ -264,7 +264,7 @@ impl Introspect for QueryLabelIntrospection {
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        introspector.query_unique(&Selector::label_path(self.0))
+        introspector.query_label(self.0)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {

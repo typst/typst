@@ -1295,5 +1295,7 @@ fn has_empty_label_path_component(path: &str) -> bool {
 
 /// Returns true if this string is valid in a label literal.
 pub fn is_valid_label_literal_id(id: &str) -> bool {
-    !id.is_empty() && id.chars().all(is_valid_in_label_literal)
+    !id.is_empty()
+        && id.chars().all(is_valid_in_label_path)
+        && !has_empty_label_path_component(id)
 }

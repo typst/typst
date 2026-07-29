@@ -66,8 +66,11 @@ As seen in @intro, we proceed.
   // Error: 3-14 label `<subheading>` occurs multiple times in the document
   @subheading
 
-  // Error: 3-20 selector matches multiple elements
+  // Error: 3-20 label `<scope/subheading>` occurs multiple times in the document
   @scope/subheading
+
+  // Error: 3-17 label `<doc-1/missing>` does not exist in the document
+  @doc-1/missing
 ]
 
 --- ref-within-label-path-repeat bundle ---
@@ -105,6 +108,14 @@ As seen in @intro, we proceed.
 --- ref-label-contains-paths eval ---
 // Error: 11-27 label paths cannot be used to label content
 = Heading <heading/syntax>
+
+--- ref-label-path-empty-middle eval ---
+// Error: 1-6 label path cannot contain empty components
+@a//b
+
+--- ref-label-path-empty-trailing eval ---
+// Error: 1-6 label path cannot contain empty components
+@a/b/
 
 --- ref-supplements paged ---
 #set heading(numbering: "1.", supplement: [Chapter])
