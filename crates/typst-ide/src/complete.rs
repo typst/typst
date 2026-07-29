@@ -11,7 +11,7 @@ use typst::foundations::{
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
+    LinkedNode, Side, Source, SyntaxKind, SyntaxMode, VirtualPath, ast, is_id_continue,
     is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
@@ -1153,16 +1153,19 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all available files.
-    fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
+    fn file_completions(&mut self, mut filter: impl FnMut(&VirtualPath) -> bool) {
         let Some(current_id) = self.leaf.span().id() else { return };
         let Some(current_dir) = current_id.vpath().parent() else { return };
 
+        let prefix =
+            Some(self.before[self.from..].trim_matches('\"')).filter(|s| !s.is_empty());
+
         let mut paths: Vec<EcoString> = self
             .world
-            .files()
+            .files(current_id, prefix)
             .iter()
-            .filter(|&&id| id != current_id && filter(id))
-            .map(|id| id.vpath().relative_from(&current_dir))
+            .filter(|&path| path != current_id.vpath() && filter(path))
+            .map(|path| path.relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1179,9 +1182,8 @@ impl<'a> CompletionContext<'a> {
         if extensions.is_empty() {
             self.file_completions(|_| true);
         }
-        self.file_completions(|id| {
-            let ext = id
-                .vpath()
+        self.file_completions(|path| {
+            let ext = path
                 .extension()
                 .map(EcoString::from)
                 .unwrap_or_default()
@@ -1902,6 +1904,30 @@ mod tests {
                 q!("../data/example.csv"),
             ])
             .must_exclude([q!("f.typ")]);
+    }
+
+    #[test]
+    fn test_autocomplete_file_path_with_prefix() {
+        let world = TestWorld::new("")
+            .with_source("content/main.typ", "#read(\"a\")")
+            .with_source("content/test.typ", "#read(\"../assets/t\")")
+            .with_source("content/aux.typ", "")
+            .with_asset_at("assets/tiger.jpg", "tiger.jpg")
+            .with_asset_at("assets/rhino.png", "rhino.png");
+
+        test(&world, ("content/main.typ", -3))
+            .must_include([q!("aux.typ")])
+            .must_exclude([q!("test.typ")]);
+
+        test(&world, ("content/test.typ", -12))
+            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")]);
+
+        test(&world, ("content/test.typ", -4))
+            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")]);
+
+        test(&world, ("content/test.typ", -3))
+            .must_include([q!("../assets/tiger.jpg")])
+            .must_exclude([q!("../assets/rhino.png")]);
     }
 
     #[test]
