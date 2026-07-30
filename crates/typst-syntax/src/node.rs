@@ -614,17 +614,18 @@ impl SyntaxNode {
 
 impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.data.fmt(f)
+        self.data.debug_fmt_span(f, self.span)
     }
 }
 
-impl Debug for Node {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Node {
+    /// Write with debug formatting using the node's overall span.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         match self {
             Node::Leaf(text, kind) => write!(f, "{kind:?}: {text:?}"),
-            Node::Inner(inner, kind) => inner.debug_fmt(f, *kind),
-            Node::Error(err, _) => err.fmt(f),
-            Node::Warning(warn, _) => warn.fmt(f),
+            Node::Inner(inner, kind) => inner.debug_fmt_kind(f, *kind),
+            Node::Error(err, _) => err.debug_fmt_span(f, span),
+            Node::Warning(warn, _) => warn.debug_fmt_span(f, span),
         }
     }
 }
@@ -857,8 +858,8 @@ impl InnerNode {
         self.diagnosis = Diagnosis::any(&self.children);
     }
 
-    /// Format the inner node with its `SyntaxKind` for debugging.
-    fn debug_fmt(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
+    /// Write with debug formatting using the node's syntax kind.
+    fn debug_fmt_kind(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
         write!(f, "{kind:?}: {}", self.len)?;
         if !self.children.is_empty() {
             f.write_str(" ")?;
@@ -944,10 +945,11 @@ impl ErrorNode {
             hints: build_diagnostic_hints(span, &self.hints),
         }
     }
-}
 
-impl Debug for ErrorNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    /// Write with debug formatting using the node's overall span.
+    ///
+    /// See [`WarningWrapper::debug_fmt_span`] for more explanation.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         if self.text.is_empty() && self.hints.is_empty() {
             write!(f, "Error: {:?}", self.message)
         } else {
@@ -955,9 +957,14 @@ impl Debug for ErrorNode {
             out.field("text", &self.text);
             out.field("message", &self.message);
             for (hint, sub_range) in &self.hints {
-                let field = if let Some(sub_range) = sub_range {
-                    let selected = &self.text[sub_range.to_relative()];
-                    &format!("hint @({selected:?})")
+                let field = if let Some(sr) = sub_range {
+                    if let SpanKind::Range { id: _, range } = span.get() {
+                        let new_range = sr.to_absolute(range.start);
+                        &format!("hint @mapped({new_range:?})")
+                    } else {
+                        let selected = &self.text[sr.to_relative()];
+                        &format!("hint @text({selected:?})")
+                    }
                 } else {
                     "hint"
                 };
@@ -1005,10 +1012,15 @@ impl WarningWrapper {
             hints: build_diagnostic_hints(span, &self.hints),
         }
     }
-}
 
-impl Debug for WarningWrapper {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    /// Write with debug formatting using the node's overall span.
+    ///
+    /// The overall span is needed to correctly format sub-ranges. If the syntax
+    /// tree used range-mapping ([`SyntaxNode::synthesize_mapped`]), we can't
+    /// know the actual text being warned/hinted at without accessing the source
+    /// file. So instead of showing the text included by the sub-range, we fall
+    /// back to showing the mapped indices of the sub-range.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         let full_text = LazyCell::new(|| {
             let data = self.child.clone();
             let temp_node = SyntaxNode { data, span: Span::detached() };
@@ -1019,8 +1031,13 @@ impl Debug for WarningWrapper {
             let full_text = &full_text;
             debug(move |f| {
                 if let Some(sr) = sub_range {
-                    let selected = &full_text[sr.to_relative()];
-                    write!(f, "{field} @({selected:?}): {message:?}")
+                    if let SpanKind::Range { id: _, range } = span.get() {
+                        let new_range = sr.to_absolute(range.start);
+                        write!(f, "{field} @mapped({new_range:?}): {message:?}")
+                    } else {
+                        let selected = &full_text[sr.to_relative()];
+                        write!(f, "{field} @text({selected:?}): {message:?}")
+                    }
                 } else {
                     write!(f, "{field}: {message:?}")
                 }
@@ -1035,7 +1052,7 @@ impl Debug for WarningWrapper {
         for (hint, sub_range) in &self.hints {
             out.entry(&debug_field("hint", hint, *sub_range));
         }
-        out.entry(&self.child);
+        out.entry(&debug(move |f| self.child.debug_fmt_span(f, span)));
         out.finish()
     }
 }
@@ -1483,7 +1500,7 @@ mod tests {
     use super::*;
     use crate::Source;
 
-    /// Test the debug output of a `SyntaxNode`.
+    /// Test the debug output of a [`SyntaxNode`].
     #[test]
     fn test_debug() {
         // A standard syntax tree:
@@ -1543,6 +1560,8 @@ Markup: 2 [
         );
     }
 
+    /// Test the debug output of a [`SyntaxNode`] containing errors and warnings
+    /// that use sub-ranges.
     #[test]
     fn test_debug_sub_range() {
         // An example warning for text at a sub-range:
@@ -1555,7 +1574,7 @@ Markup: 2 [
             "\
 Markup: 7 [
     Warning: {
-        message @(\"= =\"): \"equal space equal!\",
+        message @text(\"= =\"): \"equal space equal!\",
         hint: \"try equal equal space?\",
         Heading: 7 [
             HeadingMarker: \"=\",
@@ -1582,14 +1601,95 @@ Markup: 7 [
             "\
 Markup: 9 [
     Warning: {
-        message @(\"closed\"): \"opened?\",
-        hint @(\"<unclosed\"): \"full text\",
+        message @text(\"closed\"): \"opened?\",
+        hint @text(\"<unclosed\"): \"full text\",
         Error: {
             text: \"<unclosed\",
             message: \"unclosed label\",
-            hint @(\"<\"): \"greater\",
-            hint @(\"close\"): \"open!\",
+            hint @text(\"<\"): \"greater\",
+            hint @text(\"close\"): \"open!\",
         },
+    },
+]"
+        );
+    }
+
+    /// Test the debug output of a [`SyntaxNode`] containing errors and warnings
+    /// when synthesizing spans and range mappings.
+    #[test]
+    fn test_debug_synthesized_ranges() {
+        // An example for hints at sub-ranges:
+        let mut root = crate::parse("<unclosed");
+        let node = &mut root.children_mut()[0];
+        // Hint on the "unclosed label" error:
+        node.hint_at(0..1, "greater");
+        node.hint_at(3..8, "open!");
+        // Adding a warning with hints around the error:
+        node.warn_at(3..9, "opened?");
+        node.hint_at(0..9, "full text");
+
+        // Synthesize sub-ranges with a range mapping:
+        let mut synth_mapped = root.clone();
+        let range_mapper = RangeMapper::new([10..13, 23..29]).unwrap();
+        assert_eq!(synth_mapped.len(), range_mapper.total_len());
+
+        let id = crate::FileId::new_for_test("synth_mapped");
+        synth_mapped.synthesize_mapped(id, &range_mapper).unwrap();
+        assert_eq!(
+            format!("{synth_mapped:#?}"),
+            "\
+Markup: 9 [
+    Warning: {
+        message @mapped(23..29): \"opened?\",
+        hint @mapped(10..29): \"full text\",
+        Error: {
+            text: \"<unclosed\",
+            message: \"unclosed label\",
+            hint @mapped(10..11): \"greater\",
+            hint @mapped(23..28): \"open!\",
+        },
+    },
+]"
+        );
+
+        // Synthesize sub-ranges with a detached span. The `message` and `hint`
+        // output no longer includes the related text, but we add a new hint
+        // reading: "from index `a` to `b`".
+        let mut synth_detached = root.clone();
+        synth_detached.synthesize(Span::detached());
+        assert_eq!(
+            format!("{synth_detached:#?}"),
+            // TODO: The warning's sub-range is from 3 to 9, not 0 to 9.
+            "\
+Markup: 9 [
+    Warning: {
+        message: \"opened?\",
+        hint: \"full text\",
+        hint: \"from index `0` to `9`\",
+        Error: {
+            text: \"<unclosed\",
+            message: \"unclosed label\",
+            hint: \"greater\",
+            hint: \"open!\",
+            hint: \"from index `0` to `9`\",
+        },
+    },
+]"
+        );
+
+        // Synthesize an error that surrounds empty text. This has a slightly
+        // different hint than when the text is not empty.
+        let mut root = crate::parse("#");
+        root.synthesize(Span::detached());
+        assert_eq!(
+            format!("{root:#?}"),
+            "\
+Markup: 1 [
+    Hash: \"#\",
+    Error: {
+        text: \"\",
+        message: \"expected expression\",
+        hint: \"at index `1`\",
     },
 ]"
         );
