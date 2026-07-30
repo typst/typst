@@ -618,7 +618,7 @@ b95a3df82d549476c136d68ff61d6b7e hyphenate-pt-no-repeat-hyphen
 59ae8100c8909da86cbf0c81ed53ff11 hyphenate-pt-repeat-hyphen-hyphenate-true-with-emphasis
 4b39e884020a62f31fdf7e2f40b8e0d5 hyphenate-pt-repeat-hyphen-natural-word-breaking
 7bcee0dcc6d3c9c52f568571ec3a198c hyphenate-punctuation
-bf9d852bc042ff205e3cb30571cdc166 hyphenate-repeat-style
+0d008dee14457a258e0212d1a4915567 hyphenate-repeat-style
 86a5aebc680448aed8d00c85b01afb2e hyphenate-shy
 a36a11bdc11c09ada442a95f9cc2f3df if-condition-complex
 f4bba6b6f3088099e0fd5c13b595128b if-markup

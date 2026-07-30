@@ -609,7 +609,7 @@ bfac906e0fb86ffa78c8efd57d464c9a highlight-edges-bounds
 b57230d6caff28fc5c6c5a525fa442f5 highlight-stroke
 c2a6755b44ce0b28a33cc41263d674f2 html-frame-in-layout
 d531529ec494f9ede036cedacfec6180 hyphenate
-cb09693b5121fa44e74a73d603388b6e hyphenate-between-shape-runs
+709f2a372bd8e45fe89f72c0608c9942 hyphenate-between-shape-runs
 7573dd55555dbe6dac5bc2b5b5b059c5 hyphenate-es-capitalized-names
 33564090f2f0de63afa2b21a773e14fb hyphenate-es-repeat-hyphen
 981274da03a75e1a5d14cb7429cb9cdb hyphenate-off-temporarily
@@ -620,7 +620,7 @@ d1ffcae7a3916ebfac56bd64bf487e33 hyphenate-pt-repeat-hyphen-hyphenate-true
 b68fe0d021f382a465a2b8fa087a6f06 hyphenate-pt-repeat-hyphen-hyphenate-true-with-emphasis
 4cdc7e615dcf9d57595b425b94477d95 hyphenate-pt-repeat-hyphen-natural-word-breaking
 58d76a2f5a600350f9c492efd07b432b hyphenate-punctuation
-4bce4045f945e54c7dd1dc23fdf090d9 hyphenate-repeat-style
+9bbb986722bc815ee1cf9306aae051b5 hyphenate-repeat-style
 1c2b5e79c2c5114abf08d80e7f938d22 hyphenate-shy
 69d174a3649c1d0cd586f6baab1074c3 if-condition-complex
 4474ed26cbaa657e2986aa03d953c047 if-markup
@@ -877,7 +877,7 @@ f2f89d9af70adc43d65dc6f5f17706c7 issue-grid-base-auto-row-list
 82a168477d3e35944d186ad48379b975 issue-grid-gutter-skip
 6b54adea6d9f616e09556230128aff98 issue-grid-skip
 41442b0eca61961d26c0d0efd5e1ac78 issue-grid-skip-list
-4e8df9a8dbe5696c2222b622ed9fb482 issue-hyphenate-after-tag
+292e575d4a87cb05cb421c538ca31679 issue-hyphenate-after-tag
 604a2ef11b220e6c1525ba1a40685611 issue-hyphenate-in-link
 4cd4c3ea70c9ada25ccdda479a4444a3 issue-math-realize-hide
 9fb27e62d6e71eda1da71b2bd9c3f69e issue-math-realize-scripting
