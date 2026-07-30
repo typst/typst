@@ -453,7 +453,9 @@ impl SyntaxNode {
                     }
                     (Node::Error(a, _), Node::Error(b, _)) => break a == b,
                     (Node::Warning(a, _), Node::Warning(b, _))
-                        if a.message == b.message && a.hints == b.hints =>
+                        if a.sub_range == b.sub_range
+                            && a.message == b.message
+                            && a.hints == b.hints =>
                     {
                         data_a = &a.child;
                         data_b = &b.child;

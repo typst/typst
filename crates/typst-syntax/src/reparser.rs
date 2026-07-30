@@ -306,7 +306,7 @@ mod tests {
         Range(Range<usize>),
         /// Replace the first match in the original.
         Match(&'static str),
-        /// Replace at the index after the first match of this string.
+        /// Insert at the index after the first match of this string.
         After(&'static str),
     }
 
@@ -351,11 +351,11 @@ mod tests {
         let orig_tree = source.root().clone();
         // `Source::edit()` is the public interface for reparsing.
         let replaced_range = source.edit(edit.into_range(text), with);
-        let mut reparsed_tree = source.root().clone();
-        let mut normal_parse = parse(source.text());
-        reparsed_tree.synthesize(Span::detached());
-        normal_parse.synthesize(Span::detached());
-        if reparsed_tree != normal_parse {
+        let reparsed_tree = source.root().clone();
+        assert!(!reparsed_tree.span().is_detached(), "should not be detached");
+        let normal_parse = parse(source.text());
+        assert!(normal_parse.span().is_detached(), "should be detached");
+        if !reparsed_tree.spanless_eq(&normal_parse) {
             eprintln!("Original source text: {text:?}");
             eprintln!("Original tree:\n{orig_tree:#?}");
             eprintln!("New source text: {:?}", source.text());
@@ -470,5 +470,17 @@ mod tests {
         test("#if x $a\nb\nc", Edit::End, "$", All);
         test("#for x in \"a\nb\nc", Edit::End, "\"", All);
         test("#for x \"a\nb\nc", Edit::After("x "), "in ", All);
+    }
+
+    /// Test basic reparsing correctness when modifying, inserting, or removing
+    /// syntax warnings.
+    #[test]
+    fn test_reparse_syntax_warnings() {
+        use Reparse::*;
+        test("*strong*", Edit::Match("strong"), "", All);
+        test("**", Edit::At(1), "strong", All);
+        test("**", Edit::At(1), "__", All);
+        test("```warn--empty```", Edit::Match("warn-"), "still", All);
+        test("```yes-empty```", Edit::Match("yes-"), "not ", All);
     }
 }
