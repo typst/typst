@@ -194,10 +194,11 @@ pub struct LinkElem {
     })]
     pub body: Content,
 
-    /// A destination style that should be applied to elements.
+    /// A destination style that should be applied to elements, including the location
+    /// of the [`LinkMarker`] that applied this change.
     #[internal]
     #[ghost]
-    pub current: Option<Destination>,
+    pub current: Option<(Destination, Location)>,
 }
 
 impl LinkElem {
@@ -458,7 +459,7 @@ impl Construct for DirectLinkElem {
 }
 
 /// An element that wraps all content that is @Content::linked to a destination.
-#[elem(Tagged, Construct)]
+#[elem(Tagged, Construct, ShowSet)]
 pub struct LinkMarker {
     /// The content.
     #[internal]
@@ -467,11 +468,22 @@ pub struct LinkMarker {
     #[internal]
     #[required]
     pub alt: Option<EcoString>,
+    #[internal]
+    #[required]
+    pub dest: Destination,
 }
 
 impl Construct for LinkMarker {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl ShowSet for Packed<LinkMarker> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        out.set(LinkElem::current, Some((self.dest.clone(), self.location().unwrap())));
+        out
     }
 }
 

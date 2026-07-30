@@ -226,10 +226,7 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let alt = dest.alt_text(engine, styles, span)?;
     // Manually construct link marker that spans the whole link elem, not just
     // the body.
-    Ok(LinkMarker::new(body, Some(alt))
-        .pack()
-        .spanned(span)
-        .set(LinkElem::current, Some(dest)))
+    Ok(LinkMarker::new(body, Some(alt), dest).pack().spanned(span))
 };
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
