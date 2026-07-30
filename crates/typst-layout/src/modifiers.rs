@@ -29,7 +29,7 @@ impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: styles.get_cloned(LinkElem::current),
+            dest: styles.get_cloned(LinkElem::current).map(|(dest, _)| dest),
             hidden: styles.get(HideElem::hidden),
         }
     }
