@@ -47,12 +47,15 @@ pub enum Item<'a> {
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
+    /// An event for a secondary effect on the paragraph, such as a link start
+    /// or end.
+    Event(Event),
 }
 
 impl<'a> Item<'a> {
-    /// Whether this is a tag item.
-    pub fn is_tag(&self) -> bool {
-        matches!(self, Self::Tag(_))
+    /// Whether this is a tag or event item.
+    pub fn is_tag_or_event(&self) -> bool {
+        matches!(self, Self::Tag(_) | Self::Event(_))
     }
 
     /// If this a text item, return it.
@@ -78,7 +81,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text,
             Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
             Self::Frame(_) => OBJ_REPLACE,
-            Self::Tag(_) => "",
+            Self::Tag(_) | Self::Event(_) => "",
             Self::Skip(s) => s,
         }
     }
@@ -94,7 +97,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) | Self::Event(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
@@ -155,23 +158,18 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    let mut initial_links: Vec<Destination> = vec![];
+    let mut initial_link = None;
     let mut active_links: Vec<(Destination, Location)> = vec![];
-    let mut added_initial_links = false;
+    let mut checked_initial_link_tags = false;
+    let mut added_initial_link = false;
     for &(child, styles) in children {
         let prev_len = collector.full.len();
-
-        if !added_initial_links {
-            for style in styles.entries() {
-                if let Some(property) = style.property()
-                    && property.is(LinkElem::ELEM, LinkElem::current.index())
-                {
-                }
-            }
-
-            added_initial_links = true;
+        if !added_initial_link {
+            added_initial_link = true;
+            initial_link = styles.get_cloned(LinkElem::current);
         }
 
+        let mut was_link_tag = false;
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
@@ -265,7 +263,14 @@ pub fn collect<'a>(
 
             match &elem.tag {
                 Tag::Start(content, tag_flags) if content.is::<LinkMarker>() => {
-                    if let Some(link) = styles.get_cloned(LinkElem::current) {
+                    was_link_tag = true;
+                    // If the initial link is None and there are link tags at
+                    // the very start, it likely means the flow handled the
+                    // tags. (This needs to be tested...)
+                    if let Some((link, _)) = styles.get_cloned(LinkElem::current)
+                        && (checked_initial_link_tags
+                            || styles.get_ref(LinkElem::current).is_some())
+                    {
                         println!("Hi {link:?}");
                         collector.push_event(Event::StartLink(link.clone()));
                         active_links.push((link, elem.tag.location()));
@@ -295,6 +300,8 @@ pub fn collect<'a>(
                 child.func().name(),
             ));
         }
+
+        checked_initial_link_tags |= !was_link_tag;
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());

@@ -724,22 +724,36 @@ impl<'a> Items<'a> {
 
     /// Access the first item (skipping tags), if it is text.
     pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
+        self.0.iter().find(|(_, item)| !item.is_tag_or_event())?.1.text()
     }
 
     /// Access the first item (skipping tags) mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        self.0
+            .iter_mut()
+            .find(|(_, item)| !item.is_tag_or_event())?
+            .1
+            .text_mut()
     }
 
     /// Access the last item (skipping tags), if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+        self.0
+            .iter()
+            .rev()
+            .find(|(_, item)| !item.is_tag_or_event())?
+            .1
+            .text()
     }
 
     /// Access the last item (skipping tags) mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        self.0
+            .iter_mut()
+            .rev()
+            .find(|(_, item)| !item.is_tag_or_event())?
+            .1
+            .text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.

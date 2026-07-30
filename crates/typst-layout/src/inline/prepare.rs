@@ -83,6 +83,7 @@ pub fn prepare<'a>(
 
     let mut cursor = 0;
     let mut items = Vec::with_capacity(segments.len());
+    let mut events = Vec::new();
 
     // Shape the text to finalize the items.
     for segment in segments {
@@ -102,6 +103,8 @@ pub fn prepare<'a>(
             // todo...
             Segment::Event(event) => {
                 println!("{event:?}");
+                events.push(items.len());
+                items.push((range, Item::Event(event)));
             }
         }
 
