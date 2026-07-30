@@ -420,11 +420,18 @@ impl SyntaxNode {
                 }
                 Node::Warning(warn, _) => {
                     let warn = Arc::make_mut(warn);
+                    let (orig_offset, orig_len) = match warn.sub_range {
+                        Some(sub_range) => {
+                            let range = sub_range.to_absolute(offset);
+                            (range.start, range.len())
+                        }
+                        None => (offset, len),
+                    };
                     update_sub_range(offset, &mut warn.sub_range);
                     for (_hint, sub_range) in warn.hints.make_mut() {
                         update_sub_range(offset, sub_range);
                     }
-                    if let Some(hint) = add_hint(offset, len) {
+                    if let Some(hint) = add_hint(orig_offset, orig_len) {
                         warn.hints.push((hint, None));
                     }
                     data = &mut warn.child;
@@ -1659,13 +1666,12 @@ Markup: 9 [
         synth_detached.synthesize(Span::detached());
         assert_eq!(
             format!("{synth_detached:#?}"),
-            // TODO: The warning's sub-range is from 3 to 9, not 0 to 9.
             "\
 Markup: 9 [
     Warning: {
         message: \"opened?\",
         hint: \"full text\",
-        hint: \"from index `0` to `9`\",
+        hint: \"from index `3` to `9`\",
         Error: {
             text: \"<unclosed\",
             message: \"unclosed label\",
