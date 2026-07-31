@@ -593,7 +593,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
         GroupKind::Standard(..) => {
             tree.groups.push_group(direct_parent, id);
         }
-    };
+    }
 
     direct_parent
 }

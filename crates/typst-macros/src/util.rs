@@ -1,6 +1,7 @@
 use heck::{ToKebabCase, ToTitleCase};
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
+use std::str::FromStr;
 use syn::parse::{Parse, ParseStream};
 use syn::token::Token;
 use syn::{Attribute, Ident, Result, Token};
@@ -44,11 +45,10 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
                 && expr.mac.path.is_ident("stringify")
                 && let Ok(lit) = syn::parse2::<syn::Lit>(expr.mac.tokens.clone())
                 && let Some(value) = match &lit {
-                    syn::Lit::Int(int) => Some(int.base10_digits()),
-                    syn::Lit::Float(float) => Some(float.base10_digits()),
-                    _ => None,
-                }
-            {
+                syn::Lit::Int(int) => Some(int.base10_digits()),
+                syn::Lit::Float(float) => Some(float.base10_digits()),
+                _ => None,
+            } {
                 doc.push_str(value);
                 doc.push('\n');
             }
@@ -215,7 +215,7 @@ impl<T: Parse> Parse for Array<T> {
 }
 
 /// Shorthand for `::typst_library::foundations`.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub struct foundations;
 
 impl quote::ToTokens for foundations {
@@ -225,11 +225,13 @@ impl quote::ToTokens for foundations {
 }
 
 /// For parsing attributes of the form:
+/// ```ignore
 /// #[attr(
 ///   statement;
 ///   statement;
 ///   returned_expression
 /// )]
+/// ```
 pub struct BlockWithReturn {
     pub prefix: Vec<syn::Stmt>,
     pub expr: syn::Stmt,
@@ -246,7 +248,7 @@ impl Parse for BlockWithReturn {
 }
 
 /// Parse a bare `type Name;` item.
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct BareType {
     pub attrs: Vec<Attribute>,
     pub type_token: Token![type],
@@ -269,6 +271,7 @@ pub mod kw {
     syn::custom_keyword!(name);
     syn::custom_keyword!(span);
     syn::custom_keyword!(title);
+    syn::custom_keyword!(since);
     syn::custom_keyword!(scope);
     syn::custom_keyword!(contextual);
     syn::custom_keyword!(cast);
@@ -276,6 +279,69 @@ pub mod kw {
     syn::custom_keyword!(keywords);
     syn::custom_keyword!(parent);
     syn::custom_keyword!(ext);
+}
+
+/// When a feature was introduced.
+pub enum Since {
+    /// The feature was introduced before Typst 0.1.0.
+    Forever,
+    /// The feature was introduced in a version released after Typst 0.1.0.
+    Version([u32; 3]),
+    /// The feature is not present in any official Typst release.
+    Unreleased,
+}
+
+impl Since {
+    const FOREVER: &'static str = "forever";
+    const UNRELEASED: &'static str = "unreleased";
+}
+
+impl FromStr for Since {
+    type Err = ();
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        if s == Self::FOREVER {
+            Ok(Self::Forever)
+        } else if s == Self::UNRELEASED {
+            Ok(Self::Unreleased)
+        } else if let Ok(&[major, minor, patch]) = s
+            .splitn(3, '.')
+            .map(u32::from_str)
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .as_deref()
+        {
+            Ok(Self::Version([major, minor, patch]))
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl Parse for Since {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let value = input.parse::<syn::LitStr>()?;
+        let Ok(since) = value.value().parse() else {
+            bail!(
+                value,
+                "invalid version; use `{:?}` for an unreleased version",
+                Self::UNRELEASED,
+            )
+        };
+        Ok(since)
+    }
+}
+
+impl ToTokens for Since {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Self::Forever => quote! { #foundations::Since::Forever },
+            Self::Version([major, minor, patch]) => {
+                quote! { #foundations::Since::Version([#major, #minor, #patch]) }
+            }
+            Self::Unreleased => quote! { #foundations::Since::Unreleased },
+        }
+        .to_tokens(tokens);
+    }
 }
 
 /// Extract the first line of documentation.

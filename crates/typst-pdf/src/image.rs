@@ -229,7 +229,7 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
             base_ts = base_ts.pre_concat(
                 Transform::scale(-Ratio::one(), Ratio::one())
                     .pre_concat(Transform::translate(-size.x, Abs::zero())),
-            )
+            );
         }
 
         if vp {
@@ -237,7 +237,7 @@ fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
             base_ts = base_ts.pre_concat(
                 Transform::scale(Ratio::one(), -Ratio::one())
                     .pre_concat(Transform::translate(Abs::zero(), -size.y)),
-            )
+            );
         }
 
         base_ts

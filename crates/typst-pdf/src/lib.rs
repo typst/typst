@@ -182,15 +182,15 @@ impl PdfStandards {
         let mut builder = ConfigurationBuilder::new();
 
         if let Some(version) = version {
-            builder = builder.with_version(version)
+            builder = builder.with_version(version);
         }
 
         if let Some(archival_validator) = archival_validator {
-            builder = builder.with_archival_validator(archival_validator)
+            builder = builder.with_archival_validator(archival_validator);
         }
 
         if let Some(accessibility_validator) = accessibility_validator {
-            builder = builder.with_accessibility_validator(accessibility_validator)
+            builder = builder.with_accessibility_validator(accessibility_validator);
         }
 
         let config = builder.finish().map_err(|e| {
@@ -274,7 +274,7 @@ impl Hash for PdfStandards {
 ///
 /// Support for more standards is planned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 #[non_exhaustive]
 pub enum PdfStandard {
     /// PDF 1.4.

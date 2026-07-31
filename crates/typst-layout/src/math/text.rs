@@ -104,15 +104,21 @@ pub fn layout_glyph(
             (styles, item.text.clone())
         };
 
-    if let Some(mut glyph) =
-        GlyphFragment::new(ctx.engine, &text, &item.stretch.get(), styles, props)
-    {
+    if let Some(mut glyph) = GlyphFragment::new(
+        ctx.engine,
+        &text,
+        &item.stretch.get(),
+        styles,
+        props,
+        item.class,
+    ) {
         if glyph.class == MathClass::Large {
             // TeXbook p 155. Large operators are always vertically centered on
             // the axis.
             glyph.center_on_axis();
         }
 
+        glyph.class = props.class();
         ctx.push(glyph);
     }
     Ok(())

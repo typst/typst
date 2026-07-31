@@ -241,7 +241,7 @@ pub fn collect<'a>(
                 "{} may not occur inside of a paragraph and was ignored",
                 child.func().name(),
             ));
-        };
+        }
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());

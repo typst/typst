@@ -478,6 +478,27 @@ emph (hello.my().world())
 #box[]
 ```
 
+--- raw-highlight-typ-invalid-ints paged ---
+// Invalid integers should still highlight as integers instead of black due to
+// syntax errors.
+// FUTURE: Invalid non-decimal numbers should highlight as integers.
+#set page(width: auto)
+```typ
+#9223372036854775808
+#92233720368547758089223372036854775808
+#(-9223372036854775808)
+#(-92233720368547758089223372036854775808)
+#0x8000000000000000
+#0xFFFFFFFFFFFFFFFFFFFFF
+#0b0123456789
+#0o0123456789
+#0x9abc9xyz9XYZ9 // Only hex allows letters
+#0o9abc9xyz9XYZ9
+#0b9abc9xyz9XYZ9
+#0xabcdéf // But only ASCII letters
+#123abcdéf // Same for invalid suffixes
+```
+
 --- raw-highlight-rust paged ---
 #set page(width: auto)
 

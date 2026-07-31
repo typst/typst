@@ -88,13 +88,13 @@ pub fn layout_table(
         }
     }
 
-    for line in hline.0.iter_mut() {
+    for line in &mut hline.0 {
         if *line < 0 {
             *line += nrows as isize;
         }
     }
 
-    for line in vline.0.iter_mut() {
+    for line in &mut vline.0 {
         if *line < 0 {
             *line += ncols as isize;
         }

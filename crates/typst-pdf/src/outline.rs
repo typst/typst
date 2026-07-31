@@ -50,7 +50,7 @@ fn convert_list(
     nodes: &[OutlineNode<&Packed<HeadingElem>>],
     gc: &GlobalContext,
 ) -> Vec<KrillaOutlineNode> {
-    nodes.iter().flat_map(|node| convert_node(node, gc)).collect()
+    nodes.iter().filter_map(|node| convert_node(node, gc)).collect()
 }
 
 fn convert_node(

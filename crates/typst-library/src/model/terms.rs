@@ -1,8 +1,6 @@
-use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};
 
@@ -22,7 +20,7 @@ use crate::model::{ListItemLike, ListLike};
 /// = Syntax <syntax>
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Locatable, Tagged)]
+#[elem(scope, title = "Term List", since = "forever", Locatable, Tagged)]
 pub struct TermsElem {
     /// Defines the default @terms.spacing[spacing] of the term list. If it is
     /// `{false}`, the items are spaced apart with
@@ -98,19 +96,6 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    #[parse(
-        for item in args.items.iter() {
-            if item.name.is_none() && Array::castable(&item.value.v) {
-                engine.sink.warn(warning!(
-                    item.value.span,
-                    "implicit conversion from array to `terms.item` is deprecated";
-                    hint: "use `terms.item(term, description)` instead";
-                    hint: "this conversion was never documented and is being phased out";
-                ));
-            }
-        }
-        args.all()?
-    )]
     pub children: Vec<Packed<TermItem>>,
 
     /// Whether we are currently within a term list.
@@ -126,7 +111,7 @@ impl TermsElem {
 }
 
 /// A term list item.
-#[elem(name = "item", title = "Term List Item", Tagged)]
+#[elem(name = "item", title = "Term List Item", since = "0.4.0", Tagged)]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]
@@ -139,14 +124,6 @@ pub struct TermItem {
 
 cast! {
     TermItem,
-    array: Array => {
-        let mut iter = array.into_iter();
-        let (term, description) = match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => bail!("array must contain exactly two entries"),
-        };
-        Self::new(term, description)
-    },
     v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }
 

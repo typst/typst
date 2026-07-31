@@ -87,7 +87,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Debug, Construct, PlainText, Repr)]
+#[elem(since = "forever", Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptors.
     ///
@@ -1200,7 +1200,7 @@ impl TryInto<VerticalFontMetric> for TopEdgeMetric {
             Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
             Self::XHeight => Ok(VerticalFontMetric::XHeight),
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1242,7 +1242,7 @@ impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
         match self {
             Self::Baseline => Ok(VerticalFontMetric::Baseline),
             Self::Descender => Ok(VerticalFontMetric::Descender),
-            _ => Err(()),
+            Self::Bounds => Err(()),
         }
     }
 }
@@ -1462,7 +1462,7 @@ pub fn features(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in styles.get_cloned(TextElem::features).0 {
-        tags.push(Feature::new(tag.into(), value, ..))
+        tags.push(Feature::new(tag.into(), value, ..));
     }
 
     tags

@@ -140,7 +140,7 @@ use crate::foundations::{
 /// will be stored as a plain date internally, meaning that you cannot use
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.5.0")]
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
@@ -262,7 +262,7 @@ impl Datetime {
     ///   day: 3,
     /// ).display()
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.5.0")]
     pub fn construct(
         /// The year of the datetime.
         #[named]
@@ -366,7 +366,7 @@ impl Datetime {
     /// Today's date is
     /// #datetime.today().display().
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn today(
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
@@ -391,7 +391,7 @@ impl Datetime {
     /// `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
     ///
     /// See the @datetime:format[format syntax] for more information.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn display(
         &self,
         /// The format used to display the datetime.
@@ -418,7 +418,7 @@ impl Datetime {
     }
 
     /// The year if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn year(&self) -> Option<i32> {
         match self {
             Self::Date(date) => Some(date.year()),
@@ -428,7 +428,7 @@ impl Datetime {
     }
 
     /// The month if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn month(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.month().into()),
@@ -438,7 +438,7 @@ impl Datetime {
     }
 
     /// The weekday (counting Monday as 1) or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn weekday(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.weekday().number_from_monday()),
@@ -448,7 +448,7 @@ impl Datetime {
     }
 
     /// The day if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn day(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.day()),
@@ -458,7 +458,7 @@ impl Datetime {
     }
 
     /// The hour if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn hour(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -468,7 +468,7 @@ impl Datetime {
     }
 
     /// The minute if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn minute(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -478,7 +478,7 @@ impl Datetime {
     }
 
     /// The second if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn second(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -488,7 +488,7 @@ impl Datetime {
     }
 
     /// The ordinal (day of the year), or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn ordinal(&self) -> Option<u16> {
         match self {
             Self::Datetime(datetime) => Some(datetime.ordinal()),

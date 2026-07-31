@@ -2690,9 +2690,9 @@ checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
 name = "spin"
-version = "0.9.8"
+version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
 
 [[package]]
 name = "stable_deref_trait"
@@ -2866,7 +2866,7 @@ dependencies = [
 
 [[package]]
 name = "test-wrapper"
-version = "0.15.0"
+version = "0.15.1"
 
 [[package]]
 name = "thin-vec"
@@ -3057,7 +3057,7 @@ checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typst"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "arrayvec",
  "comemo",
@@ -3076,15 +3076,15 @@ dependencies = [
 
 [[package]]
 name = "typst-assets"
-version = "0.15.0"
-source = "git+https://github.com/typst/typst-assets?rev=c0ae970#c0ae970f64413cf8e39cecd56d15ee50de42eaf4"
+version = "0.15.1"
+source = "git+https://github.com/typst/typst-assets?rev=94dcb99#94dcb990edb36311ef85162baa26e4a8205e0bf0"
 dependencies = [
  "bitflags 2.11.1",
 ]
 
 [[package]]
 name = "typst-bundle"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3106,7 +3106,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "chrono",
  "clap",
@@ -3152,12 +3152,12 @@ dependencies = [
 
 [[package]]
 name = "typst-dev-assets"
-version = "0.15.0"
-source = "git+https://github.com/typst/typst-dev-assets?rev=a2e29ed#a2e29ed9393121735ce56d9d06deeab701cf35e0"
+version = "0.15.1"
+source = "git+https://github.com/typst/typst-dev-assets?rev=79ba7c3#79ba7c354e39d9cd0a074bc41becc05f0119eee3"
 
 [[package]]
 name = "typst-docs"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "az",
  "base64",
@@ -3195,7 +3195,7 @@ dependencies = [
 
 [[package]]
 name = "typst-eval"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3213,7 +3213,7 @@ dependencies = [
 
 [[package]]
 name = "typst-fuzz"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "comemo",
  "libfuzzer-sys",
@@ -3229,7 +3229,7 @@ dependencies = [
 
 [[package]]
 name = "typst-html"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "az",
  "bumpalo",
@@ -3250,7 +3250,7 @@ dependencies = [
 
 [[package]]
 name = "typst-ide"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "comemo",
  "ecow",
@@ -3270,7 +3270,7 @@ dependencies = [
 
 [[package]]
 name = "typst-kit"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "chrono",
  "codespan-reporting",
@@ -3305,7 +3305,7 @@ dependencies = [
 
 [[package]]
 name = "typst-layout"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "az",
  "bumpalo",
@@ -3339,7 +3339,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "arrayvec",
  "az",
@@ -3356,6 +3356,7 @@ dependencies = [
  "glidesort",
  "hayagriva",
  "hayro-syntax",
+ "icu_collator",
  "icu_properties",
  "image",
  "indexmap",
@@ -3405,7 +3406,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -3415,7 +3416,7 @@ dependencies = [
 
 [[package]]
 name = "typst-pdf"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "az",
  "bytemuck",
@@ -3442,7 +3443,7 @@ dependencies = [
 
 [[package]]
 name = "typst-realize"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "arrayvec",
  "bumpalo",
@@ -3459,7 +3460,7 @@ dependencies = [
 
 [[package]]
 name = "typst-render"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "bytemuck",
  "comemo",
@@ -3480,7 +3481,7 @@ dependencies = [
 
 [[package]]
 name = "typst-svg"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "base64",
  "comemo",
@@ -3505,7 +3506,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "ecow",
  "rustc-hash",
@@ -3522,7 +3523,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "base64",
  "bitflags 2.11.1",
@@ -3566,7 +3567,7 @@ dependencies = [
 
 [[package]]
 name = "typst-timing"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "parking_lot",
  "serde",
@@ -3576,7 +3577,7 @@ dependencies = [
 
 [[package]]
 name = "typst-utils"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "libm",
  "once_cell",
@@ -3705,9 +3706,9 @@ checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "unicode_names2"
-version = "2.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d189085656ca1203291e965444e7f6a2723fbdd1dd9f34f8482e79bafd8338a0"
+checksum = "82c3e18d850bb6ebd57735e5654f0af65e572b05c2397e7b2b1a7c6a792cc29c"
 dependencies = [
  "phf 0.11.3",
  "unicode_names2_generator",
@@ -3715,9 +3716,9 @@ dependencies = [
 
 [[package]]
 name = "unicode_names2_generator"
-version = "2.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1262662dc96937c71115228ce2e1d30f41db71a7a45d3459e98783ef94052214"
+checksum = "849744a58c479122ff24910d7ca57f312b62613ef0412dc327776ae6b235d16a"
 dependencies = [
  "phf_codegen",
  "rand",

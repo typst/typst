@@ -97,7 +97,7 @@ use crate::loading::{DataSource, Load};
 ///
 /// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
-#[func(scope, title = "JSON")]
+#[func(scope, title = "JSON", since = "forever")]
 pub fn json(
     engine: &mut Engine,
     /// A path to a JSON file or raw JSON bytes.
@@ -130,7 +130,7 @@ pub fn json(
 #[scope]
 impl json {
     /// Encodes structured data into a JSON string.
-    #[func(title = "Encode JSON")]
+    #[func(title = "Encode JSON", since = "0.8.0")]
     pub fn encode(
         /// Value to be encoded.
         value: Spanned<Value>,

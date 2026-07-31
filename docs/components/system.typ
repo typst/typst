@@ -17,6 +17,7 @@
   ),
   red: (
     shade-10: rgb("ffcbc4"),
+    shade-50: rgb("ea3e47"),
   ),
   green: (
     shade-10: rgb("d1ffe2"),

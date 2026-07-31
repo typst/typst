@@ -156,7 +156,7 @@ use crate::introspection::Introspector;
 /// In case you need to query a document when exporting for a specific target,
 /// you can use the `--target` argument. Valid values are `paged`, and `html`
 /// (if the @html feature is enabled).
-#[func(contextual)]
+#[func(contextual, since = "forever")]
 pub fn query(
     engine: &mut Engine,
     context: Tracked<Context>,

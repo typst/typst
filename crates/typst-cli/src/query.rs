@@ -137,7 +137,7 @@ fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
         match (command.one, &command.field) {
             (false, None) => {}
             (false, Some(field)) => {
-                write!(buf, ".map(it => it{})", access(field)).unwrap()
+                write!(buf, ".map(it => it{})", access(field)).unwrap();
             }
             (true, None) => write!(buf, ".first()").unwrap(),
             (true, Some(field)) => write!(buf, ".first(){}", access(field)).unwrap(),

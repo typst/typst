@@ -214,14 +214,15 @@ We copy-pasted most of that code from the previous chapter. The two differences 
 Also note where the title comes from: We previously had it inside of a variable. Now, we are receiving it as the first parameter of the template function. To do so, we passed a closure (that's a function without a name that is used right away) to the everything show rule. We did that because the `conf` function expects two positional arguments, the title and the body, but the show rule will only pass the body. Therefore, we add a new function definition that allows us to set a paper title and use the single parameter from the show rule.
 
 = #short-or-long[Named Arguments][Templates with named arguments] <named-arguments>
-Our paper in the previous chapter had a title and an author list. Let's add these things to our template. In addition to the title, we want our template to accept a list of authors with their affiliations and the paper's abstract. To keep things readable, we'll add those as named arguments. In the end, we want it to work like this:
+Our paper in the previous chapter had a title and an author list. We can keep the title as @document metadata, but our template should also accept a list of authors with their affiliations and the paper's abstract. We'll add those as named arguments. In the end, we want it to work like this:
 
 ```typ
+#set document(title: [
+  A Fluid Dynamic Model for
+  Glacier Flow
+])
+
 #show: doc => conf(
-  title: [
-    A Fluid Dynamic Model for
-    Glacier Flow
-  ],
   authors: (
     (
       name: "Theresa Tungsten",
@@ -241,7 +242,7 @@ Our paper in the previous chapter had a title and an author list. Let's add thes
 ...
 ```
 
-Let's build this new template function. First, we add a default value to the `title` argument. This way, we can call the template without specifying a title. We also add the named `authors` and `abstract` parameters with empty defaults. Next, we copy the code that generates title, abstract and authors from the previous chapter into the template, replacing the fixed details with the parameters.
+Let's build this new template function. The title can be displayed with the @title function and accessed through `document.title`, so the template only needs named `authors` and `abstract` parameters with empty defaults. Next, we copy the code that generates title, abstract and authors from the previous chapter into the template, replacing the fixed details with the parameters.
 
 The new `authors` parameter expects an @array[array] of @dictionary[dictionaries] with the keys `name`, `affiliation` and `email`. Because we can have an arbitrary number of authors, we dynamically determine if we need one, two or three columns for the author list. First, we determine the number of authors using the @array.len[`.len()`] method on the `authors` array. Then, we set the number of columns as the minimum of this count and three, so that we never create more than three columns. If there are more than three authors, a new row will be inserted instead. For this purpose, we have also added a `row-gutter` parameter to the `grid` function. Otherwise, the rows would be too close together. To extract the details about the authors from the dictionary, we use the @reference:scripting:fields[field access syntax].
 
@@ -256,8 +257,7 @@ The resulting template function looks like this:
   doc,
 ) = {
   // Set and show rules from before.
->>> // (skipped)
-<<<   ...
+  // ...
 
   place(
     top + center,

@@ -583,7 +583,7 @@ impl Segments {
         Ok(())
     }
 
-    fn push<'a>(&mut self, segment: Segment<'a>) {
+    fn push(&mut self, segment: Segment) {
         if !self.is_empty() {
             self.0.push(SEPARATOR);
         }

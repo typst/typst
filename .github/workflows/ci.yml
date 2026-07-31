@@ -69,7 +69,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: tests-store-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          name: tests-store-${{ matrix.os }}-${{ matrix.bits }}
           path: |
             tests/store/by-hash
             tests/store/render
@@ -83,7 +83,7 @@ jobs:
         if: failure() || (success() && github.event_name == 'pull_request' && startsWith(matrix.os, 'ubuntu-') && matrix.bits == 64)
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: tests-report-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.bits }}
+          name: tests-report-${{ matrix.os }}-${{ matrix.bits }}
           path: tests/store/report.html
           compression-level: 9
 

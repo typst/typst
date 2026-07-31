@@ -29,7 +29,7 @@ pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 /// $arrow(a) = accent(a, arrow)$ \
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct AccentElem {
     /// The base to which the accent is applied. May consist of multiple
     /// letters.
@@ -273,6 +273,7 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
         )),
         name: "(..) => ..",
         title,
+        since: None,
         docs,
         def_site: None,
         keywords: &[],

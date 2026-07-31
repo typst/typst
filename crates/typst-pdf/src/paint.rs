@@ -170,7 +170,7 @@ fn convert_pattern(
     state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
     let transform = correct_transform(state, pattern.unwrap_relative(on_text))
-        .pre_concat(Transform::translate(pattern.offset().x, pattern.offset().y));
+        .pre_concat(pattern.transform());
 
     let mut stream_builder = surface.stream_builder();
     let mut surface = stream_builder.surface();
@@ -190,8 +190,8 @@ fn convert_pattern(
     let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
-        width: (pattern.size().x + pattern.spacing().x).to_pt() as _,
-        height: (pattern.size().y + pattern.spacing().y).to_pt() as _,
+        width: (pattern.size().x + pattern.spacing().x).to_pt() as f32,
+        height: (pattern.size().y + pattern.spacing().y).to_pt() as f32,
     };
 
     Ok((pattern.into(), 255))

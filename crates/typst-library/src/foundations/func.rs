@@ -15,7 +15,7 @@ use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
-    Selector, Type, Value, cast, scope, ty,
+    Selector, Since, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -135,7 +135,7 @@ use crate::foundations::{
 /// The only exception are built-in methods like
 /// @array.push[`array.push(value)`]. These can modify the values they are
 /// called on.
-#[ty(scope, cast, name = "function")]
+#[ty(scope, cast, name = "function", since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
@@ -183,6 +183,17 @@ impl Func {
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
             FuncInner::With(with) => with.0.title(),
+        }
+    }
+
+    /// The version of Typst the function was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        match &self.inner {
+            FuncInner::Native(native) => native.since.clone(),
+            FuncInner::Element(elem) => elem.since(),
+            FuncInner::Closure(_) => None,
+            FuncInner::Plugin(_) => None,
+            FuncInner::With(with) => with.0.since(),
         }
     }
 
@@ -380,7 +391,7 @@ impl Func {
 #[scope]
 impl Func {
     /// Returns a new function that has the given arguments pre-applied.
-    #[func]
+    #[func(since = "forever")]
     pub fn with(
         self,
         args: &mut Args,
@@ -405,7 +416,7 @@ impl Func {
     /// == Subsection
     /// === Sub-subsection
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn where_(
         self,
         args: &mut Args,
@@ -626,6 +637,8 @@ pub struct NativeFuncData {
     pub name: &'static str,
     /// The function's title case name (e.g. `Align`).
     pub title: &'static str,
+    /// The version of Typst the function was introduced in.
+    pub since: Option<Since>,
     /// The documentation for this function as a string.
     pub docs: &'static str,
     /// Where the function is defined in the source code.
@@ -727,7 +740,7 @@ impl Closure {
             ClosureNode::Closure(ref node) => {
                 node.cast::<ast::Closure>()?.name().map(|ident| ident.as_str())
             }
-            _ => None,
+            ClosureNode::Context(_) => None,
         }
     }
 

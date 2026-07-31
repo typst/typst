@@ -277,7 +277,7 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 ///   )
 /// }))
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Color {
     /// A process color.
@@ -337,7 +337,7 @@ impl Color {
     ///   box(square(fill: luma(x)))
     /// }
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn luma(
         args: &mut Args,
         /// The lightness component.
@@ -390,7 +390,7 @@ impl Color {
     ///   fill: oklab(27%, 20%, -3%, 50%)
     /// )
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn oklab(
         args: &mut Args,
         /// The lightness component.
@@ -449,7 +449,7 @@ impl Color {
     ///   fill: oklch(40%, 0.2, 160deg, 50%)
     /// )
     /// ```
-    #[func]
+    #[func(since = "0.10.0")]
     pub fn oklch(
         args: &mut Args,
         /// The lightness component.
@@ -511,7 +511,7 @@ impl Color {
     ///   30%, 50%, 10%,
     /// ))
     /// ```
-    #[func(title = "Linear RGB")]
+    #[func(title = "Linear RGB", since = "0.9.0")]
     pub fn linear_rgb(
         args: &mut Args,
         /// The red component.
@@ -569,7 +569,7 @@ impl Color {
     /// #square(fill: rgb(87, 127, 230))
     /// #square(fill: rgb(25%, 13%, 65%))
     /// ```
-    #[func(title = "RGB")]
+    #[func(title = "RGB", since = "forever")]
     pub fn rgb(
         args: &mut Args,
         /// The red component.
@@ -645,7 +645,7 @@ impl Color {
     ///   fill: cmyk(27%, 0%, 3%, 5%)
     /// )
     /// ```
-    #[func(title = "CMYK")]
+    #[func(title = "CMYK", since = "forever")]
     pub fn cmyk(
         args: &mut Args,
         /// The cyan component.
@@ -699,7 +699,7 @@ impl Color {
     ///   fill: color.hsl(30deg, 50%, 60%)
     /// )
     /// ```
-    #[func(title = "HSL")]
+    #[func(title = "HSL", since = "0.9.0")]
     pub fn hsl(
         args: &mut Args,
         /// The hue angle.
@@ -756,7 +756,7 @@ impl Color {
     ///   fill: color.hsv(30deg, 50%, 60%)
     /// )
     /// ```
-    #[func(title = "HSV")]
+    #[func(title = "HSV", since = "0.9.0")]
     pub fn hsv(
         args: &mut Args,
         /// The hue angle.
@@ -867,7 +867,7 @@ impl Color {
     /// // note that the alpha component is included by default
     /// #rgb(40%, 60%, 80%).components()
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn components(
         &self,
         /// Whether to include the alpha component.
@@ -897,7 +897,7 @@ impl Color {
     /// #let color = cmyk(1%, 2%, 3%, 4%)
     /// #(color.space() == cmyk)
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn space(&self) -> ColorSpace {
         match self {
             Self::Process(c) => c.space().into(),
@@ -908,7 +908,7 @@ impl Color {
     /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
     /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
     /// omitted if it is equal to `ff` (255 / 100%).
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn to_hex(&self) -> EcoString {
         match self {
             Self::Process(c) => c.to_hex(),
@@ -917,7 +917,7 @@ impl Color {
     }
 
     /// Lightens a color by a given factor.
-    #[func]
+    #[func(since = "forever")]
     pub fn lighten(
         &self,
         /// The factor to lighten the color by.
@@ -930,7 +930,7 @@ impl Color {
     }
 
     /// Darkens a color by a given factor.
-    #[func]
+    #[func(since = "forever")]
     pub fn darken(
         &self,
         /// The factor to darken the color by.
@@ -946,7 +946,7 @@ impl Color {
     ///
     /// Only process colors can be saturated. If you want to saturate a spot
     /// color, convert it into a process color first.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn saturate(
         &self,
         span: Span,
@@ -967,7 +967,7 @@ impl Color {
     ///
     /// Only process colors can be desaturated. If you want to desaturate a spot
     /// color, convert it into a process color first.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn desaturate(
         &self,
         span: Span,
@@ -992,7 +992,7 @@ impl Color {
     /// #square(fill: yellow.negate())
     /// #square(fill: yellow.negate(space: rgb))
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn negate(
         &self,
         /// The color space used for the transformation. By default, a
@@ -1017,7 +1017,7 @@ impl Color {
     ///
     /// This function only works on color models with a well-defined hue
     /// component, i.e. Oklch, HSL, and HSV.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn rotate(
         &self,
         span: Span,
@@ -1068,7 +1068,7 @@ impl Color {
     /// #block(fill: color.mix(red, blue, white))
     /// #block(fill: color.mix((red, 70%), (blue, 30%)))
     /// ```
-    #[func]
+    #[func(since = "0.7.0")]
     pub fn mix(
         /// The colors, optionally with weights, specified as a pair (array of
         /// length two) of color and weight (float or ratio).
@@ -1100,7 +1100,7 @@ impl Color {
     /// #block(fill: red.transparentize(50%))[half red]
     /// #block(fill: red.transparentize(75%))[quarter red]
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn transparentize(
         &self,
         /// The factor to change the alpha value by.
@@ -1121,7 +1121,7 @@ impl Color {
     /// #block(fill: half-red.opacify(50%))[three quarters red]
     /// #block(fill: half-red.opacify(-50%))[one quarter red]
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn opacify(
         &self,
         /// The scale to change the alpha value by.
@@ -2254,7 +2254,7 @@ pub struct SpotColor {
 
 impl SpotColor {
     pub fn new(colorant: Arc<SpotColorant>, tint: Ratio) -> Self {
-        Self { tint, colorant }
+        Self { colorant, tint }
     }
 }
 
@@ -2300,7 +2300,7 @@ impl Repr for SpotColor {
 /// environment. Once you have created a spot colorant, you can create
 /// colors using its @color.spot.tint[`tint` method].
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[ty(scope, name = "spot", title = "Spot Colorant")]
+#[ty(scope, name = "spot", title = "Spot Colorant", since = "0.15.0")]
 pub struct SpotColorant {
     /// Name of the spot colorant to use, if any.
     pub name: Option<SpotColorantName>,
@@ -2317,7 +2317,7 @@ impl Repr for SpotColorant {
 #[scope]
 impl SpotColorant {
     /// Create a new spot colorant.
-    #[func(constructor)]
+    #[func(constructor, since = "0.15.0")]
     pub fn construct(
         /// Name of the spot colorant to use.
         ///
@@ -2336,9 +2336,9 @@ impl SpotColorant {
         /// #link("https://en.wikipedia.org/wiki/Offset_printing#Plates")[color plates],
         /// use of this colorant will result in the specified tint being applied
         /// equally to all plates. If you choose `{none}`, no colorant will be
-        /// applied when using this color. Instead, you can use a spot color
-        /// with the name `{none}` to indicate cuts or varnishes. Be sure to
-        /// discuss this with your production printer!
+        /// applied when using this color. This special value is often used to
+        /// indicate cuts or varnishes. Be sure to discuss this with your
+        /// production printer!
         ///
         /// We do not recommend using the names `{"Cyan"}`, `{"Magenta"}`,
         /// `{"Yellow"}`, `{"Key"}`, `{"Black"}`, or their translations to your
@@ -2371,7 +2371,7 @@ impl SpotColorant {
     /// #square(fill: pantone.tint(70%))
     /// #square(fill: pantone.tint(40%))
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn tint(
         &self,
         /// The tint percentage, between `{0%}` and `{100%}`.

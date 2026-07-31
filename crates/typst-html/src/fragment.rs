@@ -38,7 +38,7 @@ pub fn html_block_fragment(
 
 /// The cached, internal implementation of [`html_block_fragment`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_block_fragment_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

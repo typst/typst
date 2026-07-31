@@ -7,7 +7,7 @@ mod vtable;
 pub use self::element::*;
 pub use self::field::*;
 pub use self::packed::Packed;
-pub use self::vtable::{ContentVtable, FieldVtable};
+pub use self::vtable::{ContentVtable, FieldVtable, IntrospectionCapabilities};
 #[doc(inline)]
 pub use typst_macros::elem;
 
@@ -78,7 +78,7 @@ use crate::text::UnderlineElem;
 /// In the web app, you can hover over a content variable to see exactly which
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the @repr function.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Clone, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct Content(raw::RawContent);
@@ -278,6 +278,21 @@ impl Content {
         C: ?Sized + 'static,
     {
         self.elem().can::<C>()
+    }
+
+    /// Whether the contained element is locatable.
+    pub fn is_locatable(&self) -> bool {
+        self.elem().is_locatable()
+    }
+
+    /// Whether the contained element is unqueriable.
+    pub fn is_unqueriable(&self) -> bool {
+        self.elem().is_unqueriable()
+    }
+
+    /// Whether the contained element is tagged in PDF files.
+    pub fn is_tagged(&self) -> bool {
+        self.elem().is_tagged()
     }
 
     /// Cast to a trait object if the contained element has the given
@@ -513,13 +528,13 @@ impl Content {
     /// element contained in this content. It can be used in set and show rules
     /// for the element. Can be compared with global functions to check whether
     /// you have a specific kind of element.
-    #[func]
+    #[func(since = "forever")]
     pub fn func(&self) -> Element {
         self.elem()
     }
 
     /// Whether the content has the specified field.
-    #[func]
+    #[func(since = "forever")]
     pub fn has(
         &self,
         /// The field to look for.
@@ -542,7 +557,7 @@ impl Content {
     /// Access the specified field on the content. Returns the default value if
     /// the field does not exist or fails with an error if no default value was
     /// specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The field to access.
@@ -564,7 +579,7 @@ impl Content {
     ///   height: 10cm,
     /// ).fields()
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn fields(&self) -> Dict {
         let mut dict = Dict::new();
         for field in self.0.handle().fields() {
@@ -583,7 +598,7 @@ impl Content {
     /// @reference:styling:show-rules[show rule], for other content it will be
     /// `{none}`. The resulting location can be used with @counter[counters],
     /// @state[state] and @query[queries].
-    #[func]
+    #[func(since = "forever")]
     pub fn location(&self) -> Option<Location> {
         self.0.meta().location
     }
@@ -719,10 +734,10 @@ impl Debug for SequenceElem {
 }
 
 // Derive is currently incompatible with `elem` macro.
-#[allow(clippy::derivable_impls)]
+#[expect(clippy::derivable_impls)]
 impl Default for SequenceElem {
     fn default() -> Self {
-        Self { children: Default::default() }
+        Self { children: Vec::default() }
     }
 }
 

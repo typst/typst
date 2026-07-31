@@ -175,7 +175,7 @@ const TERMS_RULE: ShowFn<TermsElem> = |elem, _, styles| {
         .then(|| HElem::new((-hanging_indent).into()).pack().spanned(span));
 
     let mut children = vec![];
-    for child in elem.children.iter() {
+    for child in &elem.children {
         let mut seq = vec![];
         seq.extend(unpad.clone());
         seq.push(PdfMarkerTag::TermsItemLabel(child.term.clone().strong()));

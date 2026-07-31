@@ -10,12 +10,19 @@ use super::{
 };
 
 /// Distributes as many children as fit from `composer.work` into the first
-/// region and returns the resulting frame.
-pub fn distribute(composer: &mut Composer, regions: Regions) -> FlowResult<Frame> {
+/// region and returns the resulting frame and the height actually used
+/// by the inner contents (for column balancing).
+pub fn distribute(
+    composer: &mut Composer,
+    regions: Regions,
+    balancing_target: Option<Abs>,
+) -> FlowResult<(Frame, Abs)> {
     let mut distributor = Distributor {
         composer,
         regions,
         items: vec![],
+        used: Size::zero(),
+        target: balancing_target,
         sticky: None,
         stickable: None,
     };
@@ -39,6 +46,10 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     regions: Regions<'z>,
     /// Already laid out items, not yet aligned.
     items: Vec<Item<'a, 'b>>,
+    /// Size used by laid out items.
+    used: Size,
+    /// The target height for column balancing.
+    target: Option<Abs>,
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
@@ -68,6 +79,7 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
 struct DistributionSnapshot<'a, 'b> {
     work: Work<'a, 'b>,
     items: usize,
+    used: Size,
 }
 
 /// A laid out item in a distribution.
@@ -156,6 +168,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
     }
 
+    /// Mark the amount of height used and reduce the region height accordingly.
+    fn use_height(&mut self, amount: Abs) {
+        self.regions.size.y -= amount;
+        self.used.y += amount;
+    }
+
     /// Processes relative spacing.
     fn rel(&mut self, amount: Rel<Abs>, weakness: u8) {
         let amount = amount.relative_to(self.regions.base().y);
@@ -163,7 +181,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return;
         }
 
-        self.regions.size.y -= amount;
+        self.use_height(amount);
         self.items.push(Item::Abs(amount, weakness));
     }
 
@@ -192,8 +210,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     if weakness <= prev_weakness
                         && (weakness < prev_weakness || amount > prev_amount)
                     {
-                        self.regions.size.y -= amount - prev_amount;
                         *item = Item::Abs(amount, weakness);
+                        self.use_height(amount - prev_amount);
                     }
                     return false;
                 }
@@ -244,7 +262,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         for (i, item) in self.items.iter().enumerate().rev() {
             match *item {
                 Item::Abs(amount, 1..) => {
-                    self.regions.size.y += amount;
+                    self.use_height(-amount);
                     self.items.remove(i);
                     break;
                 }
@@ -270,11 +288,22 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         Abs::zero()
     }
 
+    /// Whether the amount fits into the remaining region, taking into account
+    /// column balancing limits.
+    pub fn fits(&self, amount: Abs) -> bool {
+        self.regions.size.y.fits(amount)
+            && self
+                .target
+                // Add elements as long as the balancing target is not reached. By not including
+                // the amount itself here, we avoid protruding items to cumulate in the last column.
+                .is_none_or(|target| target.fits(self.used.y))
+    }
+
     /// Processes a line of a paragraph.
     fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(line.frame.height()) && self.regions.may_progress() {
+        if !self.fits(line.frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -282,7 +311,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // following lines grouped by widow/orphan prevention, does not fit into
         // the current region, but does fit into the next region, finish the
         // region.
-        if !self.regions.size.y.fits(line.need)
+        if !self.fits(line.need)
             && self
                 .regions
                 .iter()
@@ -314,7 +343,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
-        if !self.regions.size.y.fits(frame.height()) && self.regions.may_progress() {
+        if !self.fits(frame.height()) && self.regions.may_progress() {
             return Err(Stop::Finish(false));
         }
 
@@ -323,14 +352,22 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes a breakable block.
     fn multi(&mut self, multi: &'b MultiChild<'a>) -> FlowResult<()> {
+        let mut pod = self.regions;
+
+        // For column balancing, reduce the region size for layout.
+        if let Some(lim) = self.target {
+            let remaining = lim - self.used.y;
+            pod.size.y.set_min(remaining);
+        }
+
         // Skip directly if the region is already (over)full. `line` and
         // `single` implicitly do this through their `fits` checks.
-        if self.regions.is_full() {
+        if pod.is_full() {
             return Err(Stop::Finish(false));
         }
 
         // Lay out the block.
-        let (frame, spill) = multi.layout(self.composer.engine, self.regions)?;
+        let (frame, spill) = multi.layout(self.composer.engine, pod)?;
         if frame.is_empty()
             && spill.as_ref().is_some_and(|s| s.exist_non_empty_frame)
             && self.regions.may_progress()
@@ -356,15 +393,23 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
     /// Processes spillover from a breakable block.
     fn multi_spill(&mut self, spill: MultiSpill<'a, 'b>) -> FlowResult<()> {
+        let mut pod = self.regions;
+
+        // For column balancing, reduce the region size for layout.
+        if let Some(lim) = self.target {
+            let remaining = lim - self.used.y;
+            pod.size.y.set_min(remaining);
+        }
+
         // Skip directly if the region is already (over)full.
-        if self.regions.is_full() {
+        if pod.is_full() {
             self.composer.work.spill = Some(spill);
             return Err(Stop::Finish(false));
         }
 
         // Lay out the spilled remains.
         let align = spill.align();
-        let (frame, spill) = spill.layout(self.composer.engine, self.regions)?;
+        let (frame, spill) = spill.layout(self.composer.engine, pod)?;
         self.frame(frame, align, false, true)?;
 
         // If there's still more, save it into the `spill` and finish the
@@ -385,38 +430,36 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         sticky: bool,
         breakable: bool,
     ) -> FlowResult<()> {
-        if sticky {
-            // If the frame is sticky and we haven't remembered a preceding
-            // sticky element, make a checkpoint which we can restore should we
-            // end on this sticky element.
-            //
-            // The first sticky block within consecutive sticky blocks
-            // determines whether this group of sticky blocks has stickiness
-            // disabled or not.
-            //
-            // The criteria used here is: if migrating this group of sticky
-            // blocks together with the "attached" block can't improve the lack
-            // of space, since we're at the start of the region, then we don't
-            // do so, and stickiness is disabled (at least, for this region).
-            // Otherwise, migration is allowed.
-            //
-            // Note that, since the whole region is checked, this ensures sticky
-            // blocks at the top of a block - but not necessarily of the page -
-            // can still be migrated.
-            if self.sticky.is_none()
-                && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
-            {
-                self.sticky = Some(self.snapshot());
-            }
-        } else if !frame.is_empty() {
-            // If the frame isn't sticky, we can forget a previous snapshot. We
-            // interrupt a group of sticky blocks, if there was one, so we reset
-            // the saved stickable check for the next group of sticky blocks.
-            self.sticky = None;
-            self.stickable = None;
+        // If the frame is sticky and we haven't remembered a preceding sticky
+        // element, make a checkpoint which we can restore should we end on
+        // this sticky element.
+        //
+        // The first sticky block within consecutive sticky blocks determines
+        // whether this group of sticky blocks has stickiness disabled or not.
+        //
+        // The criteria used here is: if migrating this group of sticky blocks
+        // together with the "attached" block can't improve the lack of space,
+        // since we're at the start of the region, then we don't do so, and
+        // stickiness is disabled (at least, for this region). Otherwise,
+        // migration is allowed.
+        //
+        // Note that, since the whole region is checked, this ensures sticky
+        // blocks at the top of a block - but not necessarily of the page - can
+        // still be migrated.
+        if sticky
+            && self.sticky.is_none()
+            && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
+        {
+            self.sticky = Some(self.snapshot());
         }
 
         // Handle footnotes.
+        //
+        // This must happen before we forget a previous sticky snapshot below.
+        // If a non-sticky frame's footnote doesn't fit, the frame and any
+        // preceding sticky blocks attached to it need to migrate to the next
+        // region together. Resetting the sticky state first would then strand
+        // those sticky blocks in this region.
         self.composer.footnotes(
             &self.regions,
             &frame,
@@ -425,8 +468,17 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             true,
         )?;
 
+        if !sticky && !frame.is_empty() {
+            // If the frame isn't sticky, we can forget a previous snapshot. We
+            // interrupt a group of sticky blocks, if there was one, so we reset
+            // the saved stickable check for the next group of sticky blocks.
+            self.sticky = None;
+            self.stickable = None;
+        }
+
         // Push an item for the frame.
-        self.regions.size.y -= frame.height();
+        self.use_height(frame.height());
+        self.used.x.set_max(frame.width());
         self.flush_tags();
         self.items.push(Item::Frame(frame, align));
         Ok(())
@@ -441,14 +493,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // spacing temporarily available again because it can collapse if it
             // ends up at a break due to the float.
             let weak_spacing = self.weak_spacing();
-            self.regions.size.y += weak_spacing;
+            self.use_height(-weak_spacing);
             self.composer.float(
                 placed,
                 &self.regions,
                 self.items.iter().any(|item| matches!(item, Item::Frame(..))),
                 true,
             )?;
-            self.regions.size.y -= weak_spacing;
+            self.use_height(weak_spacing);
         } else {
             let frame = placed.layout(self.composer.engine, self.regions.base())?;
             self.composer
@@ -489,7 +541,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         region: Region,
         init: DistributionSnapshot<'a, 'b>,
         forced: bool,
-    ) -> FlowResult<Frame> {
+    ) -> FlowResult<(Frame, Abs)> {
         if forced {
             // If this is the very end of the flow, flush pending tags.
             self.flush_tags();
@@ -501,37 +553,29 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // the flow, restore the saved checkpoint to move the sticky
             // suffix to the next region.
             if let Some(snapshot) = self.sticky.take() {
-                self.restore(snapshot)
+                self.restore(snapshot);
             }
         }
 
         self.trim_spacing();
 
-        let mut frs = Fr::zero();
-        let mut used = Size::zero();
-        let mut has_fr_child = false;
+        let used_height_without_fr = self.used.y;
 
-        // Determine the amount of used space and the sum of fractionals.
+        // Determine the sum of fractionals.
+        let mut frs = Fr::zero();
+        let mut has_fr_child = false;
         for item in &self.items {
-            match item {
-                Item::Abs(v, _) => used.y += *v,
-                Item::Fr(v, _, child) => {
-                    frs += *v;
-                    has_fr_child |= child.is_some();
-                }
-                Item::Frame(frame, _) => {
-                    used.y += frame.height();
-                    used.x.set_max(frame.width());
-                }
-                Item::Tag(_) | Item::Placed(..) => {}
+            if let Item::Fr(v, _, child) = item {
+                frs += *v;
+                has_fr_child |= child.is_some();
             }
         }
 
         // When we have fractional spacing, occupy the remaining space with it.
         let mut fr_space = Abs::zero();
         if frs.get() > 0.0 && region.size.y.is_finite() {
-            fr_space = region.size.y - used.y;
-            used.y = region.size.y;
+            fr_space = region.size.y - self.used.y;
+            self.used.y = region.size.y;
         }
 
         // Lay out fractionally sized blocks.
@@ -542,19 +586,19 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 let length = v.share(frs, fr_space);
                 let pod = Region::new(Size::new(region.size.x, length), region.expand);
                 let frame = single.layout(self.composer.engine, pod)?;
-                used.x.set_max(frame.width());
+                self.used.x.set_max(frame.width());
                 fr_frames.push(frame);
             }
         }
 
         // Also consider the width of insertions for alignment.
         if !region.expand.x {
-            used.x.set_max(self.composer.insertion_width());
+            self.used.x.set_max(self.composer.insertion_width());
         }
 
         // Determine the region's size.
-        let size = region.expand.select(region.size, used.min(region.size));
-        let free = size.y - used.y;
+        let size = region.expand.select(region.size, self.used.min(region.size));
+        let free = size.y - self.used.y;
 
         let mut output = Frame::soft(size);
         let mut ruler = FixedAlignment::Start;
@@ -620,7 +664,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             }
         }
 
-        Ok(output)
+        Ok((output, used_height_without_fr))
     }
 
     /// Create a snapshot of the work and items.
@@ -628,6 +672,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         DistributionSnapshot {
             work: self.composer.work.clone(),
             items: self.items.len(),
+            used: self.used,
         }
     }
 
@@ -635,5 +680,6 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     fn restore(&mut self, snapshot: DistributionSnapshot<'a, 'b>) {
         *self.composer.work = snapshot.work;
         self.items.truncate(snapshot.items);
+        self.used = snapshot.used;
     }
 }

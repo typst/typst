@@ -4,7 +4,9 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
-use syntect::highlighting::{self as synt};
+use icu_collator::options::CollatorOptions;
+use icu_collator::{Collator, CollatorPreferences};
+use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
@@ -20,7 +22,6 @@ use crate::foundations::{
     Bytes, Content, Derived, OneOrMultiple, Packed, PlainText, ShowSet, Smart,
     StyleChain, Styles, Synthesize, Target, TargetElem, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HAlignment};
 use crate::loading::{DataSource, Load};
 use crate::model::{Figurable, ParElem};
@@ -231,7 +232,7 @@ use crate::visualize::Color;
 /// first character not valid for an identifier will be interpreted as starting
 /// the raw text.
 ///
-/// For example, in the current verion of Typst, if a raw block starts with
+/// For example, in the current version of Typst, if a raw block starts with
 /// `C++`, the identifier `C` will be the language tag, and the raw text will
 /// start with `++`. If a raw block starts with `++C`, it will have no language
 /// tag and the raw text will start with `++C`.
@@ -251,6 +252,7 @@ use crate::visualize::Color;
 #[elem(
     scope,
     title = "Raw Text / Code",
+    since = "forever",
     Synthesize,
     Locatable,
     Tagged,
@@ -332,6 +334,17 @@ pub struct RawElem {
     /// @reference:syntax:code[Typst code], and
     /// @reference:syntax:math[Typst math], respectively.
     ///
+    /// #folding-details(
+    ///   title: [Available syntaxes],
+    ///   docs-table(
+    ///     table.header[Name][Tags],
+    ///     ..stdx.raw-langs.map(((name, tokens)) => (
+    ///       name,
+    ///       tokens.map(raw).join[, ],
+    ///     )).flatten()
+    ///   )
+    /// )
+    ///
     /// ````example
     /// ```typ
     /// This is *Typst!*
@@ -371,6 +384,9 @@ pub struct RawElem {
     /// - A path string or @path to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
+    ///
+    /// For a list of built-in syntaxes, see the documentation of the
+    /// @raw.lang[`lang` parameter].
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
@@ -463,21 +479,29 @@ impl RawElem {
 impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
-        RAW_SYNTAXES
+        let typst = [
+            ("Typst", vec!["typ", "typst"]),
+            ("Typst (code)", vec!["typc"]),
+            ("Typst (math)", vec!["typm"]),
+        ];
+
+        let other = RAW_SYNTAXES
             .syntaxes()
             .iter()
+            .filter(|syntax| !syntax.file_extensions.is_empty())
             .map(|syntax| {
-                (
-                    syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
-                )
-            })
-            .chain([
-                ("Typst", vec!["typ"]),
-                ("Typst (code)", vec!["typc"]),
-                ("Typst (math)", vec!["typm"]),
-            ])
-            .collect()
+                let name = syntax.name.as_str();
+                let exts = syntax.file_extensions.iter().map(|s| s.as_str()).collect();
+                (name, exts)
+            });
+
+        let front = typst.len();
+        let mut syntaxes: Vec<_> = typst.into_iter().chain(other).collect();
+        let collator =
+            Collator::try_new(CollatorPreferences::default(), CollatorOptions::default())
+                .unwrap();
+        syntaxes[front..].sort_by(|&(a, _), &(b, _)| collator.compare(a, b));
+        syntaxes
     }
 }
 
@@ -618,7 +642,7 @@ impl Packed<RawElem> {
             }
         } else {
             seq.extend(non_highlighted_result(lines));
-        };
+        }
 
         seq
     }
@@ -810,7 +834,7 @@ fn format_theme_error(error: syntect::LoadingError) -> LoadError {
 /// It allows you to access various properties of the line, such as the line
 /// number, the raw non-highlighted text, the highlighted text, and whether it
 /// is the first or last line of the raw block.
-#[elem(name = "line", title = "Raw Text / Code Line", Tagged, PlainText)]
+#[elem(name = "line", title = "Raw Text / Code Line", since = "0.9.0", Tagged, PlainText)]
 pub struct RawLine {
     /// The line number of the raw line inside of the raw block, starts at 1.
     #[required]
@@ -932,7 +956,7 @@ impl<'a> ThemedHighlighter<'a> {
         for child in self.node.children() {
             let mut scopes = self.scopes.clone();
             if let Some(tag) = typst_syntax::highlight(&child) {
-                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
+                scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap());
             }
 
             std::mem::swap(&mut scopes, &mut self.scopes);

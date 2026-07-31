@@ -135,7 +135,7 @@ struct ShapingContext<'a, 'b> {
     size: Abs,
 }
 
-impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
+impl<'a> SharedShapingContext<'a> for ShapingContext<'a, '_> {
     fn world(&self) -> Tracked<'a, dyn World + 'a> {
         self.world
     }
@@ -166,8 +166,8 @@ impl<'a, 'b> SharedShapingContext<'a> for ShapingContext<'a, 'b> {
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_text<'a, 'b>(
-    ctx: &mut ShapingContext<'a, 'b>,
+fn shape_text<'a>(
+    ctx: &mut ShapingContext<'a, '_>,
     text: &str,
     mut families: impl Iterator<Item = &'a FontFamily> + Clone,
 ) {

@@ -1,5 +1,4 @@
 use crate::foundations::{Content, elem};
-use crate::introspection::{Locatable, Tagged};
 
 /// Strongly emphasizes content by increasing the font weight.
 ///
@@ -19,7 +18,7 @@ use crate::introspection::{Locatable, Tagged};
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-#[elem(title = "Strong Emphasis", keywords = ["bold", "weight"], Locatable, Tagged)]
+#[elem(title = "Strong Emphasis", since = "forever", keywords = ["bold", "weight"], Locatable, Tagged)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///

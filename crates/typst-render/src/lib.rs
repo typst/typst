@@ -253,7 +253,7 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
                 sk::Transform::default(),
             );
             storage = mask;
-        };
+        }
 
         mask = Some(&storage);
     }
@@ -264,10 +264,10 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 fn to_sk_transform(transform: &Transform) -> sk::Transform {
     let Transform { sx, ky, kx, sy, tx, ty } = *transform;
     sk::Transform::from_row(
-        sx.get() as _,
-        ky.get() as _,
-        kx.get() as _,
-        sy.get() as _,
+        sx.get() as f32,
+        ky.get() as f32,
+        kx.get() as f32,
+        sy.get() as f32,
         tx.to_f32(),
         ty.to_f32(),
     )

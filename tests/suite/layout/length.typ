@@ -87,11 +87,16 @@
 // Error: 2-8 hexadecimal numbers cannot have a suffix
 // Hint: 2-8 try using a decimal number: `2748%`
 #0xabc%
-// Error: 2-9 invalid hexadecimal number: `0xabcem`
-#0xabcem
 // Error: 2-11 binary numbers cannot have a suffix
 // Hint: 2-11 invalid number suffix: `dag`
 #0b0101dag
+
+--- nondecimal-suffix-edge-case-delayed eval ---
+// This error is delayed until the integer is evaluated.
+// Error: 2-9 integer contains digits that are not valid for a hexadecimal number
+// Hint: 2-9 hexadecimal numbers only allow digits 0-9, a-f, A-F
+// Hint: 8-9 the digit `m` is invalid
+#0xabcem
 
 --- number-syntax-edge-cases eval ---
 // Test numeric syntax edge cases with suffixes and which spans of text are

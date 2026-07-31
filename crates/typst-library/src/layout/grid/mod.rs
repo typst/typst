@@ -13,7 +13,6 @@ use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
     Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
-use crate::introspection::Tagged;
 use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
@@ -178,7 +177,7 @@ use crate::visualize::{Paint, Stroke};
 /// positioned them using @grid.cell.x[`grid.cell`'s `x` and `y` arguments],
 /// cells will be read row by row, from left to right (in left-to-right
 /// documents). A cell will be read when its position is first reached.
-#[elem(scope, Synthesize, Tagged)]
+#[elem(scope, since = "forever", Synthesize, Tagged)]
 pub struct GridElem {
     /// The column sizes.
     ///
@@ -577,7 +576,7 @@ impl TryFrom<Content> for GridItem {
 /// If `repeat` is set to `true`, the header will be repeated across pages. For
 /// an example, refer to the @table.header element and the @grid.stroke
 /// parameter.
-#[elem(name = "header", title = "Grid Header")]
+#[elem(name = "header", title = "Grid Header", since = "0.11.0")]
 pub struct GridHeader {
     /// Whether this header should be repeated across pages.
     #[default(true)]
@@ -605,7 +604,7 @@ pub struct GridHeader {
 /// page of the grid.
 ///
 /// No other grid cells may be placed after the footer.
-#[elem(name = "footer", title = "Grid Footer")]
+#[elem(name = "footer", title = "Grid Footer", since = "0.11.0")]
 pub struct GridFooter {
     /// Whether this footer should be repeated across pages.
     #[default(true)]
@@ -623,7 +622,7 @@ pub struct GridFooter {
 /// `column-gutter` option.
 ///
 /// An example for this function can be found at the @table.hline element.
-#[elem(name = "hline", title = "Grid Horizontal Line")]
+#[elem(name = "hline", title = "Grid Horizontal Line", since = "0.11.0")]
 pub struct GridHLine {
     /// The row above which the horizontal line is placed (zero-indexed). If the
     /// `position` field is set to `{bottom}`, the line is placed below the row
@@ -674,7 +673,7 @@ pub struct GridHLine {
 /// Overrides any per-cell stroke, including stroke specified through the grid's
 /// `stroke` field. Can cross spacing between cells created through the grid's
 /// `row-gutter` option.
-#[elem(name = "vline", title = "Grid Vertical Line")]
+#[elem(name = "vline", title = "Grid Vertical Line", since = "0.11.0")]
 pub struct GridVLine {
     /// The column before which the vertical line is placed (zero-indexed). If
     /// the `position` field is set to `{end}`, the line is placed after the
@@ -765,7 +764,7 @@ pub struct GridVLine {
 /// You may also apply a show rule on `grid.cell` to style all cells at once,
 /// which allows you, for example, to apply styles based on a cell's position.
 /// Refer to the examples of the @table.cell element to learn more about this.
-#[elem(name = "cell", title = "Grid Cell")]
+#[elem(name = "cell", title = "Grid Cell", since = "0.11.0")]
 pub struct GridCell {
     /// The cell's body.
     #[required]
@@ -882,7 +881,6 @@ impl Default for Packed<GridCell> {
 
 impl From<Content> for GridCell {
     fn from(value: Content) -> Self {
-        #[allow(clippy::unwrap_or_default)]
         value.unpack::<Self>().unwrap_or_else(Self::new)
     }
 }

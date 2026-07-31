@@ -190,7 +190,7 @@ pub fn check_value_recursively(
     let mut searcher = Searcher { steps: 0, predicate, max_steps: 1000 };
     match searcher.find(value) {
         ControlFlow::Break(matching) => matching,
-        ControlFlow::Continue(_) => false,
+        ControlFlow::Continue(()) => false,
     }
 }
 

@@ -92,7 +92,7 @@ use crate::loading::{DataSource, Load};
 ///
 /// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
-#[func(scope, title = "YAML")]
+#[func(scope, title = "YAML", since = "0.1.0")]
 pub fn yaml(
     engine: &mut Engine,
     /// A path to a YAML file or raw YAML bytes.
@@ -107,7 +107,7 @@ pub fn yaml(
 #[scope]
 impl yaml {
     /// Encode structured data into a YAML string.
-    #[func(title = "Encode YAML")]
+    #[func(title = "Encode YAML", since = "0.8.0")]
     pub fn encode(
         /// Value to be encoded.
         value: Spanned<Value>,

@@ -188,14 +188,20 @@
 
 // Displays a foldable details block or just the content in paged export.
 #let folding-details(title: none, open: false, body) = context {
-  if target() == "paged" { return body }
-  html.details(class: "folding-example", open: open, {
-    html.summary({
-      icon(16, "chevron-right", "Expand")
-      title
-    })
+  assert.ne(title, none)
+  if target() == "paged" {
+    emph(underline(title))
+    parbreak()
     body
-  })
+  } else {
+    html.details(class: "folding-details", open: open, {
+      html.summary({
+        icon(16, "chevron-right", "Expand")
+        title
+      })
+      body
+    })
+  }
 }
 
 // Displays a string containing plain text and backticks as text with inline raw
@@ -268,20 +274,6 @@
   }
 }
 
-// Displays a combination of a summary and a body.
-#let details(summary, body) = context {
-  if target() == "paged" {
-    emph(summary)
-    parbreak()
-    body
-  } else {
-    html.details({
-      html.summary(summary)
-      body
-    })
-  }
-}
-
 // Displays a keyboard shortcut. Takes a string rather than content.
 #let kbd(shortcut) = context {
   if target() == "paged" {
@@ -323,4 +315,14 @@
 // possible fallback.
 #let insertion(name, fallback: none) = context {
   stdx.config.insertions.at(name, default: fallback)
+}
+
+// Displays an indicator for a development build.
+#let dev-version-warning() = {
+  let body = [Development build #stdx.commit]
+  context if target() == "html" {
+    html.div(class: "dev-version-warning", body)
+  } else {
+    small(body)
+  }
 }

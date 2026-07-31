@@ -77,3 +77,8 @@ _abc $sin(x) "abc"$_ \
 $italic(sin(x) "abc" #box[abc])$ \
 *abc $sin(x) "abc"$* \
 $bold(sin(x) "abc" #box[abc])$ \
+
+--- issue-8520-script-stylistic-set paged ---
+$ cal(B) cal(L) cal(P) cal(R) $
+#show math.equation: set text(weight: 400)
+$ cal(B) cal(L) cal(P) cal(R) $

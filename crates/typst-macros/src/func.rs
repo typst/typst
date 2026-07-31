@@ -5,7 +5,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Ident, Result, parse_quote};
 
 use crate::util::{
-    determine_name_and_title, documentation, foundations, has_attr, kw, oneliner,
+    Since, determine_name_and_title, documentation, foundations, has_attr, kw, oneliner,
     parse_attr, parse_flag, parse_key_value, parse_string, parse_string_array,
     quote_option, validate_attrs,
 };
@@ -22,11 +22,13 @@ struct Func {
     name: String,
     /// The function's title case name.
     title: String,
+    /// The version of Typst the function was introduced in.
+    since: Option<Since>,
     /// Whether this function has an associated scope defined by the `#[scope]` macro.
     scope: bool,
     /// Whether this function is a constructor.
     constructor: bool,
-    /// A list of alternate search terms for this element.
+    /// A list of alternate search terms for this function.
     keywords: Vec<String>,
     /// The parent type of this function.
     ///
@@ -34,9 +36,9 @@ struct Func {
     parent: Option<syn::Type>,
     /// Whether this function is contextual.
     contextual: bool,
-    /// The documentation for this element as a string.
+    /// The documentation for this function as a string.
     docs: String,
-    /// The element's visibility.
+    /// The function's visibility.
     vis: syn::Visibility,
     /// The name for this function given in Rust.
     ident: Ident,
@@ -106,9 +108,11 @@ pub struct Meta {
     pub name: Option<String>,
     /// The function's title case name.
     pub title: Option<String>,
+    /// The version of Typst the function was introduced in.
+    pub since: Option<Since>,
     /// Whether this function is a constructor.
     pub constructor: bool,
-    /// A list of alternate search terms for this element.
+    /// A list of alternate search terms for this function.
     pub keywords: Vec<String>,
     /// The parent type of this function.
     ///
@@ -124,6 +128,7 @@ impl Parse for Meta {
             name: parse_string::<kw::name>(input)?,
             title: parse_string::<kw::title>(input)?,
             constructor: parse_flag::<kw::constructor>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
             keywords: parse_string_array::<kw::keywords>(input)?,
             parent: parse_key_value::<kw::parent, _>(input)?,
         })
@@ -156,6 +161,7 @@ fn parse(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     Ok(Func {
         name,
         title,
+        since: meta.since,
         scope: meta.scope,
         constructor: meta.constructor,
         keywords: meta.keywords,
@@ -182,11 +188,11 @@ fn parse_param(
             let mut binding = Binding::Owned;
             if recv.reference.is_some() {
                 if recv.mutability.is_some() {
-                    binding = Binding::RefMut
+                    binding = Binding::RefMut;
                 } else {
-                    binding = Binding::Ref
+                    binding = Binding::Ref;
                 }
-            };
+            }
 
             special.self_ = Some(Param {
                 binding,
@@ -263,7 +269,7 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
         let ident_data = quote::format_ident!("{ident}_data");
         quote! {
             #[doc(hidden)]
-            #[allow(non_snake_case)]
+            #[expect(non_snake_case)]
             #vis fn #ident_data() -> &'static #foundations::NativeFuncData {
                 static DATA: #foundations::NativeFuncData = #data;
                 &DATA
@@ -273,8 +279,8 @@ fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
 
     quote! {
         #[doc = #oneliner]
-        #[allow(dead_code)]
-        #[allow(rustdoc::broken_intra_doc_links)]
+        #[expect(dead_code)]
+        #[expect(rustdoc::broken_intra_doc_links)]
         #item
 
         #[doc(hidden)]
@@ -289,6 +295,7 @@ fn create_func_data(func: &Func) -> TokenStream {
         ident,
         name,
         title,
+        since,
         docs,
         keywords,
         returns,
@@ -327,11 +334,18 @@ fn create_func_data(func: &Func) -> TokenStream {
         quote! { #name }
     };
 
+    let since = if let Some(since) = since {
+        quote! { Some(#since) }
+    } else {
+        quote! { None }
+    };
+
     quote! {
         #foundations::NativeFuncData {
             function: #foundations::NativeFuncPtr(&#closure),
             name: #name,
             title: #title,
+            since: #since,
             docs: #docs,
             def_site: Some(::typst_utils::DefSite { path: file!(), key: #def_site_key }),
             keywords: &[#(#keywords),*],
@@ -352,7 +366,7 @@ fn create_func_ty(func: &Func) -> Option<TokenStream> {
     let Func { vis, ident, .. } = func;
     Some(quote! {
         #[doc(hidden)]
-        #[allow(non_camel_case_types)]
+        #[expect(non_camel_case_types)]
         #vis enum #ident {}
     })
 }

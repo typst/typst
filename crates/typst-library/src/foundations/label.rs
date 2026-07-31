@@ -46,7 +46,7 @@ use crate::foundations::{Repr, Str, bail, func, scope, ty};
 ///
 /// Currently, labels can only be attached to elements in markup mode, not in
 /// code mode. This might change in the future.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Label(PicoStr);
 
@@ -73,7 +73,7 @@ impl Label {
 #[scope]
 impl Label {
     /// Creates a label from a string.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The name of the label.
         ///

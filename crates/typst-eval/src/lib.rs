@@ -99,7 +99,7 @@ pub fn eval(
 /// Evaluates a string in the given syntax `mode` and returns the resulting
 /// value.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn eval_string(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,

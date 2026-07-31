@@ -220,7 +220,7 @@ fn write_bitmap<S: PaintSampler>(
                     continue;
                 }
 
-                let color = sampler.sample((x as _, y as _));
+                let color = sampler.sample((x as u32, y as u32));
                 let color = bytemuck::cast(color);
                 let pi = (y * cw + x) as usize;
                 // Fast path if color is opaque.

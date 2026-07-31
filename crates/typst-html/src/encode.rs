@@ -274,7 +274,7 @@ fn walk_raw_text(
 ) -> SourceResult<()> {
     for c in &element.children {
         match c {
-            HtmlNode::Tag(_) => continue,
+            HtmlNode::Tag(_) => {}
             HtmlNode::Text(text, span) => f(text, *span)?,
             HtmlNode::Element(HtmlElement { span, .. })
             | HtmlNode::Frame(HtmlFrame { span, .. }) => {
@@ -374,7 +374,7 @@ fn write_escape(w: &mut Writer, c: char) -> StrResult<()> {
         '"' => w.buf.push_str("&quot;"),
         '\'' => w.buf.push_str("&apos;"),
         c if charsets::is_w3c_text_char(c) && c != '\r' => {
-            write!(w.buf, "&#x{:x};", c as u32).unwrap()
+            write!(w.buf, "&#x{:x};", c as u32).unwrap();
         }
         _ => return Err(unencodable(c)),
     }
@@ -398,5 +398,17 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
         &frame.anchors,
         w.link_resolver,
     );
-    w.buf.push_str(&svg);
+
+    if w.pretty {
+        // Indent the SVG after generation. This ensures the frame is cached no
+        // matter the current indentation of the outer HTML.
+        for (i, line) in svg.lines().enumerate() {
+            if i != 0 {
+                write_indent(w);
+            }
+            w.buf.push_str(line);
+        }
+    } else {
+        w.buf.push_str(&svg);
+    }
 }

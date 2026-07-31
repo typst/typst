@@ -55,3 +55,16 @@ disallowed-methods = [
     { path = "f32::cbrt", reason = "non-deterministic floating-point math, use libm::cbrtf" },
     { path = "f32::hypot", reason = "non-deterministic floating-point math, use Point::hypot" },
 ]
+
+# Exceptions for proper nouns that look like identifiers.
+doc-valid-idents = [
+    "BiDi", # <https://en.wikipedia.org/wiki/Bidirectional_text#Bidirectional_script_support>
+    "LastResort", # <https://en.wikipedia.org/wiki/Fallback_font#Unicode_Last_Resort_font>
+    "LCh", # <https://en.wikipedia.org/wiki/HCL_color_space>
+    "MathML", # Ok you should probably know this one.
+    "SemVer", # <https://semver.org/>
+    "SipHash", # <https://github.com/veorq/SipHash>
+    "TeXbook", # <https://www-cs-faculty.stanford.edu/~knuth/abcde.html#texbk>
+    "TextMate", # <https://en.wikipedia.org/wiki/TextMate#Language_grammars>
+    "..", # Inherit the default exceptions
+]

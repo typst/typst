@@ -53,7 +53,7 @@ This page is a square.
 ```
 
 == #short-or-long[Change Margins][Change the page's margins] <change-margins>
-Margins are a vital ingredient for good typography: #link("http://webtypography.net/2.1.2")[Typographers consider lines that fit between 45 and 75 characters best length for legibility] and your margins and @guides:page-setup:columns[columns] help define line widths. By default, Typst will create margins proportional to the page size of your document. To set custom margins, you will use the @page.margin[`margin`] argument in the @page[`{page}`] set rule.
+Margins are a vital ingredient for good typography: #link("https://webtypography.net/2.1.2")[Typographers consider lines that fit between 45 and 75 characters best length for legibility] and your margins and @guides:page-setup:columns[columns] help define line widths. By default, Typst will create margins proportional to the page size of your document. To set custom margins, you will use the @page.margin[`margin`] argument in the @page[`{page}`] set rule.
 
 The `margin` argument will accept a length if you want to set all margins to the same width. However, you often want to set different margins on each side. To do this, you can pass a dictionary:
 
@@ -111,7 +111,6 @@ Headers are bottom-aligned by default so that they do not collide with the top e
 You'll need different headers and footers on some pages. For example, you may not want a header and footer on the title page. The example below shows how to conditionally remove the header on the first page:
 
 ```typ
->>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
   if counter(page).get().first() > 1 [
     _Lisa Strassner's Thesis_
@@ -131,7 +130,6 @@ You can, of course, add an `else` to this example to add a different header to t
 The technique described in the previous section can be adapted to perform more advanced tasks using Typst's labels. For example, pages with big tables could omit their headers to help keep clutter down. We will mark our tables with a `<big-table>` @label[label] and use the @query[query system] to find out if such a label exists on the current page:
 
 ```typ
->>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
 #set page(header: context {
   let matches = query(<big-table>)
   let current = counter(page).get()

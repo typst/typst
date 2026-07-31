@@ -109,7 +109,7 @@ where
     /// in place with updated data, leading to improved incremental compilation
     /// performance.
     pub fn reset(&mut self) {
-        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
@@ -403,7 +403,7 @@ mod tests {
             let mut vec = iter
                 .map(|id| id.get().vpath().get_without_slash())
                 .collect::<Vec<_>>();
-            vec.sort();
+            vec.sort_unstable();
             vec
         };
         store.source(id("a.typ")).must_be(A_TEXT);

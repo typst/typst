@@ -8,8 +8,8 @@ use crate::foundations::{
     StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{
-    Counter, CounterKey, Locatable, PageNumberingIntrospection,
-    PageSupplementIntrospection, QueryLabelIntrospection, Tagged,
+    Counter, CounterKey, PageNumberingIntrospection, PageSupplementIntrospection,
+    QueryLabelIntrospection,
 };
 use crate::math::EquationElem;
 use crate::model::{
@@ -135,7 +135,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-#[elem(title = "Reference", Locatable, Tagged, Synthesize)]
+#[elem(title = "Reference", since = "forever", Locatable, Tagged, Synthesize)]
 pub struct RefElem {
     /// The target label that should be referenced.
     ///

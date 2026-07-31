@@ -89,7 +89,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// push a number's fractional digits beyond the limits described above, leading
 /// to rounding. When those two operations do not surpass the digit limits, they
 /// are fully precise.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.12.0")]
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Decimal(rust_decimal::Decimal);
 
@@ -170,7 +170,7 @@ impl Decimal {
         let old_scale = num.scale();
         let digits = -digits as u32;
 
-        let (Ok(_), Some(ten_to_digits)) = (
+        let (Ok(()), Some(ten_to_digits)) = (
             // Same as dividing by 10^digits.
             num.set_scale(old_scale + digits),
             rust_decimal::Decimal::TEN.checked_powi(digits as i64),
@@ -294,7 +294,7 @@ impl Decimal {
     /// ```example
     /// #decimal("1.222222222222222")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.12.0")]
     pub fn construct(
         engine: &mut Engine,
         /// The value that should be converted to a decimal.
@@ -308,7 +308,7 @@ impl Decimal {
             ToDecimal::Float(float) => {
                 warn_on_float_literal(engine, value.span);
                 Self::try_from(float)
-                    .map_err(|_| {
+                    .map_err(|()| {
                         eco_format!(
                             "float is not a valid decimal: {}",
                             repr::format_float(float, None, true, "")

@@ -13,12 +13,13 @@ use crate::foundations::{
 
 /// An integer: a positive whole number, a negative whole number, or zero.
 ///
-/// #let twos = link.with("https://en.wikipedia.org/wiki/Two%27s_complement")
+/// #let wiki(name, body) = link("https://en.wikipedia.org/wiki/" + name, body)
 ///
-/// Typst stores signed integers with the #twos[two's complement] representation
-/// in 64 bits. This allows storing numbers up to $2^63-1$ or
-/// `{9223372036854775807}`, and down to $-2^63$ or `{-9223372036854775808}`.
-/// These values are accessible as `{int.max}` and `{int.min}`.
+/// Typst stores signed integers with the #wiki("Two%27s_complement")[two's
+/// complement] representation in 64 bits. This allows storing numbers up to
+/// $2^63-1$ or `{9223372036854775807}`, and down to $-2^63$ or
+/// `{-9223372036854775808}`. These values are accessible as `{int.max}` and
+/// `{int.min}`.
 ///
 /// Integers can also be specified as hexadecimal, octal, or binary by starting
 /// with the prefixes: `0x`, `0o`, or `0b`.
@@ -40,7 +41,31 @@ use crate::foundations::{
 /// / Max: #int.max
 /// / Min: #int.min
 /// ```
-#[ty(scope, cast, name = "int", title = "Integer")]
+///
+/// = Syntax <syntax>
+/// Typst integers can be entered in code mode using the decimal digits 0--9. In
+/// addition, if a lone digit 0 is followed by `x`, `o`, or `b` (`0x`, `0o`,
+/// `0b`), Typst will treat following digits as a
+/// #wiki("Hexadecimal")[hexadecimal] (base 16), #wiki("Octal")[octal] (base 8),
+/// or #wiki("Binary_number")[binary] (base 2) number.
+///
+/// Hexadecimal numbers use the letters a--f or A--F for the values 10--15.
+///
+/// Typst will error if an integer is written that is larger than `int.max` or
+/// smaller than `int.min`. If this happens, you may want to use a
+/// @float[floating point number] instead by appending a period to the end of
+/// the number.
+///
+/// Typst differs from some other programming languages by not treating negative
+/// integers as individual tokens in its syntax. Instead, input like `{-6}` is
+/// treated as the negation operator applied to the positive integer `6`. This
+/// may cause an issue when trying to write the minimum negative integer
+/// `{-9223372036854775808}`, as `{9223372036854775808}` is larger than
+/// `{int.max}`. To write the minimum negative integer, use `{int.min}` instead.
+///
+/// This also means that if you want to embed a negative integer in markup, you
+/// will need to use parentheses to group the negation operator: `[#(-6)]`.
+#[ty(scope, cast, name = "int", title = "Integer", since = "forever")]
 type i64;
 
 #[scope(ext)]
@@ -70,11 +95,14 @@ impl i64 {
     /// #(int("27") + int("4")) \
     /// #int("beef", base: 16)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to an integer.
         value: Spanned<ToInt>,
         /// The base (radix) for parsing strings, between 2 and 36.
+        ///
+        /// Above base 10, Typst accepts the letters a--z or A--Z for the values
+        /// 10--35.
         #[named]
         #[default(Spanned::new(Base::Default, Span::detached()))]
         base: Spanned<Base>,
@@ -82,7 +110,7 @@ impl i64 {
         Ok(match value.v {
             ToInt::Int(n) => match base.v {
                 Base::User(_) => bail!(base.span, "base is only supported for strings"),
-                _ => n,
+                Base::Default => n,
             },
             ToInt::Str(s) => {
                 let base_value = base.v.value();
@@ -97,23 +125,20 @@ impl i64 {
                         // Parse the digits part into u64
                         //  => abs(i64::MIN) fits into u64
                         let bigger = u64::from_str_radix(s, radix)
-                            .map_err(|e| parse_str_error(e.kind(), base))
+                            .map_err(|e| parse_str_error(*e.kind(), base))
                             .at(value.span)?;
 
                         // Number wouldn't fit into i64
                         if bigger > i64::MIN.unsigned_abs() {
-                            return Err(parse_str_error(
-                                &IntErrorKind::NegOverflow,
-                                base,
-                            ))
-                            .at(value.span);
+                            return Err(parse_str_error(IntErrorKind::NegOverflow, base))
+                                .at(value.span);
                         }
 
                         bigger.wrapping_neg() as i64
                     }
                     // Positive
                     None => i64::from_str_radix(&s, radix)
-                        .map_err(|e| parse_str_error(e.kind(), base))
+                        .map_err(|e| parse_str_error(*e.kind(), base))
                         .at(value.span)?,
                 }
             }
@@ -131,7 +156,7 @@ impl i64 {
     /// #(-5).signum() \
     /// #(0).signum()
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn signum(self) -> i64 {
         i64::signum(self)
     }
@@ -145,7 +170,7 @@ impl i64 {
     /// #4.bit-not() \
     /// #(-1).bit-not()
     /// ```
-    #[func(title = "Bitwise NOT")]
+    #[func(title = "Bitwise NOT", since = "0.11.0")]
     pub fn bit_not(self) -> i64 {
         !self
     }
@@ -158,7 +183,7 @@ impl i64 {
     /// ```example
     /// #128.bit-and(192)
     /// ```
-    #[func(title = "Bitwise AND")]
+    #[func(title = "Bitwise AND", since = "0.11.0")]
     pub fn bit_and(
         self,
         /// The right-hand operand of the bitwise AND.
@@ -175,7 +200,7 @@ impl i64 {
     /// ```example
     /// #64.bit-or(32)
     /// ```
-    #[func(title = "Bitwise OR")]
+    #[func(title = "Bitwise OR", since = "0.11.0")]
     pub fn bit_or(
         self,
         /// The right-hand operand of the bitwise OR.
@@ -192,7 +217,7 @@ impl i64 {
     /// ```example
     /// #64.bit-xor(96)
     /// ```
-    #[func(title = "Bitwise XOR")]
+    #[func(title = "Bitwise XOR", since = "0.11.0")]
     pub fn bit_xor(
         self,
         /// The right-hand operand of the bitwise XOR.
@@ -211,7 +236,7 @@ impl i64 {
     /// #33.bit-lshift(2) \
     /// #(-1).bit-lshift(3)
     /// ```
-    #[func(title = "Bitwise Left Shift")]
+    #[func(title = "Bitwise Left Shift", since = "0.11.0")]
     pub fn bit_lshift(
         self,
         /// The amount of bits to shift. Must not be negative.
@@ -233,7 +258,7 @@ impl i64 {
     /// #(-8).bit-rshift(2) \
     /// #(-8).bit-rshift(2, logical: true)
     /// ```
-    #[func(title = "Bitwise Right Shift")]
+    #[func(title = "Bitwise Right Shift", since = "0.11.0")]
     pub fn bit_rshift(
         self,
         /// The amount of bits to shift. Must not be negative.
@@ -287,7 +312,7 @@ impl i64 {
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1))) \
     /// #int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big")
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn from_bytes(
         /// The bytes that should be converted to an integer.
         ///
@@ -318,7 +343,7 @@ impl i64 {
         //
         // – big-endian: `decimal` will be the rightmost bytes of the buffer.
         // - little-endian: `decimal` will be the leftmost bytes of the buffer.
-        let mut buf = [0u8; 8];
+        let mut buf = [0_u8; 8];
         let (rest, decimal) = match endian {
             Endianness::Big => buf.split_at_mut(8 - len),
             Endianness::Little => {
@@ -353,7 +378,7 @@ impl i64 {
     /// #array(10000.to-bytes(endian: "big")) \
     /// #array(10000.to-bytes(size: 4))
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn to_bytes(
         self,
         /// The endianness of the conversion.
@@ -387,14 +412,14 @@ impl i64 {
                 // Copy the bytes from the array to the buffer, starting from
                 // the end of the buffer.
                 let buf_start = size.saturating_sub(8);
-                let array_start = 8usize.saturating_sub(size);
-                buf[buf_start..].copy_from_slice(&array[array_start..])
+                let array_start = 8_usize.saturating_sub(size);
+                buf[buf_start..].copy_from_slice(&array[array_start..]);
             }
             Endianness::Little => {
                 // Copy the bytes from the array to the buffer, starting from
                 // the beginning of the buffer.
                 let end = size.min(8);
-                buf[..end].copy_from_slice(&array[..end])
+                buf[..end].copy_from_slice(&array[..end]);
             }
         }
 
@@ -444,7 +469,7 @@ pub fn convert_float_to_int(f: f64) -> StrResult<i64> {
 }
 
 #[cold]
-fn parse_str_error(kind: &IntErrorKind, base: Spanned<Base>) -> HintedString {
+fn parse_str_error(kind: IntErrorKind, base: Spanned<Base>) -> HintedString {
     let base = base.v.value();
     match kind {
         IntErrorKind::Empty => error!("string must not be empty"),
@@ -479,7 +504,7 @@ macro_rules! signed_int {
                     // Some numbers (i128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| "number too large")?,
@@ -499,7 +524,7 @@ macro_rules! unsigned_int {
                     // Some numbers (u64, u128) are too large to be cast as i64
                     // In that case, we accept that there may be a
                     // precision loss, and use a floating point number
-                    Value::Float(self as _)
+                    Value::Float(self as f64)
                 }
             },
             v: i64 => v.try_into().map_err(|_| {
@@ -518,7 +543,7 @@ unsigned_int! { u8 u16 u32 u64 u128 usize }
 
 cast! {
     NonZeroI64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get()),
     v: i64 => v.try_into()
         .map_err(|_| if v == 0 {
             "number must not be zero"
@@ -529,7 +554,7 @@ cast! {
 
 cast! {
     NonZeroIsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: isize| v.try_into())
@@ -542,7 +567,7 @@ cast! {
 
 cast! {
     NonZeroU64,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u64| v.try_into())
@@ -555,7 +580,7 @@ cast! {
 
 cast! {
     NonZeroUsize,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: usize| v.try_into())
@@ -568,7 +593,7 @@ cast! {
 
 cast! {
     NonZeroU32,
-    self => Value::Int(self.get() as _),
+    self => Value::Int(self.get() as i64),
     v: i64 => v
         .try_into()
         .and_then(|v: u32| v.try_into())

@@ -49,7 +49,7 @@ pub fn layout_document(
 
 /// The internal implementation of `layout_document`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -96,7 +96,7 @@ pub fn layout_document_for_bundle(
 
 /// The internal implementation of `layout_document_for_bundle`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_for_bundle_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -124,7 +124,7 @@ fn layout_document_for_bundle_impl(
 
 /// The shared, unmemoized implementation of `layout_document` and
 /// `layout_document_for_bundle`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_common(
     library: &LazyHash<Library>,
     world: Tracked<dyn World + '_>,

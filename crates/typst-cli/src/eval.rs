@@ -61,7 +61,10 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                 output.introspector(),
             );
             let errors = match &eval_result {
-                Err(errors) => errors.as_slice(),
+                Err(errors) => {
+                    set_failed();
+                    errors.as_slice()
+                }
                 Ok(value) => {
                     let serialized =
                         crate::serialize(value, command.format, command.pretty)?;

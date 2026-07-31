@@ -39,8 +39,8 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
         metadata = metadata.description(description.to_string());
     }
 
-    if let Some(ident) = gc.options.ident.as_ref().custom() {
-        metadata = metadata.document_id(ident.to_string());
+    if let Smart::Custom(ident) = gc.options.ident.clone() {
+        metadata = metadata.document_id(ident);
     }
 
     if let Some(date) = creation_date(gc) {
@@ -90,7 +90,7 @@ pub fn creation_date(gc: &GlobalContext) -> Option<krilla::metadata::DateTime> {
     match tz {
         Some(Timezone::UTC) => kd = kd.utc_offset_hour(0).utc_offset_minute(0),
         Some(Timezone::Local { hour_offset, minute_offset }) => {
-            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset)
+            kd = kd.utc_offset_hour(hour_offset).utc_offset_minute(minute_offset);
         }
         None => {}
     }

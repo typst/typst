@@ -17,8 +17,7 @@ use crate::foundations::{
     StyleChain, Value, cast, elem, func, scope, select_where, ty,
 };
 use crate::introspection::{
-    History, Introspect, Introspector, Locatable, Location, QueryFirstIntrospection, Tag,
-    Unqueriable,
+    History, Introspect, Introspector, Location, QueryFirstIntrospection, Tag,
 };
 use crate::layout::{Frame, FrameItem, PageElem};
 use crate::math::EquationElem;
@@ -107,6 +106,15 @@ use crate::{Library, World};
 ///   counter(heading).display()
 /// }
 /// ```
+///
+/// = Element counters <element-counters>
+/// Above, there are various examples of using the @heading counter. Headings
+/// are just one kind of element that can be counted. In general, counters can
+/// count through any kind of @location:locatable[_locatable_ element].
+///
+/// Additionally, a counter can also count just those elements that match a
+/// specific @selector. For example, `{counter(figure.where(kind: image))}`
+/// counts figures containing images, but ignores other kinds of figures.
 ///
 /// = Page counter <page-counter>
 /// The page counter is special. It is automatically stepped at each pagebreak.
@@ -206,7 +214,7 @@ use crate::{Library, World};
 /// The `counter` type is closely related to @state[state] type. Read its
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Counter(CounterKey);
 
@@ -292,24 +300,17 @@ impl Counter {
                 .introspect(QueryFirstIntrospection(Selector::Location(loc), span))
                 .and_then(|content| {
                     if func == HeadingElem::ELEM {
-                        content
-                            .to_packed::<HeadingElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<HeadingElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FigureElem::ELEM {
-                        content
-                            .to_packed::<FigureElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<FigureElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == EquationElem::ELEM {
-                        content
-                            .to_packed::<EquationElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
-                            .flatten()
+                        let elem = content.to_packed::<EquationElem>()?;
+                        elem.numbering.as_option().clone().flatten()
                     } else if func == FootnoteElem::ELEM {
-                        content
-                            .to_packed::<FootnoteElem>()
-                            .and_then(|elem| elem.numbering.as_option().clone())
+                        let elem = content.to_packed::<FootnoteElem>()?;
+                        elem.numbering.as_option().clone()
                     } else {
                         None
                     }
@@ -335,7 +336,7 @@ impl Counter {
 #[scope]
 impl Counter {
     /// Create a new counter identified by a key.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The key that identifies this counter globally.
         ///
@@ -343,11 +344,14 @@ impl Counter {
         ///   by manual updates,
         /// - If it is the @page function, counts through pages,
         /// - If it is a @selector[selector], counts through elements that match
-        ///   the selector. For example,
-        ///   - provide an element function: counts elements of that type,
-        ///   - provide a @function.where[`where`] selector: counts a type of
+        ///   the selector. For example, you can
+        ///   - provide an element function to count elements of that type,
+        ///   - provide a @function.where[`where`] selector to count a type of
         ///     element with specific fields,
-        ///   - provide a @label[`{<label>}`]: counts elements with that label.
+        ///   - provide a @label[`{<label>}`] to count elements with that label.
+        ///
+        ///   Element and @function.where[`where`] selector counter keys are
+        ///   only supported for @location:locatable[locatable elements].
         key: CounterKey,
     ) -> Counter {
         Self::new(key)
@@ -357,7 +361,7 @@ impl Counter {
     /// returns an array of integers, even if the counter has just one number.
     ///
     /// This is equivalent to `{counter.at(here())}`.
-    #[func(contextual)]
+    #[func(contextual, since = "0.11.0")]
     pub fn get(
         &self,
         engine: &mut Engine,
@@ -375,7 +379,7 @@ impl Counter {
     /// counted element and the current location, respectively).
     ///
     /// Returns the formatted output.
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn display(
         self,
         engine: &mut Engine,
@@ -448,7 +452,7 @@ impl Counter {
     /// The `selector` must match exactly one element in the document. The most
     /// useful kinds of selectors for this are @label[labels] and
     /// @location[locations].
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn at(
         &self,
         engine: &mut Engine,
@@ -463,7 +467,7 @@ impl Counter {
 
     /// Retrieves the value of the counter at the end of the document. Always
     /// returns an array of integers, even if the counter has just one number.
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn final_(
         &self,
         engine: &mut Engine,
@@ -482,7 +486,7 @@ impl Counter {
     /// write `{let _ = counter(page).step()}`. Counter updates are always
     /// applied in layout order and in that case, Typst wouldn't know when to
     /// step the counter.
-    #[func]
+    #[func(since = "forever")]
     pub fn step(
         self,
         span: Span,
@@ -498,7 +502,7 @@ impl Counter {
     ///
     /// Just like with `step`, the update only occurs if you put the resulting
     /// content into the document.
-    #[func]
+    #[func(since = "forever")]
     pub fn update(
         self,
         span: Span,
@@ -607,7 +611,7 @@ impl CounterState {
                 *self = func
                     .call(engine, Context::none().track(), self.0.iter().copied())?
                     .cast()
-                    .at(func.span())?
+                    .at(func.span())?;
             }
         }
         Ok(())
@@ -907,7 +911,7 @@ fn sequence(
 
 /// Memoized implementation of `sequence`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn sequence_impl(
     counter: &Counter,
     selector: &Selector,
