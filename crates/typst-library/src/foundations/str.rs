@@ -35,16 +35,17 @@ pub use crate::__format_str as format_str;
 
 /// A sequence of Unicode codepoints.
 ///
-/// You can iterate over the grapheme clusters of the string using a [for
-/// loop]($scripting/#loops). Grapheme clusters are basically characters but
-/// keep together things that belong together, e.g. multiple codepoints that
-/// together form a flag emoji. Strings can be added with the `+` operator,
-/// [joined together]($scripting/#blocks) and multiplied with integers.
+/// You can iterate over the grapheme clusters of the string using a
+/// @reference:scripting:loops[for loop]. Grapheme clusters are basically
+/// characters but keep together things that belong together, e.g. multiple
+/// codepoints that together form a flag emoji. Strings can be added with the
+/// `+` operator, @reference:scripting:blocks[joined together] and multiplied
+/// with integers.
 ///
 /// Typst provides utility methods for string manipulation. Many of these
-/// methods (e.g., [`split`]($str.split), [`trim`]($str.trim) and
-/// [`replace`]($str.replace)) operate on _patterns:_ A pattern can be either a
-/// string or a [regular expression]($regex). This makes the methods quite
+/// methods (e.g., @str.split[`split`], @str.trim[`trim`] and
+/// @str.replace[`replace`]) operate on _patterns:_ A pattern can be either a
+/// string or a @regex[regular expression]. This makes the methods quite
 /// versatile.
 ///
 /// All lengths and indices are expressed in terms of UTF-8 bytes. Indices are
@@ -52,7 +53,7 @@ pub use crate::__format_str as format_str;
 ///
 /// You can convert a value to a string with the `str` constructor.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #"hello world!" \
 /// #"\"hello\n  world\"!" \
@@ -62,7 +63,7 @@ pub use crate::__format_str as format_str;
 /// #(regex("\\d+") in "10 euros")
 /// ```
 ///
-/// # Escape sequences { #escapes }
+/// = #short-or-long[Escapes][Escape sequences] <escapes>
 /// Just like in markup, you can escape a few symbols in strings:
 /// - `[\\]` for a backslash
 /// - `[\"]` for a quote
@@ -70,7 +71,7 @@ pub use crate::__format_str as format_str;
 /// - `[\r]` for a carriage return
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
-#[ty(scope, cast, title = "String")]
+#[ty(scope, cast, title = "String", since = "forever")]
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[derive(Serialize, Deserialize)]
 #[serde(transparent)]
@@ -138,7 +139,7 @@ impl Str {
     /// - Bytes are decoded as UTF-8.
     ///
     /// If you wish to convert from and to Unicode code points, see the
-    /// [`to-unicode`]($str.to-unicode) and [`from-unicode`]($str.from-unicode)
+    /// @str.to-unicode[`to-unicode`] and @str.from-unicode[`from-unicode`]
     /// functions.
     ///
     /// ```example
@@ -148,7 +149,7 @@ impl Str {
     /// #str(1e8) \
     /// #str(<intro>)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to a string.
         value: ToStr,
@@ -181,7 +182,7 @@ impl Str {
     }
 
     /// The length of the string in UTF-8 encoded bytes.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "forever")]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -190,7 +191,7 @@ impl Str {
     ///
     /// Returns the provided default value if the string is empty or fails with
     /// an error if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn first(
         &self,
         /// A default value to return if the string is empty.
@@ -209,7 +210,7 @@ impl Str {
     ///
     /// Returns the provided default value if the string is empty or fails with
     /// an error if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn last(
         &self,
         /// A default value to return if the string is empty.
@@ -227,7 +228,7 @@ impl Str {
     /// Extracts the first grapheme cluster after the specified index. Returns
     /// the default value if the index is out of bounds or fails with an error
     /// if no default value was specified.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The byte index. If negative, indexes from the back.
@@ -243,9 +244,9 @@ impl Str {
             .ok_or_else(|| no_default_and_out_of_bounds(index, len))
     }
 
-    /// Extracts a substring of the string.
-    /// Fails with an error if the start or end index is out of bounds.
-    #[func]
+    /// Extracts a substring of the string. Fails with an error if the start or
+    /// end index is out of bounds.
+    #[func(since = "forever")]
     pub fn slice(
         &self,
         /// The start byte index (inclusive). If negative, indexes from the
@@ -257,7 +258,8 @@ impl Str {
         #[default]
         end: Option<i64>,
         /// The number of bytes to extract. This is equivalent to passing
-        /// `start + count` as the `end` position. Mutually exclusive with `end`.
+        /// `start + count` as the `end` position. Mutually exclusive with
+        /// `end`.
         #[named]
         count: Option<i64>,
     ) -> StrResult<Str> {
@@ -271,13 +273,13 @@ impl Str {
     }
 
     /// Returns the grapheme clusters of the string as an array of substrings.
-    #[func]
+    #[func(since = "forever")]
     pub fn clusters(&self) -> Array {
         self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
     }
 
     /// Returns the Unicode codepoints of the string as an array of substrings.
-    #[func]
+    #[func(since = "forever")]
     pub fn codepoints(&self) -> Array {
         self.chars().map(|c| Value::Str(c.into())).collect()
     }
@@ -290,7 +292,7 @@ impl Str {
     ///    .codepoints()
     ///    .map(str.to-unicode))
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn to_unicode(
         /// The character that should be converted.
         character: char,
@@ -303,7 +305,7 @@ impl Str {
     /// ```example
     /// #str.from-unicode(97)
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn from_unicode(
         /// The code point that should be converted.
         value: u32,
@@ -323,7 +325,7 @@ impl Str {
     /// #assert.eq("é".normalize(form: "nfd"), "e\u{0301}")
     /// #assert.eq("ſ́".normalize(form: "nfkc"), "ś")
     /// ```
-    #[func]
+    #[func(since = "0.14.0")]
     pub fn normalize(
         &self,
         #[named]
@@ -342,7 +344,7 @@ impl Str {
     ///
     /// This method also has dedicated syntax: You can write `{"bc" in "abcd"}`
     /// instead of `{"abcd".contains("bc")}`.
-    #[func]
+    #[func(since = "forever")]
     pub fn contains(
         &self,
         /// The pattern to search for.
@@ -355,7 +357,7 @@ impl Str {
     }
 
     /// Whether the string starts with the specified pattern.
-    #[func]
+    #[func(since = "forever")]
     pub fn starts_with(
         &self,
         /// The pattern the string might start with.
@@ -368,7 +370,7 @@ impl Str {
     }
 
     /// Whether the string ends with the specified pattern.
-    #[func]
+    #[func(since = "forever")]
     pub fn ends_with(
         &self,
         /// The pattern the string might end with.
@@ -395,7 +397,7 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns the first
     /// match as a string or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn find(
         &self,
         /// The pattern to search for.
@@ -409,7 +411,7 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns the index
     /// of the first match as an integer or `{none}` if there is no match.
-    #[func]
+    #[func(since = "forever")]
     pub fn position(
         &self,
         /// The pattern to search for.
@@ -434,17 +436,23 @@ impl Str {
     ///   capturing, not the whole match! This is empty unless the `pattern` was
     ///   a regex with capturing groups.
     ///
-    /// ```example:"Shape of the returned dictionary"
-    /// #let pat = regex("not (a|an) (apple|cat)")
-    /// #"I'm a doctor, not an apple.".match(pat) \
-    /// #"I am not a cat!".match(pat)
-    /// ```
+    /// #example(
+    ///   title: "Shape of the returned dictionary",
+    ///   ```
+    ///   #let pat = regex("not (a|an) (apple|cat)")
+    ///   #"I'm a doctor, not an apple.".match(pat) \
+    ///   #"I am not a cat!".match(pat)
+    ///   ```
+    /// )
     ///
-    /// ```example:"Different kinds of patterns"
-    /// #assert.eq("Is there a".match("for this?"), none)
-    /// #"The time of my life.".match(regex("[mit]+e"))
-    /// ```
-    #[func]
+    /// #example(
+    ///   title: "Different kinds of patterns",
+    ///   ```
+    ///   #assert.eq("Is there a".match("for this?"), none)
+    ///   #"The time of my life.".match(regex("[mit]+e"))
+    ///   ```
+    /// )
+    #[func(since = "forever")]
     pub fn match_(
         &self,
         /// The pattern to search for.
@@ -460,12 +468,12 @@ impl Str {
 
     /// Searches for the specified pattern in the string and returns an array of
     /// dictionaries with details about all matches. For details about the
-    /// returned dictionaries, see [above]($str.match).
+    /// returned dictionaries, see @str.match[above].
     ///
     /// ```example
     /// #"Day by Day.".matches("Day")
     /// ```
-    #[func]
+    #[func(since = "forever")]
     pub fn matches(
         &self,
         /// The pattern to search for.
@@ -489,7 +497,7 @@ impl Str {
     /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string or function (beginning from the start). If no count
     /// is given, all occurrences are replaced.
-    #[func]
+    #[func(since = "forever")]
     pub fn replace(
         &self,
         engine: &mut Engine,
@@ -501,10 +509,10 @@ impl Str {
         /// strings.
         ///
         /// The dictionary passed to the function has the same shape as the
-        /// dictionary returned by [`match`]($str.match).
+        /// dictionary returned by @str.match[`match`].
         replacement: Replacement,
-        ///  If given, only the first `count` matches of the pattern are
-        ///  replaced.
+        /// If given, only the first `count` matches of the pattern are
+        /// replaced.
         #[named]
         count: Option<usize>,
     ) -> SourceResult<Str> {
@@ -557,9 +565,9 @@ impl Str {
         Ok(output.into())
     }
 
-    /// Removes matches of a pattern from one or both sides of the string, once or
-    /// repeatedly and returns the resulting string.
-    #[func]
+    /// Removes matches of a pattern from one or both sides of the string, once
+    /// or repeatedly and returns the resulting string.
+    #[func(since = "forever")]
     pub fn trim(
         &self,
         /// The pattern to search for. If `{none}`, trims white spaces.
@@ -648,9 +656,9 @@ impl Str {
     /// When the empty string is used as a separator, it separates every
     /// character (i.e., Unicode code point) in the string, along with the
     /// beginning and end of the string. In practice, this means that the
-    /// resulting list of parts will contain the empty string at the start
-    /// and end of the list.
-    #[func]
+    /// resulting list of parts will contain the empty string at the start and
+    /// end of the list.
+    #[func(since = "forever")]
     pub fn split(
         &self,
         /// The pattern to split at. Defaults to whitespace.
@@ -669,8 +677,15 @@ impl Str {
         }
     }
 
-    /// Reverse the string.
-    #[func(title = "Reverse")]
+    /// Reverses the string.
+    ///
+    /// More specifically, this returns a string with the same grapheme
+    /// clusters, in reversed order.
+    ///
+    /// ```example
+    /// #"Pirate flag: 🏴‍☠️".rev()
+    /// ```
+    #[func(title = "Reverse", since = "0.8.0")]
     pub fn rev(&self) -> Str {
         let mut s = EcoString::with_capacity(self.0.len());
         for grapheme in self.as_str().graphemes(true).rev() {
@@ -702,13 +717,13 @@ impl Display for Str {
 
 impl Repr for Str {
     fn repr(&self) -> EcoString {
-        self.as_ref().repr()
+        self.as_str().repr()
     }
 }
 
 impl Repr for EcoString {
     fn repr(&self) -> EcoString {
-        self.as_ref().repr()
+        self.as_str().repr()
     }
 }
 
@@ -928,23 +943,22 @@ fn captures_to_dict(cap: regex::Captures) -> Dict {
 /// The out of bounds access error message.
 #[cold]
 fn out_of_bounds(index: i64, len: usize) -> EcoString {
-    eco_format!("string index out of bounds (index: {}, len: {})", index, len)
+    eco_format!("string index out of bounds (index: {index}, len: {len})")
 }
 
 /// The out of bounds access error message when no default value was given.
 #[cold]
 fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
     eco_format!(
-        "no default value was specified and string index out of bounds (index: {}, len: {})",
-        index,
-        len
+        "no default value was specified and string index out of bounds \
+         (index: {index}, len: {len})"
     )
 }
 
 /// The char boundary access error message.
 #[cold]
 fn not_a_char_boundary(index: i64) -> EcoString {
-    eco_format!("string index {} is not a character boundary", index)
+    eco_format!("string index {index} is not a character boundary")
 }
 
 /// The error message when the string is empty.
@@ -955,23 +969,50 @@ fn string_is_empty() -> EcoString {
 
 /// A regular expression.
 ///
-/// Can be used as a [show rule selector]($styling/#show-rules) and with
-/// [string methods]($str) like `find`, `split`, `replace`, and `match`.
+/// Can be used as a @reference:styling:show-rules[show rule selector] or with
+/// @str[string methods].
 ///
-/// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
-/// of the supported syntax.
+/// Visit #link("https://docs.rs/regex/latest/regex/#syntax")[this website] for
+/// a complete specification of the supported syntax.
 ///
-/// # Example
+/// = With string methods <string-methods>
+/// Regular expressions can be used with string methods like @str.find[`find`],
+/// @str.split[`split`], @str.replace[`replace`], @str.match[`match`], or
+/// @str.matches[`matches`]. See the documentation of these methods for more
+/// details.
+///
 /// ```example
-/// // Works with string methods.
 /// #"a,b;c".split(regex("[,;]"))
+/// ```
 ///
-/// // Works with show rules.
+/// = With show rules <show-rules>
+/// Regular expressions can also be used with
+/// @reference:styling:show-rules[show rules] to match on and transform text in
+/// the document. For example, below, we are turning all numbers red.
+///
+/// ```example
 /// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
 /// ```
-#[ty(scope)]
+///
+/// Sometimes, you may also want to combine both uses, by first matching on text
+/// with a show rule and then rematching on the text to extract a specific
+/// #link("https://docs.rs/regex/latest/regex/#grouping-and-flags")[capture group].
+/// In this case, it can be convenient to store the regular expression in a
+/// variable instead of repeating it twice.
+///
+/// ```example
+/// #let pattern = regex("\|([^|]*)\|")
+/// #show pattern: it => {
+///   let m = it.text.match(pattern)
+///   let inner = m.captures.first()
+///   highlight(inner)
+/// }
+///
+/// A |handy-dandy| highlighter!
+/// ```
+#[ty(scope, since = "forever")]
 #[derive(Debug, Clone)]
 pub struct Regex(regex::Regex);
 
@@ -985,7 +1026,7 @@ impl Regex {
 #[scope]
 impl Regex {
     /// Create a regular expression from a string.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The regular expression as a string.
         ///
@@ -996,11 +1037,11 @@ impl Regex {
         /// are not valid Typst escape sequences (e.g., `\d` and `\b`) can be
         /// entered into strings directly, but it's good practice to still
         /// escape them to avoid ambiguity (i.e., `{regex("\\b\\d")}`). See the
-        /// [list of valid string escape sequences]($str/#escapes).
+        /// @str:escapes[list of valid string escape sequences].
         ///
         /// If you need many escape sequences, you can also create a raw element
         /// and extract its text to use it for your regular expressions:
-        /// ``{regex(`\d+\.\d+\.\d+`.text)}``.
+        /// ``` {regex(`\d+\.\d+\.\d+`.text)}```.
         regex: Spanned<Str>,
     ) -> SourceResult<Regex> {
         Self::new(&regex.v).at(regex.span)

@@ -31,7 +31,15 @@ impl ArtifactKindExt for ArtifactKind {
         match self {
             Self::Header => ArtifactType::Header,
             Self::Footer => ArtifactType::Footer,
+            Self::Watermark => ArtifactType::Watermark,
+            Self::PageNumber => ArtifactType::PageNumber,
+            Self::LineNumber => ArtifactType::LineNumber,
+            Self::Redaction => ArtifactType::Redaction,
+            Self::Bates => ArtifactType::Bates,
             Self::Page => ArtifactType::Page,
+            Self::PaginationOther => ArtifactType::PaginationOther,
+            Self::Layout => ArtifactType::Layout,
+            Self::Background => ArtifactType::Background,
             Self::Other => ArtifactType::Other,
         }
     }

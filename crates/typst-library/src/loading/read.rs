@@ -7,11 +7,11 @@ use crate::loading::{DataSource, Load, Readable};
 
 /// Reads plain text or data from a file.
 ///
-/// By default, the file will be read as UTF-8 and returned as a [string]($str).
+/// By default, the file will be read as UTF-8 and returned as a @str[string].
 ///
-/// If you specify `{encoding: none}`, this returns raw [bytes] instead.
+/// If you specify `{encoding: none}`, this returns raw @bytes[bytes] instead.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// An example for a HTML file: \
 /// #let text = read("example.html")
@@ -20,7 +20,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// Raw bytes:
 /// #read("tiger.jpg", encoding: none)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn read(
     engine: &mut Engine,
     /// Path to a file.

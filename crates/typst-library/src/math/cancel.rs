@@ -7,14 +7,14 @@ use crate::visualize::Stroke;
 ///
 /// This is commonly used to show the elimination of a term.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:
 /// $ (a dot b dot cancel(x)) /
 ///     cancel(x) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "0.3.0", Mathy)]
 pub struct CancelElem {
     /// The content over which the line should be placed.
     #[required]
@@ -33,8 +33,8 @@ pub struct CancelElem {
     pub length: Rel<Length>,
 
     /// Whether the cancel line should be inverted (flipped along the y-axis).
-    /// For the default angle setting, inverted means the cancel line
-    /// points to the top left instead of top right.
+    /// For the default angle setting, inverted means the cancel line points to
+    /// the top left instead of top right.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -75,7 +75,7 @@ pub struct CancelElem {
     /// ```
     pub angle: Smart<CancelAngle>,
 
-    /// How to [stroke]($stroke) the cancel line.
+    /// How to @stroke[stroke] the cancel line.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -95,6 +95,17 @@ pub struct CancelElem {
         ..Default::default()
     })]
     pub stroke: Stroke,
+
+    /// Whether the line is placed behind the content.
+    ///
+    /// ```example
+    /// >>> #set page(width: 140pt)
+    /// #set math.cancel(stroke: red + 2pt)
+    /// $ cancel("behind", background: #true) \
+    ///   cancel("in front", background: #false) $
+    /// ```
+    #[default(false)]
+    pub background: bool,
 }
 
 /// Defines the cancel line.

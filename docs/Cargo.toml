@@ -6,36 +6,50 @@ authors = { workspace = true }
 edition = { workspace = true }
 publish = false
 
-[[bin]]
-name = "typst-docs"
-required-features = ["cli"]
-doc = false
-
-[features]
-default = ["cli"]
-cli = ["clap", "typst-render", "serde_json"]
-
 [dependencies]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
 typst-dev-assets = { workspace = true }
+typst-eval = { workspace = true }
+typst-html = { workspace = true }
+typst-svg = { workspace = true }
 typst-layout = { workspace = true }
-typst-render = { workspace = true, optional = true }
+typst-bundle = { workspace = true }
+typst-library = { workspace = true }
+typst-pdf = { workspace = true }
+typst-render = { workspace = true }
+typst-timing = { workspace = true }
 typst-utils = { workspace = true }
-clap = { workspace = true, optional = true }
-codex = { workspace = true }
+az = { workspace = true }
+base64 = { workspace = true }
+clap = { workspace = true }
+comemo = { workspace = true }
 ecow = { workspace = true }
+either = { workspace = true }
 heck = { workspace = true }
-pulldown-cmark = { workspace = true }
-regex = { workspace = true }
+open = { workspace = true }
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+rayon = { workspace = true }
 rustc-hash = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true, optional = true }
-serde_yaml = { workspace = true }
-syntect = { workspace = true, features = ["html"] }
-typed-arena = { workspace = true }
+serde_json = { workspace = true }
+syn = { workspace = true }
+unicode_names2 = { workspace = true }
 unicode-math-class = { workspace = true }
+unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
+
+[dependencies.typst-kit]
+workspace = true
+features = [
+    "bundle",
+    "embedded-fonts",
+    "emit-diagnostics",
+    "watcher",
+    "datetime",
+    "timer",
+    "http-server",
+]
 
 [lints]
 workspace = true

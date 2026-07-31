@@ -2,8 +2,12 @@
 
 --- square paged ---
 // Default square.
-#box(square())
-#box(square[hey!])
+#stack(
+  dir: ltr,
+  spacing: 0.5em,
+  square(),
+  square[hey!]
+)
 
 --- square-auto-sized paged ---
 // Test auto-sized square.
@@ -58,10 +62,14 @@
 --- square-circle-alignment paged ---
 // Test alignment in automatically sized square and circle.
 #set text(8pt)
-#box(square(inset: 4pt)[
-  Hey there, #align(center + bottom, rotate(180deg, [you!]))
-])
-#box(circle(align(center + horizon, [Hey.])))
+#stack(
+  dir: ltr,
+  spacing: 0.5em,
+  square(inset: 4pt)[
+    Hey there, #align(center + bottom, rotate(180deg, [you!]))
+  ],
+  circle(align(center + horizon, [Hey.]))
+)
 
 --- square-circle-overspecified paged ---
 // Test that minimum wins if both width and height are given.

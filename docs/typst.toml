@@ -1,0 +1,4 @@
+[package]
+name = "docs"
+version = "0.0.0"
+entrypoint = "lib.typ"

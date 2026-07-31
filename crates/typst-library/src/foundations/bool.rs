@@ -7,13 +7,13 @@ use crate::foundations::{Repr, ty};
 /// The boolean type has two values: `{true}` and `{false}`. It denotes whether
 /// something is active or enabled.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #false \
 /// #true \
 /// #(1 < 2)
 /// ```
-#[ty(cast, title = "Boolean")]
+#[ty(cast, title = "Boolean", since = "forever")]
 type bool;
 
 impl Repr for bool {

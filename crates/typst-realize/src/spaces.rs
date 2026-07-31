@@ -1,5 +1,6 @@
 //! The space collapsing infrastructure for realization.
 
+use typst_html::HtmlElem;
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::TagElem;
 use typst_library::layout::HElem;
@@ -83,7 +84,13 @@ pub(crate) fn collapse_state(content: &Content, styles: StyleChain) -> SpaceStat
         } else {
             SpaceState::Invisible
         }
-    } else if content.is::<LinebreakElem>() {
+    } else if content.is::<LinebreakElem>()
+        // We want to collapse spaces that would otherwise be protected and show
+        // up as spans with `white-space: pre-wrap`.
+        || content.to_packed::<HtmlElem>().is_some_and(|elem| {
+            typst_html::tag::is_whitespace_collapsing(elem.tag)
+        })
+    {
         SpaceState::Destructive
     } else if content.is::<SpaceElem>() {
         SpaceState::Space

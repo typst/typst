@@ -22,7 +22,7 @@ impl PdfDocument {
     #[typst_macros::time(name = "load pdf document")]
     pub fn new(data: Bytes) -> Result<PdfDocument, LoadPdfError> {
         let pdf = Arc::new(Pdf::new(Arc::new(data.clone()))?);
-        Ok(Self(Arc::new(PdfDocumentInner { data, pdf })))
+        Ok(Self(Arc::new(PdfDocumentInner { pdf, data })))
     }
 
     /// Returns the underlying PDF document.

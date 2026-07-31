@@ -3,7 +3,7 @@ use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg, Rem};
 
 use ecow::EcoString;
-use typst_utils::{Numeric, Scalar};
+use typst_utils::{Numeric, NumericLength, Scalar};
 
 use crate::foundations::{Fold, Repr, Value, cast, repr};
 
@@ -133,6 +133,8 @@ impl Abs {
         self.0.get().signum()
     }
 }
+
+impl NumericLength for Abs {}
 
 impl Numeric for Abs {
     fn zero() -> Self {

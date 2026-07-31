@@ -18,6 +18,7 @@ typst-layout = { workspace = true }
 typst-library = { workspace = true }
 typst-macros = { workspace = true }
 typst-timing = { workspace = true }
+typst-utils = { workspace = true }
 bytemuck = { workspace = true }
 comemo = { workspace = true }
 hayro = { workspace = true }

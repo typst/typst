@@ -1,5 +1,7 @@
-use ecow::{EcoVec, eco_vec};
-use typst_library::diag::{At, SourceResult, bail, error, warning};
+use std::ops::Range;
+
+use ecow::{EcoVec, eco_format, eco_vec};
+use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
     Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
@@ -7,6 +9,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{Counter, State};
 use typst_syntax::ast::{self, AstNode};
+use typst_syntax::{DiagSpan, Span, SubRange};
 use typst_utils::singleton;
 
 use crate::{CapturesVisitor, Eval, FlowEvent, Vm};
@@ -76,10 +79,10 @@ impl Eval for ast::Expr<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
-            error!(span, "{} is only allowed directly in code and content blocks", name)
+            error!(span, "{name} is only allowed directly in code and content blocks")
         };
 
-        let v = match self {
+        let value = match self {
             Self::Text(v) => v.eval(vm).map(Value::Content),
             Self::Space(v) => v.eval(vm).map(Value::Content),
             Self::Linebreak(v) => v.eval(vm).map(Value::Content),
@@ -101,6 +104,7 @@ impl Eval for ast::Expr<'_> {
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathText(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
+            Self::MathFieldAccess(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathCall(v) => v.eval(vm),
@@ -143,11 +147,11 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.inspected == Some(span) {
-            vm.trace(v.clone());
-        }
+        // This satisfies the obligation to call `Vm::trace` for almost all
+        // value-producing expressions!
+        vm.trace_at(span, &value);
 
-        Ok(v)
+        Ok(value)
     }
 }
 
@@ -193,7 +197,10 @@ impl Eval for ast::Int<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Int(self.get()))
+        match self.get() {
+            Ok(int) => Ok(Value::Int(int)),
+            Err(err) => Err(eco_vec![int_literal_error(self, err)]),
+        }
     }
 }
 
@@ -239,13 +246,13 @@ impl Eval for ast::Array<'_> {
             match item {
                 ast::ArrayItem::Pos(expr) => {
                     all_dict_spreads = false;
-                    vec.push(expr.eval(vm)?)
+                    vec.push(expr.eval(vm)?);
                 }
                 ast::ArrayItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => {
                         all_dict_spreads = false;
-                        vec.extend(array.into_iter())
+                        vec.extend(array);
                     }
                     v @ Value::Dict(_)
                         if all_dict_spreads
@@ -259,8 +266,7 @@ impl Eval for ast::Array<'_> {
                             ),
                         )) =>
                     {
-                        let fixed =
-                            self.to_untyped().clone().into_text().replacen("(", "(: ", 1);
+                        let fixed = self.to_untyped().full_text().replacen("(", "(: ", 1);
                         bail!(
                             spread.span(), "cannot spread {} into array", v.ty();
                             hint: "add a colon to create a dictionary instead: `{fixed}`";
@@ -299,7 +305,7 @@ impl Eval for ast::Dict<'_> {
                 }
                 ast::DictItem::Spread(spread) => match spread.expr().eval(vm)? {
                     Value::None => {}
-                    Value::Dict(dict) => map.extend(dict.into_iter()),
+                    Value::Dict(dict) => map.extend(dict),
                     v => bail!(spread.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
@@ -347,31 +353,35 @@ impl Eval for ast::FieldAccess<'_> {
     type Output = Value;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let value = self.target().eval(vm)?;
+        let target = self.target().eval(vm)?;
         let field = self.field();
-        let field_span = field.span();
-
-        let err = match value.field(&field, (&mut vm.engine, field_span)).at(field_span) {
-            Ok(value) => return Ok(value),
-            Err(err) => err,
-        };
-
-        // Check whether this is a get rule field access.
-        if let Value::Func(func) = &value
-            && let Some(element) = func.to_element()
-            && let Some(id) = element.field_id(&field)
-            && let styles = vm.context.styles().at(field.span())
-            && let Ok(value) = element
-                .field_from_styles(id, styles.as_ref().map(|&s| s).unwrap_or_default())
-        {
-            // Only validate the context once we know that this is indeed
-            // a field from the style chain.
-            let _ = styles?;
-            return Ok(value);
-        }
-
-        Err(err)
+        access_field(vm, target, field.as_str(), field.span())
     }
+}
+
+/// Access a field on a target value.
+pub(crate) fn access_field(
+    vm: &mut Vm,
+    target: Value,
+    field: &str,
+    field_span: Span,
+) -> SourceResult<Value> {
+    let err = match target.field(field, (&mut vm.engine, field_span)).at(field_span) {
+        Ok(value) => return Ok(value),
+        Err(err) => err,
+    };
+
+    // Missing fields may actually be present if they are settable parameters
+    // on elements accessed with context, e.g. `block.stroke`.
+    if let Value::Func(func) = &target
+        && let Some(element) = func.to_element()
+        && let Some(field_accessor) = element.settable_field_accessor(field)
+    {
+        let styles = vm.context.styles().at(field_span)?;
+        return Ok(field_accessor(styles));
+    }
+
+    Err(err)
 }
 
 impl Eval for ast::Contextual<'_> {
@@ -421,4 +431,97 @@ fn warn_for_discarded_content(engine: &mut Engine, event: &FlowEvent, joined: &V
     }
 
     engine.sink.warn(warning);
+}
+
+/// Evaluation error for an integer literal.
+#[cold]
+fn int_literal_error(int: ast::Int, err: ast::IntLiteralError) -> SourceDiagnostic {
+    let span = int.span();
+    match err {
+        ast::IntLiteralError::PosOverflow { base, max_plus_one: _ } => {
+            let mut error = error!(
+                span,
+                "integer value is too large";
+                hint: "value does not fit into a signed 64-bit integer";
+            );
+            if base.is_none() {
+                error.hint(
+                    "a floating point number could approximately represent this value",
+                );
+                error.hint(eco_format!(
+                    "you can use a floating point number by appending a dot: `{}.`",
+                    int.to_untyped().leaf_text()
+                ));
+            }
+            error
+        }
+        ast::IntLiteralError::InvalidDigit(base, digits) => {
+            let (range, bad_digits) = find_bad_digits(base, digits);
+            // Offset by two to skip the leading `0b`/`0o`/`0x`.
+            let sub_range = SubRange::new(range.start + 2, range.end + 2);
+            let hint_span = DiagSpan::from_span(span, sub_range);
+            let the_digits_are_invalid = match *bad_digits {
+                [digit] => eco_format!("the digit `{digit}` is invalid"),
+                [first, last] => {
+                    eco_format!("the digits `{first}` and `{last}` are invalid")
+                }
+                [ref digits @ .., last] => {
+                    eco_format!(
+                        "the digits {}and `{last}` are invalid",
+                        digits.iter().fold(
+                            String::with_capacity(5 * digits.len()),
+                            |mut buf, digit| {
+                                let _ = write!(buf, "`{digit}`, ");
+                                buf
+                            }
+                        )
+                    )
+                }
+                [] => unreachable!(),
+            };
+            error!(
+                span,
+                "integer contains digits that are not valid for a{} {} number",
+                    if base == ast::NonDecimalBase::Octal { "n" } else { "" },
+                    base.name();
+                hint[hint_span]: "{the_digits_are_invalid}";
+                hint: "{} numbers only allow digits {}",
+                    base.name(),
+                    match base {
+                        ast::NonDecimalBase::Hex => "0-9, a-f, A-F",
+                        ast::NonDecimalBase::Octal => "0-7",
+                        ast::NonDecimalBase::Binary => "0-1",
+                    };
+            )
+        }
+    }
+}
+
+/// Find invalid digits for a non-decimal integer. Returns the sub-range of the
+/// digits and a string separated by commas.
+///
+/// We only check for digits/letters depending on the base since the lexer
+/// allows only ASCII digits for binary/octal, but allows ASCII letters for hex.
+pub fn find_bad_digits(
+    base: ast::NonDecimalBase,
+    digits: &str,
+) -> (Range<usize>, Vec<char>) {
+    let ranges: &[_] = match base {
+        ast::NonDecimalBase::Hex => &['g'..='z', 'G'..='Z'],
+        ast::NonDecimalBase::Octal => &['8'..='9'],
+        ast::NonDecimalBase::Binary => &['2'..='9'],
+    };
+    // Yield at most one copy of each digit.
+    let iter = ranges.iter().flat_map(|range| {
+        range.clone().filter_map(|c| digits.find(c).map(|index| (index, c)))
+    });
+    let mut start = digits.len();
+    let mut end = 0;
+    let mut bad_digits = Vec::new();
+    for (index, digit) in iter {
+        start = start.min(index);
+        end = end.max(index + 1); // Equal to `digit.len_utf8()` since ASCII.
+        bad_digits.push(digit);
+    }
+    (start..end, bad_digits)
 }

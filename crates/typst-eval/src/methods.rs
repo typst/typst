@@ -36,12 +36,12 @@ pub(crate) fn call_method_mut(
             "push" => array.push(args.expect("value")?),
             "pop" => output = array.pop().at(span)?,
             "insert" => {
-                array.insert(args.expect("index")?, args.expect("value")?).at(span)?
+                array.insert(args.expect("index")?, args.expect("value")?).at(span)?;
             }
             "remove" => {
                 output = array
                     .remove(args.expect("index")?, args.named("default")?)
-                    .at(span)?
+                    .at(span)?;
             }
             _ => return missing(),
         },
@@ -50,7 +50,7 @@ pub(crate) fn call_method_mut(
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
                 output =
-                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?
+                    dict.remove(args.expect("key")?, args.named("default")?).at(span)?;
             }
             _ => return missing(),
         },
@@ -70,20 +70,27 @@ pub(crate) fn call_method_access<'a>(
     span: Span,
 ) -> SourceResult<&'a mut Value> {
     let ty = value.ty();
-    let missing = || Err(missing_method(ty, method)).at(span);
+    let temp_or_missing = || {
+        Err(if ty.scope().get(method).is_some() {
+            "cannot mutate a temporary value".into()
+        } else {
+            missing_method(ty, method)
+        })
+        .at(span)
+    };
 
     let slot = match value {
         Value::Array(array) => match method {
             "first" => array.first_mut().at(span)?,
             "last" => array.last_mut().at(span)?,
             "at" => array.at_mut(args.expect("index")?).at(span)?,
-            _ => return missing(),
+            _ => return temp_or_missing(),
         },
         Value::Dict(dict) => match method {
             "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
-            _ => return missing(),
+            _ => return temp_or_missing(),
         },
-        _ => return missing(),
+        _ => return temp_or_missing(),
     };
 
     args.finish()?;

@@ -10,7 +10,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///
 /// The polygon is defined by its corner points and is closed automatically.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #polygon(
 ///   fill: blue.lighten(80%),
@@ -21,7 +21,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope)]
+#[elem(scope, since = "0.1.0")]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -31,19 +31,19 @@ pub struct PolygonElem {
 
     /// The drawing rule used to fill the polygon.
     ///
-    /// See the [curve documentation]($curve.fill-rule) for an example.
+    /// See the @curve.fill-rule[curve documentation] for an example.
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the polygon.
+    /// How to @stroke[stroke] the polygon.
     ///
-    /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and only if no fill is given.
+    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a stroke
+    /// of `{1pt}` black if and only if no fill is given.
     #[fold]
     pub stroke: Smart<Option<Stroke>>,
 
     /// The vertices of the polygon. Each point is specified as an array of two
-    /// [relative lengths]($relative).
+    /// @relative[relative lengths].
     #[variadic]
     pub vertices: Vec<Axes<Rel<Length>>>,
 }
@@ -60,22 +60,23 @@ impl PolygonElem {
     ///   vertices: 3,
     /// )
     /// ```
-    #[func(title = "Regular Polygon")]
+    #[func(title = "Regular Polygon", since = "0.8.0")]
     pub fn regular(
         span: Span,
 
         /// How to fill the polygon. See the general
-        /// [polygon's documentation]($polygon.fill) for more details.
+        /// @polygon.fill[polygon's documentation] for more details.
         #[named]
         fill: Option<Option<Paint>>,
 
         /// How to stroke the polygon. See the general
-        /// [polygon's documentation]($polygon.stroke) for more details.
+        /// @polygon.stroke[polygon's documentation] for more details.
         #[named]
         stroke: Option<Smart<Option<Stroke>>>,
 
-        /// The diameter of the [circumcircle](https://en.wikipedia.org/wiki/Circumcircle)
-        /// of the regular polygon.
+        /// The diameter of the
+        /// #link("https://en.wikipedia.org/wiki/Circumcircle")[circumcircle] of
+        /// the regular polygon.
         #[named]
         #[default(Em::one().into())]
         size: Length,

@@ -73,7 +73,9 @@ impl SVGRenderer<'_> {
             });
 
             if path.is_some() {
-                self.render_path_glyph(svg, state, text, glyph_id, x_offset, y_offset, id)
+                self.render_path_glyph(
+                    svg, state, text, glyph_id, x_offset, y_offset, id,
+                );
             }
         } else {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and
@@ -102,7 +104,7 @@ impl SVGRenderer<'_> {
     ) {
         let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
         // Flip the transform again, since images are drawn Y-Down.
-        let ts = Transform::translate(x_offset, y_offset + text.size)
+        let ts = Transform::translate(x_offset, y_offset)
             .pre_concat(Transform::scale(scale, -scale));
 
         svg.elem("use")
@@ -111,7 +113,7 @@ impl SVGRenderer<'_> {
     }
 
     /// Render a pre-scaled path glyph defined by an outline.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn render_path_glyph(
         &mut self,
         svg: &mut SvgElem,

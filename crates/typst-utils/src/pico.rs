@@ -8,7 +8,7 @@ use std::sync::{LazyLock, RwLock};
 
 use rustc_hash::FxHashMap;
 
-/// Marks a number as a bitcode encoded `PicoStr``.
+/// Marks a number as a bitcode encoded [`PicoStr`].
 const MARKER: u64 = 1 << 63;
 
 /// The global runtime string interner.
@@ -201,13 +201,14 @@ mod bitcode {
     }
 
     /// A failure during compile-time interning.
+    #[derive(Clone, Copy)]
     pub enum EncodingError {
         TooLong,
         BadChar,
     }
 
     impl EncodingError {
-        pub const fn message(&self) -> &'static str {
+        pub const fn message(self) -> &'static str {
             match self {
                 Self::TooLong => "the maximum auto-internible string length is 12",
                 Self::BadChar => {
@@ -228,6 +229,7 @@ mod exceptions {
     pub const LIST: &[&str] = &[
         "accept-charset",
         "allowfullscreen",
+        "annotation-xml",
         "aria-activedescendant",
         "aria-autocomplete",
         "aria-colcount",
@@ -266,6 +268,9 @@ mod exceptions {
         "h5",
         "h6",
         "historical-ligatures",
+        "linethickness",
+        "mmultiscripts",
+        "movablelimits",
         "number-clearance",
         "number-margin",
         "numbering-scope",

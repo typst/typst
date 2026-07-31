@@ -71,7 +71,7 @@ pub fn layout_cell(
             // in the introspector, since logical children are currently
             // inserted immediately after the start tag of the parent element
             // preceding any content within the parent element's tags.
-            for frame in frames.iter_mut() {
+            for frame in &mut frames {
                 frame.set_parent(FrameParent::new(loc, Inherit::Yes));
             }
             frames.first_mut().unwrap().prepend_multiple([

@@ -15,18 +15,18 @@ use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty
 
 /// A sequence of bytes.
 ///
-/// This is conceptually similar to an array of [integers]($int) between `{0}`
-/// and `{255}`, but represented much more efficiently. You can iterate over it
-/// using a [for loop]($scripting/#loops).
+/// This is conceptually similar to an array of @int[integers] between `{0}` and
+/// `{255}`, but represented much more efficiently. You can iterate over it
+/// using a @reference:scripting:loops[for loop].
 ///
 /// You can convert
-/// - a [string]($str) or an [array] of integers to bytes with the [`bytes`]
+/// - a @str[string] or an @array[array] of integers to bytes with the @bytes
 ///   constructor
-/// - bytes to a string with the [`str`] constructor, with UTF-8 encoding
-/// - bytes to an array of integers with the [`array`] constructor
+/// - bytes to a string with the @str constructor, with UTF-8 encoding
+/// - bytes to an array of integers with the @array constructor
 ///
-/// When [reading]($read) data from a file, you can decide whether to load it
-/// as a string or as raw bytes.
+/// When @read[reading] data from a file, you can decide whether to load it as a
+/// string or as raw bytes.
 ///
 /// ```example
 /// #bytes((123, 160, 22, 0)) \
@@ -41,7 +41,7 @@ use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty
 /// #array(data.slice(0, 4)) \
 /// #str(data.slice(1, 4))
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.7.0")]
 #[derive(Clone, Hash)]
 pub struct Bytes(Arc<LazyHash<dyn Bytelike>>);
 
@@ -192,10 +192,9 @@ impl Bytes {
     where
         T: AsRef<[u8]> + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.0).and_then(|unique| {
-            let inner: &mut dyn Bytelike = &mut **unique;
-            (inner as &mut dyn Any).downcast_mut::<T>()
-        })
+        let unique = Arc::get_mut(&mut self.0)?;
+        let inner: &mut dyn Bytelike = &mut **unique;
+        (inner as &mut dyn Any).downcast_mut::<T>()
     }
 
     /// Try to access a string this was built from via [`Bytes::from_string`].
@@ -213,12 +212,11 @@ impl Bytes {
     where
         T: AsRef<str> + Send + Sync + 'static,
     {
-        Arc::get_mut(&mut self.0).and_then(|unique| {
-            let inner: &mut dyn Bytelike = &mut **unique;
-            (inner as &mut dyn Any)
-                .downcast_mut::<StrWrapper<T>>()
-                .map(|wrapper| &mut wrapper.0)
-        })
+        let unique = Arc::get_mut(&mut self.0)?;
+        let inner: &mut dyn Bytelike = &mut **unique;
+        (inner as &mut dyn Any)
+            .downcast_mut::<StrWrapper<T>>()
+            .map(|wrapper| &mut wrapper.0)
     }
 
     /// Access the inner `dyn Bytelike`.
@@ -232,16 +230,16 @@ impl Bytes {
     /// Converts a value to bytes.
     ///
     /// - Strings are encoded in UTF-8.
-    /// - Arrays of integers between `{0}` and `{255}` are converted directly. The
-    ///   dedicated byte representation is much more efficient than the array
-    ///   representation and thus typically used for large byte buffers (e.g. image
-    ///   data).
+    /// - Arrays of integers between `{0}` and `{255}` are converted directly.
+    ///   The dedicated byte representation is much more efficient than the
+    ///   array representation and thus typically used for large byte buffers
+    ///   (e.g. image data).
     ///
     /// ```example
     /// #bytes("Hello 😃") \
     /// #bytes((123, 160, 22, 0))
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.7.0")]
     pub fn construct(
         /// The value that should be converted to bytes.
         value: ToBytes,
@@ -250,7 +248,7 @@ impl Bytes {
     }
 
     /// The length in bytes.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "0.7.0")]
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
@@ -258,7 +256,7 @@ impl Bytes {
     /// Returns the byte at the specified index. Returns the default value if
     /// the index is out of bounds or fails with an error if no default value
     /// was specified.
-    #[func]
+    #[func(since = "0.7.0")]
     pub fn at(
         &self,
         /// The index at which to retrieve the byte.
@@ -275,7 +273,7 @@ impl Bytes {
 
     /// Extracts a subslice of the bytes. Fails with an error if the start or
     /// end index is out of bounds.
-    #[func]
+    #[func(since = "0.7.0")]
     pub fn slice(
         &self,
         /// The start index (inclusive).

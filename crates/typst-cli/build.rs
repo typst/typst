@@ -7,7 +7,7 @@ use clap_complete::{Shell, generate_to};
 use clap_mangen::Man;
 
 #[path = "src/args.rs"]
-#[allow(dead_code)]
+#[expect(dead_code)]
 mod args;
 
 fn main() {

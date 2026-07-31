@@ -57,6 +57,11 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
   #box(move(dx: 10pt, image("/assets/images/rhino.png", width: 1cm)))
 ])
 
+--- link-url-svg-escape paged ---
+// Test that XML metacharacters in a link URL are escaped in the SVG output, so
+// that an ordinary query string does not yield malformed SVG.
+#link("https://example.com/?a=1&b=2<c>")[#box(width: 5pt, height: 5pt, fill: black)]
+
 --- link-to-page paged ---
 // Link to page one.
 #link((page: 1, x: 10pt, y: 20pt))[Back to the start]
@@ -318,3 +323,22 @@ See #metadata(none) <t8>
 #document("blog/index.html")[
   #link(<home>)[To home]
 ] <blog>
+
+--- link-bundle-percent-encoding bundle ---
+// Ensure that URIs generated from relative paths in cross-links use percent
+// encoding.
+#let links = context {
+  for doc in query(selector(document).after(<start>)) {
+    list.item(link(doc.location(), doc.body))
+  }
+}
+
+#document("index.pdf", links)
+#document("index.html", links)
+
+#metadata(none) <start>
+#document("A (1).html")[Space]
+#document("A&B.html")[Amp]
+#document("%20.html")[Percent]
+#document("文.html")[Non-ASCII]
+#document("文/b/文.html")[With slash]

@@ -15,7 +15,14 @@ use crate::foundations::{
 
 /// Captured arguments to a function.
 ///
-/// # Argument Sinks
+/// Arguments are either _positional_ or _named,_ and can be accessed through
+/// the @arguments.pos[`pos`], @arguments.named[`named`], and
+/// @arguments.at[`at`] methods.
+///
+/// Additionally, named arguments can be accessed with @arguments.at[field
+/// syntax] similar to @dictionary[dictionaries].
+///
+/// = Argument Sinks <argument-sinks>
 /// Like built-in functions, custom functions can also take a variable number of
 /// arguments. You can specify an _argument sink_ which collects all excess
 /// arguments as `..sink`. The resulting `sink` value is of the `arguments`
@@ -33,7 +40,7 @@ use crate::foundations::{
 /// #format("ArtosFlow", "Jane", "Joe")
 /// ```
 ///
-/// # Spreading
+/// = Spreading <spreading>
 /// Inversely to an argument sink, you can _spread_ arguments, arrays and
 /// dictionaries into a function call with the `..spread` operator:
 ///
@@ -43,7 +50,7 @@ use crate::foundations::{
 /// #let dict = (fill: blue)
 /// #text(..dict)[Hello]
 /// ```
-#[ty(scope, cast, name = "arguments")]
+#[ty(scope, cast, name = "arguments", since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Args {
     /// The callsite span for the function. This is not the span of the argument
@@ -89,7 +96,7 @@ impl Args {
                 name: None,
                 value: Spanned::new(value, span),
             },
-        )
+        );
     }
 
     /// Push a positional argument.
@@ -98,7 +105,7 @@ impl Args {
             span: self.span,
             name: None,
             value: Spanned::new(value, span),
-        })
+        });
     }
 
     /// Consume and cast the first positional argument if there is one.
@@ -158,7 +165,7 @@ impl Args {
                 return error!(
                     item.span,
                     "the argument `{what}` is positional";
-                    hint: "try removing `{}:`", name;
+                    hint: "try removing `{name}:`";
                 );
             }
         }
@@ -299,6 +306,15 @@ impl Args {
         };
         item.map(|item| &item.value.v)
     }
+
+    /// Access a named argument as a field.
+    pub fn field(&self, field: &str) -> StrResult<&Value> {
+        self.items
+            .iter()
+            .rfind(|item| item.name.as_ref().map(|name| name.as_str()) == Some(field))
+            .ok_or_else(|| eco_format!("no named argument {}", field.repr()))
+            .map(|item| &item.value.v)
+    }
 }
 
 #[scope]
@@ -311,7 +327,7 @@ impl Args {
     /// #let args = arguments(stroke: red, inset: 1em, [Body])
     /// #box(..args)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.10.0")]
     pub fn construct(
         args: &mut Args,
         /// The arguments to construct.
@@ -323,7 +339,7 @@ impl Args {
     }
 
     /// The number of arguments, positional or named.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "0.15.0")]
     pub fn len(&self) -> usize {
         self.items.len()
     }
@@ -331,11 +347,15 @@ impl Args {
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///
-    /// If the key is an [integer]($int), this is equivalent to first calling
-    /// [`pos`]($arguments.pos) and then [`array.at`]. If it is a [string]($str),
-    /// this is equivalent to first calling [`named`]($arguments.named) and then
-    /// [`dictionary.at`].
-    #[func]
+    /// If the key is an @int[integer], this is equivalent to first calling
+    /// @arguments.pos[`pos`] and then @array.at. If it is a @str[string], this
+    /// is equivalent to first calling @arguments.named[`named`] and then
+    /// @dictionary.at.
+    ///
+    /// Named arguments can also be accessed with field syntax (e.g.
+    /// `{arguments(key: 42).key}`) if no default is needed. Unlike
+    /// @dictionary[dictionaries], fields on arguments cannot be modified.
+    #[func(since = "0.12.0")]
     pub fn at(
         &self,
         /// The index or name of the argument to get.
@@ -351,7 +371,7 @@ impl Args {
     }
 
     /// Returns the captured positional arguments as an array.
-    #[func(name = "pos", title = "Positional")]
+    #[func(name = "pos", title = "Positional", since = "forever")]
     pub fn to_pos(&self) -> Array {
         self.items
             .iter()
@@ -361,7 +381,7 @@ impl Args {
     }
 
     /// Returns the captured named arguments as a dictionary.
-    #[func(name = "named")]
+    #[func(name = "named", since = "forever")]
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
@@ -378,7 +398,7 @@ impl Args {
     ///     .filter(v => v > 0)
     /// }
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn filter(
         self,
         engine: &mut Engine,
@@ -407,7 +427,7 @@ impl Args {
     ///     .map(v => v + 1)
     /// }
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn map(
         self,
         engine: &mut Engine,
@@ -554,12 +574,13 @@ where
 /// The missing key access error message when no default was given.
 #[cold]
 fn missing_key_no_default(key: ArgumentKey) -> EcoString {
-    eco_format!(
-        "arguments do not contain key {} \
-         and no default value was specified",
-        match key {
-            ArgumentKey::Index(i) => i.repr(),
-            ArgumentKey::Name(name) => name.repr(),
-        }
-    )
+    match key {
+        ArgumentKey::Index(i) => eco_format!(
+            "no positional argument at index {i} and no default value was specified",
+        ),
+        ArgumentKey::Name(name) => eco_format!(
+            "no named argument {} and no default value was specified",
+            name.repr()
+        ),
+    }
 }

@@ -164,7 +164,7 @@ impl Work {
     /// Marks the element with the given location and label as in need of an
     /// ID. A subsequent call to `drain` will call `f`.
     fn enqueue(&mut self, loc: Location, label: Option<Label>) {
-        self.queue.push_back((loc, label))
+        self.queue.push_back((loc, label));
     }
 
     /// If one or multiple elements are in need of an ID, calls `f` to generate

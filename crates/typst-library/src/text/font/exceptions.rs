@@ -36,7 +36,6 @@ impl Exception {
         Self { weight: Some(FontWeight(weight)), ..self }
     }
 
-    #[allow(unused)] // left for future use
     const fn stretch(self, stretch: u16) -> Self {
         Self { stretch: Some(FontStretch(stretch)), ..self }
     }

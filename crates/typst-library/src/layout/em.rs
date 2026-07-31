@@ -3,7 +3,7 @@ use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Neg};
 
 use ecow::EcoString;
-use typst_utils::{Numeric, Scalar};
+use typst_utils::{Numeric, NumericLength, Scalar};
 
 use crate::foundations::{Repr, Resolve, StyleChain, Value, cast, repr};
 use crate::layout::{Abs, Length};
@@ -63,6 +63,8 @@ impl Em {
         if resolved.is_finite() { resolved } else { Abs::zero() }
     }
 }
+
+impl NumericLength for Em {}
 
 impl Numeric for Em {
     fn zero() -> Self {

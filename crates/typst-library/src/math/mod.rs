@@ -111,7 +111,7 @@ pub fn module() -> Module {
 pub trait Mathy {}
 
 /// A math alignment point: `&`, `&&`.
-#[elem(title = "Alignment Point", Mathy)]
+#[elem(title = "Alignment Point", since = "forever", Mathy)]
 pub struct AlignPointElem {}
 
 impl AlignPointElem {
@@ -127,9 +127,9 @@ impl AlignPointElem {
 /// class, e.g. to make a symbol behave like a relation. The class of a symbol
 /// defines the way it is laid out, including spacing around it, and how its
 /// scripts are attached by default. Note that the latter can always be
-/// overridden using [`{limits}`](math.limits) and [`{scripts}`](math.scripts).
+/// overridden using @math.limits[`{limits}`] and @math.scripts[`{scripts}`].
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let loves = math.class(
 ///   "relation",
@@ -138,7 +138,7 @@ impl AlignPointElem {
 ///
 /// $x loves y and y loves 5$
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]

@@ -75,15 +75,15 @@ sequence(
 // Gradients.
 #t(
   gradient.linear(blue, red),
-  `gradient.linear((rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  `gradient.linear((oklab(56.22%, -0.05, -0.17), 0%), (oklab(65.95%, 0.2, 0.108), 100%))`,
 )
 #t(
-  gradient.linear(blue, red, dir: ttb),
-  `gradient.linear(dir: rtl, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  gradient.linear(blue, red, dir: ttb, space: rgb),
+  `gradient.linear(dir: rtl, space: rgb, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
 )
 #t(
-  gradient.linear(blue, red, relative: "self", angle: 45deg),
-  `gradient.linear(angle: 45deg, relative: "self", (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  gradient.linear(blue, red, relative: "self", angle: 45deg, space: rgb),
+  `gradient.linear(angle: 45deg, space: rgb, relative: "self", (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
 )
 #t(
   gradient.linear(blue, red, space: rgb, angle: 45deg),

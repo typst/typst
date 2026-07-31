@@ -20,6 +20,13 @@ Text
 #html.elem("multi-word-component")[Hi]
 #html.elem("element-")[Hi]
 
+--- html-elem-attrs-fold html ---
+#set html.elem(attrs: (a: "1"))
+#set html.elem(attrs: (c: "3"))
+#set html.elem(attrs: (d: "4"))
+#set html.elem(attrs: (c: "3'"))
+#html.elem("div", attrs: (a: "1'", b: "2"))
+
 --- html-elem-invalid eval ---
 // Error: 12-24 the character "@" is not valid in a tag name
 #html.elem("my@element")

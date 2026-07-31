@@ -13,20 +13,20 @@ use crate::layout::Ratio;
 ///
 /// A limited-precision representation of a real number. Typst uses 64 bits to
 /// store floats. Wherever a float is expected, you can also pass an
-/// [integer]($int).
+/// @int[integer].
 ///
 /// You can convert a value to a float with this type's constructor.
 ///
 /// NaN and positive infinity are available as `{float.nan}` and `{float.inf}`
 /// respectively.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #3.14 \
 /// #1e4 \
 /// #(10 / 4)
 /// ```
-#[ty(scope, cast, name = "float")]
+#[ty(scope, cast, name = "float", since = "forever")]
 type f64;
 
 #[scope(ext)]
@@ -56,7 +56,7 @@ impl f64 {
     /// #float("2.7") \
     /// #float("1e5")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to a float.
         value: ToFloat,
@@ -74,7 +74,7 @@ impl f64 {
     /// #float.is-nan(1) \
     /// #float.is-nan(float.nan)
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn is_nan(self) -> bool {
         f64::is_nan(self)
     }
@@ -89,7 +89,7 @@ impl f64 {
     /// #float.is-infinite(1) \
     /// #float.is-infinite(float.inf)
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn is_infinite(self) -> bool {
         f64::is_infinite(self)
     }
@@ -106,7 +106,7 @@ impl f64 {
     /// #(0.0).signum() \
     /// #float.nan.signum()
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn signum(self) -> f64 {
         f64::signum(self)
     }
@@ -117,12 +117,12 @@ impl f64 {
     /// #float.from-bytes(bytes((0, 0, 0, 0, 0, 0, 240, 63))) \
     /// #float.from-bytes(bytes((63, 240, 0, 0, 0, 0, 0, 0)), endian: "big")
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn from_bytes(
         /// The bytes that should be converted to a float.
         ///
-        /// Must have a length of either 4 or 8. The bytes are then
-        /// interpreted in [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s
+        /// Must have a length of either 4 or 8. The bytes are then interpreted
+        /// in #link("https://en.wikipedia.org/wiki/IEEE_754")[IEEE 754]'s
         /// binary32 (single-precision) or binary64 (double-precision) format
         /// depending on the length of the bytes.
         bytes: Bytes,
@@ -137,13 +137,13 @@ impl f64 {
                 Endianness::Little => f64::from_le_bytes(buffer),
                 Endianness::Big => f64::from_be_bytes(buffer),
             });
-        };
+        }
         if let Ok(buffer) = <[u8; 4]>::try_from(bytes.as_ref()) {
             return Ok(match endian {
                 Endianness::Little => f32::from_le_bytes(buffer),
                 Endianness::Big => f32::from_be_bytes(buffer),
             } as f64);
-        };
+        }
 
         bail!("bytes must have a length of 4 or 8");
     }
@@ -154,7 +154,7 @@ impl f64 {
     /// #array(1.0.to-bytes(endian: "big")) \
     /// #array(1.0.to-bytes())
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn to_bytes(
         self,
         /// The endianness of the conversion.
@@ -163,11 +163,11 @@ impl f64 {
         endian: Endianness,
         /// The size of the resulting bytes.
         ///
-        /// This must be either 4 or 8. The call will return the
-        /// representation of this float in either
-        /// [IEEE 754](https://en.wikipedia.org/wiki/IEEE_754)'s binary32
-        /// (single-precision) or binary64 (double-precision) format
-        /// depending on the provided size.
+        /// This must be either 4 or 8. The call will return the representation
+        /// of this float in either
+        /// #link("https://en.wikipedia.org/wiki/IEEE_754")[IEEE 754]'s binary32
+        /// (single-precision) or binary64 (double-precision) format depending
+        /// on the provided size.
         #[named]
         #[default(8)]
         size: u32,
@@ -200,11 +200,11 @@ cast! {
     v: f64 => Self(v),
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
-    v: Decimal => Self(f64::try_from(v).map_err(|_| eco_format!("invalid float: {}", v))?),
+    v: Decimal => Self(f64::try_from(v).map_err(|_| eco_format!("invalid float: {v}"))?),
     v: Ratio => Self(v.get()),
     v: Str => Self(
         parse_float(v.clone().into())
-            .map_err(|_| eco_format!("invalid float: {}", v))?
+            .map_err(|_| eco_format!("invalid float: {v}"))?
     ),
 }
 
@@ -238,4 +238,9 @@ cast! {
     Scalar,
     self => self.get().into_value(),
     v: f64 => Self::new(v),
+}
+
+cast! {
+    f32,
+    self => (self as f64).into_value(),
 }

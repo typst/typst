@@ -90,6 +90,23 @@ We prove $1 < 2$— \
 #link("https://example.com/paren)") \
 #link("https://hi.com/%%%%%%%%abcdef") \
 
+--- linebreak-link-ip-host paged ---
+// Ensure that links with IP hosts use the same URL line-breaking behavior.
+#set page(width: 100pt)
+#set par(justify: true)
+
+#let link-padding = "lorem_ipsum_dolor_sit_amet"
+#let links = (
+  "http://127.0.0.1:8080/" + link-padding,
+  "HtTpS://1example.com/" + link-padding,
+  "this-is-a+cool.scheme://a.com/" + link-padding,
+)
+
+#links.map(link).join(linebreak())
+
+// This case is not yet ideal, but it should not really happen in practice.
+Ähm#link("http://127.0.0.1:8080/" + link-padding)
+
 --- linebreak-link-justify paged ---
 #set page(width: 240pt)
 #set par(justify: true)
@@ -163,3 +180,15 @@ pleasing way.
 --- linebreak-default-ignorables paged ---
 #set text(font: "Noto Sans Math")
 \u{2295}\u{FE00} vs \u{2295}\u{FE00}
+
+--- issue-1920-linebreak-guillemets paged ---
+// In languages like French and German, manually added spaces before and after
+// guillemets should not be breakable.
+#set page(width: 125pt)
+
+#set text(lang: "fr")
+Les principales « guillemets ».\
+Et les autres ‹ guillemets › en français & suisse romande.
+
+#set text(lang: "de")
+Alternative »Anführungszeichen« in DE & AT.

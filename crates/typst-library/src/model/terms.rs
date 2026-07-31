@@ -1,8 +1,6 @@
-use crate::diag::{bail, warning};
 use crate::foundations::{
-    Array, Content, NativeElement, Packed, Reflect, Smart, Styles, cast, elem, scope,
+    Content, NativeElement, Packed, Smart, Styles, cast, elem, scope,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Em, HElem, Length};
 use crate::model::{ListItemLike, ListLike};
 
@@ -12,22 +10,22 @@ use crate::model::{ListItemLike, ListLike};
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-#[elem(scope, title = "Term List", Locatable, Tagged)]
+#[elem(scope, title = "Term List", since = "forever", Locatable, Tagged)]
 pub struct TermsElem {
-    /// Defines the default [spacing]($terms.spacing) of the term list. If it is
+    /// Defines the default @terms.spacing[spacing] of the term list. If it is
     /// `{false}`, the items are spaced apart with
-    /// [paragraph spacing]($par.spacing). If it is `{true}`, they use
-    /// [paragraph leading]($par.leading) instead. This makes the list more
+    /// @par.spacing[paragraph spacing]. If it is `{true}`, they use
+    /// @par.leading[paragraph leading] instead. This makes the list more
     /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
@@ -80,9 +78,9 @@ pub struct TermsElem {
 
     /// The spacing between the items of the term list.
     ///
-    /// If set to `{auto}`, uses paragraph [`leading`]($par.leading) for tight
-    /// term lists and paragraph [`spacing`]($par.spacing) for wide
-    /// (non-tight) term lists.
+    /// If set to `{auto}`, uses paragraph @par.leading[`leading`] for tight
+    /// term lists and paragraph @par.spacing[`spacing`] for wide (non-tight)
+    /// term lists.
     pub spacing: Smart<Length>,
 
     /// The term list's children.
@@ -98,19 +96,6 @@ pub struct TermsElem {
     /// ) [/ #product: Born in #year.]
     /// ```
     #[variadic]
-    #[parse(
-        for item in args.items.iter() {
-            if item.name.is_none() && Array::castable(&item.value.v) {
-                engine.sink.warn(warning!(
-                    item.value.span,
-                    "implicit conversion from array to `terms.item` is deprecated";
-                    hint: "use `terms.item(term, description)` instead";
-                    hint: "this conversion was never documented and is being phased out";
-                ));
-            }
-        }
-        args.all()?
-    )]
     pub children: Vec<Packed<TermItem>>,
 
     /// Whether we are currently within a term list.
@@ -126,7 +111,7 @@ impl TermsElem {
 }
 
 /// A term list item.
-#[elem(name = "item", title = "Term List Item", Tagged)]
+#[elem(name = "item", title = "Term List Item", since = "0.4.0", Tagged)]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]
@@ -139,14 +124,6 @@ pub struct TermItem {
 
 cast! {
     TermItem,
-    array: Array => {
-        let mut iter = array.into_iter();
-        let (term, description) = match (iter.next(), iter.next(), iter.next()) {
-            (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => bail!("array must contain exactly two entries"),
-        };
-        Self::new(term, description)
-    },
     v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
 }
 

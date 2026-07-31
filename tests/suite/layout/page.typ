@@ -413,3 +413,42 @@ text
 
 --- issue-7292-page-size-auto-margin-zero paged ---
 #set page(width: auto, height: auto, margin: 0pt)
+
+--- page-bleed paged ---
+#set page(
+  width: 3cm,
+  height: 3cm,
+  margin: 1cm,
+  bleed: 1cm,
+  background: rect(width: 100%, height: 100%, fill: green),
+)
+
+#context {
+  place(
+    center + horizon,
+    rect(width: page.width, height: page.height, fill: red),
+  )
+  place(
+    center + horizon,
+    rect(width: 100%, height: 100%, fill: blue),
+  )
+}
+
+--- page-bleed-binding paged ---
+#set page(
+  bleed: (inside: 10pt, outside: 5pt, top: 5pt, bottom: 5pt),
+  margin: (outside: 10pt, inside: 5pt, top: 10pt, bottom: 10pt),
+)
+
+#rect(width: 100%)
+#pagebreak()
+#rect(width: 100%)
+
+--- page-bleed-outer-auto eval ---
+// Ensure that the auto support from `margin` does not affect `bleed`.
+// Error: 18-22 expected relative length or dictionary, found auto
+#set page(bleed: auto)
+
+--- page-bleed-inner-auto eval ---
+// Error: 18-30 expected relative length, found auto
+#set page(bleed: (left: auto))

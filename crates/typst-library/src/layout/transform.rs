@@ -7,7 +7,7 @@ use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlig
 /// it at the original positions. Containers will still be sized as if the
 /// content was not moved.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #rect(inset: 0pt, fill: gray, move(
 ///   dx: 4pt, dy: 6pt,
@@ -20,12 +20,12 @@ use crate::layout::{Abs, Alignment, Angle, HAlignment, Length, Ratio, Rel, VAlig
 /// ))
 /// ```
 ///
-/// # Accessibility
+/// = Accessibility <accessibility>
 /// Moving is transparent to Assistive Technology (AT). Your content will be
 /// read in the order it appears in the source, regardless of any visual
 /// movement. If you need to hide content from AT altogether in PDF export,
-/// consider using [`pdf.artifact`].
-#[elem]
+/// consider using @pdf.artifact.
+#[elem(since = "forever")]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -43,7 +43,7 @@ pub struct MoveElem {
 /// Rotates an element by a given angle. The layout will act as if the element
 /// was not rotated unless you specify `{reflow: true}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #stack(
 ///   dir: ltr,
@@ -52,7 +52,7 @@ pub struct MoveElem {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -65,8 +65,8 @@ pub struct RotateElem {
     /// The origin of the rotation.
     ///
     /// If, for instance, you wanted the bottom left corner of the rotated
-    /// element to stay aligned with the baseline, you would set it to `bottom +
-    /// left` instead.
+    /// element to stay aligned with the baseline, you would set it to
+    /// `bottom + left` instead.
     ///
     /// ```example
     /// #set text(spacing: 8pt)
@@ -102,13 +102,13 @@ pub struct RotateElem {
 ///
 /// Lets you mirror content by specifying a negative scale on a single axis.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]
 /// #scale(x: -100%, reflow: true)[This is mirrored.]
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct ScaleElem {
     /// The scaling factor for both axes, as a positional argument. This is just
     /// an optional shorthand notation for setting `x` and `y` to the same
@@ -147,9 +147,9 @@ pub struct ScaleElem {
 
     /// Whether the scaling impacts the layout.
     ///
-    /// If set to `{false}`, the scaled content will be allowed to overlap
-    /// other content. If set to `{true}`, it will compute the new size of
-    /// the scaled content and adjust the layout accordingly.
+    /// If set to `{false}`, the scaled content will be allowed to overlap other
+    /// content. If set to `{true}`, it will compute the new size of the scaled
+    /// content and adjust the layout accordingly.
     ///
     /// ```example
     /// Hello #scale(x: 20%, y: 40%, reflow: true)[World]!
@@ -184,13 +184,13 @@ cast! {
 /// Skews an element in horizontal and/or vertical direction. The layout will
 /// act as if the element was not skewed unless you specify `{reflow: true}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #skew(ax: -12deg)[
 ///   This is some fake italic text.
 /// ]
 /// ```
-#[elem]
+#[elem(since = "0.12.0")]
 pub struct SkewElem {
     /// The horizontal skewing angle.
     ///
@@ -225,7 +225,8 @@ pub struct SkewElem {
     ///
     /// If set to `{false}`, the skewed content will retain the bounding box of
     /// the original content. If set to `{true}`, the bounding box will take the
-    /// transformation of the content into account and adjust the layout accordingly.
+    /// transformation of the content into account and adjust the layout
+    /// accordingly.
     ///
     /// ```example
     /// Hello #skew(ay: 30deg, reflow: true, "World")!

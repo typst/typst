@@ -171,8 +171,9 @@ impl RawContent {
     /// of the correct type.**
     ///
     /// # Safety
-    /// This must be preceded by a check to [`is`]. The safe API for this is
-    /// [`Content::to_packed`] and the [`Packed`] struct.
+    /// This must be preceded by a check to [`is`](Self::is). The safe API for
+    /// this is [`Content::to_packed`](super::Content::to_packed) and the
+    /// [`Packed`] struct.
     pub(super) unsafe fn data<E: NativeElement>(&self) -> &E {
         debug_assert!(self.is::<E>());
 
@@ -189,8 +190,9 @@ impl RawContent {
     /// Ensures that the element's allocation is unique.
     ///
     /// # Safety
-    /// This must be preceded by a check to [`is`]. The safe API for this is
-    /// [`Content::to_packed_mut`] and the [`Packed`] struct.
+    /// This must be preceded by a check to [`is`](Self::is). The safe API for
+    /// this is [`Content::to_packed_mut`](super::Content::to_packed_mut) and
+    /// the [`Packed`] struct.
     pub(super) unsafe fn data_mut<E: NativeElement>(&mut self) -> &mut E {
         debug_assert!(self.is::<E>());
 

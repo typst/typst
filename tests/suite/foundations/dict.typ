@@ -125,6 +125,11 @@
   test(dict.state.err, false)
 }
 
+--- dict-at-call eval ---
+// Test calling a function in a dictionary via `.at()`.
+#let dict = (func: x => x + 1)
+#test(dict.at("func")(0), 1)
+
 --- dict-at-missing-key eval ---
 // Test rvalue missing key.
 #{

@@ -33,9 +33,8 @@ fontdb = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
+icu_collator = { workspace = true }
 icu_properties = { workspace = true }
-icu_provider = { workspace = true }
-icu_provider_blob = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 kamadak-exif = { workspace = true }
@@ -45,6 +44,7 @@ lipsum = { workspace = true }
 memchr = { workspace = true }
 moxcms = { workspace = true }
 palette = { workspace = true }
+percent-encoding = { workspace = true }
 phf = { workspace = true }
 png = { workspace = true }
 rayon = { workspace = true }

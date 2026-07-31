@@ -1,14 +1,18 @@
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
-use krilla::configure::{Configuration, ValidationError, Validator};
+use krilla::configure::validate::VersionedFeature;
+use krilla::configure::{
+    Configuration, PdfVersion, ValidationError, Validator, Validators,
+};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
-use krilla::error::KrillaError;
-use krilla::geom::PathBuilder;
+use krilla::error::{KrillaError, LimitError};
+use krilla::geom::{PathBuilder, Rect};
 use krilla::page::{PageLabel, PageSettings};
 use krilla::pdf::PdfError;
 use krilla::surface::Surface;
+use krilla::tagging::ArtifactType;
 use krilla::{Document, SerializeSettings};
 use krilla_svg::render_svg_glyph;
 use rustc_hash::{FxBuildHasher, FxHashMap, FxHashSet};
@@ -19,10 +23,10 @@ use typst_library::diag::{
 };
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
-use typst_library::layout::{Frame, FrameItem, GroupItem, Size, Transform};
+use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{HeadingElem, LateLinkResolver};
-use typst_library::text::Font;
-use typst_library::visualize::{Geometry, Paint};
+use typst_library::text::FontInstance;
+use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
 use crate::PdfOptions;
@@ -35,7 +39,10 @@ use crate::page::PageLabelExt;
 use crate::shape::handle_shape;
 use crate::tags::{self, GroupId, Tags};
 use crate::text::handle_text;
-use crate::util::{AbsExt, TransformExt, convert_path, display_font};
+use crate::util::{
+    AbsExt, SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path,
+    display_font,
+};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -45,14 +52,15 @@ pub fn convert(
     link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
     let settings = SerializeSettings {
-        compress_content_streams: true,
+        compress_content_streams: !options.pretty,
         no_device_cs: true,
-        ascii_compatible: false,
+        ascii_compatible: options.pretty,
         xmp_metadata: true,
         cmyk_profile: None,
         configuration: options.standards.config,
         enable_tagging: options.tagged,
         render_svg_glyph_fn: render_svg_glyph,
+        pretty: options.pretty,
     };
 
     let mut document = Document::new_with(settings);
@@ -97,11 +105,24 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         // PDF 2.0 doesn't define an explicit limit, but krilla and probably
         // some viewers won't handle pages that have zero sized pages.
         let mut settings = PageSettings::from_wh(
-            typst_page.frame.width().to_f32().max(3.0),
-            typst_page.frame.height().to_f32().max(3.0),
+            (typst_page.frame.width() + typst_page.bleed.left + typst_page.bleed.right)
+                .to_f32()
+                .max(3.0),
+            (typst_page.frame.height() + typst_page.bleed.top + typst_page.bleed.bottom)
+                .to_f32()
+                .max(3.0),
         )
         .expect_internal("invalid page size")
         .at(Span::detached())?;
+
+        if !typst_page.bleed.is_zero() {
+            settings = settings.with_trim_box(Rect::from_ltrb(
+                typst_page.bleed.left.to_f32(),
+                typst_page.bleed.top.to_f32(),
+                (typst_page.bleed.left + typst_page.frame.width()).to_f32(),
+                (typst_page.bleed.top + typst_page.frame.height()).to_f32(),
+            ));
+        }
 
         if let Some(label) = typst_page
             .numbering
@@ -126,12 +147,16 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
         let mut page = document.start_page_with(settings);
         let mut surface = page.surface();
         let page_idx = gc.page_index_converter.pdf_page_index(i);
-        let mut fc = FrameContext::new(page_idx, typst_page.frame.size());
+        let mut fc = FrameContext::new(
+            page_idx,
+            typst_page.frame.size() + typst_page.bleed.sum_by_axis(),
+        );
 
         tags::page(gc, &mut surface, |gc, surface| {
             handle_frame(
                 &mut fc,
                 &typst_page.frame,
+                typst_page.bleed,
                 typst_page.fill_or_transparent(),
                 surface,
                 gc,
@@ -194,7 +219,7 @@ impl State {
 /// Context needed for converting a single frame.
 pub(crate) struct FrameContext {
     /// The logical page index. This might be `None` if the page isn't exported,
-    /// of if the FrameContext has been built to convert a pattern.
+    /// of if the [`FrameContext`] has been built to convert a pattern.
     pub(crate) page_idx: Option<usize>,
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
@@ -226,6 +251,12 @@ impl FrameContext {
         self.states.last_mut().unwrap()
     }
 
+    pub(crate) fn page_size(&self) -> Option<Size> {
+        self.page_idx
+            .is_some()
+            .then_some(self.states.first().unwrap().container_size)
+    }
+
     pub(crate) fn get_link_annotation(
         &mut self,
         id: GroupId,
@@ -246,8 +277,8 @@ impl FrameContext {
 /// Globally needed context for converting a Typst document.
 pub(crate) struct GlobalContext<'a> {
     /// Cache the conversion between krilla and Typst fonts (forward and backward).
-    pub(crate) fonts_forward: FxHashMap<Font, krilla::text::Font>,
-    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, Font>,
+    pub(crate) fonts_forward: FxHashMap<FontInstance, krilla::text::Font>,
+    pub(crate) fonts_backward: FxHashMap<krilla::text::Font, FontInstance>,
     /// Mapping between images and their span.
     // Note: In theory, the same image can have multiple spans
     // if it appears in the document multiple times. We just store the
@@ -259,7 +290,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions<'a>,
+    pub(crate) options: &'a PdfOptions,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.
@@ -297,6 +328,7 @@ impl<'a> GlobalContext<'a> {
 pub(crate) fn handle_frame(
     fc: &mut FrameContext,
     frame: &Frame,
+    padding: Sides<Abs>,
     fill: Option<Paint>,
     surface: &mut Surface,
     gc: &mut GlobalContext,
@@ -308,9 +340,20 @@ pub(crate) fn handle_frame(
     }
 
     if let Some(fill) = fill {
-        let shape = Geometry::Rect(frame.size()).filled(fill);
-        handle_shape(fc, &shape, surface, gc, Span::detached())?;
+        let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
+        handle_shape(
+            fc,
+            &shape,
+            surface,
+            gc,
+            Span::detached(),
+            ArtifactType::Background,
+        )?;
     }
+
+    fc.push();
+    fc.state_mut()
+        .pre_concat(Transform::translate(padding.left, padding.top));
 
     for (point, item) in frame.items() {
         fc.push();
@@ -319,19 +362,21 @@ pub(crate) fn handle_frame(
         match item {
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
-            FrameItem::Shape(s, span) => handle_shape(fc, s, surface, gc, *span)?,
+            FrameItem::Shape(s, span) => {
+                handle_shape(fc, s, surface, gc, *span, ArtifactType::Layout)?;
+            }
             FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?
+                handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
-                    tags::handle_start(gc, surface);
+                    tags::handle_start(gc, fc, surface);
                 }
             }
             FrameItem::Tag(Tag::End(_, _, flags)) => {
                 if flags.tagged {
-                    tags::handle_end(gc, surface);
+                    tags::handle_end(gc, fc, surface);
                 }
             }
         }
@@ -339,6 +384,7 @@ pub(crate) fn handle_frame(
         fc.pop();
     }
 
+    fc.pop();
     fc.pop();
 
     Ok(())
@@ -353,7 +399,7 @@ pub(crate) fn handle_group(
     fc.push();
     fc.state_mut().pre_concat(group.transform);
 
-    tags::group(gc, surface, group.parent, |gc, surface| -> SourceResult<()> {
+    tags::group(gc, fc, surface, group.parent, |gc, fc, surface| {
         let clip_path = group
             .clip
             .as_ref()
@@ -368,7 +414,8 @@ pub(crate) fn handle_group(
             surface.push_clip_path(clip_path, &krilla::paint::FillRule::NonZero);
         }
 
-        let res = handle_frame(fc, &group.frame, None, surface, gc);
+        let res =
+            handle_frame(fc, &group.frame, Sides::splat(Abs::zero()), None, surface, gc);
 
         if clip_path.is_some() {
             surface.pop();
@@ -389,8 +436,6 @@ fn finish(
     gc: GlobalContext,
     configuration: Configuration,
 ) -> SourceResult<Vec<u8>> {
-    let validator = configuration.validator();
-
     match document.finish() {
         Ok(r) => Ok(r),
         Err(e) => match e {
@@ -406,7 +451,9 @@ fn finish(
             KrillaError::Validation(ve) => {
                 let errors = ve
                     .iter()
-                    .map(|e| convert_error(&gc, validator, e))
+                    .map(|(e, validators)| {
+                        convert_error(&gc, *validators, e, configuration.version())
+                    })
                     .collect::<EcoVec<_>>();
                 Err(errors)
             }
@@ -415,7 +462,7 @@ fn finish(
                 bail!(span, "failed to process image ({err})");
             }
             KrillaError::SixteenBitImage(image, _) => {
-                let span = gc.image_to_spans.get(&image).unwrap();
+                let span = &gc.image_to_spans[&image];
                 bail!(
                     *span, "16 bit images are not supported in this export mode";
                     hint: "convert the image to 8 bit instead";
@@ -458,6 +505,29 @@ fn finish(
                     hint: "please report this as a bug";
                 );
             }
+            KrillaError::DuplicateNamedDestination(_) => {
+                bail!(Span::detached(),
+                    "duplicate named destination";
+                    hint: "please report this as a bug";
+                );
+            }
+            KrillaError::Limit(LimitError::TooLongArray) => bail!(
+                Span::detached(),
+                "a PDF array is longer than 8191 elements";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "this can happen if you have a very long text in a single line";
+            ),
+            KrillaError::Limit(LimitError::TooLongDictionary) => bail!(
+                Span::detached(),
+                "a PDF dictionary has more than 4095 entries";
+                hint: "set the PDF version to PDF 1.5 or later";
+                hint: "alternatively, try reducing the complexity of your document";
+            ),
+            KrillaError::Limit(LimitError::TooLargeFloat) => bail!(
+                Span::detached(),
+                "a PDF floating point number is larger than the allowed limit";
+                hint: "set the PDF version to PDF 1.5 or later";
+            ),
         },
     }
 }
@@ -465,10 +535,11 @@ fn finish(
 /// Converts a krilla error into a Typst error.
 fn convert_error(
     gc: &GlobalContext,
-    validator: Validator,
+    failing_validators: Validators,
     error: &ValidationError,
+    pdf_version: PdfVersion,
 ) -> SourceDiagnostic {
-    let prefix = eco_format!("{} error:", validator.as_str());
+    let prefix = eco_format!("{} error:", failing_validators.to_comma_list());
     match error {
         ValidationError::TooLongString => error!(
             Span::detached(),
@@ -518,8 +589,13 @@ fn convert_error(
             "{prefix} the PDF is missing a CMYK profile";
             hint: "CMYK colors are not yet supported in this export mode";
         ),
-        ValidationError::InconsistentSeparationFallback(_) => {
-            unreachable!("separation color spaces are not currently used")
+        ValidationError::InconsistentSeparationFallback(colorant) => {
+            let repr = Option::<SpotColorantName>::from_krilla(colorant).repr();
+            error!(
+                Span::detached(),
+                "spot colorant `{repr}` appeared with multiple distinct fallback colors";
+                hint: "define a particular spot colorant once and store it in a variable to reuse it later";
+            )
         }
         ValidationError::ContainsNotDefGlyph(f, loc, text) => error!(
             to_span(*loc),
@@ -570,7 +646,7 @@ fn convert_error(
                    metadata";
             hint: "restrictive font licenses are prohibited by {} because they limit \
                    the suitability for archival",
-            validator.as_str();
+            failing_validators.to_and_list();
         ),
         ValidationError::Transparency(loc) => {
             let span = to_span(*loc);
@@ -693,6 +769,71 @@ fn convert_error(
                 hint: "try converting the PDF to an SVG before embedding it";
             )
         }
+        ValidationError::RequiresNewerPdfVersion(feature, loc) => {
+            let span = to_span(*loc);
+            let message = match feature {
+                VersionedFeature::StructureOrderTabbing => {
+                    eco_format!(
+                        "{prefix} links and other annotations cannot be navigated accessibly in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::HeaderFooterArtifactSubtypes => {
+                    eco_format!(
+                        "{prefix} headers and footers cannot be made accessible in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+                VersionedFeature::TableHeaderScope => {
+                    eco_format!(
+                        "{prefix} table header cell cannot be accessibly tagged in {} files",
+                        pdf_version.as_str()
+                    )
+                }
+            };
+
+            let diagnostic = SourceDiagnostic::error(span, message);
+
+            let min_version = feature.minimum_pdf_version();
+
+            let mut most_restrictive: Option<(Validator, PdfVersion)> = None;
+            for validator in gc.options.standards.config.validators() {
+                let max = validator.max();
+                if most_restrictive.is_none_or(|(_, prev_max)| prev_max > max) {
+                    most_restrictive = Some((validator, max));
+                }
+            }
+
+            let Some((restrictive_validator, max_version)) = most_restrictive else {
+                // Does not happen in practice: A validator is required to raise
+                // this error and they always have a maximum version.
+                return diagnostic;
+            };
+
+            if min_version < max_version {
+                diagnostic.with_hint(eco_format!(
+                    "select a version between {} and {}",
+                    min_version.as_str(),
+                    max_version.as_str(),
+                ))
+            } else if min_version == max_version {
+                diagnostic
+                    .with_hint(eco_format!("set the version to {}", min_version.as_str()))
+            } else {
+                diagnostic
+                    .with_hint(eco_format!(
+                        "PDF version must be at least {} to satisfy {}",
+                        min_version.as_str(),
+                        failing_validators.to_and_list(),
+                    ))
+                    .with_hint(eco_format!(
+                        "remove or replace the {} standard, \
+                         as it prevents PDF versions beyond {}",
+                        restrictive_validator.as_str(),
+                        max_version.as_str(),
+                    ))
+            }
+        }
     }
 }
 
@@ -732,7 +873,10 @@ fn collect_named_destinations(
             .unwrap_or(PagedPosition::ORIGIN);
         if let Some(dest) = crate::link::pos_to_xyz(pic, pos) {
             let named = NamedDestination::new(name, dest);
-            document.register_named_destination(named.clone());
+            // The option is `None` if the destination is a duplicate which
+            // should not happen because we filtered them on a set insert above,
+            // hence the unwrap.
+            document.register_named_destination(named.clone()).unwrap();
             locs_to_names.insert(loc, named);
         }
     }

@@ -35,8 +35,3 @@
 --- pdf-attach-invalid-data eval ---
 // Error: 39-46 expected bytes, found string
 #pdf.attach("/assets/text/hello.txt", "hello")
-
---- pdf-embed-deprecated paged empty ---
-// Warning: 6-11 the name `embed` is deprecated, use `attach` instead
-// Hint: 6-11 it will be removed in Typst 0.15.0
-#pdf.embed("/assets/text/hello.txt")

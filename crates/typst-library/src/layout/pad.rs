@@ -6,7 +6,7 @@ use crate::layout::{Length, Rel};
 /// The spacing can be specified for each side individually, or for all sides at
 /// once by specifying a positional argument.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set align(center)
 ///
@@ -14,7 +14,7 @@ use crate::layout::{Length, Rel};
 /// _Typing speeds can be
 ///  measured in words per minute._
 /// ```
-#[elem(title = "Padding")]
+#[elem(title = "Padding", since = "forever")]
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(

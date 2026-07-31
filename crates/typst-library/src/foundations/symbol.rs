@@ -10,7 +10,7 @@ use typst_syntax::{Span, Spanned, is_ident};
 use typst_utils::hash128;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::diag::{DeprecationSink, SourceResult, StrResult, bail, error};
+use crate::diag::{SourceResult, StrResult, WarningSink, bail, error};
 use crate::foundations::{
     Array, Content, Func, NativeElement, Packed, PlainText, Repr, cast, elem, func,
     scope, ty,
@@ -20,11 +20,11 @@ use crate::foundations::{
 ///
 /// Typst defines common symbols so that they can easily be written with
 /// standard keyboards. The symbols are defined in modules, from which they can
-/// be accessed using [field access notation]($scripting/#fields):
+/// be accessed using @reference:scripting:fields[field access notation]:
 ///
-/// - General symbols are defined in the [`sym` module]($category/symbols/sym)
-///   and are accessible without the `sym.` prefix in math mode.
-/// - Emoji are defined in the [`emoji` module]($category/symbols/emoji)
+/// - General symbols are defined in the @sym[`sym` module] and are accessible
+///   without the `sym.` prefix in math mode.
+/// - Emoji are defined in the @emoji[`emoji` module]
 ///
 /// Moreover, you can define custom symbols with this type's constructor
 /// function.
@@ -46,7 +46,7 @@ use crate::foundations::{
 /// $arrow.r$ \
 /// $arrow.t.quad$
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(SymbolInner);
 
@@ -140,7 +140,7 @@ impl Symbol {
     /// Apply a modifier to the symbol.
     pub fn modified(
         mut self,
-        sink: impl DeprecationSink,
+        mut sink: impl WarningSink,
         modifier: &str,
     ) -> StrResult<Self> {
         if let SymbolInner::Complex(list) = self.0 {
@@ -164,7 +164,7 @@ impl Symbol {
                     && let Some(message) = deprecation
                 {
                     modified.deprecated = true;
-                    sink.emit(message, None);
+                    sink.emit(message.into());
                 }
                 return Ok(self);
             }
@@ -215,16 +215,17 @@ impl Symbol {
     /// #envelope.lightning
     /// #envelope.fly
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         span: Span,
         /// The variants of the symbol.
         ///
         /// Can be a just a string consisting of a single character for the
-        /// modifierless variant or an array with two strings specifying the modifiers
-        /// and the symbol. Individual modifiers should be separated by dots. When
-        /// displaying a symbol, Typst selects the first from the variants that have
-        /// all attached modifiers and the minimum number of other modifiers.
+        /// modifierless variant or an array with two strings specifying the
+        /// modifiers and the symbol. Individual modifiers should be separated
+        /// by dots. When displaying a symbol, Typst selects the first from the
+        /// variants that have all attached modifiers and the minimum number of
+        /// other modifiers.
         #[variadic]
         variants: Vec<Spanned<SymbolVariant>>,
     ) -> SourceResult<Symbol> {
@@ -268,7 +269,7 @@ impl Symbol {
             }
 
             // Canonicalize the modifier order.
-            modifiers.sort();
+            modifiers.sort_unstable();
 
             // Ensure that there are no duplicate modifiers.
             if let Some(ms) = modifiers.windows(2).find(|ms| ms[0] == ms[1]) {
@@ -454,7 +455,8 @@ pub struct SymbolElem {
 }
 
 impl SymbolElem {
-    /// Create a new packed symbol element.
+    /// Creates a new symbol element and directly packs it into type-erased
+    /// content.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
     }

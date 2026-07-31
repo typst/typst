@@ -37,7 +37,7 @@ impl Watcher {
     /// watching.
     const BATCH_TIMEOUT: Duration = Duration::from_millis(100);
 
-    /// The maximum time we spend batching events before quitting wait().
+    /// The maximum time we spend batching events before quitting `wait()`.
     const STARVE_TIMEOUT: Duration = Duration::from_millis(500);
 
     /// The interval in which we poll when falling back to poll watching
@@ -48,7 +48,7 @@ impl Watcher {
     ///
     /// All writes to the `output` path will be ignored.
     pub fn new(output: Option<PathBuf>) -> StrResult<Self> {
-        // Setup file watching.
+        // Set up file watching.
         let (tx, rx) = std::sync::mpsc::channel();
 
         // Set the poll interval to something more eager than the default. That
@@ -76,7 +76,7 @@ impl Watcher {
     pub fn update(&mut self, iter: impl IntoIterator<Item = PathBuf>) -> StrResult<()> {
         // Mark all files as not "seen" so that we may unwatch them if they
         // aren't in the dependency list.
-        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for seen in self.watched.values_mut() {
             *seen = false;
         }
@@ -145,7 +145,7 @@ impl Watcher {
                 let event = event
                     .map_err(|err| eco_format!("failed to watch dependencies ({err})"))?;
 
-                if !is_relevant_event_kind(&event.kind) {
+                if !is_relevant_event_kind(event.kind) {
                     continue;
                 }
 
@@ -193,7 +193,7 @@ impl Watcher {
 }
 
 /// Whether a kind of watch event is relevant for compilation.
-fn is_relevant_event_kind(kind: &notify::EventKind) -> bool {
+fn is_relevant_event_kind(kind: notify::EventKind) -> bool {
     match kind {
         notify::EventKind::Any => true,
         notify::EventKind::Access(_) => false,
