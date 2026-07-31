@@ -1617,14 +1617,13 @@ impl<'a> GridLayouter<'a> {
             }
         }
 
+        // Remove the last row in the region if it is a gutter row.
         if self
             .current
             .lrows
-            .last()
-            .is_some_and(|row| self.grid.is_gutter_track(row.index()))
+            .pop_if(|row| self.grid.is_gutter_track(row.index()))
+            .is_some()
         {
-            // Remove the last row in the region if it is a gutter row.
-            self.current.lrows.pop().unwrap();
             self.current.repeated_header_rows =
                 self.current.repeated_header_rows.min(self.current.lrows.len());
         }

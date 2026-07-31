@@ -1261,7 +1261,7 @@ cast! {
     },
     v: Dict => {
         let mut table = Vec::with_capacity(v.len());
-        for (key, value) in v.into_iter() {
+        for (key, value) in v {
             let glyph_ref = key.into_value().cast::<GlyphReference>()?;
             let value = value.cast::<Array>()?;
             if value.len() != 2 {
