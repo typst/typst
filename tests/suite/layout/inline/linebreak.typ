@@ -95,19 +95,17 @@ We prove $1 < 2$— \
 #set page(width: 100pt)
 #set par(justify: true)
 
-#let link_padding = "lorem_ipsum_dolor_sit_amet"
-
+#let link-padding = "lorem_ipsum_dolor_sit_amet"
 #let links = (
-  "http://127.0.0.1:8080/" + link_padding,
-  "HtTpS://1example.com/" + link_padding,
-  "this-is-a+cool.scheme://a.com/" + link_padding,
+  "http://127.0.0.1:8080/" + link-padding,
+  "HtTpS://1example.com/" + link-padding,
+  "this-is-a+cool.scheme://a.com/" + link-padding,
 )
-#for link_text in links {
-  link_text
-  linebreak()
-  link(link_text)
-  linebreak()
-}
+
+#links.map(link).join(linebreak())
+
+// This case is not yet ideal, but it should not really happen in practice.
+Ähm#link("http://127.0.0.1:8080/" + link-padding)
 
 --- linebreak-link-justify paged ---
 #set page(width: 240pt)
