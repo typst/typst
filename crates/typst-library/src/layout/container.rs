@@ -16,7 +16,12 @@ use crate::visualize::{Paint, Stroke};
 /// All elements except inline math, text, and boxes are block-level and cannot
 /// occur inside of a @par[paragraph]. The box function can be used to integrate
 /// such elements into a paragraph. Boxes take the size of their contents by
-/// default but can also be sized explicitly.
+/// default but can also be @box.width[sized] explicitly.
+///
+/// Similarly to blocks, boxes can be used to @box.clip[clip] content or to give
+/// it a @box.fill[background] or @box.stroke[border]. However, they should only
+/// be used for these purposes if the resulting container is used in an
+/// inline-level context. Otherwise, a @block is preferable.
 ///
 /// = Example <example>
 /// ```example
@@ -214,8 +219,9 @@ pub enum InlineItem {
 
 /// A block-level container.
 ///
-/// Such a container can be used to separate content, size it, and give it a
-/// background or border.
+/// Such a container can be used to separate content, to @block.width[size] or
+/// @block.clip[clip] it, or to give it a @block.fill[background] or
+/// @block.stroke[border].
 ///
 /// Blocks are also the primary way to control whether text becomes part of a
 /// paragraph or not. See
