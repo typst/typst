@@ -786,28 +786,24 @@ fn test_report_header(
 
 fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx: usize) {
     parent
-        .div()
+        .table()
         .class("test-report-source")
         .hidden(true)
         .id(display!("test-report-source-{test_idx}"))
-        .with(|div| {
-            div.table().class("file-diff html").with(|table| {
-                table.colgroup().with(|colgroup| {
-                    colgroup.col().attr("span", 1).class("col-line-gutter");
-                    colgroup.col().attr("span", 1).class("col-source-line-body");
-                });
-
-                let lines = super::diff::file_lines(
-                    test_report.source.text(),
-                    LineKind::Unchanged,
-                );
-
-                for line in lines.lines {
-                    table.tr().class("diff-line").with(|tr| {
-                        diff_cells(tr, &line);
-                    });
-                }
+        .with(|table| {
+            table.colgroup().with(|colgroup| {
+                colgroup.col().attr("span", 1).class("col-line-gutter");
+                colgroup.col().attr("span", 1).class("col-source-line-body");
             });
+
+            let lines =
+                super::diff::file_lines(test_report.source.text(), LineKind::Unchanged);
+
+            for line in lines.lines {
+                table.tr().class("diff-line").with(|tr| {
+                    diff_cells(tr, &line);
+                });
+            }
         });
 }
 
