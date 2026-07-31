@@ -1,11 +1,11 @@
+use ecow::EcoVec;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
-
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, families, variant};
+use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -674,37 +674,46 @@ fn add_par_line_marker(
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
 fn overhang(glyph: &ShapedGlyph) -> Abs {
-    DEFAULT_OVERHANG_TABLE
-        .iter()
-        .copied()
-        .find_map(|(c, v)| {
-            if let Some(id) = glyph.font.ttf().glyph_index(c)
-                && id.0 == glyph.glyph_id
-            {
-                Some(v)
-            } else {
-                None
-            }
-        })
-        .unwrap_or(0.0)
-        * glyph.x_advance.at(glyph.size)
-}
+    const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+        // Dashes.
+        ('–', 0.2),
+        ('—', 0.2),
+        ('-', 0.55),
+        ('\u{ad}', 0.55),
+        // Punctuation.
+        ('.', 0.8),
+        (',', 0.8),
+        (';', 0.3),
+        (':', 0.3),
+        // Arabic
+        ('\u{60C}', 0.4),
+        ('\u{6D4}', 0.4),
+    ];
 
-const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
-    // Dashes.
-    ('–', 0.2),
-    ('—', 0.2),
-    ('-', 0.55),
-    ('\u{ad}', 0.55),
-    // Punctuation.
-    ('.', 0.8),
-    (',', 0.8),
-    (';', 0.3),
-    (':', 0.3),
-    // Arabic
-    ('\u{60C}', 0.4),
-    ('\u{6D4}', 0.4),
-];
+    #[comemo::memoize]
+    fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
+        let mut table = Vec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
+
+        for (c, v) in DEFAULT_OVERHANG_TABLE {
+            if let Some(id) = font.ttf().glyph_index(*c) {
+                table.push((id.0, *v));
+            }
+        }
+
+        table.sort_unstable_by_key(|(id, _)| *id);
+
+        EcoVec::from(table)
+    }
+
+    let table = font_overhang_table(&glyph.font);
+
+    let factor = match table.binary_search_by_key(&glyph.glyph_id, |&(id, _)| id) {
+        Ok(idx) => table[idx].1,
+        Err(_) => 0.0,
+    };
+
+    factor * glyph.x_advance.at(glyph.size)
+}
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
