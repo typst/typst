@@ -1,6 +1,7 @@
-use ecow::EcoVec;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
+
+use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
