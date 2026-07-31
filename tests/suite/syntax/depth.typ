@@ -10,12 +10,15 @@
 
   s = pat.replace("{}", s)
   // Error: 8-9 maximum parsing depth exceeded
+  // Hint: 8-9 from index `256` to `258`
   eval(s)
 }
 
 --- parser-depth-exceeded-unbalanced eval ---
 // Error: 7-17 unclosed delimiter
+// Hint: 7-17 from index `0` to `1`
 // Error: 7-17 maximum parsing depth exceeded
+// Hint: 7-17 from index `256` to `1024`
 #eval(1024 * "(")
 
 --- parser-depth-exceeded-unbalanced-arrow eval ---
@@ -23,13 +26,19 @@
 // Error: 7-20 the character `#` is not valid in code
 // Hint: 7-20 you are already in code mode
 // Hint: 7-20 try removing the `#`
+// Hint: 7-20 from index `0` to `1`
 // Error: 7-20 unclosed delimiter
+// Hint: 7-20 from index `1` to `2`
 // Error: 7-20 unexpected arrow
+// Hint: 7-20 from index `3` to `5`
 // Error: 7-20 maximum parsing depth exceeded
+// Hint: 7-20 from index `641` to `2560`
 #eval(512 * "#((=>")
 
 --- parser-depth-exceeded-unop eval ---
 // https://issues.oss-fuzz.com/issues/415163163
 // Error: 7-17 maximum parsing depth exceeded
+// Hint: 7-17 from index `512` to `513`
 // Error: 7-17 expected expression
+// Hint: 7-17 at index `1023`
 #eval(512 * "- ")

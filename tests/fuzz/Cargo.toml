@@ -19,6 +19,9 @@ typst-syntax = { workspace = true }
 comemo = { workspace = true }
 libfuzzer-sys = { workspace = true }
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "parse"
 path = "src/bin/parse.rs"

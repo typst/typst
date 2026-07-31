@@ -4,14 +4,13 @@ use crate::foundations::{
     Content, Depth, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles,
     cast, elem,
 };
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{BlockElem, Em, PadElem};
 use crate::model::{CitationForm, CiteElem};
 use crate::text::{SmartQuotes, SpaceElem, TextElem};
 
 /// Displays a quote alongside an optional attribution.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Plato is often misquoted as the author of #quote[I know that I know
 /// nothing], however, this is a derivation form his original quote:
@@ -30,6 +29,7 @@ use crate::text::{SmartQuotes, SpaceElem, TextElem};
 ///
 /// By default block quotes are padded left and right by `{1em}`, alignment and
 /// padding can be controlled with show rules:
+///
 /// ```example
 /// #set quote(block: true)
 /// #show quote: set align(center)
@@ -41,7 +41,7 @@ use crate::text::{SmartQuotes, SpaceElem, TextElem};
 ///   flame of Udûn. Go back to the Shadow! You cannot pass.
 /// ]
 /// ```
-#[elem(Locatable, Tagged, ShowSet)]
+#[elem(since = "0.9.0", Locatable, Tagged, ShowSet)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -64,7 +64,8 @@ pub struct QuoteElem {
     /// Whether double quotes should be added around this quote.
     ///
     /// The double quotes used are inferred from the `quotes` property on
-    /// [smartquote], which is affected by the `lang` property on [text].
+    /// @smartquote[smartquote], which is affected by the `lang` property on
+    /// @text[text].
     ///
     /// - `{true}`: Wrap this quote in double quotes.
     /// - `{false}`: Do not wrap this quote in double quotes.

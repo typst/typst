@@ -21,8 +21,8 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 /// The current version of the Typst compiler is available as `sys.version`.
 ///
 /// You can convert a version to an array of explicitly given components using
-/// the [`array`] constructor.
-#[ty(scope, cast)]
+/// the @array constructor.
+#[ty(scope, cast, since = "0.9.0")]
 #[derive(Debug, Default, Clone, Hash)]
 pub struct Version(EcoVec<u32>);
 
@@ -64,23 +64,29 @@ impl Version {
     ///
     /// It can have any number of components (even zero).
     ///
-    /// ```example:"Constructing versions"
-    /// #version() \
-    /// #version(1) \
-    /// #version(1, 2, 3, 4) \
-    /// #version((1, 2, 3, 4)) \
-    /// #version((1, 2), 3)
-    /// ```
+    /// #example(
+    ///   title: "Constructing versions",
+    ///   ```
+    ///   #version() \
+    ///   #version(1) \
+    ///   #version(1, 2, 3, 4) \
+    ///   #version((1, 2, 3, 4)) \
+    ///   #version((1, 2), 3)
+    ///   ```
+    /// )
     ///
     /// As a practical use case, this allows comparing the current version
-    /// ([`{sys.version}`]($version)) to a specific one.
+    /// (@version[`{sys.version}`]) to a specific one.
     ///
-    /// ```example:"Comparing with the current version"
-    /// Current version: #sys.version \
-    /// #(sys.version >= version(0, 14, 0)) \
-    /// #(version(3, 2, 0) > version(4, 1, 0))
-    /// ```
-    #[func(constructor)]
+    /// #example(
+    ///   title: "Comparing with the current version",
+    ///   ```
+    ///   Current version: #sys.version \
+    ///   #(sys.version >= version(0, 14, 0)) \
+    ///   #(version(3, 2, 0) > version(4, 1, 0))
+    ///   ```
+    /// )
+    #[func(constructor, since = "0.9.0")]
     pub fn construct(
         /// The components of the version (array arguments are flattened)
         #[variadic]
@@ -104,7 +110,7 @@ impl Version {
     ///
     /// The returned integer is always non-negative. Returns `0` if the version
     /// isn't specified to the necessary length.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn at(
         &self,
         /// The index at which to retrieve the component. If negative, indexes
@@ -207,4 +213,32 @@ cast! {
     VersionComponents,
     v: u32 => Self::Single(v),
     v: Vec<u32> => Self::Multiple(v)
+}
+
+/// When a feature was introduced.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Since {
+    /// The feature was introduced before Typst 0.1.0.
+    Forever,
+    /// The feature was introduced in a version released after Typst 0.1.0.
+    Version([u32; 3]),
+    /// The feature is not present in any official Typst release.
+    Unreleased,
+}
+
+cast! {
+    Since,
+    self => match self {
+        Self::Forever => "forever".into_value(),
+        Self::Version(v) => Version::from_iter(v.into_iter()).into_value(),
+        Self::Unreleased => "unreleased".into_value(),
+    },
+    "forever" => Self::Forever,
+    "unreleased" => Self::Unreleased,
+    v: Version => {
+        let &[major, minor, patch] = v.values() else {
+            bail!("expected a version with exactly three components")
+        };
+        Self::Version([major, minor, patch])
+    },
 }

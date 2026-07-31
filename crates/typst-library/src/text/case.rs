@@ -3,13 +3,13 @@ use crate::text::TextElem;
 
 /// Converts a string or content to lowercase.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #lower("ABC") \
 /// #lower[*My Text*] \
 /// #lower[already low]
 /// ```
-#[func(title = "Lowercase")]
+#[func(title = "Lowercase", since = "forever")]
 pub fn lower(
     /// The text to convert to lowercase.
     text: Caseable,
@@ -19,13 +19,13 @@ pub fn lower(
 
 /// Converts a string or content to uppercase.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #upper("abc") \
 /// #upper[*my text*] \
 /// #upper[ALREADY HIGH]
 /// ```
-#[func(title = "Uppercase")]
+#[func(title = "Uppercase", since = "forever")]
 pub fn upper(
     /// The text to convert to uppercase.
     text: Caseable,

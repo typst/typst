@@ -5,3 +5,6 @@ rust-version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 publish = false
+
+[lints]
+workspace = true

@@ -33,8 +33,3 @@
 --- csv-invalid-delimiter eval ---
 // Error: 41-51 delimiter must be an ASCII character
 #csv("/assets/data/zoo.csv", delimiter: "\u{2008}")
-
---- csv-decode-deprecated eval ---
-// Warning: 14-20 `csv.decode` is deprecated, directly pass bytes to `csv` instead
-// Hint: 14-20 it will be removed in Typst 0.15.0
-#let _ = csv.decode

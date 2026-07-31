@@ -18,9 +18,9 @@ use crate::foundations::{
 /// Represents a date, a time, or a combination of both.
 ///
 /// Can be created by either specifying a custom datetime using this type's
-/// constructor function or getting the current date with [`datetime.today`].
+/// constructor function or getting the current date with @datetime.today.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #let date = datetime(
 ///   year: 2020,
@@ -45,8 +45,9 @@ use crate::foundations::{
 /// )
 /// ```
 ///
-/// # Datetime and Duration
-/// You can get a [duration] by subtracting two datetime:
+/// = Datetime and Duration <datetime-and-duration>
+/// You can get a @duration[duration] by subtracting two datetime:
+///
 /// ```example
 /// #let first-of-march = datetime(day: 1, month: 3, year: 2024)
 /// #let first-of-jan = datetime(day: 1, month: 1, year: 2024)
@@ -56,6 +57,7 @@ use crate::foundations::{
 ///
 /// You can also add/subtract a datetime and a duration to retrieve a new,
 /// offset datetime:
+///
 /// ```example
 /// #let date = datetime(day: 1, month: 3, year: 2024)
 /// #let two-days = duration(days: 2)
@@ -67,11 +69,11 @@ use crate::foundations::{
 /// #two-days-later.display()
 /// ```
 ///
-/// # Format
+/// = Format <format>
 /// You can specify a customized formatting using the
-/// [`display`]($datetime.display) method. The format of a datetime is
-/// specified by providing _components_ with a specified number of _modifiers_.
-/// A component represents a certain part of the datetime that you want to
+/// @datetime.display[`display`] method. The format of a datetime is specified
+/// by providing _components_ with a specified number of _modifiers_. A
+/// component represents a certain part of the datetime that you want to
 /// display, and with the help of modifiers you can define how you want to
 /// display that component. In order to display a component, you wrap the name
 /// of the component in square brackets (e.g. `[[year]]` will display the year).
@@ -105,8 +107,8 @@ use crate::foundations::{
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     week number is padded.
 ///   - `repr`: Can be either `ISO`, `sunday` or `monday`. In the case of `ISO`,
-///      week numbers are between 1 and 53, while the other ones are between 0
-///      and 53.
+///     week numbers are between 1 and 53, while the other ones are between 0
+///     and 53.
 /// - `weekday`: Displays the weekday of the date.
 ///   - `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case
 ///     of `long` and `short`, the corresponding English name will be displayed
@@ -130,7 +132,7 @@ use crate::foundations::{
 ///   - `padding`: Can be either `zero`, `space` or `none`. Specifies how the
 ///     second is padded.
 ///
-/// [See here](https://time-rs.github.io/book/api/format-description.html#components)
+/// #link("https://time-rs.github.io/book/api/format-description.html#components")[See here]
 /// for more details on the supported syntax.
 ///
 /// Keep in mind that not always all components can be used. For example, if you
@@ -138,7 +140,7 @@ use crate::foundations::{
 /// will be stored as a plain date internally, meaning that you cannot use
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.5.0")]
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
@@ -240,17 +242,17 @@ impl Datetime {
 impl Datetime {
     /// Creates a new datetime.
     ///
-    /// You can specify the [datetime] using a year, month, day, hour, minute,
-    /// and second.
+    /// You can specify the @datetime[datetime] using a year, month, day, hour,
+    /// minute, and second.
     ///
     /// _Note_: Depending on which components of the datetime you specify, Typst
     /// will store it in one of the following three ways:
-    /// * If you specify year, month and day, Typst will store just a date.
-    /// * If you specify hour, minute and second, Typst will store just a time.
-    /// * If you specify all of year, month, day, hour, minute and second, Typst
+    /// - If you specify year, month and day, Typst will store just a date.
+    /// - If you specify hour, minute and second, Typst will store just a time.
+    /// - If you specify all of year, month, day, hour, minute and second, Typst
     ///   will store a full datetime.
     ///
-    /// Depending on how it is stored, the [`display`]($datetime.display) method
+    /// Depending on how it is stored, the @datetime.display[`display`] method
     /// will choose a different formatting by default.
     ///
     /// ```example
@@ -260,7 +262,7 @@ impl Datetime {
     ///   day: 3,
     /// ).display()
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.5.0")]
     pub fn construct(
         /// The year of the datetime.
         #[named]
@@ -356,7 +358,7 @@ impl Datetime {
     ///
     /// In the CLI, this can be overridden with the `--creation-timestamp`
     /// argument or by setting the
-    /// [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/)
+    /// #link("https://reproducible-builds.org/specs/source-date-epoch/")[`SOURCE_DATE_EPOCH`]
     /// environment variable. In both cases, the value should be given as a UNIX
     /// timestamp.
     ///
@@ -364,7 +366,7 @@ impl Datetime {
     /// Today's date is
     /// #datetime.today().display().
     /// ```
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn today(
         engine: &mut Engine,
         /// An offset to apply to the current UTC date. If set to `{auto}`, the
@@ -388,8 +390,8 @@ impl Datetime {
     /// `[[hour]:[minute]:[second]]`. In the case of a datetime, it will be
     /// `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
     ///
-    /// See the [format syntax]($datetime/#format) for more information.
-    #[func]
+    /// See the @datetime:format[format syntax] for more information.
+    #[func(since = "0.5.0")]
     pub fn display(
         &self,
         /// The format used to display the datetime.
@@ -416,7 +418,7 @@ impl Datetime {
     }
 
     /// The year if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn year(&self) -> Option<i32> {
         match self {
             Self::Date(date) => Some(date.year()),
@@ -426,7 +428,7 @@ impl Datetime {
     }
 
     /// The month if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn month(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.month().into()),
@@ -436,7 +438,7 @@ impl Datetime {
     }
 
     /// The weekday (counting Monday as 1) or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn weekday(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.weekday().number_from_monday()),
@@ -446,7 +448,7 @@ impl Datetime {
     }
 
     /// The day if it was specified, or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn day(&self) -> Option<u8> {
         match self {
             Self::Date(date) => Some(date.day()),
@@ -456,7 +458,7 @@ impl Datetime {
     }
 
     /// The hour if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn hour(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -466,7 +468,7 @@ impl Datetime {
     }
 
     /// The minute if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn minute(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -476,7 +478,7 @@ impl Datetime {
     }
 
     /// The second if it was specified, or `{none}` for dates without a time.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn second(&self) -> Option<u8> {
         match self {
             Self::Date(_) => None,
@@ -486,7 +488,7 @@ impl Datetime {
     }
 
     /// The ordinal (day of the year), or `{none}` for times without a date.
-    #[func]
+    #[func(since = "0.5.0")]
     pub fn ordinal(&self) -> Option<u16> {
         match self {
             Self::Datetime(datetime) => Some(datetime.ordinal()),
@@ -596,7 +598,7 @@ cast! {
 /// Format the `Format` error of the time crate in an appropriate way.
 fn format_time_format_error(error: Format) -> EcoString {
     match error {
-        Format::InvalidComponent(name) => eco_format!("invalid component '{}'", name),
+        Format::InvalidComponent(name) => eco_format!("invalid component '{name}'"),
         Format::InsufficientTypeInformation { .. } => {
             "failed to format datetime (insufficient information)".into()
         }
@@ -611,29 +613,25 @@ fn format_time_invalid_format_description_error(
 ) -> EcoString {
     match error {
         InvalidFormatDescription::UnclosedOpeningBracket { index, .. } => {
-            eco_format!("missing closing bracket for bracket at index {}", index)
+            eco_format!("missing closing bracket for bracket at index {index}")
         }
         InvalidFormatDescription::InvalidComponentName { name, index, .. } => {
-            eco_format!("invalid component name '{}' at index {}", name, index)
+            eco_format!("invalid component name '{name}' at index {index}")
         }
         InvalidFormatDescription::InvalidModifier { value, index, .. } => {
-            eco_format!("invalid modifier '{}' at index {}", value, index)
+            eco_format!("invalid modifier '{value}' at index {index}")
         }
         InvalidFormatDescription::Expected { what, index, .. } => {
-            eco_format!("expected {} at index {}", what, index)
+            eco_format!("expected {what} at index {index}")
         }
         InvalidFormatDescription::MissingComponentName { index, .. } => {
-            eco_format!("expected component name at index {}", index)
+            eco_format!("expected component name at index {index}")
         }
         InvalidFormatDescription::MissingRequiredModifier { name, index, .. } => {
-            eco_format!(
-                "missing required modifier {} for component at index {}",
-                name,
-                index
-            )
+            eco_format!("missing required modifier {name} for component at index {index}")
         }
         InvalidFormatDescription::NotSupported { context, what, index, .. } => {
-            eco_format!("{} is not supported in {} at index {}", what, context, index)
+            eco_format!("{what} is not supported in {context} at index {index}")
         }
         err => eco_format!("failed to parse datetime format ({err})"),
     }

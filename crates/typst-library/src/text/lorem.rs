@@ -12,7 +12,7 @@ use crate::foundations::{Str, func};
 /// the same but randomly chosen. As usual for blind texts, it does not make any
 /// sense. Use it as a placeholder to try layouts.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// = Blind Text
 /// #lorem(30)
@@ -20,7 +20,7 @@ use crate::foundations::{Str, func};
 /// = More Blind Text
 /// #lorem(15)
 /// ```
-#[func(keywords = ["Blind Text"])]
+#[func(since = "forever", keywords = ["Blind Text"])]
 pub fn lorem(
     /// The length of the blind text in words.
     words: usize,

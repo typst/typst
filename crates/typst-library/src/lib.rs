@@ -29,12 +29,12 @@ pub mod visualize;
 use std::ops::{Deref, Range};
 
 use serde::{Deserialize, Serialize};
-use typst_syntax::{FileId, Source, Span};
+use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
 use crate::foundations::{
-    Array, Binding, Bytes, Datetime, Dict, Duration, Module, Scope, Styles,
+    Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
 };
 use crate::layout::{Alignment, Dir};
 use crate::routines::Routines;
@@ -140,12 +140,18 @@ pub trait WorldExt {
     /// Get the byte range for a span.
     ///
     /// Returns `None` if the `Span` does not point into any file.
-    fn range(&self, span: Span) -> Option<Range<usize>>;
+    fn range(&self, span: impl Into<DiagSpan>) -> Option<Range<usize>>;
 }
 
 impl<T: World + ?Sized> WorldExt for T {
-    fn range(&self, span: Span) -> Option<Range<usize>> {
-        span.range().or_else(|| self.source(span.id()?).ok()?.range(span))
+    fn range(&self, span: impl Into<DiagSpan>) -> Option<Range<usize>> {
+        match span.into().get() {
+            DiagSpanKind::Detached => None,
+            DiagSpanKind::Number { id, num, sub_range } => {
+                self.source(id).ok()?.range(num, sub_range)
+            }
+            DiagSpanKind::Range { id: _, range } => Some(range),
+        }
     }
 }
 
@@ -156,7 +162,11 @@ impl<T: World + ?Sized> WorldExt for T {
 /// - `Library::default()` for a standard configuration
 /// - `Library::builder().build()` if you want to customize the library
 #[derive(Debug, Clone, Hash)]
+#[non_exhaustive]
 pub struct Library {
+    /// Defines implementation of various Typst compiler routines as a table of
+    /// function pointers.
+    pub routines: &'static Routines,
     /// The module that contains the definitions that are available everywhere.
     pub global: Module,
     /// The module that contains the definitions available in math mode.
@@ -164,6 +174,8 @@ pub struct Library {
     /// The default style properties (for page size, font selection, and
     /// everything else configurable via set and show rules).
     pub styles: Styles,
+    /// The built-in show rules.
+    pub rules: NativeRuleMap,
     /// The standard library as a value. Used to provide the `std` module.
     pub std: Binding,
     /// In-development features that were enabled.
@@ -211,9 +223,11 @@ impl LibraryBuilder {
         let inputs = self.inputs.unwrap_or_default();
         let global = global(self.routines, math.clone(), inputs, &self.features);
         Library {
+            routines: self.routines,
             global: global.clone(),
             math,
             styles: Styles::new(),
+            rules: (self.routines.rules)(),
             std: Binding::detached(global),
             features: self.features,
         }
@@ -320,7 +334,7 @@ fn global(
 ) -> Module {
     let mut global = Scope::deduplicating();
 
-    self::foundations::define(&mut global, inputs, features);
+    self::foundations::define(&mut global, inputs);
     self::model::define(&mut global, features);
     self::text::define(&mut global);
     self::layout::define(&mut global);

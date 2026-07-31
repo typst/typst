@@ -15,8 +15,8 @@ use crate::math::{EquationElem, MathSize, Mathy};
 /// ```
 ///
 /// If you want to add accents (hats, tildes, arrows, etc.) instead of scripts
-/// or corner attachments, use the [`accent`]($math.accent) function instead.
-#[elem(Mathy)]
+/// or corner attachments, use the @math.accent[`accent`] function instead.
+#[elem(since = "forever", Mathy)]
 pub struct AttachElem {
     /// The base to which things are attached.
     #[required]
@@ -54,11 +54,11 @@ pub struct AttachElem {
 /// $ a'''_b = a^'''_b $
 /// ```
 ///
-/// # Syntax
+/// = Syntax <syntax>
 /// This function has dedicated syntax: use apostrophes instead of primes. They
 /// will automatically attach to the previous element, moving superscripts to
 /// the next level.
-#[elem(Mathy)]
+#[elem(since = "0.11.0", Mathy)]
 pub struct PrimesElem {
     /// The number of grouped primes.
     #[required]
@@ -70,7 +70,7 @@ pub struct PrimesElem {
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct ScriptsElem {
     /// The base to attach the scripts to.
     #[required]
@@ -82,7 +82,7 @@ pub struct ScriptsElem {
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct LimitsElem {
     /// The base to attach the limits to.
     #[required]
@@ -111,7 +111,7 @@ pub struct LimitsElem {
 /// $ x stretch(harpoons.ltrb, size: #3em) y
 ///     stretch(\[, size: #150%) z $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "0.12.0", Mathy)]
 pub struct StretchElem {
     /// The glyph to stretch.
     #[required]
@@ -127,16 +127,19 @@ pub struct StretchElem {
     /// is increased from `{101%}` to `{200%}`, the selected glyph remains the
     /// same, so the actual size does not change.
     ///
-    /// ```example:"Size of ∫ growing discontinuously"
-    /// >>> #set align(center)
-    /// #for size in (
-    ///   100%, // short
-    ///   101%, 200%, // tall
-    ///   201%, 300%, 400%, 500%, 600%, // taller
-    /// ) {
-    ///   $stretch(integral, size: #size)$
-    /// }
-    /// ```
+    /// #example(
+    ///   title: "Size of ∫ growing discontinuously",
+    ///   ```
+    ///   >>> #set align(center)
+    ///   #for size in (
+    ///     100%, // short
+    ///     101%, 200%, // tall
+    ///     201%, 300%, 400%, 500%, 600%, // taller
+    ///   ) {
+    ///     $stretch(integral, size: #size)$
+    ///   }
+    ///   ```
+    /// )
     #[default(Rel::one())]
     pub size: Rel<Length>,
 }

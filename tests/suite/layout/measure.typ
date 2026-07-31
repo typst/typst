@@ -58,8 +58,9 @@
 --- measure-citation-in-flow-different-span paged ---
 // When the citation has a different span, it stops working.
 #context {
-  // Error: 22-29 cannot format citation in isolation
-  // Hint: 22-29 check whether this citation is measured without being inserted into the document
+  // Error: 22-29 citation could not be located
+  // Hint: 22-29 this citation is not stably present in the document
+  // Hint: 22-29 this can be caused by measurement or introspection
   let size = measure[@netwok]
   place(line(length: size.width))
   v(1mm)

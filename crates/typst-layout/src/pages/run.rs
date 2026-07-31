@@ -1,5 +1,4 @@
 use comemo::{Track, Tracked, TrackedMut};
-use typst_library::World;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{
@@ -15,12 +14,13 @@ use typst_library::layout::{
 };
 use typst_library::model::Numbering;
 use typst_library::pdf::ArtifactKind;
-use typst_library::routines::{Pair, Routines};
+use typst_library::routines::Pair;
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
-use typst_utils::{Numeric, Protected};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, Numeric, Protected};
 
-use crate::flow::{FlowMode, layout_flow};
+use crate::flow::{ColumnOptions, FlowMode, layout_flow};
 
 /// A mostly finished layout for one page. Needs only knowledge of its exact
 /// page number to be finalized into a `Page`. (Because the margins can depend
@@ -29,8 +29,10 @@ use crate::flow::{FlowMode, layout_flow};
 pub struct LayoutedPage {
     pub inner: Frame,
     pub margin: Sides<Abs>,
+    pub margin_two_sided: bool,
+    pub bleed: Sides<Abs>,
+    pub bleed_two_sided: bool,
     pub binding: Binding,
-    pub two_sided: bool,
     pub header: Option<Frame>,
     pub footer: Option<Frame>,
     pub background: Option<Frame>,
@@ -59,8 +61,8 @@ pub fn layout_page_run(
     initial: StyleChain,
 ) -> SourceResult<Vec<LayoutedPage>> {
     layout_page_run_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -73,10 +75,10 @@ pub fn layout_page_run(
 
 /// The internal implementation of `layout_page_run`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_page_run_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -89,7 +91,7 @@ fn layout_page_run_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -117,11 +119,19 @@ fn layout_page_run_impl(
 
     // Determine the margins.
     let default = Rel::<Length>::from((2.5 / 21.0) * min);
-    let margin = styles.get(PageElem::margin);
-    let two_sided = margin.two_sided.unwrap_or(false);
+    let margin = styles.get(PageElem::margin).unwrap_or_default();
+    let margin_two_sided = margin.two_sided.unwrap_or(false);
     let margin = margin
         .sides
         .map(|side| side.and_then(Smart::custom).unwrap_or(default))
+        .resolve(styles)
+        .relative_to(size);
+
+    let bleed = styles.get(PageElem::bleed);
+    let bleed_two_sided = bleed.two_sided.unwrap_or(false);
+    let bleed = bleed
+        .sides
+        .map(|side| side.unwrap_or(Rel::zero()))
         .resolve(styles)
         .relative_to(size);
 
@@ -183,8 +193,11 @@ fn layout_page_run_impl(
         &mut locator,
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
-        styles.get(PageElem::columns),
-        styles.get(ColumnsElem::gutter).resolve(styles),
+        ColumnOptions {
+            count: styles.get(PageElem::columns),
+            balanced: styles.get(ColumnsElem::balanced),
+            gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+        },
         FlowMode::Root,
     )?;
 
@@ -207,12 +220,12 @@ fn layout_page_run_impl(
 
     let header = header.clone().map(|h| h.artifact(ArtifactKind::Header));
     let footer = footer.clone().map(|f| f.artifact(ArtifactKind::Footer));
-    let background = background.clone().map(|b| b.artifact(ArtifactKind::Page));
+    let background = background.clone().map(|b| b.artifact(ArtifactKind::Background));
 
     for inner in fragment {
         let header_size = Size::new(inner.width(), margin.top - header_ascent);
         let footer_size = Size::new(inner.width(), margin.bottom - footer_descent);
-        let full_size = inner.size() + margin.sum_by_axis();
+        let full_size = inner.size() + margin.sum_by_axis() + bleed.sum_by_axis();
         let mid = HAlignment::Center + VAlignment::Horizon;
         layouted.push(LayoutedPage {
             inner,
@@ -224,8 +237,10 @@ fn layout_page_run_impl(
             background: layout_marginal(&background, full_size, mid)?,
             foreground: layout_marginal(foreground, full_size, mid)?,
             margin,
+            margin_two_sided,
+            bleed,
+            bleed_two_sided,
             binding,
-            two_sided,
         });
     }
 

@@ -16,6 +16,7 @@ use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHin
 use clap_complete::Shell;
 use semver::Version;
 use serde::Serialize;
+use typst_utils::display_possible_values;
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -118,7 +119,7 @@ pub struct CompileCommand {
     pub args: CompileArgs,
 }
 
-/// Compiles an input file into a supported output format.
+/// Watches an input file and recompiles on changes.
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Arguments for compilation.
@@ -318,6 +319,14 @@ pub struct CompileArgs {
     #[clap(flatten)]
     pub world: WorldArgs,
 
+    /// Whether to pretty-print produced output.
+    ///
+    /// This formats the output in a more human-readable, but less
+    /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
+    /// export.
+    #[arg(long = "pretty")]
+    pub pretty: bool,
+
     /// Which pages to export. When unspecified, all pages are exported.
     ///
     /// Pages to export are separated by commas, and can be either simple page
@@ -345,7 +354,7 @@ pub struct CompileArgs {
 
     /// The PPI (pixels per inch) to use for PNG export.
     #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f32,
+    pub ppi: f64,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
@@ -378,10 +387,10 @@ pub struct CompileArgs {
     /// Produces performance timings of the compilation process. (experimental)
     ///
     /// The resulting JSON file can be loaded into a tracing tool such as
-    /// https://ui.perfetto.dev. It does not contain any sensitive information
+    /// <https://ui.perfetto.dev>. It does not contain any sensitive information
     /// apart from file names and line numbers.
     #[arg(long = "timings", value_name = "OUTPUT_JSON")]
-    pub timings: Option<Option<PathBuf>>,
+    pub timings: Option<PathBuf>,
 }
 
 /// Arguments for the construction of a world. Shared by compile, watch, eval, and
@@ -500,19 +509,6 @@ pub struct ServerArgs {
     pub port: Option<u16>,
 }
 
-macro_rules! display_possible_values {
-    ($ty:ty) => {
-        impl Display for $ty {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.to_possible_value()
-                    .expect("no values are skipped")
-                    .get_name()
-                    .fmt(f)
-            }
-        }
-    };
-}
-
 /// An input that is either stdin or a real path.
 #[derive(Debug, Clone)]
 pub enum Input {
@@ -602,7 +598,7 @@ pub enum OutputFormat {
 
 impl OutputFormat {
     /// Whether this format results in a `PagedDocument`.
-    pub fn is_paged(&self) -> bool {
+    pub fn is_paged(self) -> bool {
         matches!(self, Self::Pdf | Self::Png | Self::Svg)
     }
 }
@@ -631,6 +627,8 @@ pub enum Target {
     Paged,
     /// HTML.
     Html,
+    /// Bundle.
+    Bundle,
 }
 
 display_possible_values!(Target);
@@ -657,7 +655,7 @@ display_possible_values!(Feature);
 
 /// A PDF standard that Typst can enforce conformance with.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 pub enum PdfStandard {
     /// PDF 1.4.
     #[value(name = "1.4")]
@@ -728,7 +726,7 @@ display_possible_values!(SerializationFormat);
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a
 /// value parser, in order to generate better errors.
 ///
-/// See also: https://github.com/clap-rs/clap/issues/5065
+/// See also: <https://github.com/clap-rs/clap/issues/5065>
 #[derive(Debug, Clone)]
 pub struct Pages(pub RangeInclusive<Option<NonZeroUsize>>);
 

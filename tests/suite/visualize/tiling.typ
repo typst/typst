@@ -46,6 +46,24 @@
 
 #rect(fill: t(none, relative: "parent"), width: 100%, height: 100%, stroke: 1pt)
 
+--- tiling-relative-polygon paged ---
+#polygon(
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+  stroke: blue,
+  (20%, 0pt),
+  (60%, 0pt),
+  (80%, 20pt),
+  (0%,  20pt),
+)
+
+--- tiling-relative-stack paged ---
+#set rect(
+  width: 100%,
+  height: 20pt,
+  fill: tiling(relative: "parent", circle(radius: 10pt)),
+)
+#stack(spacing: 5pt, rect(), rect())
+
 --- tiling-small paged ---
 // Tests small tilings for pixel accuracy.
 #box(
@@ -94,6 +112,83 @@
 #set page(width: 100pt, height: 100pt)
 
 #rect(fill: t(spacing: (10pt, 10pt,)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-negative paged ---
+// Test with offset set to `(-10pt, -10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (-10pt, -10pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-zero paged ---
+// Test with offset set to `(0pt, 0pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (0pt, 0pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-positive paged ---
+// Test with offset set to `(10pt, 10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (10pt, 10pt)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-offset-relative paged ---
+// Test with offset set to `(10pt, 10pt)`
+#let t(..args) = tiling(size: (30pt, 30pt), spacing: (10pt, 10pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(offset: (50%, -50%)), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-angle paged ---
+// Test with 45deg
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: 45deg), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-angle-with-offset paged ---
+#let t(..args) = tiling(
+  size: (30pt, 30pt),
+  offset: (7.5pt * calc.sqrt(2), 15pt * calc.sqrt(2)),
+  ..args,
+)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: 45deg), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-angle-with-relative-offset-and-spacing paged ---
+#let t(..args) = tiling(
+  size: (30pt, 30pt),
+  spacing: (10pt, 5pt),
+  offset: (50%, -50%),
+  ..args,
+)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: -45deg), width: 100%, height: 100%, stroke: 1pt)
 
 --- tiling-stroke paged ---
 // Test tiling on strokes
@@ -157,6 +252,21 @@
   #lorem(10)
 ]))
 
+--- tiling-text-offset-angle paged ---
+// The text should be filled so that it seems invisible on the page.
+#let t = tiling(
+  size: (30pt, 30pt),
+  offset: (7pt, 11pt),
+  angle: 40deg,
+  relative: "parent",
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
+)
+
+#set page(width: 140pt, height: 80pt, margin: 0pt, fill: t)
+#set text(size: 28pt, fill: t)
+
+OFFSET OFFSET
+
 --- tiling-text-fill paged ---
 #let t = tiling(
   size: (30pt, 30pt),
@@ -166,14 +276,6 @@
 #set text(fill: t)
 
 #lorem(20)
-
---- tiling-pattern-compatibility paged ---
-#set page(width: auto, height: auto, margin: 0pt)
-
-// Warning: 10-17 the name `pattern` is deprecated, use `tiling` instead
-// Hint: 10-17 it will be removed in Typst 0.15.0
-#let t = pattern(size: (10pt, 10pt), line(stroke: 4pt, start: (0%, 0%), end: (100%, 100%)))
-#rect(width: 50pt, height: 50pt, fill: t)
 
 --- tiling-with-different-size paged ---
 #let content = place(dx: 5pt, dy: 5pt, circle(radius: 5pt, fill: blue))
@@ -192,3 +294,6 @@
 
 #rect(fill: pat1, width: 100pt, height: 20pt, stroke: 1pt)
 #rect(fill: pat2, width: 100pt, height: 20pt, stroke: 1pt)
+
+--- tiling-negative-area pdf ---
+#rect(fill: tiling(size: (-2pt, -2pt))[Hello])

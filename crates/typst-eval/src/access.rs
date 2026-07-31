@@ -84,7 +84,11 @@ pub(crate) fn access_dict<'a>(
             let span = access.target().span();
             if matches!(
                 value, // those types have their own field getters
-                Value::Symbol(_) | Value::Content(_) | Value::Module(_) | Value::Func(_)
+                Value::Symbol(_)
+                    | Value::Content(_)
+                    | Value::Module(_)
+                    | Value::Func(_)
+                    | Value::Args(_)
             ) {
                 bail!(span, "cannot mutate fields on {ty}");
             } else if typst_library::foundations::fields_on(ty).is_empty() {

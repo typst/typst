@@ -4,7 +4,7 @@ use crate::visualize::Stroke;
 
 /// A line from one point to another.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #set page(height: 100pt)
 ///
@@ -15,7 +15,7 @@ use crate::visualize::Stroke;
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct LineElem {
     /// The start point of the line.
     ///
@@ -33,7 +33,7 @@ pub struct LineElem {
     /// respected if `end` is `{none}`.
     pub angle: Angle,
 
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// ```example
     /// #set line(length: 100%)

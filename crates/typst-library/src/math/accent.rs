@@ -3,10 +3,8 @@ use std::sync::LazyLock;
 
 use bumpalo::Bump;
 use comemo::Tracked;
-use icu_properties::CanonicalCombiningClass;
-use icu_properties::maps::CodePointMapData;
-use icu_provider::AsDeserializingBufferProvider;
-use icu_provider_blob::BlobDataProvider;
+use icu_properties::CodePointMapDataBorrowed;
+use icu_properties::props::CanonicalCombiningClass;
 
 use crate::engine::Engine;
 use crate::foundations::{
@@ -21,17 +19,17 @@ pub const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attaches an accent to a base.
 ///
-/// In math mode, common accents are also available as named [symbols]($symbol)
-/// that can be directly called (like [functions]($function)) to attach them to
+/// In math mode, common accents are also available as named @symbol[symbols]
+/// that can be directly called (like @function[functions]) to attach them to
 /// some content.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct AccentElem {
     /// The base to which the accent is applied. May consist of multiple
     /// letters.
@@ -46,52 +44,117 @@ pub struct AccentElem {
     ///
     /// Supported accents include:
     ///
-    /// | Accent        | Name            | Codepoint |
-    /// | ------------- | --------------- | --------- |
-    /// | Grave         | `grave`         | <code>&DiacriticalGrave;</code> |
-    /// | Acute         | `acute`         | `´`       |
-    /// | Circumflex    | `hat`           | `^`       |
-    /// | Tilde         | `tilde`         | `~`       |
-    /// | Macron        | `macron`        | `¯`       |
-    /// | Dash          | `dash`          | `‾`       |
-    /// | Breve         | `breve`         | `˘`       |
-    /// | Dot           | `dot`           | `.`       |
-    /// | Double dot, Diaeresis | `dot.double`, `diaer` | `¨` |
-    /// | Triple dot    | `dot.triple`    | <code>&tdot;</code> |
-    /// | Quadruple dot | `dot.quad`      | <code>&DotDot;</code> |
-    /// | Circle        | `circle`        | `∘`       |
-    /// | Double acute  | `acute.double`  | `˝`       |
-    /// | Caron         | `caron`         | `ˇ`       |
-    /// | Right arrow   | `arrow`, `->`   | `→`       |
-    /// | Left arrow    | `arrow.l`, `<-` | `←`       |
-    /// | Left/Right arrow | `arrow.l.r`  | `↔`       |
-    /// | Right harpoon | `harpoon`       | `⇀`       |
-    /// | Left harpoon  | `harpoon.lt`    | `↼`       |
+    /// #docs-table(
+    ///   table.header[Accent][Name][Codepoint],
+    ///
+    ///   [Grave],
+    ///   [`grave`],
+    ///   [``` ` ```],
+    ///
+    ///   [Acute],
+    ///   [`acute`],
+    ///   [`´`],
+    ///
+    ///   [Circumflex],
+    ///   [`hat`],
+    ///   [`^`],
+    ///
+    ///   [Tilde],
+    ///   [`tilde`],
+    ///   [`~`],
+    ///
+    ///   [Macron],
+    ///   [`macron`],
+    ///   [`¯`],
+    ///
+    ///   [Dash],
+    ///   [`dash`],
+    ///   [`‾`],
+    ///
+    ///   [Breve],
+    ///   [`breve`],
+    ///   [`˘`],
+    ///
+    ///   [Dot],
+    ///   [`dot`],
+    ///   [`.`],
+    ///
+    ///   [Double dot, Diaeresis],
+    ///   [`dot.double`, `diaer`],
+    ///   [`¨`],
+    ///
+    ///   [Triple dot],
+    ///   [`dot.triple`],
+    ///   raw(lang: "typ", "\\u{20db}"),
+    ///
+    ///   [Quadruple dot],
+    ///   [`dot.quad`],
+    ///   raw(lang: "typ", "\\u{20dc}"),
+    ///
+    ///   [Circle],
+    ///   [`circle`],
+    ///   [`∘`],
+    ///
+    ///   [Double acute],
+    ///   [`acute.double`],
+    ///   [`˝`],
+    ///
+    ///   [Caron],
+    ///   [`caron`],
+    ///   [`ˇ`],
+    ///
+    ///   [Right arrow],
+    ///   [`arrow`, `->`],
+    ///   [`→`],
+    ///
+    ///   [Left arrow],
+    ///   [`arrow.l`, `<-`],
+    ///   [`←`],
+    ///
+    ///   [Left/Right arrow],
+    ///   [`arrow.l.r`],
+    ///   [`↔`],
+    ///
+    ///   [Right harpoon],
+    ///   [`harpoon`],
+    ///   [`⇀`],
+    ///
+    ///   [Left harpoon],
+    ///   [`harpoon.lt`],
+    ///   [`↼`],
+    /// )
     #[required]
     pub accent: Accent,
 
     /// The size of the accent, relative to the width of the base.
     ///
-    /// ```example:"Basic usage"
-    /// $dash(A, size: #150%)$
-    /// ```
+    /// #example(
+    ///   title: "Basic usage",
+    ///   ```
+    ///   $dash(A, size: #150%)$
+    ///   ```
+    /// )
     ///
     /// Note that the resulting accent may not have the exact desired size. For
     /// example, an arrow may be either a pre-defined short glyph, or a long
     /// glyph assembled from building blocks (arrowhead + line) provided by the
     /// font. The sizes of the two possibilities may not cover the entire span.
-    /// Consequently, arrows of certain intermediate sizes cannot be constructed.
+    /// Consequently, arrows of certain intermediate sizes cannot be
+    /// constructed.
     ///
-    /// ```example:"Size of arrow growing discontinuously"
-    /// >>> #set par(spacing: 0.3em)
-    /// #for i in range(6) {
-    ///   $ arrow(#box(
-    ///     width: 0.4em + 0.3em * i,
-    ///     fill: aqua,
-    ///     height: 0.4em,
-    ///   )) $
-    /// }
-    /// ```
+    /// #example(
+    ///   title: "Size of arrow growing discontinuously",
+    ///   ```
+    ///   >>> #set par(spacing: 0.3em)
+    ///   #for i in range(6) {
+    ///     $ arrow(#box(
+    ///       width: 0.4em + 0.3em * i,
+    ///       fill: aqua,
+    ///       height: 0.4em,
+    ///     )) $
+    ///   }
+    ///   ```
+    /// )
     #[default(Rel::one())]
     pub size: Rel<Length>,
 
@@ -138,20 +201,10 @@ impl Accent {
             return true;
         }
 
-        static COMBINING_CLASS_DATA: LazyLock<CodePointMapData<CanonicalCombiningClass>> =
-            LazyLock::new(|| {
-                icu_properties::maps::load_canonical_combining_class(
-                    &BlobDataProvider::try_new_from_static_blob(typst_assets::icu::ICU)
-                        .unwrap()
-                        .as_deserializing(),
-                )
-                .unwrap()
-            });
+        const COMBINING_CLASS_DATA: CodePointMapDataBorrowed<CanonicalCombiningClass> =
+            CodePointMapDataBorrowed::new();
 
-        matches!(
-            COMBINING_CLASS_DATA.as_borrowed().get(self.0),
-            CanonicalCombiningClass::Below
-        )
+        matches!(COMBINING_CLASS_DATA.get(self.0), CanonicalCombiningClass::Below)
     }
 }
 
@@ -220,7 +273,9 @@ fn create_accent_func_data(accent: char, bump: &'static Bump) -> NativeFuncData 
         )),
         name: "(..) => ..",
         title,
+        since: None,
         docs,
+        def_site: None,
         keywords: &[],
         contextual: false,
         scope: LazyLock::new(&|| Scope::new()),
@@ -235,6 +290,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "base",
             docs: "The base to which the accent is applied.",
+            def_site: None,
             input: Content::input(),
             default: None,
             positional: true,
@@ -246,6 +302,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "size",
             docs: "The size of the accent, relative to the width of the base.",
+            def_site: None,
             input: Rel::<Length>::input(),
             default: None,
             positional: false,
@@ -257,6 +314,7 @@ fn create_accent_param_info() -> Vec<NativeParamInfo> {
         NativeParamInfo {
             name: "dotless",
             docs: "Whether to remove the dot on top of lowercase i and j when adding a top accent.",
+            def_site: None,
             input: bool::input(),
             default: None,
             positional: false,

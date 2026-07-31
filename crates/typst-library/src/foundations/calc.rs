@@ -70,7 +70,7 @@ pub fn module() -> Module {
 /// #calc.abs(2fr) \
 /// #calc.abs(decimal("-342.440"))
 /// ```
-#[func(title = "Absolute")]
+#[func(title = "Absolute", since = "forever")]
 pub fn abs(
     /// The value whose absolute value to calculate.
     value: ToAbs,
@@ -83,7 +83,7 @@ pub struct ToAbs(Value);
 
 cast! {
     ToAbs,
-    v: i64 => Self(v.abs().into_value()),
+    v: i64 => Self(v.checked_abs().ok_or_else(too_large)?.into_value()),
     v: f64 => Self(v.abs().into_value()),
     v: Length => Self(Value::Length(v.try_abs()
         .ok_or("cannot take absolute value of this length")?)),
@@ -99,12 +99,12 @@ cast! {
 /// #calc.pow(2, 3) \
 /// #calc.pow(decimal("2.5"), 2)
 /// ```
-#[func(title = "Power")]
+#[func(title = "Power", since = "forever")]
 pub fn pow(
     span: Span,
     /// The base of the power.
     ///
-    /// If this is a [`decimal`], the exponent can only be an [integer]($int).
+    /// If this is a @decimal, the exponent can only be an @int[integer].
     base: DecNum,
     /// The exponent of the power.
     exponent: Spanned<Num>,
@@ -120,7 +120,7 @@ pub fn pow(
             bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
-    };
+    }
 
     match (base, exponent.v) {
         (DecNum::Int(a), Num::Int(b)) if b >= 0 => a
@@ -155,12 +155,12 @@ pub fn pow(
     }
 }
 
-/// Raises a value to some exponent of e.
+/// Raises a value to some exponent of $e$.
 ///
 /// ```example
 /// #calc.exp(1)
 /// ```
-#[func(title = "Exponential")]
+#[func(title = "Exponential", since = "0.5.0")]
 pub fn exp(
     span: Span,
     /// The exponent of the power.
@@ -190,7 +190,7 @@ pub fn exp(
 /// #calc.sqrt(16) \
 /// #calc.sqrt(2.5)
 /// ```
-#[func(title = "Square Root")]
+#[func(title = "Square Root", since = "forever")]
 pub fn sqrt(
     /// The number whose square root to calculate. Must be non-negative.
     value: Spanned<Num>,
@@ -201,19 +201,19 @@ pub fn sqrt(
     Ok(value.v.float().sqrt())
 }
 
-/// Calculates the real nth root of a number.
+/// Calculates the real $n$#super[th] root of a number.
 ///
-/// If the number is negative, then n must be odd.
+/// If the number is negative, then $n$ must be odd.
 ///
 /// ```example
 /// #calc.root(16.0, 4) \
 /// #calc.root(27.0, 3)
 /// ```
-#[func]
+#[func(since = "0.11.0")]
 pub fn root(
     /// The expression to take the root of.
     radicand: f64,
-    /// Which root of the radicand to take.
+    /// The value of $n$.
     index: Spanned<i64>,
 ) -> SourceResult<f64> {
     if index.v == 0 {
@@ -234,14 +234,13 @@ pub fn root(
 
 /// Calculates the sine of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.sin(1.5) \
 /// #calc.sin(90deg)
 /// ```
-#[func(title = "Sine")]
+#[func(title = "Sine", since = "forever")]
 pub fn sin(
     /// The angle whose sine to calculate.
     angle: AngleLike,
@@ -255,14 +254,13 @@ pub fn sin(
 
 /// Calculates the cosine of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
-#[func(title = "Cosine")]
+#[func(title = "Cosine", since = "forever")]
 pub fn cos(
     /// The angle whose cosine to calculate.
     angle: AngleLike,
@@ -276,14 +274,13 @@ pub fn cos(
 
 /// Calculates the tangent of an angle.
 ///
-/// When called with an integer or a float, they will be interpreted as
-/// radians.
+/// When called with an integer or a float, they will be interpreted as radians.
 ///
 /// ```example
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
 /// ```
-#[func(title = "Tangent")]
+#[func(title = "Tangent", since = "forever")]
 pub fn tan(
     /// The angle whose tangent to calculate.
     angle: AngleLike,
@@ -301,9 +298,9 @@ pub fn tan(
 /// #calc.asin(0) \
 /// #calc.asin(1)
 /// ```
-#[func(title = "Arcsine")]
+#[func(title = "Arcsine", since = "forever")]
 pub fn asin(
-    /// The number whose arcsine to calculate. Must be between -1 and 1.
+    /// The number whose arcsine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -319,9 +316,9 @@ pub fn asin(
 /// #calc.acos(0) \
 /// #calc.acos(1)
 /// ```
-#[func(title = "Arccosine")]
+#[func(title = "Arccosine", since = "forever")]
 pub fn acos(
-    /// The number whose arccosine to calculate. Must be between -1 and 1.
+    /// The number whose arccosine to calculate. Must be between $-1$ and $1$.
     value: Spanned<Num>,
 ) -> SourceResult<Angle> {
     let val = value.v.float();
@@ -337,7 +334,7 @@ pub fn acos(
 /// #calc.atan(0) \
 /// #calc.atan(1)
 /// ```
-#[func(title = "Arctangent")]
+#[func(title = "Arctangent", since = "forever")]
 pub fn atan(
     /// The number whose arctangent to calculate.
     value: Num,
@@ -347,17 +344,22 @@ pub fn atan(
 
 /// Calculates the four-quadrant arctangent of a coordinate.
 ///
-/// The arguments are `(x, y)`, not `(y, x)`.
+/// The four-quadrant arctangent of $(x, y)$ is defined as the argument of the
+/// complex number $x + i y$.
+///
+/// Returns an @angle between `{-180deg}` and `{180deg}`.
+///
+/// Note that this function accepts $(x, y)$, not $(y, x)$.
 ///
 /// ```example
 /// #calc.atan2(1, 1) \
 /// #calc.atan2(-2, -3)
 /// ```
-#[func(title = "Four-quadrant Arctangent")]
+#[func(title = "Four-quadrant Arctangent", since = "0.3.0")]
 pub fn atan2(
-    /// The X coordinate.
+    /// The $x$ coordinate.
     x: Num,
-    /// The Y coordinate.
+    /// The $y$ coordinate.
     y: Num,
 ) -> Angle {
     Angle::atan2(y.float(), x.float())
@@ -365,11 +367,14 @@ pub fn atan2(
 
 /// Calculates the hyperbolic sine of a hyperbolic angle.
 ///
+/// The hyperbolic sine of $x$ is defined as follows:
+/// $ (e^x - e^(-x)) / 2 $
+///
 /// ```example
 /// #calc.sinh(0) \
 /// #calc.sinh(1.5)
 /// ```
-#[func(title = "Hyperbolic Sine")]
+#[func(title = "Hyperbolic Sine", since = "forever")]
 pub fn sinh(
     /// The hyperbolic angle whose hyperbolic sine to calculate.
     value: f64,
@@ -379,11 +384,14 @@ pub fn sinh(
 
 /// Calculates the hyperbolic cosine of a hyperbolic angle.
 ///
+/// The hyperbolic cosine of $x$ is defined as follows:
+/// $ (e^x + e^(-x)) / 2 $
+///
 /// ```example
 /// #calc.cosh(0) \
 /// #calc.cosh(1.5)
 /// ```
-#[func(title = "Hyperbolic Cosine")]
+#[func(title = "Hyperbolic Cosine", since = "forever")]
 pub fn cosh(
     /// The hyperbolic angle whose hyperbolic cosine to calculate.
     value: f64,
@@ -393,11 +401,14 @@ pub fn cosh(
 
 /// Calculates the hyperbolic tangent of a hyperbolic angle.
 ///
+/// The hyperbolic tangent of $x$ is defined as follows:
+/// $ (e^x - e^(-x)) / (e^x + e^(-x)) $
+///
 /// ```example
 /// #calc.tanh(0) \
 /// #calc.tanh(1.5)
 /// ```
-#[func(title = "Hyperbolic Tangent")]
+#[func(title = "Hyperbolic Tangent", since = "forever")]
 pub fn tanh(
     /// The hyperbolic angle whose hyperbolic tangent to calculate.
     value: f64,
@@ -407,11 +418,14 @@ pub fn tanh(
 
 /// Calculates the inverse hyperbolic sine of a number.
 ///
+/// The inverse hyperbolic sine of $x$ is defined as follows:
+/// $ ln(x + sqrt(x^2 + 1)) $
+///
 /// ```example
 /// #calc.asinh(0) \
 /// #calc.asinh(1)
 /// ```
-#[func(title = "Inverse Hyperbolic Sine")]
+#[func(title = "Inverse Hyperbolic Sine", since = "0.15.0")]
 pub fn asinh(
     /// The number whose inverse hyperbolic sine to calculate.
     value: f64,
@@ -421,14 +435,17 @@ pub fn asinh(
 
 /// Calculates the inverse hyperbolic cosine of a number.
 ///
+/// The inverse hyperbolic cosine of $x$ is defined as follows:
+/// $ ln(x + sqrt(x^2 - 1)) $
+///
 /// ```example
 /// #calc.acosh(1) \
 /// #calc.acosh(2.5)
 /// ```
-#[func(title = "Inverse Hyperbolic Cosine")]
+#[func(title = "Inverse Hyperbolic Cosine", since = "0.15.0")]
 pub fn acosh(
     /// The number whose inverse hyperbolic cosine to calculate. Must be greater
-    /// than or equal to 1.
+    /// than or equal to $1$.
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
@@ -440,14 +457,17 @@ pub fn acosh(
 
 /// Calculates the inverse hyperbolic tangent of a number.
 ///
+/// The inverse hyperbolic tangent of $x$ is defined as follows:
+/// $ 1/2 ln((1 + x) / (1 - x)) $
+///
 /// ```example
 /// #calc.atanh(0) \
 /// #calc.atanh(0.5)
 /// ```
-#[func(title = "Inverse Hyperbolic Tangent")]
+#[func(title = "Inverse Hyperbolic Tangent", since = "0.15.0")]
 pub fn atanh(
     /// The number whose inverse hyperbolic tangent to calculate. Must be
-    /// between -1 and 1 (exclusive).
+    /// between $-1$ and $1$ (exclusive).
     value: Spanned<f64>,
 ) -> SourceResult<f64> {
     let val = value.v;
@@ -459,12 +479,12 @@ pub fn atanh(
 
 /// Calculates the logarithm of a number.
 ///
-/// If the base is not specified, the logarithm is calculated in base 10.
+/// If the base is not specified, the logarithm is calculated in base ten.
 ///
 /// ```example
 /// #calc.log(100)
 /// ```
-#[func(title = "Logarithm")]
+#[func(title = "Logarithm", since = "forever")]
 pub fn log(
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
@@ -505,7 +525,7 @@ pub fn log(
 /// ```example
 /// #calc.ln(calc.e)
 /// ```
-#[func(title = "Natural Logarithm")]
+#[func(title = "Natural Logarithm", since = "0.5.0")]
 pub fn ln(
     span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
@@ -526,12 +546,15 @@ pub fn ln(
 
 /// Applies the error function to a number.
 ///
+/// The value of the error function at $x$ is defined as follows:
+/// $ 2 / sqrt(pi) integral_0^x e^(-t^2) dif t $
+///
 /// ```example
 /// #calc.erf(0.2)
 /// ```
-#[func(title = "Error function")]
+#[func(title = "Error Function", since = "0.15.0")]
 pub fn erf(
-    /// The number whose error function to calculate.
+    /// The number at which to calculate the error function.
     value: f64,
 ) -> f64 {
     libm::erf(value)
@@ -542,7 +565,7 @@ pub fn erf(
 /// ```example
 /// #calc.fact(5)
 /// ```
-#[func(title = "Factorial")]
+#[func(title = "Factorial", since = "0.3.0")]
 pub fn fact(
     /// The number whose factorial to calculate. Must be non-negative.
     number: u64,
@@ -552,18 +575,24 @@ pub fn fact(
 
 /// Calculates a permutation.
 ///
-/// Returns the `k`-permutation of `n`, or the number of ways to choose `k`
-/// items from a set of `n` with regard to order.
+/// Returns the $k$-permutation of $n$, or the number of ways to choose $k$
+/// items from a set of $n$ with regard to order, defined as follows:
+/// $
+///   cases(
+///     0 quad &"if" k > n,
+///     (n!) / ((n - k)!) quad &"if" k <= n,
+///   )
+/// $
 ///
 /// ```example
-/// $ "perm"(n, k) &= n!/((n - k)!) \
-///   "perm"(5, 3) &= #calc.perm(5, 3) $
+/// #calc.perm(5, 3)
 /// ```
-#[func(title = "Permutation")]
+#[func(title = "Permutation", since = "0.3.0")]
 pub fn perm(
-    /// The base number. Must be non-negative.
+    /// The value of $n$: The number of items to choose from. Must be
+    /// non-negative.
     base: u64,
-    /// The number of permutations. Must be non-negative.
+    /// The value of $k$: The number of items to choose. Must be non-negative.
     numbers: u64,
 ) -> StrResult<i64> {
     // By convention.
@@ -593,17 +622,24 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 
 /// Calculates a binomial coefficient.
 ///
-/// Returns the `k`-combination of `n`, or the number of ways to choose `k`
-/// items from a set of `n` without regard to order.
+/// Returns the $k$-combination of $n$, or the number of ways to choose $k$
+/// items from a set of $n$ without regard to order, defined as follows:
+/// $
+///   cases(
+///     (n!) / (k! (n - k)!) quad &"if" 0 <= k <= n,
+///     0 quad &"otherwise",
+///   )
+/// $
 ///
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
-#[func(title = "Binomial")]
+#[func(title = "Binomial", since = "0.3.0")]
 pub fn binom(
-    /// The upper coefficient. Must be non-negative.
+    /// The value of $n$: The numbers of items to choose from. Must be
+    /// non-negative.
     n: u64,
-    /// The lower coefficient. Must be non-negative.
+    /// The value of $k$: The number of items to choose. Must be non-negative.
     k: u64,
 ) -> StrResult<i64> {
     Ok(binom_impl(n, k).ok_or_else(too_large)?)
@@ -639,7 +675,7 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
-#[func(title = "Greatest Common Divisor")]
+#[func(title = "Greatest Common Divisor", since = "0.3.0")]
 pub fn gcd(
     /// The first integer.
     a: i64,
@@ -653,7 +689,7 @@ pub fn gcd(
         a = temp;
     }
 
-    Ok(a.abs())
+    Ok(a.checked_abs().ok_or_else(too_large)?)
 }
 
 /// Calculates the least common multiple of two integers.
@@ -661,7 +697,7 @@ pub fn gcd(
 /// ```example
 /// #calc.lcm(96, 13)
 /// ```
-#[func(title = "Least Common Multiple")]
+#[func(title = "Least Common Multiple", since = "0.3.0")]
 pub fn lcm(
     /// The first integer.
     a: i64,
@@ -669,12 +705,12 @@ pub fn lcm(
     b: i64,
 ) -> StrResult<i64> {
     if a == b {
-        return Ok(a.abs());
+        return Ok(a.checked_abs().ok_or_else(too_large)?);
     }
 
     Ok(a.checked_div(gcd(a, b)?)
         .and_then(|gcd| gcd.checked_mul(b))
-        .map(|v| v.abs())
+        .and_then(|v| v.checked_abs())
         .ok_or_else(too_large)?)
 }
 
@@ -682,9 +718,9 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.floor(500.1)
@@ -692,7 +728,7 @@ pub fn lcm(
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(decimal("-3.14")) == -4)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn floor(
     /// The number to round down.
     value: DecNum,
@@ -709,9 +745,9 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.ceil(500.1)
@@ -719,7 +755,7 @@ pub fn floor(
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(decimal("-3.14")) == -3)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn ceil(
     /// The number to round up.
     value: DecNum,
@@ -736,9 +772,9 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting [`float`] or [`decimal`] is larger than the maximum
-/// 64-bit signed integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting @float or @decimal is larger than the maximum 64-bit signed
+/// integer or smaller than the minimum for that type.
 ///
 /// ```example
 /// #calc.trunc(15.9)
@@ -746,7 +782,7 @@ pub fn ceil(
 /// #assert(calc.trunc(-3.7) == -3)
 /// #assert(calc.trunc(decimal("8493.12949582390")) == 8493)
 /// ```
-#[func(title = "Truncate")]
+#[func(title = "Truncate", since = "0.3.0")]
 pub fn trunc(
     /// The number to truncate.
     value: DecNum,
@@ -768,7 +804,7 @@ pub fn trunc(
 /// #assert(calc.fract(3) == 0)
 /// #assert(calc.fract(decimal("234.23949211")) == decimal("0.23949211"))
 /// ```
-#[func(title = "Fractional")]
+#[func(title = "Fractional", since = "0.3.0")]
 pub fn fract(
     /// The number to truncate.
     value: DecNum,
@@ -789,9 +825,9 @@ pub fn fract(
 /// remove before the decimal point.
 ///
 /// Note that this function will return the same type as the operand. That is,
-/// applying `round` to a [`float`] will return a `float`, and to a [`decimal`],
+/// applying `round` to a @float will return a `float`, and to a @decimal,
 /// another `decimal`. You may explicitly convert the output of this function to
-/// an integer with [`int`], but note that such a conversion will error if the
+/// an integer with @int, but note that such a conversion will error if the
 /// `float` or `decimal` is larger than the maximum 64-bit signed integer or
 /// smaller than the minimum integer.
 ///
@@ -814,7 +850,7 @@ pub fn fract(
 /// #assert(calc.round(decimal("3333.45"), digits: -2) == decimal("3300"))
 /// #assert(calc.round(decimal("-48953.45"), digits: -3) == decimal("-49000"))
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn round(
     /// The number to round.
     value: DecNum,
@@ -849,7 +885,7 @@ pub fn round(
 /// #assert(calc.clamp(decimal("5.45"), 2, decimal("45.9")) == decimal("5.45"))
 /// #assert(calc.clamp(decimal("5.45"), decimal("6.75"), 12) == decimal("6.75"))
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn clamp(
     span: Span,
     /// The number to clamp.
@@ -881,11 +917,11 @@ pub fn clamp(
 /// #calc.min(1, -3, -5, 20, 3, 6) \
 /// #calc.min("typst", "is", "cool")
 /// ```
-#[func(title = "Minimum")]
+#[func(title = "Minimum", since = "forever")]
 pub fn min(
     span: Span,
-    /// The sequence of values from which to extract the minimum.
-    /// Must not be empty.
+    /// The sequence of values from which to extract the minimum. Must not be
+    /// empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
@@ -898,11 +934,11 @@ pub fn min(
 /// #calc.max(1, -3, -5, 20, 3, 6) \
 /// #calc.max("typst", "is", "cool")
 /// ```
-#[func(title = "Maximum")]
+#[func(title = "Maximum", since = "forever")]
 pub fn max(
     span: Span,
-    /// The sequence of values from which to extract the maximum.
-    /// Must not be empty.
+    /// The sequence of values from which to extract the maximum. Must not be
+    /// empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
 ) -> SourceResult<Value> {
@@ -937,7 +973,7 @@ fn minmax(
 /// #calc.even(5) \
 /// #range(10).filter(calc.even)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn even(
     /// The number to check for evenness.
     value: i64,
@@ -952,7 +988,7 @@ pub fn even(
 /// #calc.odd(5) \
 /// #range(10).filter(calc.odd)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn odd(
     /// The number to check for oddness.
     value: i64,
@@ -960,12 +996,12 @@ pub fn odd(
     value % 2 != 0
 }
 
-/// Calculates the remainder of two numbers.
+/// Calculates the remainder of two numbers (signed modulo).
 ///
 /// The value `calc.rem(x, y)` always has the same sign as `x`, and is smaller
 /// in magnitude than `y`.
 ///
-/// This can error if given a [`decimal`] input and the dividend is too small in
+/// This can error if given a @decimal input and the dividend is too small in
 /// magnitude compared to the divisor.
 ///
 /// ```example
@@ -975,7 +1011,7 @@ pub fn odd(
 /// #calc.rem(-7, -3) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-#[func(title = "Remainder")]
+#[func(title = "Remainder", since = "0.3.0", keywords = ["modulo", "modulus"])]
 pub fn rem(
     span: Span,
     /// The dividend of the remainder.
@@ -1005,8 +1041,8 @@ pub fn rem(
 /// Performs euclidean division of two numbers.
 ///
 /// The result of this computation is that of a division rounded to the integer
-/// `{n}` such that the dividend is greater than or equal to `{n}` times
-/// the divisor.
+/// `{n}` such that the dividend is greater than or equal to `{n}` times the
+/// divisor.
 ///
 /// This can error if the resulting number is larger than the maximum value or
 /// smaller than the minimum value for its type.
@@ -1019,7 +1055,7 @@ pub fn rem(
 /// #calc.div-euclid(1.75, 0.5) \
 /// #calc.div-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Division")]
+#[func(title = "Euclidean Division", since = "0.10.0")]
 pub fn div_euclid(
     span: Span,
     /// The dividend of the division.
@@ -1044,14 +1080,15 @@ pub fn div_euclid(
         .at(span)
 }
 
-/// This calculates the least nonnegative remainder of a division.
+/// This calculates the least nonnegative remainder of a division (nonnegative
+/// modulo).
 ///
 /// Warning: Due to a floating point round-off error, the remainder may equal
 /// the absolute value of the divisor if the dividend is much smaller in
 /// magnitude than the divisor and the dividend is negative. This only applies
 /// for floating point inputs.
 ///
-/// In addition, this can error if given a [`decimal`] input and the dividend is
+/// In addition, this can error if given a @decimal input and the dividend is
 /// too small in magnitude compared to the divisor.
 ///
 /// ```example
@@ -1062,7 +1099,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(1.75, 0.5) \
 /// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
 /// ```
-#[func(title = "Euclidean Remainder", keywords = ["modulo", "modulus"])]
+#[func(title = "Euclidean Remainder", since = "0.10.0", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(
     span: Span,
     /// The dividend of the remainder.
@@ -1091,16 +1128,16 @@ pub fn rem_euclid(
 
 /// Calculates the quotient (floored division) of two numbers.
 ///
-/// Note that this function will always return an [integer]($int), and will
-/// error if the resulting number is larger than the maximum 64-bit signed
-/// integer or smaller than the minimum for that type.
+/// Note that this function will always return an @int[integer], and will error
+/// if the resulting number is larger than the maximum 64-bit signed integer or
+/// smaller than the minimum for that type.
 ///
 /// ```example
 /// $ "quo"(a, b) &= floor(a/b) \
 ///   "quo"(14, 5) &= #calc.quo(14, 5) \
 ///   "quo"(3.46, 0.5) &= #calc.quo(3.46, 0.5) $
 /// ```
-#[func(title = "Quotient")]
+#[func(title = "Quotient", since = "0.3.0")]
 pub fn quo(
     span: Span,
     /// The dividend of the quotient.
@@ -1135,20 +1172,32 @@ pub fn quo(
     floor(divided).at(span)
 }
 
-/// Calculates the p-norm of a sequence of values.
+/// Calculates the $p$-norm of a sequence of values.
+///
+/// The $p$-norm of $x_1, ..., x_n$ is defined as follows:
+/// $
+///   cases(
+///     (sum_(i=1)^n abs(x_i)^p)^frac(style: "horizontal", 1, p)
+///       quad &"if" 0 < p < +oo,
+///     max_(i=1)^n abs(x_i) quad &"if" p = +oo,
+///   )
+/// $
 ///
 /// ```example
 /// #calc.norm(1, 2, -3, 0.5) \
 /// #calc.norm(p: 3, 1, 2)
 /// ```
-#[func(title = "𝑝-Norm")]
+#[func(title = "𝑝-Norm", since = "0.13.0")]
 pub fn norm(
-    /// The p value to calculate the p-norm of.
+    /// The value of $p$. Must be greater than zero.
+    ///
+    /// The default value of `{2.0}` corresponds to the Euclidean norm:
+    /// $ sqrt(sum_(i=1)^n x_i^2) $
     #[named]
     #[default(Spanned::detached(2.0))]
     p: Spanned<f64>,
-    /// The sequence of values from which to calculate the p-norm.
-    /// Returns `0.0` if empty.
+    /// The sequence of values to calculate the $p$-norm of. Returns `{0.0}`
+    /// if empty.
     #[variadic]
     values: Vec<f64>,
 ) -> SourceResult<f64> {
@@ -1156,14 +1205,21 @@ pub fn norm(
         bail!(p.span, "p must be greater than zero");
     }
 
-    // Create an iterator over the absolute values.
-    let abs = values.into_iter().map(f64::abs);
+    let abs = values.iter().map(|v| f64::abs(*v));
+    let max = abs.clone().max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0);
 
     Ok(if p.v.is_infinite() {
         // When p is infinity, the p-norm is the maximum of the absolute values.
-        abs.max_by(|a, b| a.total_cmp(b)).unwrap_or(0.0)
+        max
+    } else if max == 0.0 {
+        // When the maximum absolute value is 0, the norm is just 0.
+        // This is a special case to avoid division by zero in the trick below.
+        0.0
     } else {
-        libm::pow(abs.map(|v| libm::pow(v, p.v)).sum::<f64>(), 1.0 / p.v)
+        // Compute `max * (sum_i (x_i / max)^p)^(1 / p)` instead of raising
+        // `x_i^p` directly, to avoid overflowing. This is described further in
+        // <https://timvieira.github.io/blog/numerically-stable-p-norms/>.
+        max * libm::pow(abs.map(|v| libm::pow(v / max, p.v)).sum::<f64>(), 1.0 / p.v)
     })
 }
 

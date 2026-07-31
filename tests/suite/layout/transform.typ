@@ -58,6 +58,18 @@ nor #xetex!
   one(angle * 1deg)
 }
 
+--- transform-rotate-180deg paged ---
+// Test that rotation impact layout.
+#set page(width: 200pt)
+#set rotate(reflow: true)
+
+#let one(angle) = box(fill: aqua, rotate(angle)[Test Text\ Test Text])
+#one(0deg)
+#one(180deg)
+
+- #one(0deg)
+- #one(180deg)
+
 --- transform-rotate-relative-sizing paged ---
 // Test relative sizing in rotated boxes.
 #set page(width: 200pt, height: 200pt)

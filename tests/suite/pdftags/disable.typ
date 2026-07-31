@@ -58,3 +58,12 @@ This is the #pdf.artifact[ first paragraph.
 
 And this is the ] second paragraph.
 
+--- background-artifact-1-7 pdf pdfstandard(1.7) ---
+#set page(fill: eastern)
+#rect()
+#pdf.artifact(kind: "background", circle())
+
+--- background-artifact-2-0 pdf pdfstandard(2.0) ---
+#set page(fill: eastern)
+#rect()
+#pdf.artifact(kind: "background", circle())

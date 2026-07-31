@@ -1,6 +1,6 @@
 // Test matrices.
 
---- math-mat-semicolon paged ---
+--- math-mat-semicolon paged html ---
 // Test semicolon syntax.
 #set align(center)
 $mat() dot
@@ -11,7 +11,7 @@ $mat() dot
  mat(1, 2; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
---- math-mat-sparse paged ---
+--- math-mat-sparse paged html ---
 // Test sparse matrix.
 $ mat(
   1, 2, ..., 10;
@@ -20,7 +20,7 @@ $ mat(
   10, 10, ..., 10;
 ) $
 
---- math-mat-baseline paged ---
+--- math-mat-baseline paged html ---
 // Test baseline alignment.
 $ mat(
   a, b^2;
@@ -28,7 +28,7 @@ $ mat(
   zeta, alpha;
 ) $
 
---- math-mat-delim-set paged ---
+--- math-mat-delim-set paged html ---
 // Test alternative delimiter with set rule.
 #set math.mat(delim: "[")
 $ mat(1, 2; 3, 4) $
@@ -62,7 +62,7 @@ $ mat(..#range(1, 5).chunks(2))
 #let nums = ((1,) * 5).intersperse(0).chunks(3)
 $ mat(..nums, delim: "[") $
 
---- math-mat-spread-1d paged ---
+--- math-mat-spread-1d paged html ---
 $ mat(..#range(1, 5) ; 1, ..#range(2, 5))
   mat(..#range(1, 3), ..#range(3, 5) ; ..#range(1, 4), 4) $
 
@@ -78,11 +78,11 @@ $ mat(..nums) mat(..nums;) \
 // Error: 15-16 expected array, found content
 $ mat(..nums, 0, 1) $
 
---- math-mat-gap paged ---
+--- math-mat-gap paged html ---
 #set math.mat(gap: 1em)
 $ mat(1, 2; 3, 4) $
 
---- math-mat-gaps paged ---
+--- math-mat-gaps paged html ---
 #set math.mat(row-gap: 1em, column-gap: 2em)
 $ mat(1, 2; 3, 4) $
 $ mat(column-gap: #1em, 1, 2; 3, 4)
@@ -107,7 +107,7 @@ $ mat(column-gap: #1em, 1, 2; 3, 4)
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #(vline: -4, stroke: 1pt + blue)) $,
 )
 
---- math-mat-augment-set paged ---
+--- math-mat-augment-set paged html ---
 // Test using matrix line drawing with a set rule.
 #set math.mat(augment: (hline: 2, vline: 1, stroke: 2pt + green))
 $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
@@ -117,16 +117,16 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 
 #set math.mat(augment: none)
 
---- math-mat-augment-line-out-of-bounds paged ---
+--- math-mat-augment-line-out-of-bounds paged html ---
 // Error: 3-37 cannot draw a vertical line at offset 4 in a matrix with 3 columns
 $ mat(1, 0, 0; 0, 1, 1; augment: #4) $,
 
---- math-mat-align paged ---
+--- math-mat-align paged html ---
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #left) $
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #center) $
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1; align: #right) $
 
---- math-mat-align-explicit-alternating paged ---
+--- math-mat-align-explicit-alternating paged html ---
 // Test alternating explicit alignment in a matrix.
 $ mat(
   "a" & "a a a" & "a a";
@@ -134,7 +134,7 @@ $ mat(
   "a a a" & "a" & "a a a";
 ) $
 
---- math-mat-align-implicit paged ---
+--- math-mat-align-implicit paged html ---
 // Test alignment in a matrix.
 $ mat(
   "a", "a a a", "a a";
@@ -142,7 +142,7 @@ $ mat(
   "a a a", "a", "a a a";
 ) $
 
---- math-mat-align-explicit-left paged ---
+--- math-mat-align-explicit-left paged html ---
 // Test explicit left alignment in a matrix.
 $ mat(
   &"a", &"a a a", &"a a";
@@ -150,7 +150,7 @@ $ mat(
   &"a a a", &"a", &"a a a";
 ) $
 
---- math-mat-align-explicit-right paged ---
+--- math-mat-align-explicit-right paged html ---
 // Test explicit right alignment in a matrix.
 $ mat(
   "a"&, "a a a"&, "a a"&;
@@ -158,7 +158,7 @@ $ mat(
   "a a a"&, "a"&, "a a a"&;
 ) $
 
---- math-mat-align-explicit-mixed paged ---
+--- math-mat-align-explicit-mixed paged html ---
 // Test explicit alignment in some columns with align parameter in a matrix.
 #let data = (
   ($&18&&.02$, $1$, $+1$),
@@ -169,7 +169,7 @@ $ #math.mat(align: left, ..data) $
 $ #math.mat(align: center, ..data) $
 $ #math.mat(align: right, ..data) $
 
---- math-mat-align-complex paged ---
+--- math-mat-align-complex paged html ---
 // Test #460 equations.
 #let stop = {
   math.class("punctuation",$.$)
@@ -179,14 +179,14 @@ $ mat(&a+b&,c;&d&, e) $
 $ mat(&&&a+b,c;&&&d, e) $
 $ mat(stop &a+b&stop,c;...stop stop&d&...stop stop, e) $
 
---- math-mat-align-signed-numbers paged ---
+--- math-mat-align-signed-numbers paged html ---
 // Test #454 equations.
 $ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
 $ mat(-1&, 1&, 1&; 1&, -1&, 1&; 1&, 1&, -1&) $
 $ mat(-1&, 1&, 1&; 1, -1, 1; 1, 1, -1) $
 $ mat(&-1, &1, &1; 1, -1, 1; 1, 1, -1) $
 
---- math-mat-bad-comma paged ---
+--- math-mat-bad-comma paged html ---
 // Test an old issue with 2d args and named args in math.
 $ mat(1, 2; 3, 4, delim: "[") $
 
@@ -196,7 +196,7 @@ $ mat(B, A B, dots) $
 $ mat(B, A B, dots;) $
 $ mat(#1, #(foo: "bar")) $
 
---- issue-2268-mat-augment-color paged ---
+--- issue-2268-mat-augment-color paged html ---
 // The augment line should be of the same color as the text
 #set text(
   font: "New Computer Modern",
@@ -206,7 +206,7 @@ $ mat(#1, #(foo: "bar")) $
 
 $mat(augment: #1, M, v) arrow.r.squiggly mat(augment: #1, R, b)$
 
---- math-mat-delims paged ---
+--- math-mat-delims paged html ---
 $ mat(delim: #none, 1, 2; 3, 4) $
 
 $ mat(delim: "(", 1, 2; 3, 4) $
@@ -234,7 +234,7 @@ $ mat(delim: bar.v.double, 1, 2; 3, 4) $
 $ mat(delim: "⟨", 1, 2; 3, 4) $
 $ mat(delim: chevron.l, 1, 2; 3, 4) $
 
---- math-mat-delims-inverted paged ---
+--- math-mat-delims-inverted paged html ---
 $ mat(delim: ")", 1, 2; 3, 4) $
 $ mat(delim: \), 1, 2; 3, 4) $
 $ mat(delim: paren.r, 1, 2; 3, 4) $
@@ -253,29 +253,32 @@ $ mat(delim: brace.r, 1, 2; 3, 4) $
 $ mat(delim: "⟩", 1, 2; 3, 4) $
 $ mat(delim: chevron.r, 1, 2; 3, 4) $
 
---- math-mat-delims-pair paged ---
+--- math-mat-delims-pair paged html ---
 $ mat(delim: #(none, "["), 1, 2; 3, 4) $
 $ mat(delim: #(sym.chevron.r, sym.bracket.stroked.r), 1, 2; 3, 4) $
 
---- math-mat-linebreaks paged ---
+--- math-mat-linebreaks paged html ---
 // Warning: 20-29 linebreaks are ignored in cells
 // Hint: 20-29 use commas instead to separate each line
 $ mat(a; b; c) mat(a \ b \ c) $
 
---- math-mat-linebreaks-trailing paged ---
+--- math-mat-linebreaks-trailing paged html ---
 // Warning: 7-10 linebreaks are ignored in cells
 // Hint: 7-10 use commas instead to separate each line
 $ mat(a \ ) $
 
---- math-mat-vec-cases-unity paged ---
+--- math-mat-vec-cases-unity paged html ---
 // Test that matrices, vectors, and cases are all laid out the same.
 $ mat(z_(n_p); a^2)
   vec(z_(n_p), a^2)
   cases(reverse: #true, delim: \(, z_(n_p), a^2)
   cases(delim: \(, z_(n_p), a^2) $
 
---- issue-1617-mat-align paged ---
-#set page(width: auto)
+--- issue-1617-mat-align paged html ---
+#show: it => context {
+  set page(width: auto) if target() == "paged"
+  it
+}
 $ mat(a, b; c, d) mat(x; y) $
 
 $ x mat(a; c) + y mat(b; d)
@@ -289,7 +292,7 @@ $ mat(
   )
   mat(p_0; p_1; p_2; dots.v) $
 
---- math-mat-delim-class paged ---
+--- math-mat-delim-class paged html ---
 // Test that delimiters have opening and closing math class.
 $ 2mat(a, delim: bar.v) 2 $
 $ 2 mat(a, delim: bar.v)2 $

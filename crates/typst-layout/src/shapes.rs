@@ -323,7 +323,7 @@ pub fn layout_polygon(
         bail!(elem.span(), "cannot create polygon with infinite size");
     }
 
-    let mut frame = Frame::hard(size);
+    let mut frame = Frame::soft(size);
 
     // Only create a curve if there are more than zero points.
     if points.is_empty() {
@@ -483,7 +483,7 @@ impl ShapeKind {
 }
 
 /// Layout a shape.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_shape(
     engine: &mut Engine,
     locator: Locator,
@@ -650,7 +650,7 @@ pub fn clip_rect(
                 corner.start_inner(),
                 corner.center_inner(),
                 corner.end_inner(),
-            )
+            );
         } else {
             curve.line(corner.center_inner());
         }
@@ -689,7 +689,7 @@ pub fn styled_rect(
     fill: Option<Paint>,
     stroke: &Sides<Option<FixedStroke>>,
 ) -> Vec<Shape> {
-    if stroke.is_uniform() && radius.iter().cloned().all(Rel::is_zero) {
+    if stroke.is_uniform() && radius.iter().copied().all(Rel::is_zero) {
         simple_rect(size, fill, stroke.top.clone())
     } else {
         segmented_rect(size, radius, fill, stroke)
@@ -782,7 +782,7 @@ fn segmented_rect(
             curve.arc_move(c.start(), c.center(), c.end());
         } else {
             curve.move_(c.center());
-        };
+        }
 
         for corner in [Corner::TopRight, Corner::BottomRight, Corner::BottomLeft] {
             let c = corners.get_ref(corner);

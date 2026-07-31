@@ -5,7 +5,7 @@ use std::ops::{Add, Div, Mul, Neg};
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::Span;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, NumericLength};
 
 use crate::diag::{HintedStrResult, SourceResult, bail};
 use crate::foundations::{Context, Fold, Repr, Resolve, StyleChain, func, scope, ty};
@@ -23,7 +23,7 @@ use crate::layout::{Abs, Em};
 ///
 /// You can multiply lengths with and divide them by integers and floats.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #rect(width: 20pt)
 /// #rect(width: 2em)
@@ -35,11 +35,11 @@ use crate::layout::{Abs, Em};
 /// #(5em).abs
 /// ```
 ///
-/// # Fields
+/// = Fields <fields>
 /// - `abs`: A length with just the absolute component of the current length
 ///   (that is, excluding the `em` component).
-/// - `em`: The amount of `em` units in this length, as a [float].
-#[ty(scope, cast)]
+/// - `em`: The amount of `em` units in this length, as a @float[float].
+#[ty(scope, cast, since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Length {
     /// The absolute part.
@@ -101,7 +101,7 @@ impl Length {
     /// `5em + 2pt` instead of just `2pt`). Use the `abs` field (such as in
     /// `(5em + 2pt).abs.pt()`) to ignore the `em` component of the length (thus
     /// converting only its absolute component).
-    #[func(name = "pt", title = "Points")]
+    #[func(name = "pt", title = "Points", since = "0.7.0")]
     pub fn to_pt(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "pt")?;
         Ok(self.abs.to_pt())
@@ -110,8 +110,8 @@ impl Length {
     /// Converts this length to millimeters.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
-    #[func(name = "mm", title = "Millimeters")]
+    /// @length.pt[`pt`] method for more details.
+    #[func(name = "mm", title = "Millimeters", since = "0.7.0")]
     pub fn to_mm(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "mm")?;
         Ok(self.abs.to_mm())
@@ -120,8 +120,8 @@ impl Length {
     /// Converts this length to centimeters.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
-    #[func(name = "cm", title = "Centimeters")]
+    /// @length.pt[`pt`] method for more details.
+    #[func(name = "cm", title = "Centimeters", since = "0.7.0")]
     pub fn to_cm(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "cm")?;
         Ok(self.abs.to_cm())
@@ -130,8 +130,8 @@ impl Length {
     /// Converts this length to inches.
     ///
     /// Fails with an error if this length has non-zero `em` units. See the
-    /// [`pt`]($length.pt) method for more details.
-    #[func(name = "inches")]
+    /// @length.pt[`pt`] method for more details.
+    #[func(name = "inches", since = "0.7.0")]
     pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "inches")?;
         Ok(self.abs.to_inches())
@@ -154,7 +154,7 @@ impl Length {
     ///   #(10em).to-absolute()
     /// ]
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn to_absolute(&self, context: Tracked<Context>) -> HintedStrResult<Length> {
         Ok(self.resolve(context.styles()?).into())
     }
@@ -179,6 +179,8 @@ impl Repr for Length {
         }
     }
 }
+
+impl NumericLength for Length {}
 
 impl Numeric for Length {
     fn zero() -> Self {

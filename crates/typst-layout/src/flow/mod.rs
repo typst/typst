@@ -14,7 +14,6 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::World;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
@@ -27,9 +26,10 @@ use typst_library::layout::{
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
-use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind, Routines};
+use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
-use typst_utils::{NonZeroExt, Numeric, Protected};
+use typst_library::{Library, World};
+use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
 use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
@@ -61,8 +61,8 @@ pub fn layout_fragment(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     layout_fragment_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -71,8 +71,11 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        ColumnOptions {
+            count: NonZeroUsize::ONE,
+            balanced: false,
+            gutter: Rel::zero(),
+        },
     )
 }
 
@@ -89,8 +92,8 @@ pub fn layout_columns(
     regions: Regions,
 ) -> SourceResult<Fragment> {
     layout_fragment_impl(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.introspector.into_raw(),
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
@@ -99,17 +102,20 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        ColumnOptions {
+            count: elem.count.get(styles),
+            balanced: elem.balanced.get(styles),
+            gutter: elem.gutter.resolve(styles),
+        },
     )
 }
 
 /// The cached, internal implementation of [`layout_fragment`].
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_fragment_impl(
-    routines: &Routines,
     world: Tracked<dyn World + '_>,
+    library: &LazyHash<Library>,
     introspector: Tracked<dyn Introspector + '_>,
     traced: Tracked<Traced>,
     sink: TrackedMut<Sink>,
@@ -118,8 +124,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -132,7 +137,7 @@ fn layout_fragment_impl(
     let link = LocatorLink::new(locator);
     let mut locator = Locator::link(&link).split();
     let mut engine = Engine {
-        routines,
+        library,
         world,
         introspector,
         traced,
@@ -144,8 +149,8 @@ fn layout_fragment_impl(
 
     let mut kind = FragmentKind::Block;
     let arenas = Arenas::default();
-    let children = (engine.routines.realize)(
-        RealizationKind::LayoutFragment { kind: &mut kind },
+    let children = (engine.library.routines.realize)(
+        RealizationKind::Fragment { kind: &mut kind },
         &mut engine,
         &mut locator,
         &arenas,
@@ -159,8 +164,7 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
-        column_gutter,
+        column,
         kind.into(),
     )
 }
@@ -187,19 +191,17 @@ impl From<FragmentKind> for FlowMode {
 }
 
 /// Lays out realized content into regions, potentially with columns.
-#[allow(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, column, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -238,23 +240,28 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
         mode,
         shared,
         columns: {
-            let mut count = columns.get();
+            let mut count = column.count.get();
             if !regions.size.x.is_finite() {
                 count = 1;
             }
 
-            let gutter = column_gutter.relative_to(regions.base().x);
+            let gutter = column.gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+            ColumnConfig {
+                count,
+                width,
+                gutter,
+                dir,
+                balanced: column.balanced,
+            }
         },
         footnote: FootnoteConfig {
             separator: shared
@@ -352,6 +359,17 @@ impl<'a, 'b> Work<'a, 'b> {
     }
 }
 
+/// Options defining the column layout.
+#[derive(Hash)]
+pub struct ColumnOptions {
+    /// The number of columns.
+    pub count: NonZeroUsize,
+    /// Whether column heights are to be equalized.
+    pub balanced: bool,
+    /// The spacing between columns.
+    pub gutter: Rel<Abs>,
+}
+
 /// Shared configuration for the whole flow.
 struct Config<'x> {
     /// Whether this is the root flow, which can host footnotes and line
@@ -391,6 +409,8 @@ struct ColumnConfig {
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,
+    /// Whether to equalize the height of columns by breaking columns early.
+    balanced: bool,
 }
 
 /// Configuration of line numbers.

@@ -334,7 +334,7 @@ fn breakable_pod<'a>(
             // region.
             last = None;
         }
-    };
+    }
 
     // Resolve the horizontal sizing to a concrete width and combine
     // `width` and `first` into `size`.

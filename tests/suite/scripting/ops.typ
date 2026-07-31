@@ -32,8 +32,8 @@
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 
 --- ops-add-too-large eval ---
-// Error: 3-26 value is too large
-#(9223372036854775807 + 1)
+// Error: 3-14 value is too large
+#(int.max + 1)
 
 --- ops-binary-basic eval ---
 // Subtraction.
@@ -386,7 +386,7 @@ $harpoon(i, dotless: #not false)$
 #test({2*}, 2)
 
 --- ops-bad-token-rhs eval ---
-// Error: 7-10 invalid number suffix: p
+// Error: 7-10 invalid number suffix: `p`
 #(1 + 12p)
 // Error: 7-8 the character `~` is not valid in code
 #(1 / ~)

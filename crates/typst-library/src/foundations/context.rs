@@ -5,7 +5,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Args, Construct, Content, Func, ShowFn, StyleChain, Value, elem,
 };
-use crate::introspection::{Locatable, Location};
+use crate::introspection::Location;
 
 /// Data that is contextually made available to code.
 ///

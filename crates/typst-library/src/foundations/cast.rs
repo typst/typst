@@ -274,7 +274,7 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
                 Ok(packed) => return Ok(packed),
                 Err(content) => {
                     span = content.span();
-                    value = Value::Content(content)
+                    value = Value::Content(content);
                 }
             }
         }
@@ -388,7 +388,7 @@ impl CastInfo {
             }
         }
 
-        inner(self, &mut f)
+        inner(self, &mut f);
     }
 }
 
@@ -515,6 +515,10 @@ cast! {
     /// A delimiter that is the same on both sides, e.g. `|`.
     "fence" => MathClass::Fence,
     /// A large operator like `sum`.
+    ///
+    /// If the body is a single glyph, this class vertically centers it on the
+    /// math axis (where the fraction line sits) and stretches it vertically
+    /// when in @math.display[`display`] style.
     "large" => MathClass::Large,
     /// A relation like `=` or `prec`.
     "relation" => MathClass::Relation,
@@ -524,6 +528,8 @@ cast! {
     "binary" => MathClass::Binary,
     /// An operator that can be both unary or binary like `+`.
     "vary" => MathClass::Vary,
+    /// An accent character.
+    "diacritic" => MathClass::Diacritic,
 }
 
 /// A type that contains a user-visible source portion and something that is

@@ -1,4 +1,3 @@
-use crate::introspection::Tagged;
 use ttf_parser::Tag;
 
 use crate::foundations::{Content, Smart, elem};
@@ -9,11 +8,11 @@ use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 ///
 /// The text is rendered smaller and its baseline is lowered.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript", Tagged)]
+#[elem(title = "Subscript", since = "forever", Tagged)]
 pub struct SubElem {
     /// Whether to use subscript glyphs from the font if available.
     ///
@@ -44,7 +43,7 @@ pub struct SubElem {
     /// not define the necessary metrics.
     ///
     /// When using multiple fonts, it might be necessary to set `baseline` and
-    /// [`size`]($sub.size) explicitly. See [`super`]($super.baseline) for an
+    /// @sub.size[`size`] explicitly. See @super.baseline[`super`] for an
     /// example.
     pub baseline: Smart<Length>,
 
@@ -68,11 +67,11 @@ pub struct SubElem {
 ///
 /// The text is rendered smaller and its baseline is raised.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript", Tagged)]
+#[elem(title = "Superscript", since = "forever", Tagged)]
 pub struct SuperElem {
     /// Whether to use superscript glyphs from the font if available.
     ///
@@ -106,7 +105,7 @@ pub struct SuperElem {
     /// to provide a negative value for the content to appear as raised above
     /// the normal baseline.
     ///
-    /// Sometimes it is necessary to set `baseline` and [`size`]($super.size)
+    /// Sometimes it is necessary to set `baseline` and @super.size[`size`]
     /// explicitly. In the following example, the superscripted text uses
     /// multiple fonts with incompatible metrics. To avoid misalignment, we
     /// override the metrics for all fonts.

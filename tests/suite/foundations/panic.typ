@@ -12,12 +12,12 @@
 
 --- panic-str eval ---
 // But usually we panic with an error message.
-// Error: 2-24 panicked with: "this is wrong"
+// Error: 2-24 panicked with: this is wrong
 #panic("this is wrong")
 
 --- panic-multiline eval ---
 // Test panic with a multiline string.
-// Error: 1:2-2:7 panicked with: "oops\noops\noops"
+// Error: 1:2-2:7 panicked with: oops\noops\noops
 #panic("oops\noops
 oops")
 
@@ -26,3 +26,7 @@ oops")
 // Error: 1:2-2:5 panicked with: raw(text: "\\n\n\\n", block: false)
 #panic(`\n
 \n`)
+
+--- issue-5219-panic-escaped-quotes eval ---
+// Error: 2-42 panicked with: use an identifier like "math"
+#panic("use an identifier like \"math\"")

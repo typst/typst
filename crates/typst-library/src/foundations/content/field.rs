@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 use std::sync::OnceLock;
 
 use ecow::{EcoString, eco_format};
+use typst_utils::DefSite;
 
 use crate::foundations::{
     Container, Content, FieldVtable, Fold, FoldFn, IntoValue, NativeElement, Packed,
@@ -59,6 +60,7 @@ pub trait RequiredField<const I: u8>: NativeElement {
 pub struct RequiredFieldData<E: RequiredField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     get: fn(&E) -> &E::Type,
 }
 
@@ -67,9 +69,10 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         get: fn(&E) -> &E::Type,
     ) -> Self {
-        Self { name, docs, get }
+        Self { name, docs, def_site, get }
     }
 
     /// Creates the vtable for a `#[required]` field.
@@ -81,6 +84,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: true,
             required: true,
             variadic: false,
@@ -91,7 +95,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
             has: |_| true,
             get: |elem| Some((E::FIELD.get)(elem).clone().into_value()),
             get_with_styles: |elem, _| Some((E::FIELD.get)(elem).clone().into_value()),
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |a, b| (E::FIELD.get)(a) == (E::FIELD.get)(b),
         }
@@ -107,6 +111,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: true,
             required: true,
             variadic: true,
@@ -117,7 +122,7 @@ impl<E: RequiredField<I>, const I: u8> RequiredFieldData<E, I> {
             has: |_| true,
             get: |elem| Some((E::FIELD.get)(elem).clone().into_value()),
             get_with_styles: |elem, _| Some((E::FIELD.get)(elem).clone().into_value()),
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |a, b| (E::FIELD.get)(a) == (E::FIELD.get)(b),
         }
@@ -136,6 +141,7 @@ pub trait SynthesizedField<const I: u8>: NativeElement {
 pub struct SynthesizedFieldData<E: SynthesizedField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     get: fn(&E) -> &Option<E::Type>,
 }
 
@@ -144,9 +150,10 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         get: fn(&E) -> &Option<E::Type>,
     ) -> Self {
-        Self { name, docs, get }
+        Self { name, docs, def_site, get }
     }
 
     /// Creates type-erased metadata and routines for a `#[synthesized]` field.
@@ -158,6 +165,7 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: false,
             required: false,
             variadic: false,
@@ -170,7 +178,7 @@ impl<E: SynthesizedField<I>, const I: u8> SynthesizedFieldData<E, I> {
             get_with_styles: |elem, _| {
                 (E::FIELD.get)(elem).clone().map(|v| v.into_value())
             },
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             // Synthesized fields don't affect equality.
             eq: |_, _| true,
@@ -189,6 +197,7 @@ pub trait ExternalField<const I: u8>: NativeElement {
 pub struct ExternalFieldData<E: ExternalField<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     default: fn() -> E::Type,
 }
 
@@ -197,9 +206,10 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         default: fn() -> E::Type,
     ) -> Self {
-        Self { name, docs, default }
+        Self { name, docs, def_site, default }
     }
 
     /// Creates type-erased metadata and routines for an `#[external]` field.
@@ -211,6 +221,7 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: false,
             required: false,
             variadic: false,
@@ -221,7 +232,7 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
             has: |_| false,
             get: |_| None,
             get_with_styles: |_, _| None,
-            get_from_styles: |_| None,
+            get_from_styles: None,
             materialize: |_, _| {},
             eq: |_, _| true,
         }
@@ -245,9 +256,11 @@ pub struct SettableFieldData<E: SettableField<I>, const I: u8> {
 
 impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
     /// Creates the data from its parts. This is called in the `#[elem]` macro.
+    #[expect(clippy::too_many_arguments)]
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         positional: bool,
         get: fn(&E) -> &Settable<E, I>,
         get_mut: fn(&mut E) -> &mut Settable<E, I>,
@@ -257,7 +270,9 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
         Self {
             get,
             get_mut,
-            property: SettablePropertyData::new(name, docs, positional, default, slot),
+            property: SettablePropertyData::new(
+                name, docs, def_site, positional, default, slot,
+            ),
         }
     }
 
@@ -280,6 +295,7 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
         FieldVtable {
             name: E::FIELD.property.name,
             docs: E::FIELD.property.docs,
+            def_site: E::FIELD.property.def_site,
             positional: E::FIELD.property.positional,
             required: false,
             variadic: false,
@@ -292,9 +308,9 @@ impl<E: SettableField<I>, const I: u8> SettableFieldData<E, I> {
             get_with_styles: |elem, styles| {
                 Some((E::FIELD.get)(elem).get_cloned(styles).into_value())
             },
-            get_from_styles: |styles| {
-                Some(styles.get_cloned::<E, I>(Field::new()).into_value())
-            },
+            get_from_styles: Some(|styles| {
+                styles.get_cloned::<E, I>(Field::new()).into_value()
+            }),
             materialize: |elem, styles| {
                 if !(E::FIELD.get)(elem).is_set() {
                     (E::FIELD.get_mut)(elem).set(styles.get_cloned::<E, I>(Field::new()));
@@ -348,6 +364,7 @@ where
 pub struct SettablePropertyData<E: SettableProperty<I>, const I: u8> {
     name: &'static str,
     docs: &'static str,
+    def_site: DefSite,
     positional: bool,
     default: fn() -> E::Type,
     slot: fn() -> &'static OnceLock<E::Type>,
@@ -359,11 +376,20 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
     pub const fn new(
         name: &'static str,
         docs: &'static str,
+        def_site: DefSite,
         positional: bool,
         default: fn() -> E::Type,
         slot: fn() -> &'static OnceLock<E::Type>,
     ) -> Self {
-        Self { name, docs, positional, default, slot, fold: None }
+        Self {
+            name,
+            docs,
+            def_site,
+            positional,
+            default,
+            slot,
+            fold: None,
+        }
     }
 
     /// Ensures that the property is folded on every access. See the
@@ -384,6 +410,7 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
         FieldVtable {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
+            def_site: E::FIELD.def_site,
             positional: E::FIELD.positional,
             required: false,
             variadic: false,
@@ -396,9 +423,9 @@ impl<E: SettableProperty<I>, const I: u8> SettablePropertyData<E, I> {
             get_with_styles: |_, styles| {
                 Some(styles.get_cloned::<E, I>(Field::new()).into_value())
             },
-            get_from_styles: |styles| {
-                Some(styles.get_cloned::<E, I>(Field::new()).into_value())
-            },
+            get_from_styles: Some(|styles| {
+                styles.get_cloned::<E, I>(Field::new()).into_value()
+            }),
             materialize: |_, _| {},
             eq: |_, _| true,
         }
@@ -456,7 +483,7 @@ where
 
     /// Retrieves the value given styles. The styles are used if the value is
     /// unset.
-    pub fn get<'a>(&'a self, styles: StyleChain<'a>) -> E::Type
+    pub fn get(&self, styles: StyleChain) -> E::Type
     where
         E::Type: Copy,
     {
@@ -465,7 +492,7 @@ where
 
     /// Retrieves and clones the value given styles. The styles are used if the
     /// value is unset or if it needs folding.
-    pub fn get_cloned<'a>(&'a self, styles: StyleChain<'a>) -> E::Type {
+    pub fn get_cloned(&self, styles: StyleChain) -> E::Type {
         if let Some(fold) = E::FOLD {
             let mut res = styles.get_cloned::<E, I>(Field::new());
             if let Some(value) = &self.0 {
@@ -493,7 +520,7 @@ where
     }
 
     /// Retrieves the value and then immediately [resolves](Resolve) it.
-    pub fn resolve<'a>(&'a self, styles: StyleChain<'a>) -> <E::Type as Resolve>::Output
+    pub fn resolve(&self, styles: StyleChain) -> <E::Type as Resolve>::Output
     where
         E::Type: Resolve,
     {

@@ -25,6 +25,23 @@ fn test_compile_pdf() {
 }
 
 #[test]
+fn test_compile_pdf_version() {
+    let project = tempfs();
+    let output = exec().arg("--version").must_succeed();
+    let version = output
+        .stdout
+        .lines()
+        .flat_map(|line| line.split_whitespace())
+        .nth(1)
+        .unwrap();
+    let hello = project.write("hello.typ", "Hi");
+    exec().arg("compile").arg(&hello).must_succeed();
+    project
+        .read("hello.pdf")
+        .must_contain(format!("/Creator(Typst {version})").as_bytes());
+}
+
+#[test]
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);
@@ -229,6 +246,13 @@ fn test_tracepoints() {
         .must_contain("while showing strong element at")
         .must_contain("main.typ:2:11")
         .must_contain("*Slightly unusual…*");
+}
+
+#[test]
+fn test_target_available() {
+    let project = tempfs();
+    let main = project.write("main.typ", "#context target()");
+    exec().arg("compile").arg(&main).must_succeed();
 }
 
 /// Executes a command with the Typst CLI.

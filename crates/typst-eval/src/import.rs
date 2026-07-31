@@ -235,8 +235,8 @@ fn import_file(engine: &mut Engine, id: FileId, span: Span) -> SourceResult<Modu
 
     // Evaluate the file.
     eval(
-        engine.routines,
         engine.world,
+        engine.library,
         engine.traced,
         TrackedMut::reborrow_mut(&mut engine.sink),
         engine.route.track(),

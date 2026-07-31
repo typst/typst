@@ -1,18 +1,17 @@
 use crate::foundations::{Content, Smart, elem};
-use crate::introspection::{Locatable, Tagged};
 use crate::layout::{Abs, Corners, Length, Rel, Sides};
 use crate::text::{BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 use crate::visualize::{Color, FixedStroke, Paint, Stroke};
 
 /// Underlines text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #underline[important].
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "forever", Locatable, Tagged)]
 pub struct UnderlineElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -60,9 +59,9 @@ pub struct UnderlineElem {
     /// Whether the line is placed behind the content it underlines.
     ///
     /// ```example
-    /// #set underline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
-    /// #underline(background: true)[This is stylized.] \
-    /// #underline(background: false)[This is partially hidden.]
+    /// #set underline(stroke: aqua + 5pt, evade: false)
+    /// #underline(background: true)[Fully visible.] \
+    /// #underline(background: false)[Partially hidden.]
     /// ```
     #[default(false)]
     pub background: bool,
@@ -74,13 +73,13 @@ pub struct UnderlineElem {
 
 /// Adds a line over text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #overline[A line over text.]
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "forever", Locatable, Tagged)]
 pub struct OverlineElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -134,9 +133,9 @@ pub struct OverlineElem {
     /// Whether the line is placed behind the content it overlines.
     ///
     /// ```example
-    /// #set overline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
-    /// #overline(background: true)[This is stylized.] \
-    /// #overline(background: false)[This is partially hidden.]
+    /// #set overline(stroke: aqua + 5pt)
+    /// #overline(background: true)[Fully visible.] \
+    /// #overline(background: false)[Partially hidden.]
     /// ```
     #[default(false)]
     pub background: bool,
@@ -148,13 +147,13 @@ pub struct OverlineElem {
 
 /// Strikes through text.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
-#[elem(title = "Strikethrough", Locatable, Tagged)]
+#[elem(title = "Strikethrough", since = "forever", Locatable, Tagged)]
 pub struct StrikeElem {
-    /// How to [stroke] the line.
+    /// How to @stroke[stroke] the line.
     ///
     /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
@@ -193,7 +192,7 @@ pub struct StrikeElem {
     /// Whether the line is placed behind the content.
     ///
     /// ```example
-    /// #set strike(stroke: red)
+    /// #set strike(stroke: red + 2pt)
     /// #strike(background: true)[This is behind.] \
     /// #strike(background: false)[This is in front.]
     /// ```
@@ -207,11 +206,11 @@ pub struct StrikeElem {
 
 /// Highlights text with a background color.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// This is #highlight[important].
 /// ```
-#[elem(Locatable, Tagged)]
+#[elem(since = "0.8.0", Locatable, Tagged)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
     ///
@@ -224,7 +223,7 @@ pub struct HighlightElem {
     pub fill: Option<Paint>,
 
     /// The highlight's border color. See the
-    /// [rectangle's documentation]($rect.stroke) for more details.
+    /// @rect.stroke[rectangle's documentation] for more details.
     ///
     /// ```example
     /// This is a #highlight(
@@ -258,8 +257,8 @@ pub struct HighlightElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
     pub bottom_edge: BottomEdge,
 
-    /// The amount by which to extend the background to the sides beyond
-    /// (or within if negative) the content.
+    /// The amount by which to extend the background to the sides beyond (or
+    /// within if negative) the content.
     ///
     /// ```example
     /// A long #highlight(extent: 4pt)[background].
@@ -267,7 +266,7 @@ pub struct HighlightElem {
     pub extent: Length,
 
     /// How much to round the highlight's corners. See the
-    /// [rectangle's documentation]($rect.radius) for more details.
+    /// @rect.radius[rectangle's documentation] for more details.
     ///
     /// ```example
     /// Listen #highlight(
@@ -294,7 +293,7 @@ pub struct Decoration {
 
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 pub enum DecoLine {
     Underline {
         stroke: Stroke<Abs>,

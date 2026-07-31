@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 
 use ecow::EcoString;
 
@@ -13,10 +14,10 @@ use crate::foundations::{
 /// The auto type has exactly one value: `{auto}`.
 ///
 /// Parameters that support the `{auto}` value have some smart default or
-/// contextual behaviour. A good example is the [text direction]($text.dir)
+/// contextual behaviour. A good example is the @text.dir[text direction]
 /// parameter. Setting it to `{auto}` lets Typst automatically determine the
-/// direction from the [text language]($text.lang).
-#[ty(cast, name = "auto")]
+/// direction from the @text.lang[text language].
+#[ty(cast, name = "auto", since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AutoValue;
 
@@ -95,6 +96,17 @@ impl<T> Smart<T> {
 
     /// Returns a `Smart<&T>` borrowing the inner `T`.
     pub fn as_ref(&self) -> Smart<&T> {
+        match self {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(v) => Smart::Custom(v),
+        }
+    }
+
+    /// Returns a `Smart<&T::Target>`, derefercing the inner `T`.
+    pub fn as_deref(&self) -> Smart<&T::Target>
+    where
+        T: Deref,
+    {
         match self {
             Smart::Auto => Smart::Auto,
             Smart::Custom(v) => Smart::Custom(v),
@@ -192,8 +204,6 @@ impl<T> Smart<T> {
     where
         T: Default,
     {
-        // we want to do this; the Clippy lint is not type-aware
-        #[allow(clippy::unwrap_or_default)]
         self.unwrap_or_else(T::default)
     }
 }

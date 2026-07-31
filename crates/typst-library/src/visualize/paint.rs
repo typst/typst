@@ -20,7 +20,7 @@ impl Paint {
     /// Unwraps a solid color used for text rendering.
     pub fn unwrap_solid(&self) -> Color {
         match self {
-            Self::Solid(color) => *color,
+            Self::Solid(color) => color.clone(),
             Self::Gradient(_) | Self::Tiling(_) => panic!("expected solid color"),
         }
     }
@@ -40,7 +40,7 @@ impl Paint {
     /// relative set to [`RelativeTo::Parent`].
     pub fn as_decoration(&self) -> Self {
         match self {
-            Self::Solid(color) => Self::Solid(*color),
+            Self::Solid(color) => Self::Solid(color.clone()),
             Self::Gradient(gradient) => {
                 Self::Gradient(gradient.clone().with_relative(RelativeTo::Parent))
             }

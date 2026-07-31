@@ -105,7 +105,7 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
                 #constructor
             }
 
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
                 #(#definitions;)*
@@ -215,7 +215,7 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident_ext: &syn::Ident) -> Token
 
     let self_ty = &item.self_ty;
     quote! {
-        #[allow(non_camel_case_types)]
+        #[expect(non_camel_case_types)]
         trait #ident_ext {
             #(#sigs)*
         }

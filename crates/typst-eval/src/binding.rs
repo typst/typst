@@ -70,7 +70,7 @@ where
         ast::Pattern::Normal(expr) => f(vm, expr, value)?,
         ast::Pattern::Placeholder(_) => {}
         ast::Pattern::Parenthesized(parenthesized) => {
-            destructure_impl(vm, parenthesized.pattern(), value, f)?
+            destructure_impl(vm, parenthesized.pattern(), value, f)?;
         }
         ast::Pattern::Destructuring(destruct) => match value {
             Value::Array(value) => destructure_array(vm, destruct, value, f)?,

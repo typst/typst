@@ -5,20 +5,20 @@ use crate::layout::{Axis, Side};
 
 /// The four directions into which content can be laid out.
 ///
-///  Possible values are:
+/// Possible values are:
 /// - `{ltr}`: Left to right.
 /// - `{rtl}`: Right to left.
 /// - `{ttb}`: Top to bottom.
 /// - `{btt}`: Bottom to top.
 ///
-/// These values are available globally and
-/// also in the direction type's scope, so you can write either of the following
-/// two:
+/// These values are available globally and also in the direction type's scope,
+/// so you can write either of the following two:
+///
 /// ```example
 /// #stack(dir: rtl)[A][B][C]
 /// #stack(dir: direction.rtl)[A][B][C]
 /// ```
-#[ty(scope, name = "direction")]
+#[ty(scope, name = "direction", since = "forever")]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
@@ -58,7 +58,7 @@ impl Dir {
     /// #direction.from(top) \
     /// #direction.from(bottom)
     /// ```
-    #[func]
+    #[func(since = "0.14.0")]
     pub const fn from(side: Side) -> Dir {
         match side {
             Side::Left => Self::LTR,
@@ -76,7 +76,7 @@ impl Dir {
     /// #direction.to(top) \
     /// #direction.to(bottom)
     /// ```
-    #[func]
+    #[func(since = "0.14.0")]
     pub const fn to(side: Side) -> Dir {
         match side {
             Side::Right => Self::LTR,
@@ -93,7 +93,7 @@ impl Dir {
     /// #ltr.axis() \
     /// #ttb.axis()
     /// ```
-    #[func]
+    #[func(since = "0.7.0")]
     pub const fn axis(self) -> Axis {
         match self {
             Self::LTR | Self::RTL => Axis::X,
@@ -109,7 +109,7 @@ impl Dir {
     /// #ttb.sign() \
     /// #btt.sign()
     /// ```
-    #[func]
+    #[func(since = "0.14.0")]
     pub const fn sign(self) -> i64 {
         match self {
             Self::LTR | Self::TTB => 1,
@@ -125,7 +125,7 @@ impl Dir {
     /// #ttb.start() \
     /// #btt.start()
     /// ```
-    #[func]
+    #[func(since = "0.7.0")]
     pub const fn start(self) -> Side {
         match self {
             Self::LTR => Side::Left,
@@ -143,7 +143,7 @@ impl Dir {
     /// #ttb.end() \
     /// #btt.end()
     /// ```
-    #[func]
+    #[func(since = "0.7.0")]
     pub const fn end(self) -> Side {
         match self {
             Self::LTR => Side::Right,
@@ -161,7 +161,7 @@ impl Dir {
     /// #ttb.inv() \
     /// #btt.inv()
     /// ```
-    #[func(title = "Inverse")]
+    #[func(title = "Inverse", since = "forever")]
     pub const fn inv(self) -> Dir {
         match self {
             Self::LTR => Self::RTL,

@@ -28,7 +28,7 @@ use super::FixedStroke;
 /// Bézier curve control points can be skipped by passing `{none}` or
 /// automatically mirrored from the preceding segment by passing `{auto}`.
 ///
-/// # Example
+/// = Example <example>
 /// ```example
 /// #curve(
 ///   fill: blue.lighten(80%),
@@ -39,7 +39,7 @@ use super::FixedStroke;
 ///   curve.close(),
 /// )
 /// ```
-#[elem(scope)]
+#[elem(scope, since = "0.13.0")]
 pub struct CurveElem {
     /// How to fill the curve.
     ///
@@ -69,10 +69,10 @@ pub struct CurveElem {
     #[default]
     pub fill_rule: FillRule,
 
-    /// How to [stroke] the curve.
+    /// How to @stroke[stroke] the curve.
     ///
-    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a
-    /// stroke of `{1pt}` black if and only if no fill is given.
+    /// Can be set to `{none}` to disable the stroke or to `{auto}` for a stroke
+    /// of `{1pt}` black if and only if no fill is given.
     ///
     /// ```example
     /// #let down = curve.line((40pt, 40pt), relative: true)
@@ -170,7 +170,7 @@ impl TryFrom<Content> for CurveComponent {
 ///   curve.close(),
 /// )
 /// ```
-#[elem(name = "move", title = "Curve Move")]
+#[elem(name = "move", title = "Curve Move", since = "0.13.0")]
 pub struct CurveMove {
     /// The starting point for the new component.
     #[required]
@@ -193,7 +193,7 @@ pub struct CurveMove {
 ///   curve.line((150pt, 0pt)),
 /// )
 /// ```
-#[elem(name = "line", title = "Curve Line")]
+#[elem(name = "line", title = "Curve Line", since = "0.13.0")]
 pub struct CurveLine {
     /// The point at which the line shall end.
     #[required]
@@ -233,7 +233,7 @@ pub struct CurveLine {
 ///   curve.quad((20pt, 20pt), (100pt, 0pt)),
 /// )
 /// ```
-#[elem(name = "quad", title = "Curve Quadratic Segment")]
+#[elem(name = "quad", title = "Curve Quadratic Segment", since = "0.13.0")]
 pub struct CurveQuad {
     /// The control point of the quadratic Bézier curve.
     ///
@@ -280,13 +280,14 @@ pub struct CurveQuad {
 ///   curve.cubic((10pt, 20pt), (90pt, 60pt), (100pt, 0pt)),
 /// )
 /// ```
-#[elem(name = "cubic", title = "Curve Cubic Segment")]
+#[elem(name = "cubic", title = "Curve Cubic Segment", since = "0.13.0")]
 pub struct CurveCubic {
     /// The control point going out from the start of the curve segment.
     ///
     /// - If `{auto}` and this element follows another `curve.cubic` element,
     ///   the last control point will be mirrored. In SVG terms, this makes
-    ///   `curve.cubic` behave like the `S` operator instead of the `C` operator.
+    ///   `curve.cubic` behave like the `S` operator instead of the `C`
+    ///   operator.
     ///
     /// - If `{none}`, the curve has no first control point, or equivalently,
     ///   the control point defaults to the curve's starting point.
@@ -361,7 +362,7 @@ pub struct CurveCubic {
 /// #shape(mode: "smooth")
 /// #shape(mode: "straight")
 /// ```
-#[elem(name = "close", title = "Curve Close")]
+#[elem(name = "close", title = "Curve Close", since = "0.13.0")]
 pub struct CurveClose {
     /// How to close the curve.
     pub mode: CloseMode,
@@ -460,7 +461,7 @@ impl Curve {
         if offset.is_zero() {
             return;
         }
-        for item in self.0.iter_mut() {
+        for item in &mut self.0 {
             match item {
                 CurveItem::Move(p) => *p += offset,
                 CurveItem::Line(p) => *p += offset,

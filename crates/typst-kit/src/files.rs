@@ -5,6 +5,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::str::Utf8Error;
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -27,7 +28,7 @@ use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
 /// If you need more control, you can skip this and implement custom logic that
 /// directly handles the [`World::source`](typst_library::World::source) and
 /// [`World::file`](typst_library::World::file) requests. A language server is
-/// an example of an integration that might want to go even deeper,  to create,
+/// an example of an integration that might want to go even deeper, to create,
 /// manage, and edit source files by itself. If you go the manual route, ensure
 /// that those methods are cheap on repeated calls (either through caching or by
 /// virtue of always being cheap).
@@ -108,7 +109,7 @@ where
     /// in place with updated data, leading to improved incremental compilation
     /// performance.
     pub fn reset(&mut self) {
-        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
             slot.reset();
         }
@@ -264,6 +265,18 @@ pub trait FileLoader {
     fn load(&self, id: FileId) -> FileResult<Bytes>;
 }
 
+impl<F: FileLoader> FileLoader for Box<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
+}
+
+impl<F: FileLoader> FileLoader for Arc<F> {
+    fn load(&self, id: FileId) -> FileResult<Bytes> {
+        (**self).load(id)
+    }
+}
+
 /// Serves project files from a directory and package files from standard
 /// locations.
 ///
@@ -273,6 +286,7 @@ pub trait FileLoader {
 /// - package files are loaded from configured directories and/or the official
 ///   Typst Universe package registry via [`SystemPackages`].
 #[cfg(feature = "system-files")]
+#[derive(Debug)]
 pub struct SystemFiles {
     project: FsRoot,
     packages: SystemPackages,
@@ -288,7 +302,7 @@ impl SystemFiles {
 
     /// Resolves the path of the given file `id` in the file system.
     pub fn resolve(&self, id: FileId) -> FileResult<PathBuf> {
-        Ok(self.root(id)?.resolve(id.vpath()))
+        self.root(id)?.resolve(id.vpath())
     }
 
     /// Resolves the root in which the given file ID resides.
@@ -327,15 +341,15 @@ impl FsRoot {
 
     /// Resolves the real file system path for the given virtual path in this
     /// root.
-    pub fn resolve(&self, path: &VirtualPath) -> PathBuf {
-        path.realize(&self.0)
+    pub fn resolve(&self, path: &VirtualPath) -> FileResult<PathBuf> {
+        path.realize(&self.0).map_err(Into::into)
     }
 
     /// Loads file data from the given virtual path in this root.
     pub fn load(&self, path: &VirtualPath) -> FileResult<Bytes> {
         // Join the path to the root. If it tries to escape, deny access. Note:
         // It can still escape via symlinks.
-        let path = self.resolve(path);
+        let path = self.resolve(path)?;
         let f = |e| FileError::from_io(e, &path);
         if fs::metadata(&path).map_err(f)?.is_dir() {
             Err(FileError::IsDirectory)
@@ -389,7 +403,7 @@ mod tests {
             let mut vec = iter
                 .map(|id| id.get().vpath().get_without_slash())
                 .collect::<Vec<_>>();
-            vec.sort();
+            vec.sort_unstable();
             vec
         };
         store.source(id("a.typ")).must_be(A_TEXT);
