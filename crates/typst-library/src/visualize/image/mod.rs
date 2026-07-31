@@ -48,6 +48,32 @@ use crate::visualize::image::pdf::PdfDocument;
 ///   ],
 /// )
 /// ```
+///
+/// = Clipping <clipping>
+/// You can wrap an image in a @block or @box #footnote[A box should only be
+/// used if the image shall be displayed inline as part of a paragraph.
+/// Otherwise, a block is preferable.] with negative @block.inset[`inset`] and
+/// `{clip: true}` to clip it. Note that the clipped parts are only visually
+/// hidden. The full image data is still embedded in the output (except when
+/// exporting to PNG). This approach is thus not suitable for redacting parts of
+/// an image.
+///
+/// ```example
+/// #let lynx = image("lynx.jpg", height: 150pt, fit: "cover")
+/// #grid(
+///   columns: 2,
+///   column-gutter: 1fr,
+///   // The full image on the left.
+///   lynx,
+///   // Two cropped parts on the right: One cropped by 80pt
+///   // from the bottom and one cropped by 75pt from the top.
+///   stack(
+///     spacing: 5pt,
+///     block(lynx, clip: true, inset: (bottom: -80pt)),
+///     block(lynx, clip: true, inset: (top: -75pt)),
+///   )
+/// )
+/// ```
 #[elem(since = "forever", Locatable, Tagged, Synthesize, LocalName, Figurable)]
 pub struct ImageElem {
     /// A path to an image file or raw bytes making up an image in one of the
