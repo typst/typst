@@ -4,11 +4,13 @@ use std::ops::{Deref, DerefMut};
 use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point, Rel};
+use typst_library::layout::{
+    Abs, Dir, Em, Fr, Frame, FrameItem, Length, Point, Ratio, Rel,
+};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{
-    FontInstance, families,
-    BuiltInOverhang, GlyphReference, Lang, Overhang, TextElem, variant,
+    BuiltInOverhang, FontInstance, GlyphReference, Lang, Overhang, Protrusion, TextElem,
+    families, variant,
 };
 use typst_utils::Numeric;
 
@@ -708,75 +710,87 @@ pub(crate) fn margin_kerning(
     is_right_margin: bool,
     glyph: &ShapedGlyph,
 ) -> Abs {
-    const DEFAULT_PROTRUSION_TABLE: &[(char, f64)] = &[
+    const fn entry(c: char, v: f64) -> (GlyphReference, (Protrusion, Protrusion)) {
+        let v = Smart::Custom(Rel::new(Ratio::new(v), Length::zero()));
+        (GlyphReference::CodePoint(c), (v, v))
+    }
+    const DEFAULT_PROTRUSION_TABLE: &[(GlyphReference, (Protrusion, Protrusion))] = &[
         // Dashes.
-        ('–', 0.2),
-        ('—', 0.2),
-        ('-', 0.55),
-        ('\u{ad}', 0.55),
+        entry('–', 0.2),
+        entry('—', 0.2),
+        entry('-', 0.55),
+        entry('\u{ad}', 0.55),
         // Punctuation.
-        ('.', 0.8),
-        (',', 0.8),
-        (';', 0.3),
-        (':', 0.3),
+        entry('.', 0.8),
+        entry(',', 0.8),
+        entry(';', 0.3),
+        entry(':', 0.3),
         // Arabic
-        ('\u{60C}', 0.4),
-        ('\u{6D4}', 0.4),
+        entry('\u{60C}', 0.4),
+        entry('\u{6D4}', 0.4),
     ];
 
-    fn is_glyph_referenced(
-        shaped_glyph: &ShapedGlyph,
-        glyph_reference: &GlyphReference,
-    ) -> bool {
-        let face = shaped_glyph.font.ttf();
-        let glyph_id = match glyph_reference {
-            GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
-            GlyphReference::CodePoint(code_point) => face.glyph_index(*code_point),
-        };
-        glyph_id.is_some_and(|glyph_id| glyph_id.0 == shaped_glyph.glyph_id)
+    #[comemo::memoize]
+    fn instantiate_protrusion_table(
+        table: &[(GlyphReference, (Protrusion, Protrusion))],
+        font: &FontInstance,
+    ) -> EcoVec<(u16, (Protrusion, Protrusion))> {
+        let mut instance = Vec::with_capacity(table.len());
+
+        let face = font.ttf();
+        for (glyph_ref, (l, r)) in table {
+            let glyph_id = match glyph_ref {
+                GlyphReference::CodePoint(c) => face.glyph_index(*c),
+                GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
+            };
+            let Some(glyph_id) = glyph_id else { continue };
+            instance.push((glyph_id.0, (*l, *r)));
+        }
+
+        instance.sort_unstable_by_key(|(id, _)| *id);
+        instance.into()
     }
 
-    fn default_overhang(shaped_glyph: &ShapedGlyph) -> f64 {
-        DEFAULT_PROTRUSION_TABLE
-            .iter()
-            .find_map(|(c, factor)| {
-                if is_glyph_referenced(shaped_glyph, &GlyphReference::CodePoint(*c)) {
-                    Some(*factor)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(0.0)
+    fn default_overhang(glyph: &ShapedGlyph) -> Rel {
+        let instance =
+            instantiate_protrusion_table(DEFAULT_PROTRUSION_TABLE, &glyph.font);
+
+        match instance.binary_search_by_key(&glyph.glyph_id, |(id, _)| *id) {
+            Ok(idx) => instance[idx].1.0.unwrap_or_default(),
+            Err(_) => Rel::zero(),
+        }
     }
 
-    let protrusion = overhang
-        .table
-        .0
-        .iter()
-        .find_map(|(glyph_ref, (left, right))| {
-            if is_glyph_referenced(glyph, glyph_ref) {
-                Some(if is_right_margin { *right } else { *left })
-            } else {
-                None
-            }
+    let instance = instantiate_protrusion_table(&overhang.table.0, &glyph.font);
+    let protrusion = instance
+        .binary_search_by_key(&glyph.glyph_id, |(id, _)| *id)
+        .ok()
+        .map(|idx| {
+            let (l, r) = instance[idx].1;
+            if is_right_margin { r } else { l }
         })
         .unwrap_or_else(|| {
-            let factor = match overhang.default {
+            let rel = match overhang.default {
                 BuiltInOverhang::Side { left, right } => {
                     if (is_right_margin && right) || (!is_right_margin && left) {
                         default_overhang(glyph)
                     } else {
-                        0.0
+                        Rel::zero()
                     }
                 }
                 BuiltInOverhang::Direction { start } => {
                     let is_line_start = dir.is_positive() != is_right_margin;
-                    if is_line_start == start { default_overhang(glyph) } else { 0.0 }
+                    if is_line_start == start {
+                        default_overhang(glyph)
+                    } else {
+                        Rel::zero()
+                    }
                 }
             };
-            Smart::Custom(Rel::one() * factor)
+
+            Smart::Custom(rel)
         })
-        .unwrap_or_else(|| Rel::one() * default_overhang(glyph));
+        .unwrap_or_else(|| default_overhang(glyph));
 
     protrusion
         .map(|length| length.at(glyph.size))
