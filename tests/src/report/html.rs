@@ -497,31 +497,35 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                         };
                         div.div()
                             .id(display!("test-report-body-{test_idx}"))
-                            .class(display!("test-report-body{image_kind}"))
+                            .class("test-report-body")
                             .hidden(close)
                             .with(|div| {
                                 test_report_source(div, test_report, test_idx);
 
-                                for (file_idx, report_file) in
-                                    test_report.files.iter().enumerate()
-                                {
-                                    report_file_tab_panel(
-                                        div,
-                                        test_report,
-                                        report_file,
-                                        test_idx,
-                                        file_idx,
-                                    );
-                                }
+                                div.div()
+                                    .class(display!("test-report-area{image_kind}"))
+                                    .with(|div| {
+                                        for (file_idx, report_file) in
+                                            test_report.files.iter().enumerate()
+                                        {
+                                            report_file_tab_panel(
+                                                div,
+                                                test_report,
+                                                report_file,
+                                                test_idx,
+                                                file_idx,
+                                            );
+                                        }
 
-                                // There is one set of image controls for the
-                                // image diffs of all outputs of a test report.
-                                let has_image_diff = (test_report.files.iter())
-                                    .flat_map(|f| f.diffs.iter())
-                                    .any(Diff::is_image);
-                                if has_image_diff {
-                                    image_diff_controls(div, test_idx);
-                                }
+                                        // There is one set of image controls for the
+                                        // image diffs of all outputs of a test report.
+                                        let has_image_diff = (test_report.files.iter())
+                                            .flat_map(|f| f.diffs.iter())
+                                            .any(Diff::is_image);
+                                        if has_image_diff {
+                                            image_diff_controls(div, test_idx);
+                                        }
+                                    });
                             });
                     });
             }

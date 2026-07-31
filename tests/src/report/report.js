@@ -14,7 +14,7 @@ const imageDiffs = []
  * @property report {HTMLDetailsElement}
  * @property reportToggle {HTMLButtonElement}
  * @property reportSourceToggle {HTMLButtonElement}
- * @property reportBody {HTMLDivElement}
+ * @property reportArea {HTMLDivElement}
  * @property reportSource {HTMLDivElement}
  * @property files {ReportFileState[]}
  */
@@ -99,12 +99,13 @@ for (const testReport of document.getElementsByClassName("test-report")) {
   const reportFileTabs = reportFileTabGroup.querySelectorAll(".report-file-tab");
   const reportBody = testReport.querySelector(".test-report-body")
   const reportSource = reportBody.querySelector(".test-report-source")
-  const reportFileTabpanels = reportBody.querySelectorAll(":scope > .report-file");
+  const reportArea = reportBody.querySelector(".test-report-area")
+  const reportFileTabpanels = reportArea.querySelectorAll(":scope > .report-file");
 
   /** @type {TestReportState} */
   const report = {
     report: testReport,
-    reportBody,
+    reportArea,
     reportToggle,
     reportSourceToggle,
     reportSource,
@@ -213,8 +214,8 @@ for (const testReport of document.getElementsByClassName("test-report")) {
   // There is one set of image controls for the image diffs of all output
   // formats inside a test report. This makes comparing the different formats
   // more convenient.
-  const imageControlsTop = reportBody.querySelector(":scope > .image-controls.top")
-  const imageControlsBottom = reportBody.querySelector(":scope > .image-controls.bottom")
+  const imageControlsTop = reportArea.querySelector(":scope > .image-controls.top")
+  const imageControlsBottom = reportArea.querySelector(":scope > .image-controls.bottom")
   if (imageControlsTop != null && imageControlsBottom != null) {
     const imageModes = imageControlsTop.querySelectorAll("input.image-view-mode")
     const imageAntialiasing = imageControlsTop.querySelector("input.image-antialiasing")
@@ -277,7 +278,7 @@ for (const testReport of document.getElementsByClassName("test-report")) {
     // Initially enable/disable the image controls.
     disableImageControls(imageState, currentImageMode(imageState));
 
-    for (const imageDiff of reportBody.querySelectorAll(".file-diff.image")) {
+    for (const imageDiff of reportArea.querySelectorAll(".file-diff.image")) {
       const imageCanvas = imageDiff.querySelector(".image-canvas")
       const images = imageCanvas.querySelectorAll("img")
 
@@ -508,7 +509,7 @@ function fileDiffTabChanged(file, diffMode, update_parent) {
 
   // When this tab is visible update the test report diff kind.
   if (file.tab.checked) {
-    file.report.reportBody.classList.toggle("image", kind == "image")
+    file.report.reportArea.classList.toggle("image", kind == "image")
   }
 }
 
