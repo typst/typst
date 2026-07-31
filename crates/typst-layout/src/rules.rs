@@ -262,20 +262,22 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             .spanned(span);
         let align = styles.resolve(AlignElem::alignment);
 
-        // Add a weak space (of any positive width) to disable CJ punctuation
-        // adjustment. We select this specific width to make it reusable.
-        let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
-        let numbering_and_spacing = numbering + spacing;
-
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
+
+            // Add spaces (of any nonzero width) to disable CJ punctuation
+            // adjustment. This changes only the target of measurement, but not
+            // the actual realized content.
+            let numbering = HElem::new(Abs::pt(-1.).into()).pack()
+                + numbering.clone()
+                + HElem::new(Abs::pt(1.).into()).pack();
 
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
             let link = LocatorLink::measure(location, span);
             let size = (engine.library.routines.layout_frame)(
                 engine,
-                &numbering_and_spacing,
+                &numbering,
                 Locator::link(&link),
                 styles,
                 pod,
@@ -285,7 +287,10 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
         }
 
-        realized = numbering_and_spacing + realized;
+        // The spacing is weak to eat up a potential leading space in the body.
+        let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
+
+        realized = numbering + spacing + realized;
     }
 
     Ok(if indent != Abs::zero() {
