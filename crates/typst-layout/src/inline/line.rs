@@ -730,21 +730,34 @@ pub(crate) fn margin_kerning(
         entry('\u{6D4}', 0.4),
     ];
 
+    struct ProtrusionTableRef<'a>(&'a [(GlyphReference, (Protrusion, Protrusion))]);
+    impl std::hash::Hash for ProtrusionTableRef<'_> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            for (glyph_ref, _) in self.0 {
+                glyph_ref.hash(state);
+            }
+        }
+    }
+
+    // To avoid needless hashing of both protrusions in table,
+    // it is wrapped in a special newtype.
+    // To avoid returning old values for new table,
+    // cached value stores indices into the table.
     #[comemo::memoize]
     fn instantiate_protrusion_table(
-        table: &[(GlyphReference, (Protrusion, Protrusion))],
+        table: ProtrusionTableRef<'_>,
         font: &FontInstance,
-    ) -> EcoVec<(u16, (Protrusion, Protrusion))> {
-        let mut instance = Vec::with_capacity(table.len());
+    ) -> EcoVec<(u16, u16)> {
+        let mut instance = Vec::with_capacity(table.0.len());
 
         let face = font.ttf();
-        for (glyph_ref, (l, r)) in table {
+        for (i, (glyph_ref, _)) in table.0.iter().enumerate() {
             let glyph_id = match glyph_ref {
                 GlyphReference::CodePoint(c) => face.glyph_index(*c),
                 GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
             };
             let Some(glyph_id) = glyph_id else { continue };
-            instance.push((glyph_id.0, (*l, *r)));
+            instance.push((glyph_id.0, i as u16));
         }
 
         instance.sort_unstable_by_key(|(id, _)| *id);
@@ -752,21 +765,28 @@ pub(crate) fn margin_kerning(
     }
 
     fn default_overhang(glyph: &ShapedGlyph) -> Rel {
-        let instance =
-            instantiate_protrusion_table(DEFAULT_PROTRUSION_TABLE, &glyph.font);
+        let instance = instantiate_protrusion_table(
+            ProtrusionTableRef(DEFAULT_PROTRUSION_TABLE),
+            &glyph.font,
+        );
 
         match instance.binary_search_by_key(&glyph.glyph_id, |(id, _)| *id) {
-            Ok(idx) => instance[idx].1.0.unwrap_or_default(),
+            Ok(idx) => {
+                let idx = instance[idx].1 as usize;
+                DEFAULT_PROTRUSION_TABLE[idx].1.0.unwrap_or_default()
+            }
             Err(_) => Rel::zero(),
         }
     }
 
-    let instance = instantiate_protrusion_table(&overhang.table.0, &glyph.font);
+    let instance =
+        instantiate_protrusion_table(ProtrusionTableRef(&overhang.table.0), &glyph.font);
     let protrusion = instance
         .binary_search_by_key(&glyph.glyph_id, |(id, _)| *id)
         .ok()
         .map(|idx| {
-            let (l, r) = instance[idx].1;
+            let idx = instance[idx].1 as usize;
+            let (l, r) = overhang.table.0[idx].1;
             if is_right_margin { r } else { l }
         })
         .unwrap_or_else(|| {
