@@ -1,4 +1,8 @@
-use crate::foundations::{Content, elem};
+use crate::{
+    foundations::{Content, elem},
+    layout::Abs,
+    visualize::{Paint, Stroke},
+};
 
 /// Hides content without affecting layout.
 ///
@@ -23,6 +27,11 @@ use crate::foundations::{Content, elem};
 /// recommend using this function to hide highly sensitive information.
 #[elem(since = "forever", Tagged)]
 pub struct HideElem {
+    /// The background fill that will applied to the space taken by the hidden content.
+    pub fill: Option<Paint>,
+    /// The stroke that will be applied to the space taken by the hidden content.
+    pub stroke: Option<Stroke>,
+
     /// The content to hide.
     #[required]
     pub body: Content,
@@ -31,4 +40,14 @@ pub struct HideElem {
     #[internal]
     #[ghost]
     pub hidden: bool,
+
+    /// This style is set on the content contained in the `hide` element.
+    #[internal]
+    #[ghost]
+    pub hidden_fill: Option<Paint>,
+
+    /// This style is set on the content contained in the `hide` element.
+    #[internal]
+    #[ghost]
+    pub hidden_stroke: Option<Stroke<Abs>>,
 }

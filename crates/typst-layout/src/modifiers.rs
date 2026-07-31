@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
 use typst_library::model::{Destination, LinkElem, ParElem};
+use typst_library::visualize::{Paint, Stroke};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -16,6 +19,8 @@ use typst_library::model::{Destination, LinkElem, ParElem};
 ///
 /// Currently existing frame modifiers are:
 /// - `HideElem::hidden`
+/// - `HideElem::hidden_fill`
+/// - `HideElem::hidden_stroke`
 /// - `LinkElem::dests`
 #[derive(Debug, Clone)]
 pub struct FrameModifiers {
@@ -23,14 +28,34 @@ pub struct FrameModifiers {
     dest: Option<Destination>,
     /// Whether the contents of the frame should be hidden.
     hidden: bool,
+    /// Stroke and fill that will be applied to the space taken by the hidden content.
+    hidden_visuals: Option<Arc<FrameHiddenVisuals>>,
+}
+
+/// Visuals that will be applied to the space taken by hidden content.
+///
+/// This struct is separated from [`FrameModifiers`] in order to keep
+/// the size of most Frames smaller.
+#[derive(Debug, Clone)]
+pub struct FrameHiddenVisuals {
+    /// How to fill the space taken by hidden content.
+    fill: Option<Paint>,
+    /// How to stroke around the space taken by hidden content.
+    stroke: Option<Stroke<Abs>>,
 }
 
 impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
+        let fill = styles.get_cloned(HideElem::hidden_fill);
+        let stroke = styles.get_cloned(HideElem::hidden_stroke);
+        let visuals = (fill.is_some() || stroke.is_some())
+            .then(|| Arc::new(FrameHiddenVisuals { fill, stroke }));
+
         Self {
             dest: styles.get_cloned(LinkElem::current),
             hidden: styles.get(HideElem::hidden),
+            hidden_visuals: visuals,
         }
     }
 }
@@ -106,7 +131,12 @@ fn modify_frame(
     }
 
     if modifiers.hidden {
-        frame.hide();
+        let (fill, stroke) = modifiers
+            .hidden_visuals
+            .as_ref()
+            .map(|v| (v.fill.clone(), v.stroke.clone()))
+            .unwrap_or_default();
+        frame.hide(fill, stroke);
     }
 }
 
