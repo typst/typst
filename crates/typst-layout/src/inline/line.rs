@@ -708,10 +708,11 @@ fn overhang(glyph: &ShapedGlyph) -> Abs {
 
     let table = font_overhang_table(&glyph.font);
 
-    let factor = match table.binary_search_by_key(&glyph.glyph_id, |&(id, _)| id) {
-        Ok(idx) => table[idx].1,
-        Err(_) => 0.0,
-    };
+    let factor = table
+        .iter()
+        .find(|(id, _)| *id == glyph.glyph_id)
+        .map(|(_, v)| *v)
+        .unwrap_or(0.0);
 
     factor * glyph.x_advance.at(glyph.size)
 }
