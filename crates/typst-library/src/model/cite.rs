@@ -140,54 +140,29 @@ pub struct CitationSupplement {
     pub content: Content,
 }
 
-impl FromValue for CitationSupplement {
-    fn from_value(value: Value) -> HintedStrResult<Self> {
-        if let Value::Array(array) = &value
-            && array.len() == 2
-        {
-            return Ok(CitationSupplement {
-                locator: Some(array.at(0, None)?.cast::<Locator>().map_err(|e| {
+cast! {
+    CitationSupplement,
+    self => if let Some(locator) = self.locator {
+        vec![locator.into_value(), self.content.into_value()].into_value()
+    } else {
+        self.content.into_value()
+    },
+    content: Content => Self {
+        locator: None,
+        content,
+    },
+    v: Array => {
+        let mut iter = v.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(locator), Some(content), None) => Self {
+                locator: Some(locator.cast::<Locator>().map_err(|e| {
                     e.with_hint("invalid locator in citation supplement")
                 })?),
-                content: array.at(1, None)?.clone().cast::<Content>()?,
-            });
+                content: content.cast::<Content>()?,
+            },
+            _ => bail!("citation supplement array must contain exactly 2 items: (locator, content)"),
         }
-
-        if let Ok(content) = value.cast::<Content>() {
-            Ok(CitationSupplement { locator: None, content })
-        } else {
-            bail!(
-                "Citation supplement must either be of type (Locator, Content) or Content"
-            );
-        }
-    }
-}
-
-impl IntoValue for CitationSupplement {
-    fn into_value(self) -> Value {
-        if let Some(locator) = self.locator {
-            vec![locator.into_value(), self.content.into_value()].into_value()
-        } else {
-            self.content.into_value()
-        }
-    }
-}
-
-impl Reflect for CitationSupplement {
-    fn input() -> CastInfo {
-        CastInfo::Union(vec![Content::input(), Array::input()])
-    }
-
-    fn output() -> CastInfo {
-        CastInfo::Any
-    }
-
-    fn castable(value: &Value) -> bool {
-        Content::castable(value)
-            || matches!(value, Value::Array(array) if array.len() == 2
-            && array.at(0, None).is_ok_and(|v| Locator::castable(&v))
-            && array.at(1, None).is_ok_and(|v| Content::castable(&v)))
-    }
+    },
 }
 
 impl Repr for Locator {
