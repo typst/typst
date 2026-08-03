@@ -692,7 +692,7 @@ db778f6d68fcdba7e75a44585bd161ad issue-2128-block-width-box
 0fcd0e7eaf2052d47ca72693e9395f7d issue-2134-pagebreak-bibliography
 e8d3e33e8d893bdaccdd7240f0d2518e issue-2162-pagebreak-set-style
 953f63d30f27170b98bfeba55506020a issue-2199-place-spacing-bottom
-150b64d99790b0d203a2a208fbe420f4 issue-2199-place-spacing-default
+a3f206fdc8da8905c12acd590c433fe8 issue-2199-place-spacing-default
 0fbb81dc6b16e8d5dce7d294787d8d7a issue-2213-align-fr
 681f9da07a7b077ef683d6ef0ef20fdb issue-2214-baseline-math
 a90ccee256ce36426b07ae7ee6042f5b issue-2259-raw-color-overwrite
