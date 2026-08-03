@@ -262,21 +262,18 @@ pub fn collect<'a>(
             collector.push_item(Item::Tag(&elem.tag));
 
             match &elem.tag {
-                Tag::Start(content, tag_flags) if content.is::<LinkMarker>() => {
-                    was_link_tag = true;
-                    // If the initial link is None and there are link tags at
-                    // the very start, it likely means the flow handled the
-                    // tags. (This needs to be tested...)
-                    if let Some((link, _)) = styles.get_cloned(LinkElem::current)
-                        && (checked_initial_link_tags
-                            || styles.get_ref(LinkElem::current).is_some())
-                    {
+                Tag::Start(content, tag_flags) => {
+                    if let Some(link_marker) = content.to_packed::<LinkMarker>() {
+                        was_link_tag = true;
+                        let link = link_marker.dest.clone();
+                        // if let Some((link, _)) = styles.get_cloned(LinkElem::current) {
                         println!("Hi {link:?}");
                         collector.push_event(Event::StartLink(link.clone()));
                         active_links.push((link, elem.tag.location()));
-                    } else {
+                        // } else {
                         // What to do if setting link to none? for now, ignore
-                        println!("Hi NONE...")
+                        //    println!("Hi NONE...")
+                        // }
                     }
                 }
                 Tag::End(location, _, tag_flags) => {
@@ -289,7 +286,6 @@ pub fn collect<'a>(
                         println!("(not a link link)")
                     }
                 }
-                _ => {}
             }
         } else {
             // Non-paragraph inline layout should never trigger this since it
