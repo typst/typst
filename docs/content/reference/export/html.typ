@@ -1,4 +1,4 @@
-#import "../../../components/index.typ": docs-category, info
+#import "../../../components/index.typ": docs-category, info, insertion
 
 #show: docs-category.with(
   title: "HTML",
@@ -46,7 +46,7 @@
 )
 
 #info[
-  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variable to `html`. In the web app, HTML export is not available at this time. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
+  Typst's HTML export is currently under active development. The feature is still very incomplete and only available for experimentation behind a feature flag. Do not use this feature for production use cases. In the CLI, you can experiment with HTML export by passing `--features html` or setting the `TYPST_FEATURES` environment variable to `html`. In the web app, you can likewise enable it as an experimental feature. Visit the #link("https://github.com/typst/typst/issues/5512")[tracking issue] to follow progress on HTML export and learn more about planned features.
 ]
 
 HTML files describe a document structurally. The aim of Typst's HTML export is to capture the structure of an input document and produce semantically rich HTML that retains this structure. The resulting HTML should be accessible, human-readable, and editable by hand and downstream tools.
@@ -70,7 +70,8 @@ When using `typst watch`, Typst will launch a live-reloading HTTP server. You ca
 - Pass `--no-serve` to disable the server altogether.
 
 == Web App <web-app>
-Not currently available.
+HTML export can be enabled as an experimental feature in the web app.
+#insertion("html-web-app")
 
 = HTML-specific functionality <html-specific-functionality>
 Typst exposes HTML-specific functionality in the global `html` module. See below for the definitions it contains.
