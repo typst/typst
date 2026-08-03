@@ -170,26 +170,27 @@ impl Format {
 ///
 /// See the [module level](self) docs for more information.
 pub trait FormatElement: NativeElement {
-    type Options: Populate + Default + Clone + 'static;
+    type Options: Populate + Default + Clone + Hash;
 }
 
 /// A type that can be populated from a [`StyleChain`].
 ///
 /// This is used inside [`FormatOption`].
-#[expect(private_bounds)]
-pub trait Populate: Bounds {
+pub trait Populate: Debug + Any + Send + Sync + 'static {
     /// Populate this type with details from the given local styles.
     fn populate(&mut self, styles: Spanned<StyleChain>);
 }
 
-trait Bounds: Send + Sync + Any + 'static {
-    fn dyn_clone(&self) -> Box<dyn Any>;
+trait Bounds: Populate {
+    fn dyn_clone(&self) -> Box<dyn Bounds>;
     fn dyn_hash(&self, state: &mut dyn std::hash::Hasher);
-    fn dyn_debug(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result;
 }
 
-impl<T: Clone + Hash + Debug + Send + Sync + 'static> Bounds for T {
-    fn dyn_clone(&self) -> Box<dyn Any> {
+impl<T> Bounds for T
+where
+    T: Populate + Clone + Hash,
+{
+    fn dyn_clone(&self) -> Box<dyn Bounds> {
         Box::new(self.clone())
     }
 
@@ -198,10 +199,6 @@ impl<T: Clone + Hash + Debug + Send + Sync + 'static> Bounds for T {
         // equal data should be different.
         TypeId::of::<Self>().hash(&mut state);
         self.hash(&mut state);
-    }
-
-    fn dyn_debug(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.fmt(f)
     }
 }
 
@@ -248,7 +245,7 @@ impl FormatOptions {
     }
 }
 
-pub struct FormatOption(Box<dyn Populate>);
+pub struct FormatOption(Box<dyn Bounds>);
 
 impl FormatOption {
     /// Populate these options from the spanned styles.
@@ -258,12 +255,15 @@ impl FormatOption {
 
     /// Attempt to downcast this option to a concrete format option type.
     pub fn downcast<T: FormatElement>(&self) -> Option<&T::Options> {
-        let inner: &dyn Populate = &*self.0;
+        let inner: &dyn Bounds = &*self.0;
         (inner as &dyn Any).downcast_ref()
     }
 }
 
-impl<T: Populate> From<T> for FormatOption {
+impl<T> From<T> for FormatOption
+where
+    T: Populate + Clone + Hash + Debug + Send + Sync + 'static,
+{
     fn from(value: T) -> Self {
         Self(Box::new(value))
     }
@@ -271,12 +271,7 @@ impl<T: Populate> From<T> for FormatOption {
 
 impl Clone for FormatOption {
     fn clone(&self) -> Self {
-        let reference: &(dyn Populate + 'static) = &*self.0;
-        let cloned = self.dyn_clone();
-        // SAFETY: `self.0` is required to implement `Populate`, thus the cloned
-        // `Box<dyn Any>` can be transformed into a `Box<dyn Populate>` using
-        // the vtable of `self.0`.
-        Self(unsafe { typst_utils::fat::cast_box(reference, cloned) })
+        Self(self.0.dyn_clone())
     }
 }
 
@@ -288,7 +283,7 @@ impl Hash for FormatOption {
 
 impl Debug for FormatOption {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.dyn_debug(f)
+        self.0.fmt(f)
     }
 }
 

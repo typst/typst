@@ -6,7 +6,6 @@
 //! <https://github.com/rust-lang/rust/issues/81513>
 
 use std::alloc::Layout;
-use std::any::Any;
 use std::mem;
 use std::ptr::NonNull;
 
@@ -80,25 +79,6 @@ pub unsafe fn data_mut<T: ?Sized>(ptr: *mut T) -> NonNull<()> {
             mem::transmute_copy::<*mut T, FatPointer>(&ptr).data as *mut (),
         )
     }
-}
-
-/// Convert a `Box<dyn Any>` into a `Box<dyn Trait>` using the vtable of a
-/// reference of the exact concrete type that implements that trait.
-///
-/// # Safety
-/// Must only be called when:
-/// 1. `T` is a `dyn Trait`
-/// 2. `obj_ref` and `cloned` are of the exact same concrete type
-pub unsafe fn cast_box<T: ?Sized>(obj_ref: &T, cloned: Box<dyn Any>) -> Box<T> {
-    let object_ptr = obj_ref as *const T;
-    let vtable = unsafe { vtable::<T>(object_ptr) };
-
-    let raw_box_ptr = Box::into_raw(cloned);
-    let data = unsafe { data_mut(raw_box_ptr) };
-
-    let fat = unsafe { from_raw_parts_mut::<T>(data.as_ptr(), vtable.as_ptr()) };
-
-    unsafe { Box::from_raw(fat) }
 }
 
 /// The memory representation of a trait object pointer.
