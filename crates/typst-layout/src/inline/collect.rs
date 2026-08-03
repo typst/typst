@@ -14,7 +14,7 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_reset_modifications};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify_without_links};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -254,10 +254,9 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width.get(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let (_modifiers, mut frame) =
-                    layout_and_reset_modifications(styles, |styles| {
-                        layout_box(elem, engine, loc, styles, region)
-                    })?;
+                let mut frame = layout_and_modify_without_links(styles, |styles| {
+                    layout_box(elem, engine, loc, styles, region)
+                })?;
 
                 apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
