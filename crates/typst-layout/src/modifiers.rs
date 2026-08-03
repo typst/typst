@@ -1,4 +1,3 @@
-use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
 use typst_library::model::{Destination, LinkElem, ParElem};
@@ -80,27 +79,24 @@ pub trait FrameModifyText {
     /// Resolve and apply [`FrameModifiers`] for this text frame.
     fn modify_text(&mut self, styles: StyleChain);
 
-    /// Resolve and apply [`FrameModifiers`] for this text frame, including links.
-    fn modify_text_with_link(&mut self, styles: StyleChain);
+    /// Resolve and apply [`FrameModifiers`] for this text frame, except for
+    /// the current link (which is handled by the paragraph itself).
+    fn modify_text_without_links(&mut self, styles: StyleChain);
 }
 
 impl FrameModifyText for Frame {
     fn modify_text(&mut self, styles: StyleChain) {
         let modifiers = FrameModifiers::get_in(styles);
-        modify_frame_non_link(self, &modifiers);
-    }
-
-    fn modify_text_with_link(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers::get_in(styles);
         let expand_y = 0.5 * styles.resolve(ParElem::leading);
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
         modify_frame(self, &modifiers, Some(outset));
     }
-}
 
-fn modify_frame_non_link(frame: &mut Frame, modifiers: &FrameModifiers) {
-    if modifiers.hidden {
-        frame.hide();
+    fn modify_text_without_links(&mut self, styles: StyleChain) {
+        let modifiers = FrameModifiers { dest: None, ..FrameModifiers::get_in(styles) };
+        let expand_y = 0.5 * styles.resolve(ParElem::leading);
+        let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
+        modify_frame(self, &modifiers, Some(outset));
     }
 }
 
@@ -125,38 +121,6 @@ pub(super) fn modify_frame(
     }
 }
 
-/// Performs layout, while resetting modifications as they are about to be done,
-/// but not applying them just yet to allow other similar modifications to be
-/// collected and merged first.
-///
-/// This just runs `layout(styles)`, but with the additional step that redundant
-/// modifiers (which are already applied here) are removed from the `styles`
-/// passed to `layout`. This is used in inline layout for elements such as text,
-/// boxes and equations.
-pub fn layout_and_reset_modifications<F, R>(
-    styles: StyleChain<'_>,
-    layout: F,
-) -> SourceResult<(FrameModifiers, R)>
-where
-    F: FnOnce(StyleChain) -> SourceResult<R>,
-    R: FrameModify,
-{
-    let modifiers = FrameModifiers::get_in(styles);
-
-    // Disable the current link internally since it's already applied at this
-    // level of layout. This means we don't generate redundant nested links,
-    // which may bloat the output considerably.
-    let reset;
-    let outer = styles;
-    let mut styles = styles;
-    if modifiers.dest.is_some() {
-        reset = LinkElem::current.set(None).wrap();
-        styles = outer.chain(&reset);
-    }
-
-    Ok((modifiers, layout(styles)?))
-}
-
 /// Performs layout and modification in one step.
 ///
 /// This just runs `layout(styles).modified(&FrameModifiers::get_in(styles))`,
@@ -169,7 +133,29 @@ where
     R: FrameModify,
 {
     let modifiers = FrameModifiers::get_in(styles);
+    layout_and_modify_internal(modifiers, styles, layout)
+}
 
+/// Performs layout and modification in one step, except for links, which are handled by other parts of layout.
+pub fn layout_and_modify_without_links<F, R>(styles: StyleChain<'_>, layout: F) -> R
+where
+    F: FnOnce(StyleChain) -> R,
+    R: FrameModify,
+{
+    let modifiers = FrameModifiers { dest: None, ..FrameModifiers::get_in(styles) };
+
+    layout_and_modify_internal(modifiers, styles, layout)
+}
+
+fn layout_and_modify_internal<F, R>(
+    modifiers: FrameModifiers,
+    styles: StyleChain,
+    layout: F,
+) -> R
+where
+    F: FnOnce(StyleChain) -> R,
+    R: FrameModify,
+{
     // Disable the current link internally since it's already applied at this
     // level of layout. This means we don't generate redundant nested links,
     // which may bloat the output considerably.
