@@ -22,8 +22,9 @@ use typst_utils::SliceExt;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
-use super::{Item, Range, SpanMapper, decorate};
 use crate::modifiers::FrameModifyText;
+
+use super::{Item, Range, SpanMapper, decorate};
 
 const SHY: char = '\u{ad}';
 const SHY_STR: &str = "\u{ad}";
@@ -459,7 +460,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify_text(self.styles);
+        frame.modify_text_without_links(self.styles);
         frame
     }
 
