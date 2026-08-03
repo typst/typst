@@ -825,7 +825,11 @@ impl LogicalIndex {
     /// created using [`Self::before`] or [`Self::after`], because there is only
     /// room for a single additional logical index between two items.
     const fn before(self) -> Self {
-        Self(self.0.checked_sub(1).expect("can't create logical hyphen index"))
+        Self(
+            self.0
+                .checked_sub(1)
+                .expect("can't create logical index before this one"),
+        )
     }
 
     /// Create a new logical index directly after this one.
@@ -834,7 +838,11 @@ impl LogicalIndex {
     /// created using [`Self::before`] or [`Self::after`], because there is only
     /// room for a single additional logical index between two items.
     const fn after(self) -> Self {
-        Self(self.0.checked_add(1).expect("can't create logical hyphen index"))
+        Self(
+            self.0
+                .checked_add(1)
+                .expect("can't create logical index after this one"),
+        )
     }
 }
 
