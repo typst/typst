@@ -2,16 +2,18 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use typst_library::engine::Engine;
-use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
-use typst_library::model::ParLineMarker;
+use typst_library::foundations::Styles;
+use typst_library::introspection::{Location, SplitLocator, Tag, TagFlags};
+use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
+use typst_library::model::{Destination, LinkElem, ParLineMarker};
 use typst_library::text::{Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::inline::collect::Event;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::Adjustability;
-use crate::modifiers::layout_and_modify;
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -483,13 +485,14 @@ pub fn apply_shift<'a>(
 }
 
 /// Commit to a line and build its frame.
-pub fn commit(
+pub fn commit<'l>(
     engine: &mut Engine,
     p: &Preparation,
-    line: &Line,
+    line: &'l Line,
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
+    active_links: &mut Vec<&'l Destination>,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
@@ -554,6 +557,13 @@ pub fn commit(
         }
     }
 
+    // Keep track of items spanned by each link, including the destination, the
+    // horizontal offset where it starts, and the offset where it ends - this
+    // starts as `None` and becomes `Some()` if the link ends at this line, or
+    // ends as `None` if it spans the whole line.
+    let mut link_spans: Vec<(&Destination, Abs, Option<Abs>)> =
+        active_links.iter().map(|&l| (l, Abs::zero(), None)).collect();
+
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
@@ -603,6 +613,25 @@ pub fn commit(
                 frames.push((offset, frame, idx));
             }
             Item::Skip(_) => {}
+            Item::Event(Event::StartLink(dest)) => {
+                active_links.push(dest);
+                link_spans.push((dest, offset, None));
+            }
+            Item::Event(Event::EndLink(dest)) => {
+                if active_links.is_empty() {
+                    // External links should have been handled before...
+                    todo!()
+                } else {
+                    debug_assert_eq!(active_links.last(), Some(&dest));
+                    debug_assert_eq!(link_spans.last().map(|(l, _, _)| l), Some(&dest));
+                    debug_assert_eq!(
+                        link_spans.last().map(|(_, _, end)| end),
+                        Some(&None)
+                    );
+                    active_links.pop();
+                    link_spans.last_mut().unwrap().2 = Some(offset);
+                }
+            }
         }
     }
 
@@ -628,6 +657,27 @@ pub fn commit(
     for (offset, frame, _) in frames {
         let x = offset + p.config.align.position(remaining);
         let y = top - frame.baseline();
+        output.push_frame(Point::new(x, y), frame);
+    }
+
+    // Construct link frames.
+    for (dest, offset, end) in link_spans {
+        let x = offset + p.config.align.position(remaining);
+        let y = bottom;
+        dbg!(x);
+        dbg!(y);
+        let width = match end {
+            Some(end) => dbg!(end - offset),
+            None => dbg!(width),
+        };
+        dbg!(width);
+        let height = dbg!(top) - dbg!(bottom);
+        dbg!(height);
+        let mut styles = Styles::new();
+        styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
+
+        let frame = Frame::new(Size::new(width, height), FrameKind::Soft)
+            .modified(&FrameModifiers::get_in(StyleChain::new(&styles)));
         output.push_frame(Point::new(x, y), frame);
     }
 

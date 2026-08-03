@@ -1,4 +1,4 @@
---- playground paged empty ---
+--- playground paged ---
 hello #link("https://google.com")[abc] #link("https://typst.app")[world world #box[test] world #text(2em)[trains] bye]#link("https://typst.app")[okay] thanks
 
 #link("https://reddit.com")[This is a full paragraph link.]
