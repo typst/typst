@@ -633,10 +633,10 @@ b68fe0d021f382a465a2b8fa087a6f06 hyphenate-pt-repeat-hyphen-hyphenate-true-with-
 364849ef231ce5da69cd5c34669fae09 image-jpg
 e2c28abda075f98a1be7605f762b4291 image-jump-to-next-page
 07039aa01c420df97eccf75a61fe6c2d image-natural-dpi-sizing
-73695cb9ba910c56ab3ad05489d7bfff image-pdf-base14-fonts
-512b7fb1ea82c70fc1f0ed5c2de37385 image-pdf-basic
-b6648825c98d9c8a22a9bda16ca03bd9 image-pdf-complex
-ab0876e21759fffe0a094f141db3dad4 image-pdf-multiple-pages
+7376a585bfc1770fa96a59d25a44ccc0 image-pdf-base14-fonts
+12c451b76f6dd657234c15882db48c88 image-pdf-basic
+eafec7f53413c999a3b3b4446d4e3590 image-pdf-complex
+9af894b778741a21c23a0e7481da934b image-pdf-multiple-pages
 f692b45298c819bc72fdbd925441235a image-pixmap-luma8
 d7745ce3cafb9fe332e6dfa398bddc76 image-pixmap-lumaa8
 9f5604c88f6f0b71e7c52aef08adf76e image-pixmap-rgb8
@@ -648,7 +648,7 @@ cb4d72e9cc3a018f9c34e3e6bb03daec image-pixmap-rgba8
 42c7a88bdb12de376dade21c6a511195 image-svg-complex
 36f9e8783c9bc375d0ffbaf1d8801b64 image-svg-linked-jpg1
 0479e49319ad36244b3f60c32587de70 image-svg-linked-jpg2
-e93d7c9432f08f7fc399bd77c6ec97f9 image-svg-linked-many-formats
+d8574ad73ed82ed07774b6087b70ec0f image-svg-linked-many-formats
 d05b7da1f1d97090f754947cf35aad77 image-svg-text
 10665a9d33a3ea4626a24fb49769456e image-svg-text-font
 df3bb9369dd6be9214558c66dff3fd09 image-svg-variable-font

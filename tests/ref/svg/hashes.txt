@@ -631,10 +631,10 @@ f84a90a3c38898ed90253f356fd88fc7 image-decode-specify-format
 426f0a2ff48d007ec601e372c344dd17 image-jpg
 11a920086a593d17a221a3b53410b313 image-jump-to-next-page
 f0efdc4f903d354f49fc52ae6fbaff82 image-natural-dpi-sizing
-a3174a704e367b8359abb10eea8f2219 image-pdf-base14-fonts
+e2e9531be0c7c8805e6d178dd4ad8cfc image-pdf-base14-fonts
 a1d173f3647a1993e27aba41e7df301d image-pdf-basic
-97e84cff8efc0b0b62547df9d2eb6d23 image-pdf-complex
-d680ac666465e4774d2d7ca250881798 image-pdf-multiple-pages
+3ec779eaf2a2c8226dbb5ba22dd38069 image-pdf-complex
+f7dab754704b2cb9a67cfdac1aef8028 image-pdf-multiple-pages
 6d0be651e0c2a431806480976e947426 image-pixmap-luma8
 2880b102c6b76ae1fcf2691de5ce7832 image-pixmap-lumaa8
 a63af691bb0aa3d59819cedd237ebcc4 image-pixmap-rgb8
