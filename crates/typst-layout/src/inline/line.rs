@@ -13,7 +13,7 @@ use super::*;
 use crate::inline::collect::Event;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::Adjustability;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
+use crate::modifiers::{FrameModifiers, FrameModify, FrameModifyText, layout_and_modify};
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -676,8 +676,9 @@ pub fn commit<'l>(
         let mut styles = Styles::new();
         styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
 
-        let frame = Frame::new(Size::new(width, height), FrameKind::Soft)
-            .modified(&FrameModifiers::get_in(StyleChain::new(&styles)));
+        // TODO: a single modify call, calculating the height needed in real-time when going over text...
+        let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+        frame.modify_text_with_link(StyleChain::new(&styles));
         output.push_frame(Point::new(x, y), frame);
     }
 
