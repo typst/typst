@@ -79,28 +79,14 @@ where
 pub trait FrameModifyText {
     /// Resolve and apply [`FrameModifiers`] for this text frame.
     fn modify_text(&mut self, styles: StyleChain);
-
-    /// Resolve and apply [`FrameModifiers`] for this text frame, including links.
-    fn modify_text_with_link(&mut self, styles: StyleChain);
 }
 
 impl FrameModifyText for Frame {
     fn modify_text(&mut self, styles: StyleChain) {
         let modifiers = FrameModifiers::get_in(styles);
-        modify_frame_non_link(self, &modifiers);
-    }
-
-    fn modify_text_with_link(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers::get_in(styles);
         let expand_y = 0.5 * styles.resolve(ParElem::leading);
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
         modify_frame(self, &modifiers, Some(outset));
-    }
-}
-
-fn modify_frame_non_link(frame: &mut Frame, modifiers: &FrameModifiers) {
-    if modifiers.hidden {
-        frame.hide();
     }
 }
 
