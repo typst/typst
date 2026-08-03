@@ -672,51 +672,48 @@ fn add_par_line_marker(
 }
 
 /// How much a glyph should hang into the end margin.
+fn overhang(glyph: &ShapedGlyph) -> Abs {
+    // Note: Binary search is not currently worth it, but can be used if this
+    // grows larger.
+    font_overhang_table(&glyph.font)
+        .iter()
+        .find(|(id, _)| *id == glyph.glyph_id)
+        .map_or(Abs::zero(), |&(_, factor)| factor * glyph.x_advance.at(glyph.size))
+}
+
+/// Generates a sorted table with overhang ratios indexed by glyph ID for a
+/// particular font.
+#[comemo::memoize]
+fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
+    let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
+    for &(c, factor) in DEFAULT_OVERHANG_TABLE {
+        if let Some(id) = font.ttf().glyph_index(c) {
+            table.push((id.0, factor));
+        }
+    }
+    table.make_mut().sort_unstable_by_key(|(id, _)| *id);
+    table
+}
+
+/// How much a character should hang into the end margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(glyph: &ShapedGlyph) -> Abs {
-    const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
-        // Dashes.
-        ('–', 0.2),
-        ('—', 0.2),
-        ('-', 0.55),
-        ('\u{ad}', 0.55),
-        // Punctuation.
-        ('.', 0.8),
-        (',', 0.8),
-        (';', 0.3),
-        (':', 0.3),
-        // Arabic
-        ('\u{60C}', 0.4),
-        ('\u{6D4}', 0.4),
-    ];
-
-    #[comemo::memoize]
-    fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
-        let mut table = Vec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
-
-        for (c, v) in DEFAULT_OVERHANG_TABLE {
-            if let Some(id) = font.ttf().glyph_index(*c) {
-                table.push((id.0, *v));
-            }
-        }
-
-        table.sort_unstable_by_key(|(id, _)| *id);
-
-        EcoVec::from(table)
-    }
-
-    let table = font_overhang_table(&glyph.font);
-
-    let factor = table
-        .iter()
-        .find(|(id, _)| *id == glyph.glyph_id)
-        .map(|(_, v)| *v)
-        .unwrap_or(0.0);
-
-    factor * glyph.x_advance.at(glyph.size)
-}
+const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+    // Dashes.
+    ('–', 0.2),
+    ('—', 0.2),
+    ('-', 0.55),
+    ('\u{ad}', 0.55),
+    // Punctuation.
+    ('.', 0.8),
+    (',', 0.8),
+    (';', 0.3),
+    (':', 0.3),
+    // Arabic
+    ('\u{60C}', 0.4),
+    ('\u{6D4}', 0.4),
+];
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
@@ -771,7 +768,7 @@ impl<'a> Items<'a> {
         self.iter()
             .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
             .find_map(|item| {
-                let Item::Text(text) = item else { return None };
+                let text = item.text()?;
                 text.glyphs
                     .iter()
                     // Skip non-positive advance artifacts from tag splits so
@@ -806,7 +803,7 @@ impl<'a> Items<'a> {
             .rev()
             .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
             .find_map(|item| {
-                let Item::Text(text) = item else { return None };
+                let text = item.text()?;
                 text.glyphs
                     .iter()
                     .rev()
