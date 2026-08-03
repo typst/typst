@@ -451,7 +451,6 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);
-    const INDENT: Em = Em::new(1.5);
 
     let loc = elem.location().unwrap();
     let span = elem.span();
@@ -498,9 +497,10 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
             let realized =
                 PdfMarkerTag::BibEntry(entry.body.clone().located(entry.backlink));
             let block = if bibliography.hanging_indent {
-                let body = HElem::new((-INDENT).into()).pack() + realized;
+                let indent = styles.get(ParElem::hanging_indent);
+                let body = HElem::new((-indent).into()).pack() + realized;
                 let inset = Sides::default()
-                    .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
+                    .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
                 BlockElem::new()
                     .with_inset(inset)
                     .with_body(Some(BlockBody::Content(body)))
