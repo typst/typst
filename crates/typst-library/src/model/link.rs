@@ -144,7 +144,7 @@ use crate::text::{LocalName, TextElem};
 /// into the built-in link handling. That said, in HTML export, depending on
 /// your use case, it may be possible to adjust the built-in link handling with
 /// a show rule on `{html.elem.where(tag: "a")}`.
-#[elem(Locatable)]
+#[elem(since = "forever", Locatable)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///

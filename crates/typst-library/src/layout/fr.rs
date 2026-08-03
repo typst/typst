@@ -20,7 +20,7 @@ use crate::layout::Abs;
 /// ```example
 /// Left #h(1fr) Left-ish #h(2fr) Right
 /// ```
-#[ty(cast, name = "fraction")]
+#[ty(cast, name = "fraction", since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 

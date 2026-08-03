@@ -101,6 +101,20 @@ bc59dcdfa945150151f451bd83d4b299 color-outside-srgb-gamut
 82c48571ad9de5290d6ec611b983c970 color-rotate-hue
 e4378b03c0c88a04b7bc5b0c3d9e23f9 color-saturation
 72bf371d532444341689298ed44c4353 color-spaces
+49417c77b77d95ffc4155a083c6f2f18 columns-balanced
+85466b150e564a3d71f8179b676a0457 columns-balanced-blocks
+36c3820835643878a4550af0a04c566b columns-balanced-figures
+98524c510f636e12f4d2e26b4e8a10e0 columns-balanced-footnote-overflow
+afeb78c647d8b3c7f8b4b97631dbe817 columns-balanced-footnotes
+3083467593aaafa5c14be713f0902bfb columns-balanced-leftover-2-3
+0528be61fa39c9c839d4be18cbdf25ce columns-balanced-leftover-4
+a648ffc83e38dbd3c030920ac369aa53 columns-balanced-leftover-5
+12e1924ffc8dbcf173d80e5f5c23013f columns-balanced-leftover-6
+48b1c452ae962934a7befade7cfcf363 columns-balanced-leftover-7
+431f30b6cf72f01cb2aab1dd147b62f2 columns-balanced-lists
+ef9b28c336f647ab3ed1d5d2d9c6a4bb columns-balanced-pagebreak
+24afec7f8d633c777a492b3ab00f3899 columns-balanced-tables
+8b80a853b8ea9837da6a858b6613d2b6 columns-balanced-widow
 654fce76fc39360b2865c0c3f24f3f51 columns-colbreak-after-place
 73fd768e2c8e0f794893f42c43cd11ae columns-empty-second-column
 3e28bbd810096e7263a90a310d2180db columns-in-auto-sized-rect
@@ -182,7 +196,6 @@ dd9b5fe57e921c62917743d9272d68ac ellipse
 7032b2bfab9dd86c1b4c4a6ea99765a6 emph-and-strong-call-in-word
 ee4b834945e3d4ee98adbb83cc24e440 emph-double-underscore-empty-hint
 5e5bd91b7531b364c972a4b54c5bca3e emph-syntax
-c9a7bcc0995006716a0f6ea019f0f381 enum-array-deprecated
 1fbee69c2a83c9ebad54eaa13ff4a2e8 enum-built-in-loop
 25c9b6cb4ef0514e8e10d9fcb175f04c enum-function-call
 ab546e776c589625d584cc2fb8d3f931 enum-in-align-centering
@@ -847,6 +860,7 @@ ce0a8c8453f682afc61280473b32b856 issue-8261-string-as-non-numeric
 a06b2482f1d0f5ca88d5442e9c2d1d4f issue-8383-headers-pdf-ua
 d1f419b4e576bb3ae9c4b2ed45de67c0 issue-852-mat-type
 d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
+f438c7e72e95fc4b812c573b9ff9494d issue-8648-enum-gap
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
 aa87ad6ade20c3470dd44d260dfa6811 issue-color-mix-luma
 5b94002ca5168ccda6d3200861bb81af issue-columns-heading
@@ -932,6 +946,7 @@ d190e120731dd688c8f86840bd71c2de line-numbers-place-out-of-order
 1a38492b52aa7916bf0af5e3658a55c3 linebreak-hyphen-nbsp
 1ee35b1234b5896330e19fb521fc77c1 linebreak-link
 25fdce5e713936d9a464351cacf8cd3f linebreak-link-end
+880112fbbb0e8d814d8e9bd1f4e222f5 linebreak-link-ip-host
 48a5a6ef3e2ed8a516524246f4cd152c linebreak-link-justify
 9ca738eae90f3fea26094a3cc78c9a95 linebreak-manual
 4628b238e87a91dd97047f04b3ecf6f9 linebreak-manual-consecutive
@@ -955,6 +970,7 @@ d1178fbcd79a21782aa1279d5f6348dd link-to-label
 cd337be24b51dceb0460c4dde2307b1f link-to-page
 0388a6126d167f18dfd0556c758ac92e link-trailing-period
 fca251f69334ee095b338330e1839b1e link-transformed
+c9d307f6eff5463d6d3c9c8e8dedda96 link-url-svg-escape
 da43f42b62580f4870ea61b5fc63a648 list-attached
 7a2ba6da6fbe5ccae2cf33c7d203832f list-attached-above-spacing
 d50762fbb69a74768eae7cf9c5da10a0 list-baseline-big-marker
@@ -1827,7 +1843,6 @@ a7abe27f562feb7cad67977e16f9e51a table-inset
 2feba4dabc7ec7f87ddd683ea0003ad7 table-newlines
 c20d7b0452399cb36979023ae3ec8933 table-stroke-vline-position-left-and-right
 6bc2fa9b013cd685f8a20fe24f16a51a tags-textual
-ca206876eddba15d455f9e742136f5ad terms-array-deprecated
 2831f586aff16984721f700f4d22e909 terms-built-in-loop
 4977ad3d17be95afcc2b9f87e76a8000 terms-constructor
 13aa51a5ffd1b7ce9eb4aed4252a02df terms-grid
@@ -1884,6 +1899,9 @@ a1998ab2816b028e3de6b20c1c122d8e text-spacing-relative
 e8c38348f3c3758af450e3b6e9f39cc6 text-tracking-mark-placement
 6dcee9c5d25ba3b758aa0359880cfa8a text-tracking-negative
 13e055782445e90a2967be4fbc896e9b text-unknown-font-family-warning
+39f9be8e858a31fb09fd547a708c2c3f tiling-angle
+715f940e598b07c02925b94a80ae8797 tiling-angle-with-offset
+66a337acf08c271ebb244778b62a6aa8 tiling-angle-with-relative-offset-and-spacing
 2225f575b4cc95ea99e228048dea6daa tiling-line
 70a2534434e265405cb4f15dac4f623c tiling-lines
 0bbfa19437ad13aa77b7579124da2d56 tiling-negative-area
@@ -1903,6 +1921,7 @@ f8c65043365ded3763112324650e90ac tiling-spacing-negative
 e235b63c455666e921af52eef37980bb tiling-stroke-relative-parent
 942912a02f9875ffc25671074f85201d tiling-text
 ce47bdafefffeeaaf618a83e729d7016 tiling-text-fill
+b5b1459fbbbd9f32ec5292b3c7e4b2fa tiling-text-offset-angle
 41d3d523c15a3df9424f6cb44aafbfce tiling-with-different-size
 e7c9446a20f331a801262b4111c3a92d tiling-with-different-spacing
 85f18dd75a49510a986af8fe84d51784 title

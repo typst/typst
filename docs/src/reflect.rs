@@ -14,6 +14,7 @@ use typst::foundations::{
     Type, Value, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
+use typst::text::RawElem;
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
@@ -50,6 +51,7 @@ fn describe_func(func: &Func) -> Dict {
     dict! {
         "name" => func.name(),
         "title" => func.title(),
+        "since" => func.since(),
         "docs" => func.docs(),
         "def-site" => func.def_site().map(describe_def_site),
         "element" => func.to_element().is_some(),
@@ -94,6 +96,7 @@ fn describe_ty(ty: Type) -> Dict {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),
         "title" => ty.title(),
+        "since" => ty.since(),
         "docs" => ty.docs(),
         "def-site" => describe_def_site(ty.def_site()),
         "keywords" => ty.keywords(),
@@ -275,4 +278,18 @@ pub fn is_global_html_attr(name: EcoString) -> bool {
     data::ATTRS[..data::ATTRS_GLOBAL]
         .iter()
         .any(|global| global.name == name)
+}
+
+/// Returns the list of raw languages available.
+pub fn raw_langs() -> Array {
+    RawElem::languages()
+        .into_iter()
+        .map(|(name, tokens)| {
+            dict! {
+                "name" => name,
+                "tokens" => tokens,
+            }
+            .into_value()
+        })
+        .collect()
 }

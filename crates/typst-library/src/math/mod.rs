@@ -111,7 +111,7 @@ pub fn module() -> Module {
 pub trait Mathy {}
 
 /// A math alignment point: `&`, `&&`.
-#[elem(title = "Alignment Point", Mathy)]
+#[elem(title = "Alignment Point", since = "forever", Mathy)]
 pub struct AlignPointElem {}
 
 impl AlignPointElem {
@@ -138,7 +138,7 @@ impl AlignPointElem {
 ///
 /// $x loves y and y loves 5$
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]

@@ -46,7 +46,7 @@ use crate::foundations::{
 /// $arrow.r$ \
 /// $arrow.t.quad$
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(SymbolInner);
 
@@ -215,7 +215,7 @@ impl Symbol {
     /// #envelope.lightning
     /// #envelope.fly
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         span: Span,
         /// The variants of the symbol.

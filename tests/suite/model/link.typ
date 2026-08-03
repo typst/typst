@@ -57,6 +57,11 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
   #box(move(dx: 10pt, image("/assets/images/rhino.png", width: 1cm)))
 ])
 
+--- link-url-svg-escape paged ---
+// Test that XML metacharacters in a link URL are escaped in the SVG output, so
+// that an ordinary query string does not yield malformed SVG.
+#link("https://example.com/?a=1&b=2<c>")[#box(width: 5pt, height: 5pt, fill: black)]
+
 --- link-to-page paged ---
 // Link to page one.
 #link((page: 1, x: 10pt, y: 20pt))[Back to the start]

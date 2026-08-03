@@ -87,7 +87,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(Debug, Construct, PlainText, Repr)]
+#[elem(since = "forever", Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptors.
     ///

@@ -1,6 +1,6 @@
 #import "base.typ": (
-  classnames, heading-offset, icon, labelled, short-or-long, title-state,
-  tooltip-counter,
+  classnames, dev-version-warning, heading-offset, icon, labelled,
+  short-or-long, title-state, tooltip-counter,
 )
 #import "linking.typ": register-def
 #import "nav.typ": nav-breadcrumbs, nav-folding, nav-on-this-page, nav-prev-next
@@ -123,6 +123,9 @@
     })
 
     html.body(class: classnames("docs", class), {
+      if stdx.is-dev-version {
+        dev-version-warning()
+      }
       html.header(class: "w695", {
         html.button(
           class: "hamburger",

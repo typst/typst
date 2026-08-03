@@ -131,7 +131,7 @@ pub struct TargetElem {
 ///
 /// Press #kbd("F1") for help.
 /// ```
-#[func(contextual)]
+#[func(contextual, since = "0.13.0")]
 pub fn target(context: Tracked<Context>) -> HintedStrResult<Target> {
     Ok(context.styles()?.get(TargetElem::target))
 }

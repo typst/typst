@@ -12,7 +12,7 @@ use crate::text::{FontMetrics, ScriptMetrics, TextSize};
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-#[elem(title = "Subscript", Tagged)]
+#[elem(title = "Subscript", since = "forever", Tagged)]
 pub struct SubElem {
     /// Whether to use subscript glyphs from the font if available.
     ///
@@ -71,7 +71,7 @@ pub struct SubElem {
 /// ```example
 /// 1#super[st] try!
 /// ```
-#[elem(title = "Superscript", Tagged)]
+#[elem(title = "Superscript", since = "forever", Tagged)]
 pub struct SuperElem {
     /// Whether to use superscript glyphs from the font if available.
     ///

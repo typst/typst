@@ -225,17 +225,88 @@ fn inject_live_reload_script(html: &mut String) {
     html.insert_str(pos, LIVE_RELOAD_SCRIPT);
 }
 
-/// Selects a MIME type for a request based on path and data.
+/// Selects a MIME type for a request based on file extension and/or data.
+///
+/// First, tries to find a match for the file extension and if that yields
+/// nothing, inspects the data itself.
 fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
-    match path.rsplit_once('.').map(|(_, r)| r) {
-        Some("html") => Some("text/html"),
-        Some("pdf") => Some("application/pdf"),
-        Some("png") => Some("image/png"),
-        Some("svg") => Some("image/svg+xml"),
-        Some("css") => Some("text/css"),
-        Some("js") => Some("text/javascript"),
-        _ => infer::get(buf).map(|ty| ty.mime_type()),
-    }
+    path.rsplit_once('.')
+        .and_then(|(_, r)| select_mime_type_by_extension(r))
+        .or_else(|| infer::get(buf).map(|ty| ty.mime_type()))
+}
+
+/// Selects a MIME type for a request based on the file extension.
+///
+/// See <https://www.iana.org/assignments/media-types/media-types.xhtml> for the
+/// full list of standardized MIME types. This function only handles a subset of
+/// this list.
+///
+/// Additionally, it handles a few very commonly used unstandardized types.
+fn select_mime_type_by_extension(ext: &str) -> Option<&'static str> {
+    Some(match ext.to_lowercase().as_str() {
+        // Web.
+        "html" | "htm" => "text/html",
+        "xhtml" => "application/xhtml+xml",
+        "css" => "text/css",
+        "js" | "mjs" => "text/javascript",
+        "wasm" => "application/wasm",
+
+        // Document.
+        "typ" => "text/vnd.typst",
+        "txt" => "text/plain",
+        "pdf" => "application/pdf",
+        "md" => "text/markdown",
+
+        // Font.
+        "ttc" | "otc" => "font/collection",
+        "ttf" => "font/ttf",
+        "otf" => "font/otf",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+
+        // Container.
+        "zip" => "application/zip",
+        // Not standardized by IANA.
+        "tar" => "application/x-tar",
+
+        // Data.
+        // This file extension is not specified, but commonly used.
+        "bin" => "application/octet-stream",
+        "csv" => "text/csv",
+        // RFC 7303, § 4.1 recommends `application/` over `text/`.
+        "xml" => "application/xml",
+        "json" => "application/json",
+        "yaml" | "yml" => "application/yaml",
+
+        // Image.
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "gif" => "image/gif",
+        "ico" => "image/vnd.microsoft.icon",
+        "jpg" | "jpeg" => "image/jpeg",
+        "jxl" => "image/jxl",
+        "png" => "image/png",
+        "svg" => "image/svg+xml",
+        "tif" | "tiff" => "image/tiff",
+        "webp" => "image/webp",
+
+        // Audio.
+        "mp3" => "audio/mpeg",
+        "ogg" | "oga" | "spx" | "opus" => "audio/ogg",
+        // Not standardized by IANA and there are other common variations (e.g.
+        // `audio/x-wav` and `audio/vnd.wave`), but this one seems most commonly
+        // in use.
+        "wav" => "audio/wav",
+
+        // Video.
+        "mp4" => "video/mp4",
+        "mpeg" => "video/mpeg",
+        "ogv" => "video/ogg",
+        // Not standardized by IANA, but this type is practically in use.
+        "webm" => "video/webm",
+
+        _ => return None,
+    })
 }
 
 /// Holds data and notifies consumers when it's updated.

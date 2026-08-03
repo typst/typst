@@ -147,7 +147,7 @@ use crate::text::{LocalName, SpaceElem, TextElem};
 /// = About ACME Corp.
 /// == History
 /// ```
-#[elem(scope, keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable, Tagged)]
+#[elem(scope, since = "forever", keywords = ["Table of Contents", "toc"], ShowSet, LocalName, Locatable, Tagged)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -470,7 +470,14 @@ pub trait Outlinable: Refable {
 /// With show-set and show rules on outline entries, you can richly customize
 /// the outline's appearance. See the
 /// @outline:styling-the-outline[section on styling the outline] for details.
-#[elem(scope, name = "entry", title = "Outline Entry", Locatable, Tagged)]
+#[elem(
+    scope,
+    name = "entry",
+    title = "Outline Entry",
+    since = "0.6.0",
+    Locatable,
+    Tagged
+)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
@@ -529,7 +536,7 @@ impl OutlineEntry {
     /// indented, but the inner contents are simply offset from the prefix by
     /// the specified `gap`, rather than aligning outline-wide. For a visual
     /// explanation, see @outline.indent.
-    #[func(contextual)]
+    #[func(contextual, since = "0.13.0")]
     pub fn indented(
         &self,
         engine: &mut Engine,
@@ -626,7 +633,7 @@ impl OutlineEntry {
     /// This also appends the element's supplement in case of figures or
     /// equations. For instance, it would output `1.1` for a heading, but
     /// `Figure 1` for a figure, as is usual for outlines.
-    #[func(contextual)]
+    #[func(contextual, since = "0.13.0")]
     pub fn prefix(
         &self,
         engine: &mut Engine,
@@ -646,7 +653,7 @@ impl OutlineEntry {
     /// Creates the default inner content of the entry.
     ///
     /// This includes the body, the fill, and page number.
-    #[func(contextual)]
+    #[func(contextual, since = "0.13.0")]
     pub fn inner(
         &self,
         engine: &mut Engine,
@@ -661,14 +668,14 @@ impl OutlineEntry {
     /// The content which is displayed in place of the referred element at its
     /// entry in the outline. For a heading, this is its @heading.body[`body`];
     /// for a figure a caption and for equations, it is empty.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn body(&self) -> StrResult<Content> {
         Ok(self.outlinable()?.body())
     }
 
     /// The page number of this entry's element, formatted with the numbering
     /// set for the referenced page.
-    #[func(contextual)]
+    #[func(contextual, since = "0.13.0")]
     pub fn page(
         &self,
         engine: &mut Engine,
