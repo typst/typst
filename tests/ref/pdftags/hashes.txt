@@ -49,6 +49,8 @@ b32143e1f765df4cde0fec032eeca669 issue-7301-link-tags-empty-link-body-footnote
 f5f3604f1588538567ec71405654998a issue-7301-link-tags-empty-link-body-linebreak
 375c458d2f076f603c2d001d9ff5bbb8 issue-7301-link-tags-empty-link-body-mutliple
 5ab61f7e0ec959263cf94e8a7c2c2740 issue-7763-text-tags-span-order
+c224c9b9de88cc28465647ad99ac5c01 issue-7777-missing-link-parent
+45c9cfe17a8402f6c0869fd5267dce5e issue-7777-missing-link-parent-repeated-hyphen
 4c9538b1955e189fda33054d5f5fc50a issue-7789-list-tags-breaking
 a82a398895d6aa9fbf754e9bccf1fc73 lang-tags-pars-basic
 1d4724e9204407592d0ed20eeb376b51 lang-tags-propagation

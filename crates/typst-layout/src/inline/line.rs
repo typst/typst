@@ -155,26 +155,27 @@ pub fn line<'a>(
     // Collect the items for the line.
     let mut items = Items::new();
 
+    collect_items(&mut items, engine, p, range, &trim);
+
     // Add a hyphen at the line start, if a previous dash should be repeated.
     if let Some(pred) = pred
         && pred.dash == Some(Dash::Hard)
-        && let Some(base) = pred.items.trailing_text()
-        && should_repeat_hyphen(base.lang, full)
+        && let Some(pred_text) = pred.items.trailing_text()
+        && should_repeat_hyphen(pred_text.lang, full)
+        && let Some((base_idx, base)) = items.leading_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, false)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
+        items.prepend(Item::Text(hyphen), base_idx.before());
     }
-
-    collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(base) = items.trailing_text()
+        && let Some((base_idx, base)) = items.trailing_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, true)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
+        items.push(Item::Text(hyphen), base_idx.after());
     }
 
     // Ensure that there is no weak spacing at the start and end of the line.
@@ -706,6 +707,11 @@ impl<'a> Items<'a> {
         self.0.push((idx, entry.into()));
     }
 
+    /// Insert a new item at the start of the line.
+    pub fn prepend(&mut self, entry: impl Into<ItemEntry<'a>>, idx: LogicalIndex) {
+        self.0.insert(0, (idx, entry.into()));
+    }
+
     /// Iterate over the items.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Item<'a>> {
         self.0.iter().map(|(_, item)| &**item)
@@ -727,6 +733,14 @@ impl<'a> Items<'a> {
         self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
     }
 
+    /// Access the first item (skipping tags), if it is text.
+    pub fn leading_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        self.0
+            .iter()
+            .find(|(_, item)| !item.is_tag())
+            .and_then(|(idx, item)| Some((*idx, item.text()?)))
+    }
+
     /// Access the first item (skipping tags) mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
@@ -735,6 +749,15 @@ impl<'a> Items<'a> {
     /// Access the last item (skipping tags), if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
         self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+    }
+
+    /// Access the last item (skipping tags), if it is text.
+    pub fn trailing_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        self.0
+            .iter()
+            .rev()
+            .find(|(_, item)| !item.is_tag())
+            .and_then(|(idx, item)| Some((*idx, item.text()?)))
     }
 
     /// Access the last item (skipping tags) mutably, if it is text.
@@ -784,14 +807,42 @@ impl Debug for Items<'_> {
 pub struct LogicalIndex(usize);
 
 impl LogicalIndex {
-    const START_HYPHEN: Self = Self(0);
-    const END_HYPHEN: Self = Self(usize::MAX);
-
     /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).
     const fn from_item_index(i: usize) -> Self {
         // This won't overflow because the `idx` comes from a vector which is
         // limited to `isize::MAX` elements.
-        Self(i + 1)
+        // Create indices in a way that there is always a space before the
+        // first, between two and (most likely) after the last one. This allows
+        // generating logical indices for soft hyphens. One space is enough
+        // because there is at most a single leading and trailing item
+        // before/after the first/last text item in the line.
+        Self(2 * i + 1)
+    }
+
+    /// Create a new logical index directly before this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn before(self) -> Self {
+        Self(
+            self.0
+                .checked_sub(1)
+                .expect("can't create logical index before this one"),
+        )
+    }
+
+    /// Create a new logical index directly after this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn after(self) -> Self {
+        Self(
+            self.0
+                .checked_add(1)
+                .expect("can't create logical index after this one"),
+        )
     }
 }
 
