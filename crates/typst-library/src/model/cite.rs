@@ -2,11 +2,11 @@ use ecow::EcoString;
 use hayagriva::citationberg::taxonomy::Locator;
 use typst_syntax::Spanned;
 
-use crate::diag::{HintedStrResult, SourceResult, bail};
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Cast, CastInfo, Content, Derived, FromValue, IntoValue, Label, Packed,
-    Reflect, Repr, Smart, StyleChain, Synthesize, Value, cast, elem,
+    Array, Cast, Content, Derived, Label, Packed, Repr, Smart, StyleChain, Synthesize,
+    cast, elem,
 };
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
