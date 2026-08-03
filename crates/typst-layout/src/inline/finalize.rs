@@ -26,10 +26,14 @@ pub fn finalize(
         region.x
     };
 
+    // Keep track of active links across lines, as some links might span
+    // multiple lines.
+    let mut active_links = Vec::new();
+
     // Stack the lines into one frame per region.
     lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, locator))
+        .map(|line| commit(engine, p, line, width, region.y, locator, &mut active_links))
         .collect::<SourceResult<_>>()
         .map(Fragment::frames)
 }

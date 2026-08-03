@@ -26,7 +26,7 @@ use typst_library::text::{Costs, Lang, TextElem};
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Numeric, Protected, SliceExt};
 
-use self::collect::{Item, Segment, SpanMapper, collect};
+use self::collect::{Event, Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
 use self::finalize::finalize;
 use self::line::{Line, apply_shift, commit, line};
