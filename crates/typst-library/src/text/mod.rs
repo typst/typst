@@ -37,8 +37,9 @@ use icu_properties::CodePointSetDataBorrowed;
 use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
+use ttf_parser::{Face, GlyphId};
 use typst_syntax::Spanned;
-use typst_utils::singleton;
+use typst_utils::{LazyHash, singleton};
 
 use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
@@ -1176,9 +1177,18 @@ pub enum GlyphReference {
     Name(EcoString),
 }
 
+impl GlyphReference {
+    pub fn id(&self, font_face: &Face) -> Option<GlyphId> {
+        match self {
+            GlyphReference::CodePoint(c) => font_face.glyph_index(*c),
+            GlyphReference::Name(name) => font_face.glyph_index_by_name(name.as_str()),
+        }
+    }
+}
+
 /// A table mapping glyphs to their protrusion amounts (left and right).
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ProtrusionTable(pub Vec<(GlyphReference, (Protrusion, Protrusion))>);
+pub struct ProtrusionTable(pub LazyHash<Vec<(GlyphReference, (Protrusion, Protrusion))>>);
 
 impl Default for ProtrusionTable {
     fn default() -> Self {
@@ -1188,7 +1198,7 @@ impl Default for ProtrusionTable {
 
 impl ProtrusionTable {
     pub const fn new() -> Self {
-        Self(Vec::new())
+        Self(LazyHash::new(Vec::new()))
     }
 }
 
@@ -1205,10 +1215,13 @@ pub enum BuiltInOverhang {
 }
 
 impl Overhang {
+    #[expect(clippy::declare_interior_mutable_const)]
     pub const DISABLED: Overhang = Overhang {
         table: ProtrusionTable::new(),
         default: BuiltInOverhang::Side { left: false, right: false },
     };
+
+    #[expect(clippy::declare_interior_mutable_const)]
     pub const END: Overhang = Overhang {
         table: ProtrusionTable::new(),
         default: BuiltInOverhang::Direction { start: false },
@@ -1252,6 +1265,7 @@ cast! {
     self => {
         self
             .0
+            .into_inner()
             .into_iter()
             .map(|(glyph_ref, protrusions)| {
                 (glyph_ref.to_string().into(), protrusions.into_value())
@@ -1273,7 +1287,7 @@ cast! {
 
             table.push((glyph_ref, (left, right)));
         }
-        ProtrusionTable(table)
+        ProtrusionTable(LazyHash::new(table))
     },
 }
 

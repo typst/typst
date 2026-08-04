@@ -86,7 +86,7 @@ impl<T: Default> Default for LazyHash<T> {
 impl<T> LazyHash<T> {
     /// Wraps an item without pre-computed hash.
     #[inline]
-    pub fn new(value: T) -> Self {
+    pub const fn new(value: T) -> Self {
         Self { hash: HashLock::new(), value }
     }
 

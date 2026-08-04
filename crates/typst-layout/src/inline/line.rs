@@ -1,7 +1,7 @@
+use ecow::EcoVec;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
-
-use ecow::EcoVec;
+use std::sync::LazyLock;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{
@@ -9,8 +9,8 @@ use typst_library::layout::{
 };
 use typst_library::model::ParLineMarker;
 use typst_library::text::{
-    BuiltInOverhang, FontInstance, GlyphReference, Lang, Overhang, Protrusion, TextElem,
-    families, variant,
+    BuiltInOverhang, FontInstance, GlyphReference, Lang, Overhang, Protrusion,
+    ProtrusionTable, TextElem, families, variant,
 };
 use typst_utils::Numeric;
 
@@ -680,36 +680,19 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-struct ProtrusionTableRef<'a>(&'a [(GlyphReference, (Protrusion, Protrusion))]);
-impl std::hash::Hash for ProtrusionTableRef<'_> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        for (glyph_ref, _) in self.0 {
-            glyph_ref.hash(state);
-        }
-    }
-}
-
-/// Generates a sorted table with overhang ratios indexed by glyph ID for a
-/// particular font.
+/// Generates a sorted table with glyphs protrusions indexed by glyph ID
+/// for a particular font.
 #[comemo::memoize]
 fn instantiate_protrusion_table(
-    // To avoid needless hashing of both protrusions in table,
-    // it is wrapped in a special newtype.
-    // To avoid returning old values for new table,
-    // cached value stores indices into the table.
-    table: ProtrusionTableRef<'_>,
+    table: &ProtrusionTable,
     font: &FontInstance,
-) -> EcoVec<(u16, u16)> {
+) -> EcoVec<(u16, (Protrusion, Protrusion))> {
     let mut instance = EcoVec::with_capacity(table.0.len());
 
     let face = font.ttf();
-    for (i, (glyph_ref, _)) in table.0.iter().enumerate() {
-        let glyph_id = match glyph_ref {
-            GlyphReference::CodePoint(c) => face.glyph_index(*c),
-            GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
-        };
-        let Some(glyph_id) = glyph_id else { continue };
-        instance.push((glyph_id.0, i as u16));
+    for (glyph_ref, (l, r)) in table.0.iter() {
+        let Some(glyph_id) = glyph_ref.id(face) else { continue };
+        instance.push((glyph_id.0, (*l, *r)));
     }
 
     instance.make_mut().sort_unstable_by_key(|(id, _)| *id);
@@ -737,18 +720,15 @@ pub(crate) fn line_side_visible_glyph<'a>(
     Some((text, glyph))
 }
 
-/// How much a glyph should hang into the margin.
-///
-/// For more discussion, see:
-/// - <https://recoveringphysicist.com/21/>
-/// - [Hàn Thế Thành's dissertation](https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
-const DEFAULT_PROTRUSION_TABLE: &[(GlyphReference, (Protrusion, Protrusion))] = {
+/// Default values for glyph protrusion into the margin.
+/// These values are used when no font-specific protrusion table is available.
+static DEFAULT_PROTRUSION_TABLE: LazyLock<ProtrusionTable> = LazyLock::new(|| {
     const fn entry(c: char, v: f64) -> (GlyphReference, (Protrusion, Protrusion)) {
         let v = Smart::Custom(Rel::new(Ratio::new(v), Length::zero()));
         (GlyphReference::CodePoint(c), (v, v))
     }
 
-    &[
+    ProtrusionTable(LazyHash::new(vec![
         // Dashes.
         entry('–', 0.2),
         entry('—', 0.2),
@@ -762,9 +742,14 @@ const DEFAULT_PROTRUSION_TABLE: &[(GlyphReference, (Protrusion, Protrusion))] = 
         // Arabic
         entry('\u{60C}', 0.4),
         entry('\u{6D4}', 0.4),
-    ]
-};
+    ]))
+});
 
+/// How much a glyph should hang into the margin.
+///
+/// For more discussion, see:
+/// - <https://recoveringphysicist.com/21/>
+/// - [Hàn Thế Thành's dissertation](https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
 pub(crate) fn margin_kerning(
     overhang: &Overhang,
     dir: Dir,
@@ -772,30 +757,25 @@ pub(crate) fn margin_kerning(
     glyph: &ShapedGlyph,
 ) -> Abs {
     fn default_overhang(glyph: &ShapedGlyph) -> Rel {
-        let instance = instantiate_protrusion_table(
-            ProtrusionTableRef(DEFAULT_PROTRUSION_TABLE),
-            &glyph.font,
-        );
+        let instance =
+            instantiate_protrusion_table(&DEFAULT_PROTRUSION_TABLE, &glyph.font);
 
         // Note: Binary search is not currently worth it, but can be used if this
         // grows larger.
         instance
             .iter()
             .find(|(id, _)| *id == glyph.glyph_id)
-            .map(|(_, idx)| {
-                DEFAULT_PROTRUSION_TABLE[*idx as usize].1.0.unwrap_or_default()
-            })
+            .map(|(_, (l, _r))| l.unwrap_or_default())
             .unwrap_or_else(Rel::zero)
     }
 
-    let instance =
-        instantiate_protrusion_table(ProtrusionTableRef(&overhang.table.0), &glyph.font);
+    let instance = instantiate_protrusion_table(&overhang.table, &glyph.font);
+
     let protrusion = instance
         .binary_search_by_key(&glyph.glyph_id, |(id, _)| *id)
         .ok()
         .map(|idx| {
-            let idx = instance[idx].1 as usize;
-            let (l, r) = overhang.table.0[idx].1;
+            let (_, (l, r)) = instance[idx];
             if is_right_margin { r } else { l }
         })
         .unwrap_or_else(|| {
