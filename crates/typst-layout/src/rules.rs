@@ -265,19 +265,21 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
-            // Add spaces (of any nonzero width) to disable CJ punctuation
-            // adjustment. This changes only the target of measurement, but not
-            // the actual realized content.
-            let numbering = HElem::new(Abs::pt(-1.).into()).pack()
-                + numbering.clone()
-                + HElem::new(Abs::pt(1.).into()).pack();
+            // Add weak spacing (that will collapse) on both sides to disable CJ
+            // punctuation adjustment during measurement. In the actual heading
+            // the numbering will not be at the boundary (negative spacing
+            // before and the body after), so there could be misalignment
+            // otherwise. If there is ever a cleaner way to disable punctuation
+            // adjustment, that would be preferrable.
+            let collapsing = HElem::new(Abs::pt(1.0).into()).with_weak(true).pack();
+            let measurable = collapsing.clone() + numbering.clone() + collapsing;
 
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
             let link = LocatorLink::measure(location, span);
             let size = (engine.library.routines.layout_frame)(
                 engine,
-                &numbering,
+                &measurable,
                 Locator::link(&link),
                 styles,
                 pod,
