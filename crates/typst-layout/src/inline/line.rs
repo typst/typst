@@ -161,26 +161,27 @@ pub fn line<'a>(
     // Collect the items for the line.
     let mut items = Items::new();
 
+    collect_items(&mut items, engine, p, range, &trim);
+
     // Add a hyphen at the line start, if a previous dash should be repeated.
     if let Some(pred) = pred
         && pred.dash == Some(Dash::Hard)
-        && let Some(base) = pred.items.trailing_text()
-        && should_repeat_hyphen(base.lang, full)
+        && let Some(pred_text) = pred.items.trailing_text()
+        && should_repeat_hyphen(pred_text.lang, full)
+        && let Some((base_idx, base)) = items.leading_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, false)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
+        items.prepend(Item::Text(hyphen), base_idx.before());
     }
-
-    collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(base) = items.trailing_text()
+        && let Some((base_idx, base)) = items.trailing_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, true)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
+        items.push(Item::Text(hyphen), base_idx.after());
     }
 
     // Ensure that there is no weak spacing at the start and end of the line.
@@ -567,7 +568,7 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for &(idx, ref item) in line.items.indexed_iter() {
+    for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
@@ -679,16 +680,54 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// Get the glyph and corresponding text at the start or end of the line
+struct ProtrusionTableRef<'a>(&'a [(GlyphReference, (Protrusion, Protrusion))]);
+impl std::hash::Hash for ProtrusionTableRef<'_> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (glyph_ref, _) in self.0 {
+            glyph_ref.hash(state);
+        }
+    }
+}
+
+/// Generates a sorted table with overhang ratios indexed by glyph ID for a
+/// particular font.
+#[comemo::memoize]
+fn instantiate_protrusion_table(
+    // To avoid needless hashing of both protrusions in table,
+    // it is wrapped in a special newtype.
+    // To avoid returning old values for new table,
+    // cached value stores indices into the table.
+    table: ProtrusionTableRef<'_>,
+    font: &FontInstance,
+) -> EcoVec<(u16, u16)> {
+    let mut instance = EcoVec::with_capacity(table.0.len());
+
+    let face = font.ttf();
+    for (i, (glyph_ref, _)) in table.0.iter().enumerate() {
+        let glyph_id = match glyph_ref {
+            GlyphReference::CodePoint(c) => face.glyph_index(*c),
+            GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
+        };
+        let Some(glyph_id) = glyph_id else { continue };
+        instance.push((glyph_id.0, i as u16));
+    }
+
+    instance.make_mut().sort_unstable_by_key(|(id, _)| *id);
+    instance
+}
+
+/// Gets the glyph and corresponding text at the start or end of the line
 /// for margin kerning calculation.
 pub(crate) fn line_side_visible_glyph<'a>(
     line: &'a Line,
     is_right_side: bool,
 ) -> Option<(&'a ShapedText<'a>, &'a ShapedGlyph)> {
     let (text, glyph) = if is_right_side {
-        line.items.trailing_visible_glyph()?
+        let text = line.items.trailing_text()?;
+        (text, text.glyphs.last()?)
     } else {
-        line.items.leading_visible_glyph()?
+        let text = line.items.leading_text()?;
+        (text, text.glyphs.first()?)
     };
 
     if !(line.items.len() > 1 || text.glyphs.len() > 1) {
@@ -701,20 +740,15 @@ pub(crate) fn line_side_visible_glyph<'a>(
 /// How much a glyph should hang into the margin.
 ///
 /// For more discussion, see:
-///
 /// - <https://recoveringphysicist.com/21/>
 /// - [Hàn Thế Thành's dissertation](https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
-pub(crate) fn margin_kerning(
-    overhang: &Overhang,
-    dir: Dir,
-    is_right_margin: bool,
-    glyph: &ShapedGlyph,
-) -> Abs {
+const DEFAULT_PROTRUSION_TABLE: &[(GlyphReference, (Protrusion, Protrusion))] = {
     const fn entry(c: char, v: f64) -> (GlyphReference, (Protrusion, Protrusion)) {
         let v = Smart::Custom(Rel::new(Ratio::new(v), Length::zero()));
         (GlyphReference::CodePoint(c), (v, v))
     }
-    const DEFAULT_PROTRUSION_TABLE: &[(GlyphReference, (Protrusion, Protrusion))] = &[
+
+    &[
         // Dashes.
         entry('–', 0.2),
         entry('—', 0.2),
@@ -728,55 +762,30 @@ pub(crate) fn margin_kerning(
         // Arabic
         entry('\u{60C}', 0.4),
         entry('\u{6D4}', 0.4),
-    ];
+    ]
+};
 
-    struct ProtrusionTableRef<'a>(&'a [(GlyphReference, (Protrusion, Protrusion))]);
-    impl std::hash::Hash for ProtrusionTableRef<'_> {
-        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            for (glyph_ref, _) in self.0 {
-                glyph_ref.hash(state);
-            }
-        }
-    }
-
-    // To avoid needless hashing of both protrusions in table,
-    // it is wrapped in a special newtype.
-    // To avoid returning old values for new table,
-    // cached value stores indices into the table.
-    #[comemo::memoize]
-    fn instantiate_protrusion_table(
-        table: ProtrusionTableRef<'_>,
-        font: &FontInstance,
-    ) -> EcoVec<(u16, u16)> {
-        let mut instance = Vec::with_capacity(table.0.len());
-
-        let face = font.ttf();
-        for (i, (glyph_ref, _)) in table.0.iter().enumerate() {
-            let glyph_id = match glyph_ref {
-                GlyphReference::CodePoint(c) => face.glyph_index(*c),
-                GlyphReference::Name(name) => face.glyph_index_by_name(name.as_str()),
-            };
-            let Some(glyph_id) = glyph_id else { continue };
-            instance.push((glyph_id.0, i as u16));
-        }
-
-        instance.sort_unstable_by_key(|(id, _)| *id);
-        instance.into()
-    }
-
+pub(crate) fn margin_kerning(
+    overhang: &Overhang,
+    dir: Dir,
+    is_right_margin: bool,
+    glyph: &ShapedGlyph,
+) -> Abs {
     fn default_overhang(glyph: &ShapedGlyph) -> Rel {
         let instance = instantiate_protrusion_table(
             ProtrusionTableRef(DEFAULT_PROTRUSION_TABLE),
             &glyph.font,
         );
 
-        match instance.binary_search_by_key(&glyph.glyph_id, |(id, _)| *id) {
-            Ok(idx) => {
-                let idx = instance[idx].1 as usize;
-                DEFAULT_PROTRUSION_TABLE[idx].1.0.unwrap_or_default()
-            }
-            Err(_) => Rel::zero(),
-        }
+        // Note: Binary search is not currently worth it, but can be used if this
+        // grows larger.
+        instance
+            .iter()
+            .find(|(id, _)| *id == glyph.glyph_id)
+            .map(|(_, idx)| {
+                DEFAULT_PROTRUSION_TABLE[*idx as usize].1.0.unwrap_or_default()
+            })
+            .unwrap_or_else(Rel::zero)
     }
 
     let instance =
@@ -831,6 +840,11 @@ impl<'a> Items<'a> {
         self.0.push((idx, entry.into()));
     }
 
+    /// Insert a new item at the start of the line.
+    pub fn prepend(&mut self, entry: impl Into<ItemEntry<'a>>, idx: LogicalIndex) {
+        self.0.insert(0, (idx, entry.into()));
+    }
+
     /// Iterate over the items.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Item<'a>> {
         self.0.iter().map(|(_, item)| &**item)
@@ -841,57 +855,46 @@ impl<'a> Items<'a> {
     ///
     /// Note that this is different from `.iter().enumerate()` which would
     /// provide the indices in visual order!
-    pub fn indexed_iter(
+    pub fn iter_indexed(
         &self,
     ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags) mutably, if it is text.
+    /// Access the first unskippable item, if it is text.
+    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
+        self.iter().find(|item| !item.is_skippable())?.text()
+    }
+
+    /// Access the first unskippable item alongside its index, if it is text.
+    pub fn leading_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        let (idx, item) = self.0.iter().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
+    }
+
+    /// Access the first unskippable item mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
-    /// Access the first glyph with non-zero advance before any non-text item.
-    pub fn leading_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        self.iter()
-            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
-            .find_map(|item| {
-                let Item::Text(text) = item else { return None };
-                text.glyphs
-                    .iter()
-                    // Skip non-positive advance artifacts from tag splits so
-                    // overhang sees the visible punctuation.
-                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-                    .map(|glyph| (text, glyph))
-            })
-    }
-
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item, if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().rev().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the last item (skipping tags) mutably, if it is text.
+    /// Access the last unskippable item alongside its index, if it is text.
+    pub fn trailing_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        let (idx, item) = self.0.iter().rev().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
+    }
+
+    /// Access the last unskippable item mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
-    }
-
-    /// Access the last glyph with non-zero advance before any non-text item.
-    pub fn trailing_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        self.iter()
-            .rev()
-            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
-            .find_map(|item| {
-                let Item::Text(text) = item else { return None };
-                text.glyphs
-                    .iter()
-                    .rev()
-                    // Skip non-positive advance artifacts from tag splits so
-                    // overhang sees the visible punctuation.
-                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-                    .map(|glyph| (text, glyph))
-            })
+        let (_, item) = self.0.iter_mut().rev().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -936,14 +939,42 @@ impl Debug for Items<'_> {
 pub struct LogicalIndex(usize);
 
 impl LogicalIndex {
-    const START_HYPHEN: Self = Self(0);
-    const END_HYPHEN: Self = Self(usize::MAX);
-
     /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).
     const fn from_item_index(i: usize) -> Self {
         // This won't overflow because the `idx` comes from a vector which is
         // limited to `isize::MAX` elements.
-        Self(i + 1)
+        // Create indices in a way that there is always a space before the
+        // first, between two and (most likely) after the last one. This allows
+        // generating logical indices for soft hyphens. One space is enough
+        // because there is at most a single leading and trailing item
+        // before/after the first/last text item in the line.
+        Self(2 * i + 1)
+    }
+
+    /// Create a new logical index directly before this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn before(self) -> Self {
+        Self(
+            self.0
+                .checked_sub(1)
+                .expect("can't create logical index before this one"),
+        )
+    }
+
+    /// Create a new logical index directly after this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn after(self) -> Self {
+        Self(
+            self.0
+                .checked_add(1)
+                .expect("can't create logical index after this one"),
+        )
     }
 }
 

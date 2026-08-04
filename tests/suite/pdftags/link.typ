@@ -67,3 +67,13 @@ Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 
 --- issue-7301-link-tags-empty-link-body-mutliple pdftags ---
 #link("asf")[#none\ #none] #link("asf")[#none\ #none]
+
+--- issue-7777-missing-link-parent pdftags ---
+#set text(hyphenate: true)
+#block(width: 0.9cm)[#link("x")[test]ing]
+
+--- issue-7777-missing-link-parent-repeated-hyphen pdftags ---
+// In Czech and some other slavic languages hyphens are repeated at the start
+// of the next line, which can cause issues with links in PDF.
+#set text(lang: "cs", hyphenate: true)
+#block(width: 0.9cm)[#link("x")[test-]ing]

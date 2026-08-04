@@ -225,6 +225,10 @@ h2.diff-container-header {
 }
 
 .test-report-body {
+  width: 100%;
+}
+
+.test-report-area {
   position: relative;
   width: 100%;
 }
@@ -355,15 +359,15 @@ a.report-file-link:active {
 
 /* ========== Image diff ========== */
 
-.test-report-body > .image-controls {
+.test-report-area > .image-controls {
   visibility: hidden;
 }
 
-.test-report-body.image > .image-controls {
+.test-report-area.image > .image-controls {
   visibility: visible;
 }
 
-.test-report-body.image:not(:hover,:has(*:focus-visible)) > .image-controls {
+.test-report-area.image:not(:hover,:has(*:focus-visible)) > .image-controls {
   /* Avoid flicker in some cases */
   transition: opacity 0.1s cubic-bezier(0.64, 0, 0.78, 0) 0.1s;
   opacity: 0;
