@@ -5,7 +5,7 @@ use comemo::Track;
 use ecow::EcoString;
 use indexmap::IndexMap;
 use typst::engine::{Engine, Route, Sink, Traced};
-use typst::foundations::{Scope, Value};
+use typst::foundations::{Scope, SilentBindingGuard, Value};
 use typst::introspection::EmptyIntrospector;
 use typst::syntax::{LinkedNode, SyntaxMode};
 use typst::text::{
@@ -15,7 +15,7 @@ use typst::text::{
 use typst::utils::Protected;
 use typst_utils::Scalar;
 
-use crate::{IdeWorld, SilentBindingGuard};
+use crate::IdeWorld;
 
 /// Create a temporary engine and run a task on it.
 pub fn with_engine<F, T>(world: &dyn IdeWorld, f: F) -> T
@@ -184,11 +184,11 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
 /// Checks whether the given value or any of its constituent parts satisfy the
 /// predicate.
 pub fn check_value_recursively(
-    ctx: &SilentBindingGuard,
+    guard: &SilentBindingGuard,
     value: &Value,
     predicate: impl Fn(&Value) -> bool,
 ) -> bool {
-    let mut searcher = Searcher { guard: ctx, steps: 0, predicate, max_steps: 1000 };
+    let mut searcher = Searcher { guard, steps: 0, predicate, max_steps: 1000 };
     match searcher.find(value) {
         ControlFlow::Break(matching) => matching,
         ControlFlow::Continue(()) => false,
