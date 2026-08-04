@@ -53,13 +53,17 @@ fn test_eval() {
         .must_succeed();
     assert_eq!(output.stdout.0, b"\x01\x02\x03\xff");
 
-    // trailing newline
+    // Trailing newline.
     let output = exec().arg("eval").arg("str(42)").must_succeed();
     assert_eq!(output.stdout.0, b"\"42\"\n");
 
-    // no trailing newline
+    // No trailing newline.
     let output = exec().arg("eval").arg("--format=raw").arg("str(42)").must_succeed();
     assert_eq!(output.stdout.0, b"42");
+
+    // Unsupported type.
+    let output = exec().arg("eval").arg("--format=raw").arg("42").must_fail();
+    output.stderr.must_contain("cannot print integer in raw format");
 }
 
 #[test]

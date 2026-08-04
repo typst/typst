@@ -126,6 +126,7 @@ fn evaluate_expression(
     )
 }
 
+/// Prints the output value of `typst eval`.
 fn print_eval_result(
     value: &Value,
     format: EvalSerializationFormat,
@@ -138,28 +139,19 @@ fn print_eval_result(
         EvalSerializationFormat::Yaml => {
             println!("{}", crate::serialize(&value, SerializationFormat::Yaml, pretty)?);
         }
-        EvalSerializationFormat::Raw => match value {
-            Value::Str(s) => {
-                print_raw(s.as_bytes());
-            }
-            Value::Bytes(bytes) => {
-                print_raw(bytes);
-            }
-            _ => bail!(
-                "cannot print raw bytes of {}", value.ty();
-                hint: "--format=raw allows only string and bytes as result types"
-            ),
-        },
+        EvalSerializationFormat::Raw => {
+            let bytes = match value {
+                Value::Str(string) => string.as_bytes(),
+                Value::Bytes(bytes) => bytes,
+                _ => bail!(
+                    "cannot print {} in raw format", value.ty();
+                    hint: "`--format=raw` only supports strings and bytes"
+                ),
+            };
+            stdout().lock().write_all(bytes).expect("failed to write eval output");
+        }
     }
-
     Ok(())
-}
-
-fn print_raw(bytes: &[u8]) {
-    stdout()
-        .lock()
-        .write_all(bytes)
-        .expect("failed to write eval result to stdout");
 }
 
 /// Static [`FileId`] for an input expression. This allows giving accurate

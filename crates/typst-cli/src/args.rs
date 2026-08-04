@@ -728,8 +728,8 @@ pub enum EvalSerializationFormat {
     #[default]
     Json,
     Yaml,
-    /// Prints the eval result without any additional formatting or escaping (only available for
-    /// results of type `string` or `bytes`).
+    /// Prints the output without any additional formatting or escaping
+    /// (only supports strings and bytes).
     Raw,
 }
 
