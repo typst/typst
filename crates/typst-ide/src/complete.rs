@@ -6,7 +6,8 @@ use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NoneValue, Output, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value, WorldBindingExt, fields_on, repr,
+    SilentBindingGuard, StyleChain, Styles, Type, Value, WorldBindingExt, fields_on,
+    repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -21,10 +22,7 @@ use unscanny::Scanner;
 use crate::analyze::analyze_expr_with_fallback;
 use crate::docs::{find_param_docs, find_value_docs};
 use crate::utils::{check_value_recursively, globals, summarize_font_family};
-use crate::{
-    IdeWorld, SilentBindingGuard, analyze_expr, analyze_import, analyze_labels,
-    named_items,
-};
+use crate::{IdeWorld, analyze_expr, analyze_import, analyze_labels, named_items};
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -191,7 +189,7 @@ fn field_access_completions(
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            if let Ok(value) = binding.read(ctx.world.silent_binding_guard()) {
+            if let Ok(value) = binding.read(ctx.binding_guard()) {
                 ctx.call_completion(name.clone(), value);
             }
         }
@@ -1438,9 +1436,8 @@ impl<'a> CompletionContext<'a> {
         // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
         // we propose colors, but also dictionaries and modules that contain
         // colors.
-        let binding_ctx = self.binding_guard();
-        let filter =
-            |value: &Value| check_value_recursively(&binding_ctx, value, &filter_fn);
+        let guard = self.binding_guard();
+        let filter = |value: &Value| check_value_recursively(&guard, value, &filter_fn);
 
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {

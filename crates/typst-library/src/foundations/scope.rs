@@ -682,7 +682,7 @@ impl<T: BindingGuard> BindingGuard for &mut T {
     }
 }
 
-/// Create a [`BindingGuard`] from a [`World`]s libaray, that discards all
+/// Create a [`BindingGuard`] from a [`World`]'s library, that discards all
 /// emitted warnings.
 pub trait WorldBindingExt {
     /// Create a [`BindingGuard`] that discards emitted warnings.
