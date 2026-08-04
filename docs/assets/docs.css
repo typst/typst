@@ -364,14 +364,13 @@ pre > .copy {
 }
 
 pre > .copy > button {
+  position: absolute;
   top: -8px;
   right: -8px;
   padding: 8px;
   background: #fdfdfd;
   border: 1px solid var(--border-secondary);
   color: var(--text-primary);
-  position: absolute;
-  float: right;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
