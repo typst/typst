@@ -576,6 +576,7 @@ mod test {
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            repeat: false,
         }
     }
 
@@ -588,6 +589,7 @@ mod test {
             stroke: Sides::splat(Some(Arc::new(Stroke::default()))),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            repeat: false,
         }
     }
 

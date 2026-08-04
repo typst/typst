@@ -489,6 +489,18 @@
   ..([123], [456], [789]) * 15
 )
 
+--- grid-rowspan-repeat paged ---
+#set page(width: 8cm, height: 5cm, margin: 5mm)
+#set text(size: 9pt)
+#table(
+  columns: (1.2cm, 1fr),
+  rows: (auto,) * 8,
+  stroke: 0.5pt,
+  inset: 4pt,
+  table.cell(rowspan: 8, repeat: true, align: center + horizon)[Page 12],
+  ..range(8).map(i => [Line #i: #lorem(8)]).flatten(),
+)
+
 --- issue-6399-grid-cell-rowspan-set-rule paged ---
 #set grid.cell(rowspan: 2)
 #grid(columns: 2, [hehe])

@@ -477,6 +477,7 @@ df34b743f701fa5c84b495b1173197b4 grid-rowspan-in-all-columns-stroke-gutter
 075c18d06a5a82c0c0d1a9d565bade27 grid-rowspan-over-auto-row
 7599450f74054467a90ff5c786867165 grid-rowspan-over-fr-row-at-end
 b26694ea832273e96e42650f1331c5f0 grid-rowspan-over-fr-row-at-start
+329185f16f4203fee3d6470e48772560 grid-rowspan-repeat
 d016bd3353f98315cca86567883d28dd grid-rowspan-split-1
 4cbfe696b5e9a0ec73366ecfe0c81f0e grid-rowspan-split-10
 9f59fba6ee2083b602b21b9f5dbf40f0 grid-rowspan-split-11

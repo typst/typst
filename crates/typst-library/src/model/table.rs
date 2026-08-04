@@ -764,6 +764,15 @@ pub struct TableCell {
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
+    /// Whether the cell's body should be repeated in each region when the
+    /// cell has a row span and is broken across multiple pages.
+    ///
+    /// This is useful for labels in row-spanning cells. If a row-spanning cell
+    /// is broken across pages, setting this to `{true}` makes the cell's body
+    /// visible again on each continuation page.
+    #[default(false)]
+    pub repeat: bool,
+
     /// Whether rows spanned by this cell can be placed in different pages. When
     /// equal to `{auto}`, a cell spanning only fixed-size rows is unbreakable,
     /// while a cell spanning at least one `{auto}`-sized row is breakable.

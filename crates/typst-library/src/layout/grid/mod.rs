@@ -851,6 +851,15 @@ pub struct GridCell {
     #[fold]
     pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
 
+    /// Whether the cell's body should be repeated in each region when the
+    /// cell has a row span and is broken across multiple pages.
+    ///
+    /// This is useful for labels in row-spanning cells. If a row-spanning cell
+    /// is broken across pages, setting this to `{true}` makes the cell's body
+    /// visible again on each continuation page.
+    #[default(false)]
+    pub repeat: bool,
+
     #[internal]
     #[parse(Some(false))]
     pub is_repeated: bool,

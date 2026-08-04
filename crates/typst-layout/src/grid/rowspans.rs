@@ -2,7 +2,9 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::Resolve;
 use typst_library::layout::grid::resolve::Repeatable;
-use typst_library::layout::{Abs, Axes, Frame, Point, Region, Regions, Size, Sizing};
+use typst_library::layout::{
+    Abs, Axes, Fragment, Frame, Point, Region, Regions, Size, Sizing,
+};
 
 use super::layouter::{Row, points};
 use super::{Cell, GridLayouter, layout_cell};
@@ -147,10 +149,53 @@ impl GridLayouter<'_> {
             pod.full = region_full;
         }
 
-        // Push the layouted frames directly into the finished frames.
         let locator = self.cell_locator(Axes::new(x, y), disambiguator);
-        let fragment =
-            layout_cell(cell, engine, locator, self.styles, pod, is_being_repeated)?;
+        let fragment = if cell.repeat && heights.len() > 1 {
+            let mut frames = Vec::with_capacity(heights.len());
+
+            for (i, height) in heights.iter().copied().enumerate() {
+                let size = Size::new(width, height);
+                let mut pod: Regions = Region::new(size, Axes::splat(true)).into();
+
+                if !is_effectively_unbreakable
+                    && self.grid.rows[y..][..rowspan]
+                        .iter()
+                        .any(|spanned_row| spanned_row == &Sizing::Auto)
+                {
+                    pod.full = if i == 0 {
+                        region_full
+                    } else {
+                        self.finished
+                            .get(first_region + i)
+                            .map_or(self.regions.full, |frame| frame.height())
+                    };
+                }
+
+                let locator = if i == 0 {
+                    locator.relayout()
+                } else {
+                    locator.relayout().split().next_inner(i as u128)
+                };
+
+                let frame = layout_cell(
+                    cell,
+                    engine,
+                    locator,
+                    self.styles,
+                    pod,
+                    is_being_repeated || i > 0,
+                )?
+                .into_frames()
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| Frame::soft(size));
+                frames.push(frame);
+            }
+
+            Fragment::frames(frames)
+        } else {
+            layout_cell(cell, engine, locator, self.styles, pod, is_being_repeated)?
+        };
         let (current_region, current_header_row_height) = current_region_data.unzip();
 
         // Clever trick to process finished header rows:

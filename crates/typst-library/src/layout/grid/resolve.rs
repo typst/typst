@@ -217,6 +217,7 @@ impl ResolvableCell for Packed<TableCell> {
         let colspan = cell.colspan.get(styles);
         let rowspan = cell.rowspan.get(styles);
         let breakable = cell.breakable.get(styles).unwrap_or(breakable);
+        let repeat = cell.repeat.get(styles);
         let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
 
         let kind = cell.kind.get(styles).or(kind);
@@ -273,6 +274,7 @@ impl ResolvableCell for Packed<TableCell> {
             stroke,
             stroke_overridden,
             breakable,
+            repeat,
         }
     }
 
@@ -314,6 +316,7 @@ impl ResolvableCell for Packed<GridCell> {
         let colspan = cell.colspan.get(styles);
         let rowspan = cell.rowspan.get(styles);
         let breakable = cell.breakable.get(styles).unwrap_or(breakable);
+        let repeat = cell.repeat.get(styles);
         let fill = cell.fill.get_cloned(styles).unwrap_or_else(|| fill.clone());
 
         let cell_stroke = cell.stroke.resolve(styles);
@@ -367,6 +370,7 @@ impl ResolvableCell for Packed<GridCell> {
             stroke,
             stroke_overridden,
             breakable,
+            repeat,
         }
     }
 
@@ -595,6 +599,9 @@ pub struct Cell {
     /// By default, a cell spanning only fixed-size rows is unbreakable, while
     /// a cell spanning at least one `auto`-sized row is breakable.
     pub breakable: bool,
+    /// Whether a row-spanning cell's body should be repeated in each region
+    /// when the cell is broken across regions.
+    pub repeat: bool,
 }
 
 impl Cell {
@@ -608,6 +615,7 @@ impl Cell {
             stroke: Sides::splat(None),
             stroke_overridden: Sides::splat(false),
             breakable: true,
+            repeat: false,
         }
     }
 }

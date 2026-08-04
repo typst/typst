@@ -419,10 +419,10 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         let bbox = tree.ctx.new_bbox();
         push_group(tree, elem, GroupKind::Table(table_id, bbox, None))
     } else if let Some(cell) = elem.to_packed::<TableCell>() {
-        // Only repeated table headers and footer cells are laid out multiple
-        // times. Mark duplicate headers as artifacts, since they have no
-        // semantic meaning in the tag tree, which doesn't use page breaks for
-        // it's semantic structure.
+        // Repeated table headers, footer cells, and row-spanning cell
+        // continuations are laid out multiple times. Mark duplicate cells as
+        // artifacts, since they have no semantic meaning in the tag tree,
+        // which doesn't use page breaks for its semantic structure.
         let kind = if cell.is_repeated.val() {
             GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
@@ -443,10 +443,10 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             // internally.
             GroupKind::Transparent
         } else if cell.is_repeated.val() {
-            // Only repeated grid headers and footer cells are laid out multiple
-            // times. Mark duplicate headers as artifacts, since they have no
-            // semantic meaning in the tag tree, which doesn't use page breaks
-            // for it's semantic structure.
+            // Repeated grid headers, footer cells, and row-spanning cell
+            // continuations are laid out multiple times. Mark duplicate cells
+            // as artifacts, since they have no semantic meaning in the tag
+            // tree, which doesn't use page breaks for its semantic structure.
             GroupKind::Artifact(ArtifactType::PaginationOther)
         } else {
             GroupKind::GridCell(cell.clone(), None)
