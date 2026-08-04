@@ -543,8 +543,8 @@ fn ratio_and_cost(
     // All we need to do to include character protruding (and overhang punctuation)
     // into the linebreak algorithm is to adjust the available width accordingly.
     //
-    // For the details,
-    // see Hàn Thế Thành's dissertation, p. 42 (https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
+    // For the details, see Hàn Thế Thành's dissertation, p. 42
+    // (https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
     let margin_kerning_left = if let Some((text, glyph)) =
         line_side_visible_glyph(attempt, false)
     {
