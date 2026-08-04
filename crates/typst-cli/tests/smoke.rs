@@ -83,6 +83,36 @@ fn test_fonts_path() {
 }
 
 #[test]
+fn test_fonts_woff2_path() {
+    let fonts = tempfs();
+    fonts.write("roboto.woff2", include_bytes!("fixtures/roboto.woff2"));
+
+    let output = exec()
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg(fonts.path())
+        .must_succeed();
+    output.stdout.must_match_lines(["Roboto"]);
+
+    let project = tempfs();
+    let input =
+        project.write("main.typ", "#set text(font: \"Roboto\", fallback: false)\nHello");
+    let output = project.resolve("main.pdf");
+    exec()
+        .arg("compile")
+        .arg(input)
+        .arg(&output)
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg(fonts.path())
+        .must_succeed();
+    project.read("main.pdf").must_contain("Roboto");
+}
+
+#[test]
 fn test_info() {
     let output = exec().arg("info").must_succeed();
     output.stderr.must_start_with("Version");

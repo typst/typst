@@ -112,7 +112,11 @@ impl FontSource for FontPath {
     fn load(&self) -> Option<Font> {
         let _scope = typst_timing::TimingScope::new("load font");
         let data = fs::read(&self.path).ok()?;
-        Font::new(Bytes::new(data), self.index)
+        #[cfg(feature = "woff2")]
+        let data = decode_font_data(data)?;
+        #[cfg(not(feature = "woff2"))]
+        let data = Bytes::new(data);
+        Font::new(data, self.index)
     }
 }
 
@@ -162,7 +166,59 @@ pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
 #[cfg(feature = "scan-fonts")]
 pub fn scan(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");
-    with_db(move |db| db.load_fonts_dir(path))
+    let mut fonts = with_db(move |db| db.load_fonts_dir(path)).collect::<Vec<_>>();
+    fonts.extend(scan_woff2(path));
+    fonts.into_iter()
+}
+
+#[cfg(feature = "scan-fonts")]
+fn scan_woff2(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)> {
+    walkdir::WalkDir::new(path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_file())
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("woff2"))
+        })
+        .flat_map(|entry| {
+            let path = entry.into_path();
+            let data = fs::read(&path).ok().and_then(decode_font_data);
+            data.into_iter().flat_map(move |data| {
+                FontInfo::iter(&data)
+                    .enumerate()
+                    .map({
+                        let path = path.clone();
+                        move |(index, info)| {
+                            let path =
+                                FontPath { path: path.clone(), index: index as u32 };
+                            (path, info)
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+        })
+}
+
+#[cfg(feature = "woff2")]
+fn decode_font_data(data: Vec<u8>) -> Option<Bytes> {
+    const WOFF2_SIGNATURE: &[u8; 4] = b"wOF2";
+
+    if data.starts_with(WOFF2_SIGNATURE) {
+        decode_woff2(&data)
+    } else {
+        Some(Bytes::new(data))
+    }
+}
+
+/// Decodes WOFF2 data into OpenType font data.
+#[cfg(feature = "woff2")]
+pub fn decode_woff2(data: &[u8]) -> Option<Bytes> {
+    wuff::decompress_woff2(data).ok().map(Bytes::new)
 }
 
 /// Discovers fonts via `fontdb`.
@@ -191,6 +247,34 @@ fn with_db(
         })
         .collect::<Vec<_>>()
         .into_iter()
+}
+
+#[cfg(all(test, feature = "woff2"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_woff2_from_memory() {
+        let compressed = include_bytes!("../../typst-cli/tests/fixtures/roboto.woff2");
+        let data = decode_woff2(compressed).unwrap();
+        let font = Font::new(data, 0).unwrap();
+
+        assert_eq!(font.info().family, "Roboto");
+    }
+
+    #[test]
+    fn decode_woff2_from_file() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../typst-cli/tests/fixtures/roboto.woff2");
+        let font = FontPath { path, index: 0 }.load().unwrap();
+
+        assert_eq!(font.info().family, "Roboto");
+    }
+
+    #[test]
+    fn reject_invalid_woff2_from_memory() {
+        assert!(decode_woff2(b"wOF2 invalid").is_none());
+    }
 }
 
 /// Loads Adobe fonts available on the system. Only supported on Windows and
