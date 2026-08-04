@@ -127,3 +127,27 @@ she said.
 #block(stroke: 0.5pt + blue, width: 100%)[
   ffi is a common ligature in many fonts.
 ]
+
+--- issue-6582-chinese-punctuation-overhang paged ---
+#set page(height: auto, width: 16em, margin: 1em, background: {
+  block(stroke: (x: blue + 0.5pt), width: 14em, height: 100%)
+})
+
+#set text(
+  lang: "zh",
+  font: "Noto Serif CJK SC",
+  top-edge: "ascender",
+  bottom-edge: "descender",
+  overhang: (
+    map: ("。": (0%, 100%)),
+    default: right,
+  ),
+)
+#set par(justify: true)
+
+字体排印不是艺术；
+字体排印也不是科学。
+字体排印是一项工艺。
+这项工艺不是对那些规则一
+知半解地盲从，
+而是要凭借尝试和验证过的经验进行精密地运用。

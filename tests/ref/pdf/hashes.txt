@@ -829,6 +829,7 @@ a299c14bf02d941242fd1e5ac1d5f1cf issue-6267-clip-anti-alias
 c3ae70dde0a58fabe80f17cfd440d6ae issue-6399-grid-cell-colspan-set-rule
 6159bb04fd889f363da3807f82f043ef issue-6399-grid-cell-rowspan-set-rule
 74394d1b5b3efe400aa50797b8ac9a92 issue-6539-cjk-latin-spacing-at-manual-linebreak
+72fac8986c1fc8c73dd80aa115d2844d issue-6582-chinese-punctuation-overhang
 cb0c6862c965722f7e8a4af6ed94215e issue-6597-gradient-angle-negative-size
 ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 351cf002c18462543af122efcc408045 issue-6666-auto-hlines-around-header
