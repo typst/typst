@@ -67,28 +67,53 @@ use crate::visualize::{
 /// and an offset. The offset is a @ratio[ratio] between `{0%}` and `{100%}` or
 /// an angle between `{0deg}` and `{360deg}`. The offset is a relative position
 /// that determines how far along the gradient the stop is located. The stop's
-/// color is the color of the gradient at that position.
+/// color defines the color the gradient should have at that position.
 ///
 /// Each stop is passed as a positional argument and can take one of two forms:
-/// - just a color, like `{red}`, to let Typst place the stop automatically; or
-/// - an array of a color and its offset, like `{(red, 30%)}`, to place the stop
+/// - Just a color, like `{red}`, to let Typst place the stop automatically.
+/// - An array of a color and its offset, like `{(red, 30%)}`, to place the stop
 ///   yourself.
 ///
 /// You can choose to omit the offsets when defining a gradient. In this case,
 /// Typst will space all stops evenly. Otherwise, offsets must be provided for
-/// _every_ stop: they must not decrease from one stop to the next, the first
-/// must be `{0%}`, and the last must be `{100%}`. Giving two stops the same
-/// offset creates a hard edge instead of a smooth transition, which is useful
-/// for stripes:
+/// _every_ stop. They must not decrease from one stop to the next, the first
+/// must be `{0%}`, and the last must be `{100%}`.
 ///
 /// ```example
 /// #rect(
 ///   width: 100%,
-///   height: 30pt,
 ///   fill: gradient.linear(
-///     (green, 0%), (green, 50%),
-///     (white, 50%), (white, 100%),
+///     (green, 0%),
+///     (red, 30%),
+///     (blue, 100%),
 ///   ),
+/// )
+/// ```
+///
+/// Giving two stops the same offset creates a hard edge instead of a smooth
+/// transition:
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   fill: gradient.linear(
+///     (orange, 0%),
+///     (orange, 50%),
+///     (blue, 50%),
+///     (blue, 100%),
+///   ),
+/// )
+/// ```
+///
+/// Typst provides the @gradient.sharp[`sharp`] method on gradients to
+/// automatically turn a smooth gradient into one with hard edges. The
+/// example above can equivalently be written as:
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   fill: gradient.linear(orange, blue)
+///     .sharp(2),
 /// )
 /// ```
 ///
@@ -236,10 +261,15 @@ impl Gradient {
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
         ///
-        /// Each stop is either a color, like `{red}`, or an array of a color
-        /// and its offset, like `{(red, 30%)}`. If offsets are given, they must
-        /// be provided for all stops, not decrease from one stop to the next,
-        /// and start at `{0%}` and end at `{100%}`.
+        /// Each stop is given as a separate positional argument. It can either
+        /// be a color, like `{red}`, or an array of a color and its offset,
+        /// like `{(red, 30%)}`. If offsets are given, they must be provided for
+        /// all stops, not decrease from one stop to the next, start at `{0%}`,
+        /// and end at `{100%}`.
+        ///
+        /// When using a predefined color map from the `color.map` module, the
+        /// @arguments:spreading[spreading operator] `..` is used to pass each
+        /// stop as a separate argument.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -330,10 +360,8 @@ impl Gradient {
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
         ///
-        /// Each stop is either a color, like `{red}`, or an array of a color
-        /// and its offset, like `{(red, 30%)}`. If offsets are given, they must
-        /// be provided for all stops, not decrease from one stop to the next,
-        /// and start at `{0%}` and end at `{100%}`.
+        /// Also see the @gradient.linear.stops[linear gradient's documentation]
+        /// for more details.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -452,10 +480,8 @@ impl Gradient {
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
         ///
-        /// Each stop is either a color, like `{red}`, or an array of a color
-        /// and its offset, like `{(red, 30%)}`. If offsets are given, they must
-        /// be provided for all stops, not decrease from one stop to the next,
-        /// and start at `{0%}` and end at `{100%}`.
+        /// Also see the @gradient.linear.stops[linear gradient's documentation]
+        /// for more details.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
