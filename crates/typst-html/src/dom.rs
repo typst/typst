@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
+use typst_library::format::{Complete, Fields, FormatOptions, Partial, Populate};
 use typst_library::foundations::{
     Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
@@ -11,11 +12,11 @@ use typst_library::introspection::{Introspector, Location, Tag};
 use typst_library::layout::{Abs, Frame, Point};
 use typst_library::model::{Document, DocumentInfo};
 use typst_library::text::TextElem;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
 use crate::document::HtmlOutput;
-use crate::{HtmlIntrospector, charsets, css};
+use crate::{Html, HtmlIntrospector, charsets, css};
 
 /// An HTML document.
 ///
@@ -26,16 +27,22 @@ use crate::{HtmlIntrospector, charsets, css};
 pub struct HtmlDocument {
     output: HtmlOutput,
     info: DocumentInfo,
+    options: FormatOptions,
     introspector: Arc<HtmlIntrospector>,
 }
 
 impl HtmlDocument {
-    /// Creates a new paged document from its parts.
+    /// Creates a new HTML document from its parts.
     ///
     /// Internally builds the introspector.
-    pub fn new(output: HtmlOutput, info: DocumentInfo) -> Self {
+    pub fn new(output: HtmlOutput, info: DocumentInfo, options: FormatOptions) -> Self {
         let introspector = HtmlIntrospector::new(output.nodes());
-        Self { output, info, introspector: Arc::new(introspector) }
+        Self {
+            output,
+            info,
+            options,
+            introspector: Arc::new(introspector),
+        }
     }
 
     /// The document's root HTML element.
@@ -76,6 +83,10 @@ impl Document for HtmlDocument {
     fn info(&self) -> &DocumentInfo {
         &self.info
     }
+
+    fn options(&self) -> &FormatOptions {
+        &self.options
+    }
 }
 
 impl Output for HtmlDocument {
@@ -93,6 +104,27 @@ impl Output for HtmlDocument {
         styles: StyleChain,
     ) -> SourceResult<Self> {
         crate::html_document(engine, content, styles)
+    }
+}
+
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct HtmlFormatOptions<F: Fields = Complete> {
+    pub pretty: F::Value<Html, { Html::pretty.index() }>,
+}
+
+impl Populate for HtmlFormatOptions {
+    fn populate(&mut self, styles: Spanned<StyleChain>) {
+        // VOLATILE: This must be updated when adding more fields.
+        self.pretty.populate(styles);
+    }
+}
+
+impl HtmlFormatOptions<Partial> {
+    /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
+    pub fn resolve(&self, default: &HtmlFormatOptions) -> HtmlFormatOptions {
+        HtmlFormatOptions {
+            pretty: Partial::resolve(self.pretty, default.pretty),
+        }
     }
 }
 

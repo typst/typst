@@ -410,7 +410,8 @@
 // Error: 30-37 expected color, found spot colorant
 #color.spot("PANTONE 185 C", pantone)
 
---- spot-colorant-inconsistent-fallback pdf pdfstandard(a-2a) ---
+--- spot-colorant-inconsistent-fallback pdf ---
+#set pdf(standard: "a-2a")
 // Error: spot colorant `"PANTONE 185 C"` appeared with multiple distinct fallback colors
 // Hint: define a particular spot colorant once and store it in a variable to reuse it later
 #set document(date: datetime(year: 1970, month: 1, day: 1))

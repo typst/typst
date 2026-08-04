@@ -20,6 +20,7 @@ use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::FormatOptions;
 use typst_library::foundations::{
     Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
 };
@@ -96,6 +97,13 @@ impl Document for BundleDocument {
         match self {
             BundleDocument::Paged(doc, _) => doc.info(),
             BundleDocument::Html(doc) => doc.info(),
+        }
+    }
+
+    fn options(&self) -> &FormatOptions {
+        match self {
+            BundleDocument::Paged(doc, _) => doc.options(),
+            BundleDocument::Html(doc) => doc.options(),
         }
     }
 }

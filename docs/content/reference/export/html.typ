@@ -10,7 +10,8 @@
       name: "typed",
       title: "Typed HTML",
       items: {
-        dictionary(html)
+        stdx.describe(html)
+          .scope
           .values()
           .filter(val => {
             let info = stdx.describe(val)

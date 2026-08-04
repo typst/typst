@@ -1,10 +1,8 @@
 use comemo::Tracked;
-use ecow::{EcoString, EcoVec, eco_format};
+use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use krilla::configure::validate::VersionedFeature;
-use krilla::configure::{
-    Configuration, PdfVersion, ValidationError, Validator, Validators,
-};
+use krilla::configure::{PdfVersion, ValidationError, Validator, Validators};
 use krilla::destination::NamedDestination;
 use krilla::embed::EmbedError;
 use krilla::error::{KrillaError, LimitError};
@@ -21,15 +19,15 @@ use typst_layout::PagedDocument;
 use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
+use typst_library::format::Complete;
 use typst_library::foundations::{NativeElement, Repr};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
-use typst_library::model::{HeadingElem, LateLinkResolver};
+use typst_library::model::{Document as _, HeadingElem, LateLinkResolver};
 use typst_library::text::FontInstance;
 use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
-use crate::PdfOptions;
 use crate::attach::attach_files;
 use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
@@ -43,6 +41,7 @@ use crate::util::{
     AbsExt, SpotColorantFromNameExt, TransformExt, ValidatorsExt, convert_path,
     display_font,
 };
+use crate::{Pdf, PdfOptions};
 
 #[typst_macros::time(name = "convert document")]
 pub fn convert(
@@ -51,20 +50,24 @@ pub fn convert(
     anchors: &[(Location, EcoString)],
     link_resolver: Option<Tracked<LateLinkResolver>>,
 ) -> SourceResult<Vec<u8>> {
+    let options = options.resolve(typst_document.options().get::<Pdf>())?;
+
+    let tags = tags::init(typst_document, &options)?;
+
     let settings = SerializeSettings {
-        compress_content_streams: !options.pretty,
+        compress_content_streams: !options.format.pretty.v,
         no_device_cs: true,
-        ascii_compatible: options.pretty,
+        ascii_compatible: options.format.pretty.v,
         xmp_metadata: true,
         cmyk_profile: None,
-        configuration: options.standards.config,
-        enable_tagging: options.tagged,
+        configuration: options.format.standard.v.config,
+        enable_tagging: options.tagged(),
         render_svg_glyph_fn: render_svg_glyph,
-        pretty: options.pretty,
+        pretty: options.format.pretty.v,
     };
 
     let mut document = Document::new_with(settings);
-    let page_index_converter = PageIndexConverter::new(typst_document, options);
+    let page_index_converter = PageIndexConverter::new(typst_document, &options);
     let named_destinations = collect_named_destinations(
         &mut document,
         typst_document,
@@ -72,11 +75,9 @@ pub fn convert(
         &page_index_converter,
     );
 
-    let tags = tags::init(typst_document, options)?;
-
     let mut gc = GlobalContext::new(
         typst_document,
-        options,
+        &options,
         link_resolver,
         named_destinations,
         page_index_converter,
@@ -91,7 +92,7 @@ pub fn convert(
     document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
 
-    finish(document, gc, options.standards.config)
+    finish(document, gc)
 }
 
 fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResult<()> {
@@ -290,7 +291,7 @@ pub(crate) struct GlobalContext<'a> {
     /// The document to convert.
     pub(crate) document: &'a PagedDocument,
     /// Options for PDF export.
-    pub(crate) options: &'a PdfOptions,
+    pub(crate) options: &'a PdfOptions<Complete>,
     /// Used to resolve cross-document links in bundle export.
     pub(crate) link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
     /// Mapping between locations in the document and named destinations.
@@ -303,7 +304,7 @@ pub(crate) struct GlobalContext<'a> {
 impl<'a> GlobalContext<'a> {
     pub(crate) fn new(
         document: &'a PagedDocument,
-        options: &'a PdfOptions,
+        options: &'a PdfOptions<Complete>,
         link_resolver: Option<Tracked<'a, LateLinkResolver<'a>>>,
         loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
@@ -431,14 +432,10 @@ pub(crate) fn handle_group(
 
 /// Finish a krilla document and handle export errors.
 #[typst_macros::time(name = "finish export")]
-fn finish(
-    document: Document,
-    gc: GlobalContext,
-    configuration: Configuration,
-) -> SourceResult<Vec<u8>> {
+fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
     match document.finish() {
-        Ok(r) => Ok(r),
-        Err(e) => match e {
+        Ok(bytes) => Ok(bytes),
+        Err(err) => match err {
             KrillaError::Font(f, err) => {
                 bail!(
                     Span::detached(),
@@ -446,17 +443,12 @@ fn finish(
                     display_font(gc.fonts_backward.get(&f));
                     hint: "make sure the font is valid";
                     hint: "the used font might be unsupported by Typst";
-                );
+                )
             }
-            KrillaError::Validation(ve) => {
-                let errors = ve
-                    .iter()
-                    .map(|(e, validators)| {
-                        convert_error(&gc, *validators, e, configuration.version())
-                    })
-                    .collect::<EcoVec<_>>();
-                Err(errors)
-            }
+            KrillaError::Validation(ve) => Err(ve
+                .iter()
+                .map(|(e, validators)| convert_validation_error(&gc, e, *validators))
+                .collect()),
             KrillaError::Image(_, loc, err) => {
                 let span = to_span(loc);
                 bail!(span, "failed to process image ({err})");
@@ -477,15 +469,14 @@ fn finish(
                         "invalid page number for PDF file";
                         hint: "please report this as a bug";
                     ),
-                    PdfError::VersionMismatch(v) => {
-                        let pdf_ver = v.as_str();
-                        let config_ver = configuration.version();
-                        let cur_ver = config_ver.as_str();
+                    PdfError::VersionMismatch(embedded) => {
+                        let embedded = embedded.as_str();
+                        let target = gc.options.version().as_str();
                         bail!(span,
                             "the version of the PDF is too high";
-                            hint: "the current export target is {cur_ver}, while the PDF \
-                                   has version {pdf_ver}";
-                            hint: "raise the export target to {pdf_ver} or higher";
+                            hint: "the current export target is {target}, while the PDF \
+                                   has version {embedded}";
+                            hint: "raise the export target to {embedded} or higher";
                             hint: "or preprocess the PDF to convert it to a lower version";
                         );
                     }
@@ -533,12 +524,12 @@ fn finish(
 }
 
 /// Converts a krilla error into a Typst error.
-fn convert_error(
+fn convert_validation_error(
     gc: &GlobalContext,
-    failing_validators: Validators,
     error: &ValidationError,
-    pdf_version: PdfVersion,
+    failing_validators: Validators,
 ) -> SourceDiagnostic {
+    let pdf_version = gc.options.version().as_str();
     let prefix = eco_format!("{} error:", failing_validators.to_comma_list());
     match error {
         ValidationError::TooLongString => error!(
@@ -774,20 +765,17 @@ fn convert_error(
             let message = match feature {
                 VersionedFeature::StructureOrderTabbing => {
                     eco_format!(
-                        "{prefix} links and other annotations cannot be navigated accessibly in {} files",
-                        pdf_version.as_str()
+                        "{prefix} links and other annotations cannot be navigated accessibly in {pdf_version} files"
                     )
                 }
                 VersionedFeature::HeaderFooterArtifactSubtypes => {
                     eco_format!(
-                        "{prefix} headers and footers cannot be made accessible in {} files",
-                        pdf_version.as_str()
+                        "{prefix} headers and footers cannot be made accessible in {pdf_version} files"
                     )
                 }
                 VersionedFeature::TableHeaderScope => {
                     eco_format!(
-                        "{prefix} table header cell cannot be accessibly tagged in {} files",
-                        pdf_version.as_str()
+                        "{prefix} table header cell cannot be accessibly tagged in {pdf_version} files"
                     )
                 }
             };
@@ -797,7 +785,7 @@ fn convert_error(
             let min_version = feature.minimum_pdf_version();
 
             let mut most_restrictive: Option<(Validator, PdfVersion)> = None;
-            for validator in gc.options.standards.config.validators() {
+            for validator in gc.options.validators() {
                 let max = validator.max();
                 if most_restrictive.is_none_or(|(_, prev_max)| prev_max > max) {
                     most_restrictive = Some((validator, max));
@@ -890,15 +878,13 @@ pub(crate) struct PageIndexConverter {
 }
 
 impl PageIndexConverter {
-    pub fn new(document: &PagedDocument, options: &PdfOptions) -> Self {
+    pub fn new(document: &PagedDocument, options: &PdfOptions<Complete>) -> Self {
         let mut page_indices = FxHashMap::default();
         let mut skipped_pages = 0;
 
         for i in 0..document.pages().len() {
-            if options
-                .page_ranges
-                .as_ref()
-                .is_some_and(|ranges| !ranges.includes_page_index(i))
+            if let Some(ranges) = &options.format.pages.v
+                && !ranges.includes_page_index(i)
             {
                 skipped_pages += 1;
             } else {

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
+use typst_library::format::FormatOptions;
 use typst_library::foundations::{Content, Output, Smart, StyleChain, Target};
 use typst_library::introspection::Introspector;
 use typst_library::layout::{Abs, Frame, Sides};
@@ -17,6 +18,7 @@ use crate::PagedIntrospector;
 pub struct PagedDocument {
     pages: EcoVec<Page>,
     info: DocumentInfo,
+    options: FormatOptions,
     introspector: Arc<PagedIntrospector>,
 }
 
@@ -24,9 +26,14 @@ impl PagedDocument {
     /// Creates a new paged document from its parts.
     ///
     /// Internally builds the introspector.
-    pub fn new(pages: EcoVec<Page>, info: DocumentInfo) -> Self {
+    pub fn new(pages: EcoVec<Page>, info: DocumentInfo, options: FormatOptions) -> Self {
         let introspector = PagedIntrospector::new(&pages);
-        Self { pages, info, introspector: Arc::new(introspector) }
+        Self {
+            pages,
+            info,
+            options,
+            introspector: Arc::new(introspector),
+        }
     }
 
     /// The document's finished pages.
@@ -57,6 +64,10 @@ impl Hash for PagedDocument {
 impl Document for PagedDocument {
     fn info(&self) -> &DocumentInfo {
         &self.info
+    }
+
+    fn options(&self) -> &FormatOptions {
+        &self.options
     }
 }
 
