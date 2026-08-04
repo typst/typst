@@ -2,6 +2,7 @@ use ecow::EcoVec;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::sync::LazyLock;
+use ttf_parser::GlyphId;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{
@@ -686,13 +687,13 @@ fn add_par_line_marker(
 fn instantiate_protrusion_table(
     table: &ProtrusionTable,
     font: &FontInstance,
-) -> EcoVec<(u16, (Protrusion, Protrusion))> {
+) -> EcoVec<(GlyphId, (Protrusion, Protrusion))> {
     let mut instance = EcoVec::with_capacity(table.0.len());
 
     let face = font.ttf();
     for (glyph_ref, (l, r)) in table.0.iter() {
         let Some(glyph_id) = glyph_ref.id(face) else { continue };
-        instance.push((glyph_id.0, (*l, *r)));
+        instance.push((glyph_id, (*l, *r)));
     }
 
     instance.make_mut().sort_unstable_by_key(|(id, _)| *id);
@@ -764,7 +765,7 @@ pub(crate) fn margin_kerning(
         // grows larger.
         instance
             .iter()
-            .find(|(id, _)| *id == glyph.glyph_id)
+            .find(|(id, _)| id.0 == glyph.glyph_id)
             .map(|(_, (l, _r))| l.unwrap_or_default())
             .unwrap_or_else(Rel::zero)
     }
@@ -772,7 +773,7 @@ pub(crate) fn margin_kerning(
     let instance = instantiate_protrusion_table(&overhang.table, &glyph.font);
 
     let protrusion = instance
-        .binary_search_by_key(&glyph.glyph_id, |(id, _)| *id)
+        .binary_search_by_key(&glyph.glyph_id, |(id, _)| id.0)
         .ok()
         .map(|idx| {
             let (_, (l, r)) = instance[idx];
