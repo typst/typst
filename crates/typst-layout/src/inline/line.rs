@@ -1,16 +1,17 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
+use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, families, variant};
+use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
-use crate::inline::shaping::Adjustability;
+use crate::inline::shaping::{Adjustability, ShapedGlyph};
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -509,7 +510,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         offset -= amount;
         remaining += amount;
     }
@@ -521,7 +522,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         remaining += amount;
     }
 
@@ -560,7 +561,7 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for &(idx, ref item) in line.items.indexed_iter() {
+    for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
@@ -672,26 +673,49 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
+/// How much a glyph should hang into the end margin.
+fn overhang(glyph: &ShapedGlyph) -> Abs {
+    // Note: Binary search is not currently worth it, but can be used if this
+    // grows larger.
+    font_overhang_table(&glyph.font)
+        .iter()
+        .find(|(id, _)| *id == glyph.glyph_id)
+        .map_or(Abs::zero(), |&(_, factor)| factor * glyph.x_advance.at(glyph.size))
+}
+
+/// Generates a sorted table with overhang ratios indexed by glyph ID for a
+/// particular font.
+#[comemo::memoize]
+fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
+    let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
+    for &(c, factor) in DEFAULT_OVERHANG_TABLE {
+        if let Some(id) = font.ttf().glyph_index(c) {
+            table.push((id.0, factor));
+        }
+    }
+    table.make_mut().sort_unstable_by_key(|(id, _)| *id);
+    table
+}
+
 /// How much a character should hang into the end margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(c: char) -> f64 {
-    match c {
-        // Dashes.
-        '–' | '—' => 0.2,
-        '-' | '\u{ad}' => 0.55,
-
-        // Punctuation.
-        '.' | ',' => 0.8,
-        ':' | ';' => 0.3,
-
-        // Arabic
-        '\u{60C}' | '\u{6D4}' => 0.4,
-
-        _ => 0.0,
-    }
-}
+const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+    // Dashes.
+    ('–', 0.2),
+    ('—', 0.2),
+    ('-', 0.55),
+    ('\u{ad}', 0.55),
+    // Punctuation.
+    ('.', 0.8),
+    (',', 0.8),
+    (';', 0.3),
+    (':', 0.3),
+    // Arabic
+    ('\u{60C}', 0.4),
+    ('\u{6D4}', 0.4),
+];
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
@@ -722,47 +746,46 @@ impl<'a> Items<'a> {
     ///
     /// Note that this is different from `.iter().enumerate()` which would
     /// provide the indices in visual order!
-    pub fn indexed_iter(
+    pub fn iter_indexed(
         &self,
     ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
+    /// Access the first unskippable item, if it is text.
     pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the first item (skipping tags), if it is text.
+    /// Access the first unskippable item alongside its index, if it is text.
     pub fn leading_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
-        self.0
-            .iter()
-            .find(|(_, item)| !item.is_tag())
-            .and_then(|(idx, item)| Some((*idx, item.text()?)))
+        let (idx, item) = self.0.iter().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
     }
 
-    /// Access the first item (skipping tags) mutably, if it is text.
+    /// Access the first unskippable item mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item, if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().rev().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item alongside its index, if it is text.
     pub fn trailing_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
-        self.0
-            .iter()
-            .rev()
-            .find(|(_, item)| !item.is_tag())
-            .and_then(|(idx, item)| Some((*idx, item.text()?)))
+        let (idx, item) = self.0.iter().rev().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
     }
 
-    /// Access the last item (skipping tags) mutably, if it is text.
+    /// Access the last unskippable item mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().rev().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.

@@ -851,6 +851,7 @@ d987856ceb0fd2f906c660cd0846c485 issue-758-link-repeat
 f47e8b81aae825ddeedb7f35123ae9be issue-7991-show-text-symbol-grapheme-sliced
 787eee28e0ecf53513948ef24d29556d issue-80-emoji-linebreak
 853132687f26819ca27e065d149969b9 issue-8058-show-text-grapheme-sliced
+50d824346c6467c57430c9249576382e issue-8130-overhang-in-show-rule
 1813985408c07fa8619377d9eead4083 issue-8261-string-as-ellipsis
 5e076d36931fe54b76edb4ac596f3109 issue-8261-string-as-empty
 e757b359586c26a3453ab45df86c1591 issue-8261-string-as-non-numeric
@@ -1428,6 +1429,8 @@ b20c1323451166482ad0a5b3df771456 outline-indent-zero
 12cc45c21ce7f102e964bbaa53f02fca outline-spacing
 0bedfe61bb25bdd184f093eac534b70c outline-styled-text
 ea3116a4234c78ed212e732fec731229 overhang
+e424f9dad29b71453636208327eca42a overhang-dash
+bd882185399012a8a57f5f79cee47a20 overhang-label
 c977efac56fb8124b76f2a08dd4a967d overhang-lone
 46aa45caa7c3aa8d109f657d93e95e5a overline-background
 83317f5281cf297eb1204129b2a54783 pad-basic
