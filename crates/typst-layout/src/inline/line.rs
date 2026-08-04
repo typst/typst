@@ -504,7 +504,8 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the left.
-    if let Some((text, glyph)) = line.items.leading_visible_glyph()
+    if let Some(text) = line.items.leading_text()
+        && let Some(glyph) = text.glyphs.first()
         && !text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -515,7 +516,8 @@ pub fn commit(
     }
 
     // Handle hanging punctuation to the right.
-    if let Some((text, glyph)) = line.items.trailing_visible_glyph()
+    if let Some(text) = line.items.trailing_text()
+        && let Some(glyph) = text.glyphs.last()
         && text.dir.is_positive()
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
@@ -559,7 +561,7 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for &(idx, ref item) in line.items.indexed_iter() {
+    for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
@@ -744,74 +746,46 @@ impl<'a> Items<'a> {
     ///
     /// Note that this is different from `.iter().enumerate()` which would
     /// provide the indices in visual order!
-    pub fn indexed_iter(
+    pub fn iter_indexed(
         &self,
     ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
+    /// Access the first unskippable item, if it is text.
+    pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
+        self.iter().find(|item| !item.is_skippable())?.text()
+    }
+
+    /// Access the first unskippable item alongside its index, if it is text.
     pub fn leading_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
-        self.0
-            .iter()
-            .find(|(_, item)| !item.is_tag())
-            .and_then(|(idx, item)| Some((*idx, item.text()?)))
+        let (idx, item) = self.0.iter().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
     }
 
-    /// Access the first item (skipping tags) mutably, if it is text.
+    /// Access the first unskippable item mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
-    /// Access the first glyph with non-zero advance before any non-text item.
-    pub fn leading_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        self.iter()
-            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
-            .find_map(|item| {
-                let text = item.text()?;
-                text.glyphs
-                    .iter()
-                    // Skip non-positive advance artifacts from tag splits so
-                    // overhang sees the visible punctuation.
-                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-                    .map(|glyph| (text, glyph))
-            })
-    }
-
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item, if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().rev().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item alongside its index, if it is text.
     pub fn trailing_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
-        self.0
-            .iter()
-            .rev()
-            .find(|(_, item)| !item.is_tag())
-            .and_then(|(idx, item)| Some((*idx, item.text()?)))
+        let (idx, item) = self.0.iter().rev().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
     }
 
-    /// Access the last item (skipping tags) mutably, if it is text.
+    /// Access the last unskippable item mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
-    }
-
-    /// Access the last glyph with non-zero advance before any non-text item.
-    pub fn trailing_visible_glyph(&self) -> Option<(&ShapedText<'a>, &ShapedGlyph)> {
-        self.iter()
-            .rev()
-            .take_while(|item| matches!(item, Item::Tag(_) | Item::Text(_)))
-            .find_map(|item| {
-                let text = item.text()?;
-                text.glyphs
-                    .iter()
-                    .rev()
-                    // Skip non-positive advance artifacts from tag splits so
-                    // overhang sees the visible punctuation.
-                    .find(|glyph| glyph.x_advance.at(glyph.size) > Abs::zero())
-                    .map(|glyph| (text, glyph))
-            })
+        let (_, item) = self.0.iter_mut().rev().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
