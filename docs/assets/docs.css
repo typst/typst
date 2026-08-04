@@ -358,51 +358,56 @@ pre {
   position: relative;
 }
 
-pre > button.copy {
-  top: 8px;
-  right: 8px;
+pre > .copy {
+  position: sticky;
+  top: 0;
+  left: 0;
+}
+
+pre > .copy > button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
   padding: 8px;
   background: #fdfdfd;
   border: 1px solid var(--border-secondary);
   color: var(--text-primary);
-  position: absolute;
-  float: right;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
 }
 
-pre > button.copy:active,
-pre > button.copy:focus {
+pre > .copy > button:active,
+pre > .copy > button:focus {
   opacity: 1;
 }
 
-pre > button.copy:hover {
+pre > .copy > button:hover {
   background: var(--action-secondary-hover);
 }
 
-pre > button.copy:focus-visible {
+pre > .copy > button:focus-visible {
   background: #fdfdfd;
   transition: opacity 0s;
 }
 
-pre > button.copy:disabled {
+pre > .copy > button:disabled {
   color: var(--text-disabled);
 }
 
 @media (hover: hover) {
-  pre:hover > button.copy {
+  pre:hover > .copy > button {
     opacity: 1;
   }
 }
 
 @media (hover: none) {
-  pre.tapped > button.copy {
+  pre.tapped > .copy > button {
     opacity: 1;
   }
 }
 
-pre > button.copy > svg {
+pre > .copy > button > svg {
   display: block;
 }
 

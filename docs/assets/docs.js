@@ -428,8 +428,8 @@ function setUpPreviewSplits() {
  * Sets up the Copy button on example codes.
  */
 function setUpPreviewCopy() {
-  for (const button of document.querySelectorAll("pre > button.copy")) {
-    const pre = button.parentElement;
+  for (const button of document.querySelectorAll("pre > .copy > button")) {
+    const pre = button.parentElement.parentElement;
     // Display the Copy button for 30s when the `<pre>` is tapped on touch
     // screens.
     let timeoutId;
