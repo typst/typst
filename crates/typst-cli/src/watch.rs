@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+use std::path::PathBuf;
 
 use codespan_reporting::term::termcolor::WriteColor;
 use codespan_reporting::term::{self, termcolor};
@@ -64,16 +65,35 @@ pub fn watch(command: &'static WatchCommand) -> HintedStrResult<()> {
         warn_watching_std(&world, &config)?;
     }
 
+    // Only watch font directories when fonts are actually used, so that HTML
+    // compilation isn't forced to scan fonts.
+    let watch_fonts = config.output_format.is_paged();
+
     // Recompile whenever something relevant happens.
     loop {
-        // Watch all dependencies of the most recent compilation.
-        watcher.update(world.dependencies())?;
+        // Watch all dependencies of the most recent compilation, plus the
+        // directories that hold the discovered fonts so that fonts installed
+        // after the session started are noticed.
+        let font_dirs = if watch_fonts { world.font_dirs() } else { Vec::new() };
+        let mut watched: Vec<PathBuf> = world.dependencies().collect();
+        watched.extend(font_dirs.iter().cloned());
+        watcher.update(watched)?;
 
         // Wait until anything relevant happens.
-        watcher.wait()?;
+        let changed = watcher.wait()?;
 
         // Reset all dependencies.
         world.reset();
+
+        // If the change happened inside a font directory, re-scan fonts before
+        // recompiling so that newly installed fonts become available.
+        let fonts_changed = changed.iter().any(|path| {
+            let path = path.canonicalize().unwrap_or_else(|_| path.clone());
+            font_dirs.iter().any(|dir| path.starts_with(dir))
+        });
+        if fonts_changed {
+            world.reload_fonts();
+        }
 
         // Recompile.
         timer.record(&mut world, |world| compile_once(world, &mut config))??;

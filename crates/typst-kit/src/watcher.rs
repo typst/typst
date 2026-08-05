@@ -118,7 +118,10 @@ impl Watcher {
     }
 
     /// Wait until there is a change to a watched path.
-    pub fn wait(&mut self) -> StrResult<()> {
+    ///
+    /// Returns the paths whose change triggered the recompilation, including
+    /// any previously missing files that have now reappeared.
+    pub fn wait(&mut self) -> StrResult<Vec<PathBuf>> {
         loop {
             // Wait for an initial event. If there are missing files, we need to
             // poll those regularly to check whether they are created, so we
@@ -136,6 +139,7 @@ impl Watcher {
             // watched until a certain point, to hinder a barrage of events from
             // preventing recompilations.
             let mut relevant = false;
+            let mut changed = Vec::new();
             let batch_start = Instant::now();
             for event in first
                 .into_iter()
@@ -181,12 +185,16 @@ impl Watcher {
                 }
 
                 relevant = true;
+                changed.extend(event.paths);
             }
+
+            // Also report any previously missing files that now exist.
+            changed.extend(self.missing.iter().filter(|path| path.exists()).cloned());
 
             // If we found a relevant event or if any of the missing files now
             // exists, stop waiting.
-            if relevant || self.missing.iter().any(|path| path.exists()) {
-                return Ok(());
+            if relevant || !changed.is_empty() {
+                return Ok(changed);
             }
         }
     }
