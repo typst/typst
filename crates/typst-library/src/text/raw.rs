@@ -8,7 +8,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
-use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
+use typst_syntax::{LinkedNode, PreferredCompilerVersion, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -426,10 +426,10 @@ pub struct RawElem {
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
     /// #show raw: it => block(
-    ///   fill: rgb("#1d2433"),
+    ///   fill: rgb("1d2433"),
     ///   inset: 8pt,
     ///   radius: 5pt,
-    ///   text(fill: rgb("#a2aabc"), it)
+    ///   text(fill: rgb("a2aabc"), it)
     /// )
     ///
     /// ```typ
@@ -511,7 +511,12 @@ impl Synthesize for Packed<RawElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let seq = self.highlight(engine.library.routines, styles);
+        let options = engine
+            .world
+            .preferred_version(self.span().id().expect("tinger").root())
+            .unwrap_or_default();
+
+        let seq = self.highlight(options, engine.library.routines, styles);
         self.lines = Some(seq);
         Ok(())
     }
@@ -519,7 +524,12 @@ impl Synthesize for Packed<RawElem> {
 
 impl Packed<RawElem> {
     #[comemo::memoize]
-    fn highlight(&self, routines: &Routines, styles: StyleChain) -> Vec<Packed<RawLine>> {
+    fn highlight(
+        &self,
+        preferred_version: PreferredCompilerVersion,
+        routines: &Routines,
+        styles: StyleChain,
+    ) -> Vec<Packed<RawLine>> {
         let elem = self.as_ref();
         let lines = preprocess(&elem.text, styles, self.span());
 
@@ -558,9 +568,9 @@ impl Packed<RawElem> {
             let text =
                 lines.iter().map(|(s, _)| s.clone()).collect::<Vec<_>>().join("\n");
             let root = match lang.as_deref() {
-                Some("typc") => typst_syntax::parse_code(&text),
-                Some("typm") => typst_syntax::parse_math(&text),
-                _ => typst_syntax::parse(&text),
+                Some("typc") => typst_syntax::parse_code(&text, preferred_version),
+                Some("typm") => typst_syntax::parse_math(&text, preferred_version),
+                _ => typst_syntax::parse(&text, preferred_version),
             };
 
             ThemedHighlighter::new(
@@ -1093,36 +1103,36 @@ pub static RAW_THEME: LazyLock<synt::Theme> = LazyLock::new(|| synt::Theme {
     author: Some("The Typst Project Developers".into()),
     settings: synt::ThemeSettings::default(),
     scopes: vec![
-        item("comment", Some("#74747c"), None),
-        item("constant.character.escape", Some("#1d6c76"), None),
+        item("comment", Some("74747c"), None),
+        item("constant.character.escape", Some("1d6c76"), None),
         item("markup.bold", None, Some(synt::FontStyle::BOLD)),
         item("markup.italic", None, Some(synt::FontStyle::ITALIC)),
         item("markup.underline", None, Some(synt::FontStyle::UNDERLINE)),
-        item("markup.raw", Some("#6b6b6f"), None),
+        item("markup.raw", Some("6b6b6f"), None),
         item("string.other.math.typst", None, None),
-        item("punctuation.definition.math", Some("#198810"), None),
-        item("keyword.operator.math, punctuation.math.typst", Some("#1d6c76"), None),
+        item("punctuation.definition.math", Some("198810"), None),
+        item("keyword.operator.math, punctuation.math.typst", Some("1d6c76"), None),
         item("markup.heading, entity.name.section", None, Some(synt::FontStyle::BOLD)),
         item(
             "markup.heading.typst",
             None,
             Some(synt::FontStyle::BOLD | synt::FontStyle::UNDERLINE),
         ),
-        item("punctuation.definition.list", Some("#8b41b1"), None),
+        item("punctuation.definition.list", Some("8b41b1"), None),
         item("markup.list.term", None, Some(synt::FontStyle::BOLD)),
-        item("entity.name.label, markup.other.reference", Some("#1d6c76"), None),
-        item("keyword, constant.language, variable.language", Some("#d73948"), None),
-        item("storage.type, storage.modifier", Some("#d73948"), None),
-        item("constant", Some("#b60157"), None),
-        item("string", Some("#198810"), None),
-        item("entity.name, variable.function, support", Some("#4b69c6"), None),
-        item("support.macro", Some("#16718d"), None),
-        item("meta.annotation", Some("#301414"), None),
-        item("entity.other, meta.interpolation", Some("#8b41b1"), None),
-        item("meta.diff.range", Some("#8b41b1"), None),
-        item("markup.inserted, meta.diff.header.to-file", Some("#198810"), None),
-        item("markup.deleted, meta.diff.header.from-file", Some("#d73948"), None),
-        item("meta.mapping.key.json string.quoted.double.json", Some("#4b69c6"), None),
-        item("meta.mapping.value.json string.quoted.double.json", Some("#198810"), None),
+        item("entity.name.label, markup.other.reference", Some("1d6c76"), None),
+        item("keyword, constant.language, variable.language", Some("d73948"), None),
+        item("storage.type, storage.modifier", Some("d73948"), None),
+        item("constant", Some("b60157"), None),
+        item("string", Some("198810"), None),
+        item("entity.name, variable.function, support", Some("4b69c6"), None),
+        item("support.macro", Some("16718d"), None),
+        item("meta.annotation", Some("301414"), None),
+        item("entity.other, meta.interpolation", Some("8b41b1"), None),
+        item("meta.diff.range", Some("8b41b1"), None),
+        item("markup.inserted, meta.diff.header.to-file", Some("198810"), None),
+        item("markup.deleted, meta.diff.header.from-file", Some("d73948"), None),
+        item("meta.mapping.key.json string.quoted.double.json", Some("4b69c6"), None),
+        item("meta.mapping.value.json string.quoted.double.json", Some("198810"), None),
     ],
 });

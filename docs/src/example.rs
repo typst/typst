@@ -16,7 +16,9 @@ use typst::layout::{
     Transform,
 };
 use typst::loading::{DataSource, LoadSource, Loaded};
-use typst::syntax::{FileId, RangeMapper, Source, Span, Spanned};
+use typst::syntax::{
+    FileId, PreferredCompilerVersion, RangeMapper, Source, Span, Spanned, VirtualRoot,
+};
 use typst::text::{Font, FontBook, RawContent, RawElem};
 use typst::visualize::{
     Curve, ImageElem, ImageFormat, PixelEncoding, PixelFormat, RasterFormat,
@@ -138,7 +140,7 @@ fn create_source(
     }
 
     let mapper = RangeMapper::new(ranges).at(raw.span())?;
-    let mut root = typst::syntax::parse(&compile);
+    let mut root = typst::syntax::parse(&compile, PreferredCompilerVersion::default());
     root.synthesize_mapped(file_id, &mapper).at(raw.span())?;
 
     Ok(Source::with_root(file_id, compile, root))
@@ -291,6 +293,13 @@ impl World for ExampleWorld {
         }
 
         Err(FileError::NotFound(id.vpath().get_without_slash().into()))
+    }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
     }
 
     fn font(&self, index: usize) -> Option<Font> {

@@ -62,6 +62,7 @@ pub fn autocomplete(
         // Only attempt the general completions after the more specific ones.
         || match mode {
             SyntaxMode::Markup => complete_markup(&mut ctx),
+            SyntaxMode::String => complete_string(&mut ctx),
             SyntaxMode::Math => complete_math(&mut ctx),
             SyntaxMode::Code => complete_code(&mut ctx),
         };
@@ -263,8 +264,8 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     if let Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude) =
         ctx.leaf.parent_kind()
         && let Some(ast::Expr::Str(str)) = ctx.leaf.cast()
+        && let Some(value) = str.get_bare()
     {
-        let value = str.get();
         ctx.from = ctx.leaf.offset();
         if value.starts_with('@') {
             let all_versions = value.contains(':');
@@ -683,6 +684,13 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     false
+}
+
+/// Complete in string mode.
+fn complete_string(ctx: &mut CompletionContext) -> bool {
+    debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::String));
+
+    todo!()
 }
 
 /// Add completions for markup snippets.
@@ -1499,7 +1507,7 @@ mod tests {
     use std::borrow::Borrow;
     use std::collections::BTreeSet;
 
-    use typst::foundations::AsOutput;
+    use typst::{foundations::AsOutput, utils::PreferredCompilerVersion};
     use typst_layout::PagedDocument;
 
     use super::{Completion, CompletionKind, autocomplete};
@@ -1622,7 +1630,9 @@ mod tests {
         let mut world = TestWorld::new(initial_text);
         let doc = typst::compile::<PagedDocument>(&world).output.ok();
         let end = world.main.text().len();
-        world.main.edit(end..end, addition);
+        world
+            .main
+            .edit(end..end, addition, PreferredCompilerVersion::default());
         test_with_doc(&world, pos, doc.as_ref(), true)
     }
 
@@ -1778,7 +1788,9 @@ mod tests {
         // Then, add the invalid `#cite` call. Had the document been invalid
         // initially, we would have no populated document to autocomplete with.
         let end = world.main.text().len();
-        world.main.edit(end..end, " #cite()");
+        world
+            .main
+            .edit(end..end, " #cite()", PreferredCompilerVersion::default());
 
         test_with_doc(&world, -2, doc.as_ref(), true)
             .must_include(["netwok", "glacier-melt", "supplement"])

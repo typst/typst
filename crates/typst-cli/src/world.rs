@@ -8,7 +8,8 @@ use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Dict, Duration, IntoValue, Repr};
 use typst::syntax::{
-    FileId, PathError, RootedPath, Source, VirtualPath, VirtualRoot, VirtualizeError,
+    FileId, PathError, PreferredCompilerVersion, RootedPath, Source, VirtualPath,
+    VirtualRoot, VirtualizeError,
 };
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
@@ -129,6 +130,13 @@ impl World for SystemWorld {
 
     fn source(&self, id: FileId) -> FileResult<Source> {
         self.files.source(id)
+    }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        self.files.preferred_version(root)
     }
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {

@@ -240,7 +240,8 @@ fn named_param_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Toolti
     if let Some(string) = leaf.cast::<ast::Str>()
         && let Some(param) = func.param(&named.name())
         && let ParamInfo::Native(param) = param
-        && let Some(docs) = find_string_doc(&param.input, &string.get())
+        && let Some(string) = string.get_bare()
+        && let Some(docs) = find_string_doc(&param.input, &string)
     {
         return Some(Tooltip::Text(docs.into()));
     }
@@ -263,7 +264,8 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 fn font_tooltip(world: &dyn IdeWorld, leaf: &LinkedNode) -> Option<Tooltip> {
     // Ensure that we are on top of a string.
     if let Some(string) = leaf.cast::<ast::Str>()
-        && let lower = string.get().to_lowercase()
+        && let Some(string) = string.get_bare()
+        && let lower = string.to_lowercase()
 
         // Ensure that we are in the arguments to the text function.
         && let Some(parent) = leaf.parent()
@@ -420,7 +422,7 @@ mod tests {
         let red_box = "box(fill: rgb(\"#ff4136\"))";
         test("#box(fill:red,)", 5 /*f*/, Side::After).must_be_text(fill_desc);
         test("#box(fill:red,)", 9 /*:*/, Side::After).must_be_code(red_box);
-        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"#ff4136\")");
+        test("#box(fill:red,)", 10 /*r*/, Side::After).must_be_code("rgb(\"ff4136\")");
         test("#box(fill:red,)", 13 /*,*/, Side::After).must_be_code(red_box);
         // Spread args
         test("#box(..none,)", 5 /*.*/, Side::After).must_be_code("box()");

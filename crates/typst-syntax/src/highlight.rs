@@ -268,7 +268,10 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Int => Some(Tag::Number),
         SyntaxKind::Float => Some(Tag::Number),
         SyntaxKind::Numeric => Some(Tag::Number),
-        SyntaxKind::Str => Some(Tag::String),
+        SyntaxKind::Str => None,
+        SyntaxKind::StrText => Some(Tag::String),
+        SyntaxKind::StrEscape => Some(Tag::Escape),
+        SyntaxKind::StrQuote => Some(Tag::String),
         SyntaxKind::CodeBlock => None,
         SyntaxKind::ContentBlock => None,
         SyntaxKind::Parenthesized => None,
@@ -433,6 +436,8 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
 mod tests {
     use std::ops::Range;
 
+    use crate::package::PreferredCompilerVersion;
+
     use super::*;
 
     #[test]
@@ -442,7 +447,7 @@ mod tests {
         #[track_caller]
         fn test(text: &str, goal: &[(Range<usize>, Tag)]) {
             let mut vec = vec![];
-            let root = crate::parse(text);
+            let root = crate::parse(text, PreferredCompilerVersion::default());
             highlight_tree(&mut vec, &LinkedNode::new(&root));
             assert_eq!(vec, goal);
         }
@@ -482,5 +487,7 @@ mod tests {
                 (10..11, Operator),
             ],
         );
+
+        // TODO(tinger): Add string interpolation cases
     }
 }

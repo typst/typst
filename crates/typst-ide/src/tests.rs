@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration, Smart};
 use typst::layout::{Abs, Margin, PageElem};
-use typst::syntax::package::{PackageSpec, PackageVersion};
+use typst::syntax::package::{PackageSpec, PackageVersion, PreferredCompilerVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
@@ -28,11 +28,12 @@ impl TestWorld {
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
     pub fn new(text: &str) -> Self {
-        let main = Source::new(Self::main_id(), text.into());
+        let test_base = singleton!(TestBase, TestBase::default());
+        let main = Source::new(Self::main_id(), text.into(), test_base.preferred_version);
         Self {
             main,
             files: Arc::new(TestFiles::default()),
-            base: singleton!(TestBase, TestBase::default()),
+            base: test_base,
         }
     }
 
@@ -41,7 +42,7 @@ impl TestWorld {
     pub fn with_source(mut self, path: &str, text: &str) -> Self {
         let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new(path).unwrap())
             .intern();
-        let source = Source::new(id, text.into());
+        let source = Source::new(id, text.into(), self.base.preferred_version);
         Arc::make_mut(&mut self.files).sources.insert(id, source);
         self
     }
@@ -103,6 +104,13 @@ impl World for TestWorld {
         }
     }
 
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
+    }
+
     fn font(&self, index: usize) -> Option<Font> {
         self.base.fonts.get(index).cloned()
     }
@@ -153,6 +161,7 @@ struct TestBase {
     library: LazyHash<Library>,
     book: LazyHash<FontBook>,
     fonts: Vec<Font>,
+    preferred_version: PreferredCompilerVersion,
 }
 
 impl Default for TestBase {
@@ -166,6 +175,7 @@ impl Default for TestBase {
             library: LazyHash::new(library()),
             book: LazyHash::new(FontBook::from_fonts(&fonts)),
             fonts,
+            preferred_version: PreferredCompilerVersion::default(),
         }
     }
 }
