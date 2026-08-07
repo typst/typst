@@ -197,6 +197,7 @@ fn layout_page_run_impl(
             count: styles.get(PageElem::columns),
             balanced: styles.get(ColumnsElem::balanced),
             gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+            separator: styles.get_cloned(ColumnsElem::separator),
         },
         FlowMode::Root,
     )?;
