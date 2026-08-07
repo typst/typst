@@ -163,6 +163,12 @@ impl RootedPath {
     ) -> SourceResult<RootedPath> {
         path.v.resolve_if_some(path.span.id()).at(path.span)
     }
+
+    ///Returns the string representation of the absolute path.
+    #[func(since = "0.16.0")]
+    pub fn absolute(&self) -> Str {
+        self.vpath().get_with_slash().into()
+    }
 }
 
 impl Repr for RootedPath {
