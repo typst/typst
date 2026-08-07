@@ -209,6 +209,10 @@ See #metadata(none) <t8>
 #html.frame[@intro]
 = Introduction <intro>
 
+--- link-label-path html ---
+#link(<scope/target>)[Go to target]
+#[= Target <target>] <scope>
+
 --- link-bundle-to-doc bundle ---
 // Test directly linking to a different document in the bundle.
 #document("index.html")[

@@ -3,7 +3,7 @@
 use std::cmp::Ordering;
 
 use ecow::eco_format;
-use typst_utils::Numeric;
+use typst_utils::{Numeric, PicoStr};
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
@@ -293,6 +293,11 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     }
 
     Ok(match (lhs, rhs) {
+        (Label(a), Label(b)) => {
+            let path = eco_format!("{}/{}", a.resolve().as_str(), b.resolve().as_str());
+            Label(crate::foundations::Label::new(PicoStr::intern(&path)).unwrap())
+        }
+
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),

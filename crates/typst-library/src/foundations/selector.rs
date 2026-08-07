@@ -5,6 +5,7 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 use typst_syntax::Span;
+use typst_utils::PicoStr;
 
 use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -104,6 +105,30 @@ pub enum Selector {
 }
 
 impl Selector {
+    /// Converts a slash-separated label path into nested within selectors.
+    pub fn label_path(label: Label) -> Self {
+        let resolved = label.resolve();
+        let path = resolved.as_str();
+        if !path.contains('/') || path.split('/').any(str::is_empty) {
+            return Self::Label(label);
+        }
+
+        let mut pieces = path.rsplit('/');
+        let target = pieces.next().unwrap();
+        let ancestor = pieces
+            .map(|piece| Self::Label(Label::new(PicoStr::intern(piece)).unwrap()))
+            .reduce(|selector, ancestor| Self::Within {
+                selector: Arc::new(selector),
+                ancestor: Arc::new(ancestor),
+            })
+            .unwrap();
+
+        Self::Within {
+            selector: Arc::new(Self::Label(Label::new(PicoStr::intern(target)).unwrap())),
+            ancestor: Arc::new(ancestor),
+        }
+    }
+
     /// Define a simple text selector.
     pub fn text(text: &str) -> StrResult<Self> {
         if text.is_empty() {
@@ -358,7 +383,7 @@ cast! {
         .to_element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
-    label: Label => Self::Label(label),
+    label: Label => Self::label_path(label),
     regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }
