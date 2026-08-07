@@ -38,7 +38,7 @@ use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    HeadingElem, LinkElem, ParElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -339,6 +339,7 @@ impl ShowSet for Packed<BibliographyElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::numbering, None);
         out.set(PadElem::left, INDENT.into());
+        out.set(ParElem::hanging_indent, Em::new(1.5).into());
         out
     }
 }
