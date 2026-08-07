@@ -1,4 +1,4 @@
-#import "../../../components/index.typ": docs-category
+#import "../../../components/index.typ": docs-category, scope
 
 #show: docs-category.with(
   title: "Foundations",
@@ -13,7 +13,8 @@
       name: "calc",
       def-target: calc,
       title: "Calculation",
-      items: dictionary(calc).values().filter(v => type(v) == function),
+      scope: scope(std, "calc"),
+      items: dictionary(calc).pairs().filter(((k, v)) => type(v) == function),
       description: "Documentation for the `calc` module, which contains definitions for mathematical computation.",
       docs: [
         Module for calculations and processing of numeric values.

@@ -1,18 +1,46 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, definition-info, folding-details, heading-offset, html-heading-n,
-  labelled, oneliner, paged-heading-offset, short-or-long, small, use-icon,
-  title-case, to-func, with-tooltip,
+  classnames, definition-info, folding-details, heading-offset, html-heading-n, labelled, oneliner,
+  paged-heading-offset, short-or-long, small, title-case, to-func, use-icon, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
-#import "live.typ": live-docs, item-source-link
+#import "live.typ": item-source-link, live-docs
 #import "pill.typ": ty-pill
 #import "reflect.typ": cast-strings, flat-types, std-path-of
 #import "search.typ": register-index-item
 #import "section.typ": docs-section
 #import "styling.typ": prose-styling
 #import "table.typ": docs-table
+
+
+/// Build a scope from a module and binding info.
+#let scope-from(mod, info) = {
+  (
+    mod: mod,
+    dict: dictionary(mod),
+    info: info,
+  )
+}
+
+// Build the scope information for a module.
+// Requires the parent module and the name of the module.
+#let scope(parent, key) = {
+  scope-from(
+    dictionary(parent).at(key),
+    stdx.binding(parent, key),
+  )
+}
+
+// Get nested binding information, feature gates of the parent scope info will
+// be forwarded to the nested item info.
+#let nested-binding(scope, key) = {
+  let info = stdx.binding(scope.mod, key)
+  if info.feature == none {
+    info.feature = scope.info.feature
+  }
+  info
+}
 
 // Displays the overview box for a function signature.
 #let param-signature(func, path, params, returns) = context {
@@ -315,6 +343,8 @@
   binding-info: none,
   definitions-section: none,
 ) = {
+  assert.ne(binding-info, none, message: "binding-info is required")
+
   let info = stdx.describe(to-func(func))
   let base-label = label(str(base-label) + "-" + info.name)
   let muted = "typed-html" in info.keywords
@@ -337,7 +367,7 @@
           it.level + 1,
           class: classnames(
             "scoped-definition",
-            deprecated: binding-info != none and binding-info.deprecation != none,
+            deprecated: binding-info.deprecation != none,
           ),
           it.body,
         )
@@ -377,9 +407,11 @@
     muted: muted,
   ))
 
+
+  let scope = scope-from(info.scope, binding-info)
   heading-offset(2, definitions-section(
     info.name,
-    info.scope,
+    scope,
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
@@ -428,6 +460,8 @@
   binding-info: none,
   definitions-section: none,
 ) = {
+  assert.ne(binding-info, none, message: "binding-info is required")
+
   let info = stdx.describe(ty)
   let base-label = label(str(base-label) + "-" + info.short-name)
 
@@ -472,17 +506,17 @@
     ))
   }
 
+  let scope = scope-from(info.scope, binding-info)
   heading-offset(2, definitions-section(
     info.short-name,
-    info.scope,
+    scope,
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
 
 // Renders a section that documents definitions on a type or function.
-#let definitions-section(parent, mod, base-label: <definitions>) = {
-  let scope = dictionary(mod)
-  if scope.len() == 0 {
+#let definitions-section(parent, scope, base-label: <definitions>) = {
+  if scope.dict.len() == 0 {
     return
   }
 
@@ -498,19 +532,19 @@
 
   labelled(heading(title), base-label)
 
-  for (name, value) in scope {
+  for (name, value) in scope.dict {
     if type(value) == function {
       func-member(
         value,
         base-label: base-label,
-        binding-info: stdx.binding(mod, name),
+        binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
       )
     } else if type(value) == type {
       ty-member(
         value,
         base-label: base-label,
-        binding-info: stdx.binding(mod, name),
+        binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
       )
     }
@@ -561,7 +595,8 @@
     )
   }
 
-  definitions-section(info.name, info.scope)
+  let scope = scope-from(info.scope, binding-info)
+  definitions-section(info.name, scope)
 }
 
 // Renders a section for a type.
@@ -587,7 +622,8 @@
     constructor-section(ty-info.constructor)
   }
 
-  definitions-section(ty-info.short-name, ty-info.scope)
+  let scope = scope-from(ty-info.scope, binding-info)
+  definitions-section(ty-info.short-name, scope)
 }
 
 // The definition target for a group.
@@ -617,8 +653,13 @@
   if info.items.len() > 0 {
     let base-label = <functions>
     labelled(heading[Functions], base-label)
-    for item in info.items {
-      func-member(item, base-label: base-label)
+    for (key, value) in info.items {
+      let info = nested-binding(info.scope, key)
+      func-member(
+        value,
+        base-label: base-label,
+        binding-info: info,
+      )
     }
   }
 
@@ -719,7 +760,7 @@
   description: none,
   // The scope from which the definitions to be documented are taken. It is
   // filtered by category.
-  scope: std,
+  scope: none,
   // Additional definitions to document.
   scope-additions: (:),
   // Definitions that should be documented together as a group.
@@ -730,33 +771,38 @@
   assert.ne(category, none, message: "category is required")
 
   let route = "/reference/" + category
-  let def-target = if scope == std {
+  let def-target = if scope == none {
     label("reference:" + category)
   } else {
-    scope
+    scope.mod
+  }
+
+  let scope = if scope != none { scope } else {
+    scope-from(std, (feature: none))
   }
 
   let definitions = {
     // Non-grouped definitions from the scope.
-    let skip = groups.map(g => g.items).flatten()
-    dictionary(scope)
-      .pairs()
+    let skip = groups.map(g => g.items.map(((k, v)) => v)).flatten()
+    scope.dict.pairs()
       .filter(((k, v)) => (
-        stdx.binding(scope, k).category == category
+        stdx.binding(scope.mod, k).category == category
           and type(v) in (function, type)
           and v not in skip
           and not (
-            (scope == math and k == "text") // dupe
-              or (scope == pdf and k == "embed") // deprecated
-              or (scope == std and k == "pattern") // deprecated
+            (scope.mod == math and k == "text") // dupe
+              or (scope.mod == pdf and k == "embed") // deprecated
+              or (scope.mod == std and k == "pattern") // deprecated
           )
       ))
-      .map(((k, v)) => (
-        k,
-        v,
-        stdx.describe(v),
-        stdx.binding(scope, k),
-      ))
+      .map(((k, v)) => {
+        (
+          k,
+          v,
+          stdx.describe(v),
+          nested-binding(scope, k),
+        )
+      })
 
     // Manual ddditions.
     scope-additions.pairs().map(((k, v)) => (k, v, stdx.describe(v), none))
@@ -791,6 +837,9 @@
     } else if type(value) == type {
       ty-section(route, name, value, info, binding-info)
     } else {
+      if info.at("scope", default: none) == none {
+        info.scope = scope
+      }
       group-section(route, def-target, info)
     }
   }
