@@ -1,18 +1,18 @@
-#import "../../../components/index.typ": docs-category, info, insertion
+#import "../../../components/index.typ": docs-category, info, insertion, scope
 
 #show: docs-category.with(
   title: "HTML",
   description: "Documentation for Typst's HTML export target.",
   category: "html",
-  scope: html,
+  scope: scope(std, "html"),
   groups: (
     (
       name: "typed",
       title: "Typed HTML",
       items: {
         dictionary(html)
-          .values()
-          .filter(val => {
+          .pairs()
+          .filter(((_, val)) => {
             let info = stdx.describe(val)
             info != none and "typed-html" in info.keywords
           })

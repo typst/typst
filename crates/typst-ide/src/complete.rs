@@ -6,7 +6,8 @@ use rustc_hash::FxHashSet;
 use serde::{Deserialize, Serialize};
 use typst::foundations::{
     AsOutput, AutoValue, CastInfo, Func, Label, NoneValue, Output, ParamInfo, Repr,
-    StyleChain, Styles, Type, Value, fields_on, repr,
+    SilentBindingGuard, StyleChain, Styles, Type, Value, WorldBindingExt, fields_on,
+    repr,
 };
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
@@ -177,17 +178,20 @@ fn field_access_completions(
     // Autocomplete methods from the element's or type's scope. We only complete
     // those which have a `self` parameter.
     for (name, binding) in scopes.flat_map(|scope| scope.iter()) {
-        let Ok(func) = binding.read().clone().cast::<Func>() else { continue };
-        if let Some(param) = func.params().next()
+        if let Ok(value) = binding.read(ctx.binding_guard())
+            && let Ok(func) = value.clone().cast::<Func>()
+            && let Some(param) = func.params().next()
             && param.name() == Some("self")
         {
-            ctx.call_completion(name.clone(), binding.read());
+            ctx.call_completion(name.clone(), value);
         }
     }
 
     if let Some(scope) = value.scope() {
         for (name, binding) in scope.iter() {
-            ctx.call_completion(name.clone(), binding.read());
+            if let Ok(value) = binding.read(ctx.binding_guard()) {
+                ctx.call_completion(name.clone(), value);
+            }
         }
     }
 
@@ -197,7 +201,9 @@ fn field_access_completions(
         // with method syntax;
         // 2. We can unwrap the field's value since it's a field belonging to
         // this value's type, so accessing it should not fail.
-        ctx.value_completion(field, &value.field(field, ()).unwrap());
+        if let Ok(value) = value.field(field, ctx.binding_guard()) {
+            ctx.value_completion(field, &value);
+        }
     }
 
     match value {
@@ -322,8 +328,10 @@ fn import_item_completions<'a>(
     }
 
     for (name, binding) in scope.iter() {
-        if existing.iter().all(|item| item.original_name().as_str() != name) {
-            ctx.value_completion(name.clone(), binding.read());
+        if existing.iter().all(|item| item.original_name().as_str() != name)
+            && let Ok(value) = binding.read(ctx.binding_guard())
+        {
+            ctx.value_completion(name.clone(), value);
         }
     }
 }
@@ -1423,12 +1431,13 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for definitions that are available at the cursor.
     ///
     /// Filters the global/math scope with the given filter.
-    fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
+    fn scope_completions(&mut self, parens: bool, filter_fn: impl Fn(&Value) -> bool) {
         // When any of the constituent parts of the value matches the filter,
         // that's ok as well. For example, when autocompleting `#rect(fill: |)`,
         // we propose colors, but also dictionaries and modules that contain
         // colors.
-        let filter = |value: &Value| check_value_recursively(value, &filter);
+        let guard = self.binding_guard();
+        let filter = |value: &Value| check_value_recursively(&guard, value, &filter_fn);
 
         let mut defined = BTreeMap::<EcoString, Option<Value>>::new();
         named_items(self.world, self.leaf.clone(), |item| {
@@ -1454,11 +1463,17 @@ impl<'a> CompletionContext<'a> {
         }
 
         for (name, binding) in globals(self.world, self.leaf).iter() {
-            let value = binding.read();
-            if filter(value) && !defined.contains_key(name) {
+            if let Ok(value) = binding.read(self.binding_guard())
+                && filter(value)
+                && !defined.contains_key(name)
+            {
                 self.value_completion_full(Some(name.clone()), value, parens, None, None);
             }
         }
+    }
+
+    fn binding_guard(&self) -> SilentBindingGuard {
+        self.world.silent_binding_guard()
     }
 }
 

@@ -58,6 +58,8 @@ body.docs > .main-grid {
 h1 {
   display: flex;
   align-items: baseline;
+  /* Handle long deprecation messages */
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -1472,11 +1474,11 @@ h4 + h5.scoped-definition {
   text-decoration: line-through;
 }
 
-.deprecation {
+.definition-info {
   align-items: baseline;
 }
 
-.deprecation svg {
+.definition-info svg {
   margin-bottom: -4px;
   padding: 0px;
 }
