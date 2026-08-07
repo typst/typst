@@ -161,18 +161,13 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    let mut initial_link = None;
+    let mut initial_events = vec![];
+    let mut prev_link: Option<&(Destination, Location)> = None;
     let mut active_links: Vec<(Destination, Location)> = vec![];
-    let mut checked_initial_link_tags = false;
-    let mut added_initial_link = false;
     for &(child, styles) in children {
         let prev_len = collector.full.len();
-        if !added_initial_link {
-            added_initial_link = true;
-            initial_link = styles.get_cloned(LinkElem::current);
-        }
+        let current_link = styles.get_ref(LinkElem::current);
 
-        let mut was_link_tag = false;
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
@@ -267,7 +262,6 @@ pub fn collect<'a>(
             match &elem.tag {
                 Tag::Start(content, _) => {
                     if let Some(link_marker) = content.to_packed::<LinkMarker>() {
-                        was_link_tag = true;
                         let link = link_marker.dest.clone();
                         // if let Some((link, _)) = styles.get_cloned(LinkElem::current) {
                         println!("Hi {link:?}");
@@ -285,8 +279,18 @@ pub fn collect<'a>(
                     {
                         println!("Bye {link:?}");
                         collector.push_event(Event::EndLink(link));
+                    // Experimentally, the link style is already reverted at the
+                    // end tag, so we check the previous link style.
+                    } else if let Some((link, loc)) = prev_link
+                        && loc == location
+                    {
+                        println!(
+                            "Found a link that started before (dest = {link:?}, loc = {location:?})"
+                        );
+                        initial_events.push(Event::StartLink(link.clone()));
+                        collector.push_event(Event::EndLink(link.clone()));
                     } else {
-                        println!("(not a link link)")
+                        println!("(not a link link: loc = {location:?})")
                     }
                 }
             }
@@ -300,12 +304,21 @@ pub fn collect<'a>(
             ));
         }
 
-        checked_initial_link_tags |= !was_link_tag;
+        prev_link = current_link.as_ref();
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
     }
 
+    if !initial_events.is_empty() {
+        // TODO: could be more efficient by returning initial events directly
+        collector.segments = initial_events
+            .into_iter()
+            .rev()
+            .map(Segment::Event)
+            .chain(collector.segments)
+            .collect();
+    }
     Ok((collector.full, collector.segments, collector.spans))
 }
 
