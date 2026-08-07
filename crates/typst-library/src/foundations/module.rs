@@ -4,8 +4,8 @@ use std::sync::Arc;
 use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::{StrResult, WarningSink, bail};
-use crate::foundations::{Content, Repr, Scope, Value, ty};
+use crate::diag::{HintedStrResult, bail};
+use crate::foundations::{BindingAccess, BindingGuard, Content, Repr, Scope, Value, ty};
 
 /// A collection of variables and functions that are commonly related to a
 /// single theme.
@@ -44,7 +44,7 @@ use crate::foundations::{Content, Repr, Scope, Value, ty};
 /// Alternatively, it is possible to convert a module to a dictionary, and
 /// therefore access its contents dynamically, using the
 /// @dictionary.constructor[dictionary constructor].
-#[ty(cast)]
+#[ty(cast, since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Module {
     /// The module's name.
@@ -136,9 +136,15 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<&Value> {
+    pub fn field(
+        &self,
+        field: &str,
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<&Value> {
         match self.scope().get(field) {
-            Some(binding) => Ok(binding.read_checked(sink)),
+            Some(binding) => {
+                binding.read(guard).or_cannot(format_args!("access field `{field}`"))
+            }
             None => match &self.name {
                 Some(name) => bail!("module `{name}` does not contain `{field}`"),
                 None => bail!("module does not contain `{field}`"),

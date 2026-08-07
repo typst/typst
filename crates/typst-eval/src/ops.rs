@@ -1,6 +1,7 @@
 use ecow::eco_format;
 use typst_library::diag::{At, HintedStrResult, SourceResult, bail, error};
-use typst_library::foundations::{IntoValue, Value, ops};
+use typst_library::foundations::{IntoValue, NormalBindingGuard, Value, ops};
+use typst_syntax::Span;
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Access, Eval, Vm, access_dict};
@@ -39,8 +40,12 @@ impl Eval for ast::Binary<'_> {
             ast::BinOp::Leq => apply_binary(self, vm, ops::leq),
             ast::BinOp::Gt => apply_binary(self, vm, ops::gt),
             ast::BinOp::Geq => apply_binary(self, vm, ops::geq),
-            ast::BinOp::In => apply_binary(self, vm, ops::in_),
-            ast::BinOp::NotIn => apply_binary(self, vm, ops::not_in),
+            ast::BinOp::In => {
+                apply_binary_with(self, vm, |guard, a, b| ops::in_(guard, a, b))
+            }
+            ast::BinOp::NotIn => {
+                apply_binary_with(self, vm, |guard, a, b| ops::not_in(guard, a, b))
+            }
             ast::BinOp::Assign => apply_assignment(self, vm, |_, b| Ok(b)),
             ast::BinOp::AddAssign => apply_assignment(self, vm, ops::add),
             ast::BinOp::SubAssign => apply_assignment(self, vm, ops::sub),
@@ -67,6 +72,19 @@ fn apply_binary(
 
     let rhs = binary.rhs().eval(vm)?;
     op(lhs, rhs).at(binary.span())
+}
+
+/// Apply a basic binary operation with a [`BindingGuard`].
+///
+/// [`BindingGuard`]: typst_library::foundations::BindingGuard
+fn apply_binary_with(
+    binary: ast::Binary,
+    vm: &mut Vm,
+    op: fn(NormalBindingGuard, Value, Value) -> HintedStrResult<Value>,
+) -> SourceResult<Value> {
+    let lhs = binary.lhs().eval(vm)?;
+    let rhs = binary.rhs().eval(vm)?;
+    op(vm.engine.binding_guard(Span::detached()), lhs, rhs).at(binary.span())
 }
 
 /// Apply an assignment operation.

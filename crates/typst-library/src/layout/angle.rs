@@ -20,7 +20,7 @@ use crate::layout::Ratio;
 /// ```example
 /// #rotate(10deg)[Hello there!]
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
@@ -140,13 +140,13 @@ impl Angle {
 #[scope]
 impl Angle {
     /// Converts this angle to radians.
-    #[func(name = "rad", title = "Radians")]
+    #[func(name = "rad", title = "Radians", since = "0.7.0")]
     pub fn to_rad(self) -> f64 {
         self.to_unit(AngleUnit::Rad)
     }
 
     /// Converts this angle to degrees.
-    #[func(name = "deg", title = "Degrees")]
+    #[func(name = "deg", title = "Degrees", since = "0.7.0")]
     pub fn to_deg(self) -> f64 {
         self.to_unit(AngleUnit::Deg)
     }

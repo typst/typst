@@ -191,6 +191,13 @@
 #test(type(dictionary(sys).at("version")), version)
 #test(dictionary(sys).at("no-crash", default: none), none)
 
+--- dict-from-module-feature-gated-item eval features() ---
+// Error: 20-25 dictionary does not contain key "gated"
+#dictionary(check).gated
+
+--- dict-from-module-deprecation-ignored eval ---
+#dictionary(check).deprecated
+
 --- dict-remove-order eval ---
 // Test that removal keeps order.
 #let dict = (a: 1, b: 2, c: 3, d: 4)

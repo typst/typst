@@ -29,7 +29,7 @@ const DEFAULT_COL_GAP: Em = Em::new(0.5);
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
-#[elem(title = "Vector", Mathy)]
+#[elem(title = "Vector", since = "forever", Mathy)]
 pub struct VecElem {
     /// The delimiter to use.
     ///
@@ -88,7 +88,7 @@ pub struct VecElem {
 ///   10, 10, ..., 10;
 /// ) $
 /// ```
-#[elem(title = "Matrix", Mathy)]
+#[elem(title = "Matrix", since = "forever", Mathy)]
 pub struct MatElem {
     /// The delimiter to use.
     ///
@@ -234,7 +234,7 @@ pub struct MatElem {
 ///   4 "else",
 /// ) $
 /// ```
-#[elem(Mathy)]
+#[elem(since = "forever", Mathy)]
 pub struct CasesElem {
     /// The delimiter to use.
     ///

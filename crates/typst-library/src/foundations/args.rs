@@ -50,7 +50,7 @@ use crate::foundations::{
 /// #let dict = (fill: blue)
 /// #text(..dict)[Hello]
 /// ```
-#[ty(scope, cast, name = "arguments")]
+#[ty(scope, cast, name = "arguments", since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Args {
     /// The callsite span for the function. This is not the span of the argument
@@ -327,7 +327,7 @@ impl Args {
     /// #let args = arguments(stroke: red, inset: 1em, [Body])
     /// #box(..args)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.10.0")]
     pub fn construct(
         args: &mut Args,
         /// The arguments to construct.
@@ -339,7 +339,7 @@ impl Args {
     }
 
     /// The number of arguments, positional or named.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "0.15.0")]
     pub fn len(&self) -> usize {
         self.items.len()
     }
@@ -355,7 +355,7 @@ impl Args {
     /// Named arguments can also be accessed with field syntax (e.g.
     /// `{arguments(key: 42).key}`) if no default is needed. Unlike
     /// @dictionary[dictionaries], fields on arguments cannot be modified.
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn at(
         &self,
         /// The index or name of the argument to get.
@@ -371,7 +371,7 @@ impl Args {
     }
 
     /// Returns the captured positional arguments as an array.
-    #[func(name = "pos", title = "Positional")]
+    #[func(name = "pos", title = "Positional", since = "forever")]
     pub fn to_pos(&self) -> Array {
         self.items
             .iter()
@@ -381,7 +381,7 @@ impl Args {
     }
 
     /// Returns the captured named arguments as a dictionary.
-    #[func(name = "named")]
+    #[func(name = "named", since = "forever")]
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
@@ -398,7 +398,7 @@ impl Args {
     ///     .filter(v => v > 0)
     /// }
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn filter(
         self,
         engine: &mut Engine,
@@ -427,7 +427,7 @@ impl Args {
     ///     .map(v => v + 1)
     /// }
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn map(
         self,
         engine: &mut Engine,

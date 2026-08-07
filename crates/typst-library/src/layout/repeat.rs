@@ -27,7 +27,7 @@ use crate::layout::Length;
 /// Repeated content is automatically marked as an @pdf.artifact[artifact] and
 /// hidden from Assistive Technology (AT). Do not use this function to create
 /// content that contributes to the meaning of your document.
-#[elem(Tagged)]
+#[elem(since = "forever", Tagged)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]

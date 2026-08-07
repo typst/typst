@@ -299,3 +299,11 @@ world
 
 #counted-document[A]
 #counted-document[B]
+
+--- issue-8616-document-delayed-pages bundle ---
+// Test that bundle documents which are expected to have exactly one page
+// perform this assertion only on the final iteration.
+#import "../introspection/switch.typ": switch
+#for ext in ("png", "svg") {
+  document("doc." + ext, switch(n => if n == 1 { pagebreak() }))
+}

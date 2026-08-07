@@ -167,6 +167,10 @@ pub struct MathConstants {
     pub stack_bottom_display_style_shift_down: Em,
     pub stack_gap_min: Em,
     pub stack_display_style_gap_min: Em,
+    pub stretch_stack_top_shift_up: Em,
+    pub stretch_stack_bottom_shift_down: Em,
+    pub stretch_stack_gap_above_min: Em,
+    pub stretch_stack_gap_below_min: Em,
     pub fraction_numerator_shift_up: Em,
     pub fraction_numerator_display_style_shift_up: Em,
     pub fraction_denominator_shift_down: Em,
@@ -262,6 +266,14 @@ impl MathConstants {
             stack_gap_min: font.to_em(constants.stack_gap_min().value),
             stack_display_style_gap_min: font
                 .to_em(constants.stack_display_style_gap_min().value),
+            stretch_stack_top_shift_up: font
+                .to_em(constants.stretch_stack_top_shift_up().value),
+            stretch_stack_bottom_shift_down: font
+                .to_em(constants.stretch_stack_bottom_shift_down().value),
+            stretch_stack_gap_above_min: font
+                .to_em(constants.stretch_stack_gap_above_min().value),
+            stretch_stack_gap_below_min: font
+                .to_em(constants.stretch_stack_gap_below_min().value),
             fraction_numerator_shift_up: font
                 .to_em(constants.fraction_numerator_shift_up().value),
             fraction_numerator_display_style_shift_up: font
@@ -358,6 +370,10 @@ impl MathConstants {
             stack_bottom_display_style_shift_down: Em::zero(),
             stack_gap_min: 3.0 * metrics.underline.thickness,
             stack_display_style_gap_min: 7.0 * metrics.underline.thickness,
+            stretch_stack_top_shift_up: Em::zero(),
+            stretch_stack_bottom_shift_down: Em::zero(),
+            stretch_stack_gap_above_min: Em::zero(),
+            stretch_stack_gap_below_min: Em::zero(),
             fraction_numerator_shift_up: Em::zero(),
             fraction_numerator_display_style_shift_up: Em::zero(),
             fraction_denominator_shift_down: Em::zero(),

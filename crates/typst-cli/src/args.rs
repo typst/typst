@@ -209,7 +209,7 @@ pub struct EvalCommand {
 
     /// The format to serialize in.
     #[clap(long = "format", default_value_t)]
-    pub format: SerializationFormat,
+    pub format: EvalSerializationFormat,
 
     /// Whether to pretty-print the serialized output.
     ///
@@ -443,7 +443,7 @@ pub struct ProcessArgs {
     pub features: Vec<Feature>,
 
     /// The format to emit diagnostics in.
-    #[clap(long, default_value_t)]
+    #[clap(long, default_value_t, env = "TYPST_DIAGNOSTIC_FORMAT")]
     pub diagnostic_format: DiagnosticFormat,
 }
 
@@ -721,6 +721,19 @@ pub enum SerializationFormat {
 }
 
 display_possible_values!(SerializationFormat);
+
+/// Output file format for eval command
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum EvalSerializationFormat {
+    #[default]
+    Json,
+    Yaml,
+    /// Prints the output without any additional formatting or escaping
+    /// (only supports strings and bytes).
+    Raw,
+}
+
+display_possible_values!(EvalSerializationFormat);
 
 /// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a

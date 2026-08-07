@@ -29,6 +29,22 @@ A
 #set text(olive)
 #lines(3)
 
+--- flow-heading-no-orphan-with-footnote paged ---
+// Ensure that a footnote in text after heading doesn't cause an orphan.
+#set page(height: 80pt)
+= A
+#lines(1)
+
+== B
+#lines(1)#footnote[#lines(1)]
+
+--- flow-heading-orphan-forced-with-footnote paged ---
+// Ensure that a footnote in text after heading allows an orphan when there
+// isn't enough space.
+#set page(height: 60pt)
+== A
+#lines(1)#footnote[#lines(2)]
+
 --- flow-widow-forced paged ---
 // Ensure that a widow is allowed when the three lines don't all fit.
 #set page(height: 50pt)

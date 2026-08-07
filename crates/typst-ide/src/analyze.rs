@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_vec};
 use rustc_hash::FxHashSet;
-use typst::foundations::{AsOutput, Label, Styles, Value};
+use typst::foundations::{AsOutput, Label, Styles, Value, WorldBindingExt};
 use typst::model::{BibliographyElem, FigureElem};
 use typst::syntax::{LinkedNode, SyntaxKind, ast};
 use typst_layout::PagedDocument;
@@ -62,12 +62,18 @@ pub fn analyze_expr_with_fallback(
     }
 
     let globals = crate::utils::globals(world, node);
+    let guard = world.silent_binding_guard();
     let value = match node.cast::<ast::Expr>()? {
-        ast::Expr::Ident(ident) => globals.get(&ident)?.read(),
+        ast::Expr::Ident(ident) => globals.get(&ident)?.read(&guard).ok()?,
         ast::Expr::FieldAccess(access) => match access.target() {
-            ast::Expr::Ident(target) => {
-                globals.get(&target)?.read().scope()?.get(&access.field())?.read()
-            }
+            ast::Expr::Ident(target) => globals
+                .get(&target)?
+                .read(&guard)
+                .ok()?
+                .scope()?
+                .get(&access.field())?
+                .read(&guard)
+                .ok()?,
             _ => return None,
         },
         _ => return None,

@@ -43,7 +43,7 @@ use crate::layout::{Abs, Axes, Length, Region, Size};
 ///
 /// The measure function returns a dictionary with the entries `width` and
 /// `height`, both of type @length.
-#[func(contextual)]
+#[func(contextual, since = "forever")]
 pub fn measure(
     engine: &mut Engine,
     context: Tracked<Context>,

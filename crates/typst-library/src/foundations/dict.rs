@@ -8,12 +8,13 @@ use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_syntax::is_ident;
+use typst_syntax::{Spanned, is_ident};
 
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Context, Func, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
+    Array, Context, Func, Module, Repr, Str, Value, WorldBindingExt, array, cast, func,
+    repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -75,7 +76,7 @@ pub use crate::__dict as dict;
 /// #dict.insert("city", "Berlin")
 /// #("name" in dict)
 /// ```
-#[ty(scope, cast, name = "dictionary")]
+#[ty(scope, cast, name = "dictionary", since = "forever")]
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
 
@@ -181,16 +182,29 @@ impl Dict {
     /// ```example
     /// #dictionary(sys).at("version")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
+        engine: &mut Engine,
         /// The value that should be converted to a dictionary.
-        value: ToDict,
-    ) -> Dict {
-        value.0
+        value: Spanned<ToDict>,
+    ) -> SourceResult<Dict> {
+        let ToDict(module) = value.v;
+        let dict = module
+            .scope()
+            .iter()
+            .filter_map(|(key, binding)| {
+                // Filter out values that are in feature gated bindings and
+                // ignore any deprecation warnings that are emitted.
+                let guard = engine.world.silent_binding_guard();
+                let val = binding.read(guard).ok()?;
+                Some((Str::from(key.clone()), val.clone()))
+            })
+            .collect();
+        Ok(dict)
     }
 
     /// The number of pairs in the dictionary.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "forever")]
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -204,7 +218,7 @@ impl Dict {
     ///
     /// Values may also be accessed with field syntax (e.g. `{(key: 42).key}`)
     /// if no default is needed.
-    #[func]
+    #[func(since = "forever")]
     pub fn at(
         &self,
         /// The key at which to retrieve the item.
@@ -225,7 +239,7 @@ impl Dict {
     ///
     /// To insert multiple pairs at once, you can alternatively add another
     /// dictionary with the `+=` operator.
-    #[func]
+    #[func(since = "forever")]
     pub fn insert(
         &mut self,
         /// The key of the pair that should be inserted.
@@ -237,7 +251,7 @@ impl Dict {
     }
 
     /// Removes a pair from the dictionary by key and return the value.
-    #[func]
+    #[func(since = "forever")]
     pub fn remove(
         &mut self,
         /// The key of the pair to remove.
@@ -253,20 +267,20 @@ impl Dict {
     }
 
     /// Returns the keys of the dictionary as an array in insertion order.
-    #[func]
+    #[func(since = "forever")]
     pub fn keys(&self) -> Array {
         self.0.keys().cloned().map(Value::Str).collect()
     }
 
     /// Returns the values of the dictionary as an array in insertion order.
-    #[func]
+    #[func(since = "forever")]
     pub fn values(&self) -> Array {
         self.0.values().cloned().collect()
     }
 
     /// Returns the keys and values of the dictionary as an array of pairs. Each
     /// pair is represented as an array of length two.
-    #[func]
+    #[func(since = "forever")]
     pub fn pairs(&self) -> Array {
         self.0
             .iter()
@@ -298,7 +312,7 @@ impl Dict {
     ///   }
     ///   ```
     /// )
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn filter(
         self,
         engine: &mut Engine,
@@ -322,7 +336,7 @@ impl Dict {
     /// ```example
     /// #(a: 0, b: 1, c: 2).map(v => v + 1)
     /// ```
-    #[func]
+    #[func(since = "0.15.0")]
     pub fn map(
         self,
         engine: &mut Engine,
@@ -340,16 +354,14 @@ impl Dict {
 }
 
 /// A value that can be cast to dictionary.
-pub struct ToDict(Dict);
+/// Currently only modules are supported, and the conversion is deferred because
+/// when accessing the scope of the module the list of active features needs to
+/// be provided.
+pub struct ToDict(Module);
 
 cast! {
     ToDict,
-    v: Module => Self(v
-        .scope()
-        .iter()
-        .map(|(k, b)| (Str::from(k.clone()), b.read().clone()))
-        .collect()
-    ),
+    m: Module => Self(m),
 }
 
 impl Debug for Dict {

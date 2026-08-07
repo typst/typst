@@ -36,6 +36,7 @@ pub struct GlyphFragment {
     pub(super) math_size: MathSize,
     pub class: MathClass,
     pub(super) extended_shape: bool,
+    pub(super) stretchable_axes: Axes<bool>,
     // External frame stuff.
     modifiers: FrameModifiers,
     shift: Abs,
@@ -160,6 +161,7 @@ impl GlyphFragment {
         shaped: (FontInstance, Vec<Glyph>),
     ) -> GlyphFragment {
         let (font, glyphs) = shaped;
+        let stretchable_axes = stretch_axes(&font, glyphs[0].id);
 
         let item = TextItem {
             text,
@@ -177,6 +179,7 @@ impl GlyphFragment {
             // Math
             math_size,
             class,
+            stretchable_axes,
             // Math in need of updating.
             extended_shape: false,
             italics_correction: Abs::zero(),
@@ -387,7 +390,7 @@ fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
 
     let font = &glyph.item.font;
     let id = glyph.item.glyphs[0].id;
-    let axes = stretch_axes(font, id);
+    let axes = glyph.stretchable_axes;
 
     let assess = |axis| {
         let Some((target, short_fall)) = resolve_stretch(glyph, stretch, axis) else {

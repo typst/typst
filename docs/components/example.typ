@@ -30,9 +30,9 @@
 )
 
 // Takes a raw block and processes `>>>` and `<<<` markers in them for display.
-// The `>>>` marker indicates that a line is display-only while the `<<<` marker
-// indices a compile-only line. This function applies the display part (trimming
-// the former marker and stripping lines with the latter marker) while the code
+// The `>>>` marker indicates that a line is compile-only while the `<<<` marker
+// indicates a display-only line. This function applies the display part (trimming
+// the `<<<` marker and stripping lines with the `>>>` marker) while the code
 // in `example.rs` deals with the markers in the opposite way.
 #let with-hidden-lines(it) = {
   assert(it.at("lang", default: none) in (none, "typ", "example"))
@@ -66,11 +66,7 @@
 
   context if target() == "paged" {
     set text(size: sizes.mono)
-    example-like-block(if it.lang == "typ" {
-      with-hidden-lines(it)
-    } else {
-      it
-    })
+    example-like-block(it)
   } else {
     it
   }
@@ -163,10 +159,12 @@
       if pre.at("label", default: none) == <_stop> {
         return pre
       }
-      let copy-button = html.button(
+      let copy-button = html.div(
         class: "copy",
-        disabled: true,
-        use-icon(16, "copy", "Copy"),
+        html.button(
+          disabled: true,
+          use-icon(16, "copy", "Copy"),
+        ),
       )
       let reconstructed = html.elem(
         "pre",

@@ -7,11 +7,12 @@ use std::fmt::Debug;
 use ttf_parser::GlyphId;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
-use typst_library::layout::{Abs, Corner, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size};
 use typst_library::math::MathSize;
 use typst_library::math::ir::MathProperties;
 use typst_library::text::{FontInstance, TextElem};
 use typst_library::visualize::{FixedStroke, Paint};
+use typst_utils::Get;
 use unicode_math_class::MathClass;
 
 use self::glyph::kern_at_height;
@@ -123,6 +124,13 @@ impl MathFragment {
             Self::Glyph(glyph) => Some(glyph.item.size),
             Self::Frame(fragment) => Some(fragment.font_size),
             _ => None,
+        }
+    }
+
+    pub fn is_stretchable(&self, axis: Axis) -> bool {
+        match self {
+            Self::Glyph(glyph) => glyph.stretchable_axes.get(axis),
+            _ => false,
         }
     }
 

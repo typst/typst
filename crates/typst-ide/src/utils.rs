@@ -5,7 +5,7 @@ use comemo::Track;
 use ecow::EcoString;
 use indexmap::IndexMap;
 use typst::engine::{Engine, Route, Sink, Traced};
-use typst::foundations::{Scope, Value};
+use typst::foundations::{Scope, SilentBindingGuard, Value};
 use typst::introspection::EmptyIntrospector;
 use typst::syntax::{LinkedNode, SyntaxMode};
 use typst::text::{
@@ -184,10 +184,11 @@ pub fn globals<'a>(world: &'a dyn IdeWorld, leaf: &LinkedNode) -> &'a Scope {
 /// Checks whether the given value or any of its constituent parts satisfy the
 /// predicate.
 pub fn check_value_recursively(
+    guard: &SilentBindingGuard,
     value: &Value,
     predicate: impl Fn(&Value) -> bool,
 ) -> bool {
-    let mut searcher = Searcher { steps: 0, predicate, max_steps: 1000 };
+    let mut searcher = Searcher { guard, steps: 0, predicate, max_steps: 1000 };
     match searcher.find(value) {
         ControlFlow::Break(matching) => matching,
         ControlFlow::Continue(()) => false,
@@ -196,13 +197,14 @@ pub fn check_value_recursively(
 
 /// Recursively searches for a value that passes the filter, but without
 /// exceeding a maximum number of search steps.
-struct Searcher<F> {
+struct Searcher<'a, F> {
+    guard: &'a SilentBindingGuard,
     max_steps: usize,
     steps: usize,
     predicate: F,
 }
 
-impl<F> Searcher<F>
+impl<F> Searcher<'_, F>
 where
     F: Fn(&Value) -> bool,
 {
@@ -225,7 +227,13 @@ where
                 self.find_iter(content.fields().iter().map(|(_, v)| v))?;
             }
             Value::Module(module) => {
-                self.find_iter(module.scope().iter().map(|(_, b)| b.read()))?;
+                let guard = self.guard;
+                self.find_iter(
+                    module
+                        .scope()
+                        .iter()
+                        .filter_map(move |(_name, binding)| binding.read(guard).ok()),
+                )?;
             }
             _ => {}
         }

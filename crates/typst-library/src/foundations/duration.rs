@@ -7,7 +7,7 @@ use time::ext::NumericalDuration;
 use crate::foundations::{Repr, func, repr, scope, ty};
 
 /// Represents a positive or negative span of time.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.8.0")]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
@@ -47,7 +47,7 @@ impl Duration {
     ///   hours: 12,
     /// ).hours()
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.8.0")]
     pub fn construct(
         /// The number of seconds.
         #[named]
@@ -84,7 +84,7 @@ impl Duration {
     /// This function returns the total duration represented in seconds as a
     /// floating-point number, rather than the seconds component of the
     /// duration.
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn seconds(&self) -> f64 {
         self.0.as_seconds_f64()
     }
@@ -94,7 +94,7 @@ impl Duration {
     /// This function returns the total duration represented in minutes as a
     /// floating-point number, rather than the minutes component of the
     /// duration.
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn minutes(&self) -> f64 {
         self.seconds() / 60.0
     }
@@ -103,7 +103,7 @@ impl Duration {
     ///
     /// This function returns the total duration represented in hours as a
     /// floating-point number, rather than the hours component of the duration.
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn hours(&self) -> f64 {
         self.seconds() / 3_600.0
     }
@@ -112,7 +112,7 @@ impl Duration {
     ///
     /// This function returns the total duration represented in days as a
     /// floating-point number, rather than the days component of the duration.
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn days(&self) -> f64 {
         self.seconds() / 86_400.0
     }
@@ -121,7 +121,7 @@ impl Duration {
     ///
     /// This function returns the total duration represented in weeks as a
     /// floating-point number, rather than the weeks component of the duration.
-    #[func]
+    #[func(since = "0.8.0")]
     pub fn weeks(&self) -> f64 {
         self.seconds() / 604_800.0
     }

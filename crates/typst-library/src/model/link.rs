@@ -42,6 +42,25 @@ use crate::text::{LocalName, TextElem};
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///
+/// To avoid automatic creation of a link, you can put the text in a
+/// @str[string]. To embed the string in markup, prefix it with a hash.
+/// Alternatively, if the link-like text is computer code, you may also put it
+/// in a @raw[`raw` element]. Note that, in both cases, the text may remain
+/// clickable in PDF because some PDF readers auto-detect links.
+///
+/// ```example
+/// #show link: set text(blue)
+///
+/// // Automatic link
+/// https://example.com
+///
+/// // String, not a link
+/// #"https://example.com"
+///
+/// // Raw, not a link
+/// `https://*.com`
+/// ```
+///
 /// = Hyphenation <hyphenation>
 /// If you enable hyphenation or justification, by default, it will not apply to
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
@@ -144,7 +163,7 @@ use crate::text::{LocalName, TextElem};
 /// into the built-in link handling. That said, in HTML export, depending on
 /// your use case, it may be possible to adjust the built-in link handling with
 /// a show rule on `{html.elem.where(tag: "a")}`.
-#[elem(Locatable)]
+#[elem(since = "forever", Locatable)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///

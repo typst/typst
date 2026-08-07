@@ -8,9 +8,10 @@ use std::sync::LazyLock;
 use ecow::{EcoString, eco_format};
 use typst_utils::{DefSite, Static};
 
-use crate::diag::{StrResult, WarningSink, bail};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    AutoValue, Func, NativeFuncData, NoneValue, Repr, Scope, Value, cast, func,
+    AutoValue, BindingAccess, BindingGuard, Func, NativeFuncData, NoneValue, Repr, Scope,
+    Since, Value, cast, func,
 };
 
 /// Describes a kind of value.
@@ -60,7 +61,7 @@ use crate::foundations::{
 /// Note that `type` will return @content for all document elements. To
 /// programmatically determine which kind of content you are dealing with, see
 /// @content.func.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.8.0")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);
 
@@ -83,6 +84,11 @@ impl Type {
     /// The type's title case name, for use in documentation (e.g. `String`).
     pub fn title(&self) -> &'static str {
         self.0.title
+    }
+
+    /// The version of Typst this type was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        self.0.since.clone()
     }
 
     /// Documentation for the type (as Markdown).
@@ -118,10 +124,12 @@ impl Type {
     pub fn field(
         &self,
         field: &str,
-        sink: impl WarningSink,
-    ) -> StrResult<&'static Value> {
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<&'static Value> {
         match self.scope().get(field) {
-            Some(binding) => Ok(binding.read_checked(sink)),
+            Some(binding) => binding
+                .read(guard)
+                .or_cannot(format_args!("access field `{field}` on type {self}")),
             None => bail!("type {self} does not contain field `{field}`"),
         }
     }
@@ -140,7 +148,7 @@ impl Type {
     /// #type(x => x + 1) \
     /// #type(type)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.8.0")]
     pub fn construct(
         /// The value whose type's to determine.
         value: Value,
@@ -209,11 +217,13 @@ pub struct NativeTypeData {
     pub name: &'static str,
     /// The type's long name (e.g. `string`), for error messages.
     pub long_name: &'static str,
-    /// The function's title case name (e.g. `String`).
+    /// The type's title case name (e.g. `String`).
     pub title: &'static str,
+    /// The version of Typst this type was introduced in.
+    pub since: Option<Since>,
     /// The documentation for this type as a string.
     pub docs: &'static str,
-    /// Where the function is defined in the source code.
+    /// Where the type is defined in the source code.
     pub def_site: DefSite,
     /// A list of alternate search terms for this type.
     pub keywords: &'static [&'static str],

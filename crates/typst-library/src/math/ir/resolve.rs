@@ -665,6 +665,7 @@ fn resolve_cancel<'a>(
     let cross = elem.cross.get(styles);
     let angle = elem.angle.get_ref(styles);
     let invert_first_line = !cross && invert;
+    let background = elem.background.get(styles);
 
     ctx.push(CancelItem::create(
         body,
@@ -672,6 +673,7 @@ fn resolve_cancel<'a>(
         stroke,
         cross,
         invert_first_line,
+        background,
         angle.clone(),
         styles,
         elem.span(),

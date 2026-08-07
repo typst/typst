@@ -20,7 +20,7 @@ use crate::foundations::{Str, func};
 /// = More Blind Text
 /// #lorem(15)
 /// ```
-#[func(keywords = ["Blind Text"])]
+#[func(since = "forever", keywords = ["Blind Text"])]
 pub fn lorem(
     /// The length of the blind text in words.
     words: usize,

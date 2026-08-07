@@ -41,7 +41,7 @@ use crate::foundations::{Array, Reflect, Repr, Str, Value, cast, func, scope, ty
 /// #array(data.slice(0, 4)) \
 /// #str(data.slice(1, 4))
 /// ```
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.7.0")]
 #[derive(Clone, Hash)]
 pub struct Bytes(Arc<LazyHash<dyn Bytelike>>);
 
@@ -239,7 +239,7 @@ impl Bytes {
     /// #bytes("Hello 😃") \
     /// #bytes((123, 160, 22, 0))
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.7.0")]
     pub fn construct(
         /// The value that should be converted to bytes.
         value: ToBytes,
@@ -248,7 +248,7 @@ impl Bytes {
     }
 
     /// The length in bytes.
-    #[func(title = "Length")]
+    #[func(title = "Length", since = "0.7.0")]
     pub fn len(&self) -> usize {
         self.as_slice().len()
     }
@@ -256,7 +256,7 @@ impl Bytes {
     /// Returns the byte at the specified index. Returns the default value if
     /// the index is out of bounds or fails with an error if no default value
     /// was specified.
-    #[func]
+    #[func(since = "0.7.0")]
     pub fn at(
         &self,
         /// The index at which to retrieve the byte.
@@ -273,7 +273,7 @@ impl Bytes {
 
     /// Extracts a subslice of the bytes. Fails with an error if the start or
     /// end index is out of bounds.
-    #[func]
+    #[func(since = "0.7.0")]
     pub fn slice(
         &self,
         /// The start index (inclusive).
