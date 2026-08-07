@@ -15,11 +15,13 @@ use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
+use typst_library::introspection::{
+    Introspector, Location, Locator, LocatorLink, SplitLocator,
+};
 use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
-    ParLine, ParLineMarker, TermsElem,
+    Destination, EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem,
+    ListElem, ParElem, ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::text::{Costs, Lang, TextElem};
@@ -187,6 +189,7 @@ fn configuration(
     let justify = base.justify;
     let font_size = shared.resolve(TextElem::size);
     let dir = shared.resolve(TextElem::dir);
+    let link = shared.get_cloned(LinkElem::current);
 
     Config {
         justify,
@@ -238,6 +241,7 @@ fn configuration(
         fallback: shared.get(TextElem::fallback),
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
         costs: shared.get(TextElem::costs),
+        link,
     }
 }
 
@@ -297,6 +301,8 @@ struct Config {
     cjk_latin_spacing: bool,
     /// Costs for various layout decisions.
     costs: Costs,
+    /// The link active throughout the whole paragraph.
+    link: Option<(Destination, Location)>,
 }
 
 /// Get a style property, but only if it is the same for all of the children.
