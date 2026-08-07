@@ -4,10 +4,8 @@ use typst_library::pdf::{ArtifactKind, TableHeaderScope};
 use typst_library::text::Locale;
 use typst_library::visualize::Paint;
 
-mod idvec;
 mod prop;
 
-pub use idvec::*;
 pub use prop::*;
 
 // Best effort fallible conversion.

@@ -1,5 +1,5 @@
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::{EcoVec, eco_vec};
+use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
@@ -185,9 +185,29 @@ fn html_document_common(
         StyleChain::new(&Styles::root(&children, styles)),
     )?;
 
-    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
-    // the styles must be resolved last.
-    css::resolve_inline_styles(output.root_mut());
+    // Since `finalize_dom` might insert more dom nodes that have styles, the
+    // stylesheet must be generated last.
+    let stylesheet = css::resolve_stylesheet(output.root_mut());
+    if !stylesheet.is_empty() {
+        let root = output.root_mut();
+
+        let head = root.children.make_mut().iter_mut().find_map(|node| match node {
+            HtmlNode::Element(elem) if elem.tag == tag::head => Some(elem),
+            _ => None,
+        });
+
+        // TODO: this becomes an error when html fragments are supported
+        let head = head.expect("head to be present in document output");
+
+        head.children.push(
+            HtmlElement::new(tag::style)
+                .with_children(eco_vec![HtmlNode::Text(
+                    eco_format!("{}", stylesheet.display()),
+                    Span::detached(),
+                )])
+                .into(),
+        );
+    }
 
     let has_equations = !engine
         .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))

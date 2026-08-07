@@ -3,6 +3,7 @@ use std::cell::OnceCell;
 use krilla::geom as kg;
 use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
+use typst_utils::{Id, IdVec};
 
 use crate::convert::FrameContext;
 use crate::tags::context::figure::build_figure;
@@ -11,7 +12,6 @@ use crate::tags::context::table::build_table;
 use crate::tags::groups::GroupKind;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
-use crate::tags::util::{Id, IdVec};
 use crate::util::AbsExt;
 
 pub use crate::tags::context::figure::FigureCtx;
@@ -100,7 +100,7 @@ impl Annotations {
     }
 
     pub fn reserve(&mut self) -> AnnotationId {
-        let id = AnnotationId::new(self.0.len() as u32);
+        let id = AnnotationId::new(self.0.len());
         self.0.push(OnceCell::new());
         id
     }

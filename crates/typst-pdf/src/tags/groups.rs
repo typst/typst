@@ -12,6 +12,7 @@ use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
 use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
+use typst_utils::{Id, IdVec};
 
 use crate::PdfOptions;
 use crate::tags::context::{
@@ -19,14 +20,9 @@ use crate::tags::context::{
 };
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
-use crate::tags::util::{self, Id, IdVec};
+use crate::tags::util;
 
 pub type GroupId = Id<Group>;
-
-impl GroupId {
-    pub const ROOT: Self = Self::new(0);
-    pub const INVALID: Self = Self::new(u32::MAX);
-}
 
 #[derive(Debug)]
 pub struct Groups {
@@ -315,7 +311,7 @@ impl Groups {
 
         let ancestor = group.parent;
         let mut current = parent;
-        while current != GroupId::INVALID {
+        while current != Group::INVALID {
             if current == ancestor {
                 return true;
             }
@@ -334,7 +330,7 @@ impl TagStorage {
     }
 
     pub fn push(&mut self, tag: impl Into<TagKind>) -> TagId {
-        let id = TagId::new(self.0.len() as u32);
+        let id = TagId::new(self.0.len());
         self.0.push(Some(tag.into()));
         id
     }
@@ -378,6 +374,9 @@ pub struct Group {
 }
 
 impl Group {
+    pub const ROOT: Id<Self> = Id::new(0);
+    pub const INVALID: Id<Self> = Id::new(u32::MAX as usize - 1);
+
     fn new(parent: GroupId, span: Span, kind: GroupKind) -> Self {
         Group { parent, span, kind, nodes: Vec::new(), weak: false }
     }
