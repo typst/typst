@@ -98,7 +98,10 @@ impl Status {
         let color = self.color();
 
         let mut out = terminal::out();
-        out.clear_screen()?;
+
+        if config.clear_terminal {
+            out.clear_screen()?;
+        }
 
         out.set_color(&color)?;
         write!(out, "watching")?;
