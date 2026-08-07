@@ -117,10 +117,16 @@ impl IdeWorld for TestWorld {
         self
     }
 
-    fn files(&self) -> Vec<FileId> {
+    fn files(&self, _base: FileId, prefix: Option<&str>) -> Vec<VirtualPath> {
         std::iter::once(self.main.id())
             .chain(self.files.sources.keys().copied())
             .chain(self.files.assets.keys().copied())
+            .map(|id| id.vpath().clone())
+            .filter(|path| {
+                prefix.is_none_or(|prefix| {
+                    path.file_name().is_none_or(|name| name.starts_with(prefix))
+                })
+            })
             .collect()
     }
 
