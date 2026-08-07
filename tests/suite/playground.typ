@@ -3,6 +3,8 @@ hello #link("https://google.com")[abc] #link("https://typst.app")[world world #b
 
 #link("https://reddit.com")[This is a full paragraph link.]
 
+#link("https://abc.com")[#link("https://def.com")[This is a double full paragraph link.]]
+
 #link("https://wikipedia.org")[This is a multi paragraph link.
 
 Middle link.
