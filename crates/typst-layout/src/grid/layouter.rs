@@ -14,7 +14,7 @@ use typst_library::layout::{
     Size, Sizing,
 };
 use typst_library::text::TextElem;
-use typst_library::visualize::Geometry;
+use typst_library::visualize::{FixedStroke, Geometry, LineCap};
 use typst_syntax::Span;
 use typst_utils::Numeric;
 
@@ -565,15 +565,17 @@ impl<'a> GridLayouter<'a> {
                 )
                 .map(|segment| {
                     let LineSegment { stroke, offset: dy, length, priority } = segment;
-                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let stroke = (*stroke).clone().unwrap_or(FixedStroke {
+                        cap: LineCap::Square,
+                        ..Default::default()
+                    });
                     let thickness = stroke.thickness;
-                    let half = thickness / 2.0;
-                    let target = Point::with_y(length + thickness);
+                    let target = Point::with_y(length);
                     let vline = Geometry::Line(target).stroked(stroke);
                     (
                         thickness,
                         priority,
-                        Point::new(dx, dy - half),
+                        Point::new(dx, dy),
                         FrameItem::Shape(vline, self.span),
                     )
                 });
@@ -776,16 +778,18 @@ impl<'a> GridLayouter<'a> {
                 )
                 .map(|segment| {
                     let LineSegment { stroke, offset: dx, length, priority } = segment;
-                    let stroke = (*stroke).clone().unwrap_or_default();
+                    let stroke = (*stroke).clone().unwrap_or(FixedStroke {
+                        cap: LineCap::Square,
+                        ..Default::default()
+                    });
                     let thickness = stroke.thickness;
-                    let half = thickness / 2.0;
                     let dx = if self.is_rtl { self.width - dx - length } else { dx };
-                    let target = Point::with_x(length + thickness);
+                    let target = Point::with_x(length);
                     let hline = Geometry::Line(target).stroked(stroke);
                     (
                         thickness,
                         priority,
-                        Point::new(dx - half, dy),
+                        Point::new(dx, dy),
                         FrameItem::Shape(hline, self.span),
                     )
                 });
