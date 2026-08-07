@@ -161,6 +161,12 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    // Paragraph-wide link, according to the flow layouter.
+    // Normally, this link is applied at the very end of the paragraph, unless
+    // the whole paragraph is a #link[...], in which case we must not apply it
+    // again.
+    let mut shared_link = config.link.as_ref();
+
     let mut initial_events = vec![];
     let mut prev_link: Option<&(Destination, Location)> = None;
     let mut active_links: Vec<(Destination, Location)> = vec![];
@@ -263,14 +269,23 @@ pub fn collect<'a>(
                 Tag::Start(content, _) => {
                     if let Some(link_marker) = content.to_packed::<LinkMarker>() {
                         let link = link_marker.dest.clone();
+                        let location = elem.tag.location();
                         // if let Some((link, _)) = styles.get_cloned(LinkElem::current) {
                         println!("Hi {link:?}");
                         collector.push_event(Event::StartLink(link.clone()));
-                        active_links.push((link, elem.tag.location()));
+                        active_links.push((link, location));
                         // } else {
                         // What to do if setting link to none? for now, ignore
                         //    println!("Hi NONE...")
                         // }
+
+                        if let Some((_, loc)) = shared_link
+                            && loc == &location
+                        {
+                            // Link spanning the entire paragraph starts and
+                            // ends within it, so don't apply it twice.
+                            shared_link = None;
+                        }
                     }
                 }
                 Tag::End(location, _, _) => {
@@ -308,6 +323,12 @@ pub fn collect<'a>(
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
+    }
+
+    // Apply flow-level link.
+    if let Some((link, _)) = shared_link {
+        initial_events.push(Event::StartLink(link.clone()));
+        collector.push_event(Event::EndLink(link.clone()));
     }
 
     if !initial_events.is_empty() {
