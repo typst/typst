@@ -558,11 +558,14 @@ pub fn commit<'l>(
     }
 
     // Keep track of items spanned by each link, including the destination, the
-    // horizontal offset where it starts, and the offset where it ends - this
-    // starts as `None` and becomes `Some()` if the link ends at this line, or
-    // ends as `None` if it spans the whole line.
-    let mut link_spans: Vec<(&Destination, Abs, Option<Abs>)> =
-        active_links.iter().map(|&l| (l, Abs::zero(), None)).collect();
+    // horizontal offset where it starts, and (for finished links) the offset
+    // where it ends.
+    let mut link_stack: Vec<(&Destination, Abs)> =
+        active_links.iter().map(|&l| (l, Abs::zero())).collect();
+    let mut finished_links: Vec<(&Destination, Abs, Abs)> = vec![];
+
+    // Horizontal offset after the last frame in the line.
+    let mut last_frame_end = Abs::zero();
 
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
@@ -576,6 +579,7 @@ pub fn commit<'l>(
             bottom.set_max(frame.size().y - frame.baseline());
             frames.push((*offset, frame, idx));
             *offset += width;
+            last_frame_end = *offset;
         };
 
         match &**item {
@@ -615,25 +619,23 @@ pub fn commit<'l>(
             Item::Skip(_) => {}
             Item::Event(Event::StartLink(dest)) => {
                 active_links.push(dest);
-                link_spans.push((dest, offset, None));
+                link_stack.push((dest, offset));
             }
             Item::Event(Event::EndLink(dest)) => {
-                if active_links.is_empty() {
-                    // External links should have been handled before...
-                    todo!()
-                } else {
-                    debug_assert_eq!(active_links.last(), Some(&dest));
-                    debug_assert_eq!(link_spans.last().map(|(l, _, _)| l), Some(&dest));
-                    debug_assert_eq!(
-                        link_spans.last().map(|(_, _, end)| end),
-                        Some(&None)
-                    );
-                    active_links.pop();
-                    link_spans.last_mut().unwrap().2 = Some(offset);
-                }
+                debug_assert_eq!(active_links.last(), Some(&dest));
+                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
+                let (dest, start) = link_stack.pop().unwrap();
+                // Any external links should have been handled before.
+                active_links.pop().unwrap();
+                finished_links.push((dest, start, offset));
             }
         }
     }
+
+    // Any unfinished links extend towards the very end of the last visible item
+    // in the line.
+    finished_links
+        .extend(link_stack.into_iter().map(|(l, start)| (l, start, last_frame_end)));
 
     // Remaining space is distributed now.
     if !fr.is_zero() {
@@ -661,15 +663,12 @@ pub fn commit<'l>(
     }
 
     // Construct link frames.
-    for (dest, offset, end) in link_spans {
+    for (dest, offset, end) in finished_links {
         let x = offset + p.config.align.position(remaining);
         let y = bottom;
         dbg!(x);
         dbg!(y);
-        let width = match end {
-            Some(end) => dbg!(end - offset),
-            None => dbg!(width),
-        };
+        let width = dbg!(end) - dbg!(offset);
         dbg!(width);
         let height = dbg!(top) - dbg!(bottom);
         dbg!(height);
