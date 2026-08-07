@@ -1,8 +1,8 @@
 #import "../../../components/index.typ": docs-category, scope
 
+#let math-definitions = dictionary(math)
 #let math-items(..keys) = {
-  let math = dictionary(math)
-  keys.pos().map(k => (k, math.at(k)))
+  keys.pos().map(k => (k, math-definitions.at(k)))
 }
 
 #show: docs-category.with(
@@ -14,15 +14,7 @@
     (
       name: "variants",
       title: "Variants",
-      items: math-items(
-        "serif",
-        "sans",
-        "frak",
-        "mono",
-        "bb",
-        "cal",
-        "scr",
-      ),
+      items: math-items("serif", "sans", "frak", "mono", "bb", "cal", "scr"),
       description: "Documentation for functions which allow switching to alternative math typefaces.",
       docs: [
         Alternate typefaces within formulas.
@@ -113,15 +105,7 @@
     (
       name: "lr",
       title: "Left/Right",
-      items: math-items(
-        "lr",
-        "mid",
-        "abs",
-        "norm",
-        "floor",
-        "ceil",
-        "round",
-      ),
+      items: math-items("lr", "mid", "abs", "norm", "floor", "ceil", "round"),
       description: "Documentation for functions that enable typesetting of matched, potentially scaled, delimiters.",
       docs: [
         Delimiter matching.

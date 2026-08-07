@@ -1,7 +1,8 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, definition-info, folding-details, heading-offset, html-heading-n, labelled, oneliner,
-  paged-heading-offset, short-or-long, small, title-case, to-func, use-icon, with-tooltip,
+  classnames, definition-info, folding-details, heading-offset, html-heading-n,
+  labelled, oneliner, paged-heading-offset, short-or-long, small, title-case,
+  to-func, use-icon, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
@@ -14,23 +15,20 @@
 #import "table.typ": docs-table
 
 
-/// Build a scope from a module and binding info.
-#let scope-from(mod, info) = {
-  (
-    mod: mod,
-    dict: dictionary(mod),
-    info: info,
-  )
-}
+// Build a scope from a module and binding info.
+#let scope-from(mod, info) = (
+  mod: mod,
+  dict: dictionary(mod),
+  info: info,
+)
 
 // Build the scope information for a module.
+//
 // Requires the parent module and the name of the module.
-#let scope(parent, key) = {
-  scope-from(
-    dictionary(parent).at(key),
-    stdx.binding(parent, key),
-  )
-}
+#let scope(parent, key) = scope-from(
+  dictionary(parent).at(key),
+  stdx.binding(parent, key),
+)
 
 // Get nested binding information, feature gates of the parent scope info will
 // be forwarded to the nested item info.
@@ -408,10 +406,9 @@
   ))
 
 
-  let scope = scope-from(info.scope, binding-info)
   heading-offset(2, definitions-section(
     info.name,
-    scope,
+    scope-from(info.scope, binding-info),
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
@@ -506,10 +503,9 @@
     ))
   }
 
-  let scope = scope-from(info.scope, binding-info)
   heading-offset(2, definitions-section(
     info.short-name,
-    scope,
+    scope-from(info.scope, binding-info),
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
@@ -595,8 +591,10 @@
     )
   }
 
-  let scope = scope-from(info.scope, binding-info)
-  definitions-section(info.name, scope)
+  definitions-section(
+    info.name,
+    scope-from(info.scope, binding-info),
+  )
 }
 
 // Renders a section for a type.
@@ -622,8 +620,10 @@
     constructor-section(ty-info.constructor)
   }
 
-  let scope = scope-from(ty-info.scope, binding-info)
-  definitions-section(ty-info.short-name, scope)
+  definitions-section(
+    ty-info.short-name,
+    scope-from(ty-info.scope, binding-info),
+  )
 }
 
 // The definition target for a group.
@@ -654,11 +654,10 @@
     let base-label = <functions>
     labelled(heading[Functions], base-label)
     for (key, value) in info.items {
-      let info = nested-binding(info.scope, key)
       func-member(
         value,
         base-label: base-label,
-        binding-info: info,
+        binding-info: nested-binding(info.scope, key),
       )
     }
   }
@@ -777,14 +776,18 @@
     scope.mod
   }
 
-  let scope = if scope != none { scope } else {
+  let scope = if scope != none {
+    scope
+  } else {
     scope-from(std, (feature: none))
   }
 
   let definitions = {
     // Non-grouped definitions from the scope.
     let skip = groups.map(g => g.items.map(((k, v)) => v)).flatten()
-    scope.dict.pairs()
+    scope
+      .dict
+      .pairs()
       .filter(((k, v)) => (
         stdx.binding(scope.mod, k).category == category
           and type(v) in (function, type)
@@ -795,14 +798,12 @@
               or (scope.mod == std and k == "pattern") // deprecated
           )
       ))
-      .map(((k, v)) => {
-        (
-          k,
-          v,
-          stdx.describe(v),
-          nested-binding(scope, k),
-        )
-      })
+      .map(((k, v)) => (
+        k,
+        v,
+        stdx.describe(v),
+        nested-binding(scope, k),
+      ))
 
     // Manual ddditions.
     scope-additions.pairs().map(((k, v)) => (k, v, stdx.describe(v), none))

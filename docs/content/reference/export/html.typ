@@ -12,7 +12,7 @@
       items: {
         dictionary(html)
           .pairs()
-          .filter(((key, val)) => {
+          .filter(((_, val)) => {
             let info = stdx.describe(val)
             info != none and "typed-html" in info.keywords
           })
