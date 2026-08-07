@@ -743,8 +743,17 @@ const REPEAT_RULE: ShowFn<RepeatElem> = |elem, _, _| {
     Ok(BlockElem::single_layouter(elem.clone(), crate::repeat::layout_repeat).pack())
 };
 
-const HIDE_RULE: ShowFn<HideElem> =
-    |elem, _, _| Ok(elem.body.clone().set(HideElem::hidden, true));
+const HIDE_RULE: ShowFn<HideElem> = |elem, _, styles| {
+    let fill = elem.fill.get_cloned(styles);
+    let stroke = elem.stroke.resolve(styles);
+
+    Ok(elem
+        .body
+        .clone()
+        .set(HideElem::hidden, true)
+        .set(HideElem::hidden_fill, fill)
+        .set(HideElem::hidden_stroke, stroke))
+};
 
 const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
     Ok(BlockElem::multi_layouter(

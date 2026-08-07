@@ -11,7 +11,9 @@ use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
 use crate::model::Destination;
 use crate::text::TextItem;
-use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
+use crate::visualize::{
+    Color, Curve, FillRule, FixedStroke, Geometry, Image, Paint, Shape, Stroke,
+};
 
 /// A finished layout with items at fixed positions.
 #[derive(Default, Clone, Hash)]
@@ -322,15 +324,33 @@ impl Frame {
     }
 
     /// Hide all content in the frame, but keep metadata.
-    pub fn hide(&mut self) {
+    ///
+    /// Optionally applies `fill` and `stroke` to the space taken by the hidden content.
+    pub fn hide(&mut self, fill: Option<Paint>, stroke: Option<Stroke<Abs>>) {
         self.retain(|item| match item {
             FrameItem::Group(group) => {
-                group.frame.hide();
+                group.frame.hide(None, None);
                 !group.frame.is_empty()
             }
             FrameItem::Tag(_) => true,
             _ => false,
         });
+
+        // optionally add a single shape filling the entire frame with the given fill and stroke
+        if fill.is_some() || stroke.is_some() {
+            self.push(
+                Point::zero(),
+                FrameItem::Shape(
+                    Shape {
+                        geometry: Geometry::Rect(self.size),
+                        fill,
+                        fill_rule: FillRule::default(),
+                        stroke: stroke.map(|s| s.unwrap_or_default()),
+                    },
+                    Span::detached(),
+                ),
+            );
+        }
     }
 
     /// Add a background fill.
