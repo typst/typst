@@ -200,6 +200,8 @@
 
 --- call-feature-gated eval features() ---
 // Error: 2-6 cannot access variable `html` because the `html` feature is not enabled
+// Hint: 2-6 try enabling the `html` feature
+// Hint: 2-6 see https://typst.app/help/compiler-features for more details
 #html()
 
 --- call-args-unclosed eval ---

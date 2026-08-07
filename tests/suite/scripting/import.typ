@@ -494,10 +494,14 @@ This is never reached.
 
 --- import-feature-gated-item eval features() ---
 // Error: 14-18 cannot import `html` because the `html` feature is not enabled
+// Hint: 14-18 try enabling the `html` feature
+// Hint: 14-18 see https://typst.app/help/compiler-features for more details
 #import std: html
 
 --- import-feature-gated-field eval features() ---
 // Error: 18-31 cannot import `table-summary` because the `a11y-extras` feature is not enabled
+// Hint: 18-31 try enabling the `a11y-extras` feature
+// Hint: 18-31 see https://typst.app/help/compiler-features for more details
 #import std: pdf.table-summary
 
 --- import-deprecated-item eval ---
@@ -508,10 +512,14 @@ This is never reached.
 
 --- import-feature-gated-value eval features() ---
 // Error: 16-21 cannot import `gated` because the `html` feature is not enabled
+// Hint: 16-21 try enabling the `html` feature
+// Hint: 16-21 see https://typst.app/help/compiler-features for more details
 #import check: gated
 
 --- import-feature-gated-field-of-type eval features() ---
 // Error: 15-20 cannot import `gated` because the `html` feature is not enabled
+// Hint: 15-20 try enabling the `html` feature
+// Hint: 15-20 see https://typst.app/help/compiler-features for more details
 #import test: gated
 
 --- import-feature-gated-wildcard-unused eval features() ---

@@ -11,7 +11,7 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
@@ -292,7 +292,7 @@ impl Func {
         &self,
         field: &str,
         guard: impl BindingGuard,
-    ) -> StrResult<&'static Value> {
+    ) -> HintedStrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {

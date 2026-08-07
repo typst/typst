@@ -10,7 +10,7 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 
-use crate::diag::{HintedStrResult, HintedString, StrResult};
+use crate::diag::{HintedStrResult, HintedString};
 use crate::foundations::{
     Args, Array, AutoValue, BindingGuard, Bytes, CastInfo, Content, Datetime, Decimal,
     Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
@@ -154,20 +154,18 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str, guard: impl BindingGuard) -> StrResult<Value> {
-        match self {
-            Self::Symbol(symbol) => {
-                symbol.clone().modified(guard, field).map(Self::Symbol)
-            }
-            Self::Version(version) => version.component(field).map(Self::Int),
-            Self::Dict(dict) => dict.get(field).cloned(),
-            Self::Args(args) => args.field(field).cloned(),
-            Self::Content(content) => content.field_by_name(field),
-            Self::Type(ty) => ty.field(field, guard).cloned(),
-            Self::Func(func) => func.field(field, guard).cloned(),
-            Self::Module(module) => module.field(field, guard).cloned(),
-            _ => fields::field(self, field),
-        }
+    pub fn field(&self, field: &str, guard: impl BindingGuard) -> HintedStrResult<Value> {
+        Ok(match self {
+            Self::Symbol(symbol) => Self::Symbol(symbol.clone().modified(guard, field)?),
+            Self::Version(version) => Self::Int(version.component(field)?),
+            Self::Dict(dict) => dict.get(field)?.clone(),
+            Self::Args(args) => args.field(field)?.clone(),
+            Self::Content(content) => content.field_by_name(field)?,
+            Self::Type(ty) => ty.field(field, guard)?.clone(),
+            Self::Func(func) => func.field(field, guard)?.clone(),
+            Self::Module(module) => module.field(field, guard)?.clone(),
+            _ => fields::field(self, field)?,
+        })
     }
 
     /// The associated scope, if this is a function, type, or module.

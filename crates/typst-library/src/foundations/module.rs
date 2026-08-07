@@ -4,7 +4,7 @@ use std::sync::Arc;
 use ecow::{EcoString, eco_format};
 use typst_syntax::FileId;
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{HintedStrResult, bail};
 use crate::foundations::{BindingAccess, BindingGuard, Content, Repr, Scope, Value, ty};
 
 /// A collection of variables and functions that are commonly related to a
@@ -136,7 +136,11 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn field(&self, field: &str, guard: impl BindingGuard) -> StrResult<&Value> {
+    pub fn field(
+        &self,
+        field: &str,
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<&Value> {
         match self.scope().get(field) {
             Some(binding) => {
                 binding.read(guard).or_cannot(format_args!("access field `{field}`"))

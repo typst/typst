@@ -7,9 +7,7 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{
-    HintedStrResult, HintedString, SourceDiagnostic, StrResult, WarningSink, error,
-};
+use crate::diag::{HintedStrResult, HintedString, SourceDiagnostic, WarningSink, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
@@ -47,10 +45,9 @@ impl<'a> Scopes<'a> {
 
     /// Try to access a binding value immutably.
     pub fn get(&self, var: &str, guard: impl BindingGuard) -> HintedStrResult<&Value> {
-        Ok(self
-            .get_binding(var)?
+        self.get_binding(var)?
             .read(guard)
-            .or_cannot(format_args!("access variable `{var}`"))?)
+            .or_cannot(format_args!("access variable `{var}`"))
     }
 
     /// Try to access a binding value immutably in math.
@@ -59,10 +56,9 @@ impl<'a> Scopes<'a> {
         var: &str,
         guard: impl BindingGuard,
     ) -> HintedStrResult<&Value> {
-        Ok(self
-            .get_binding_in_math(var)?
+        self.get_binding_in_math(var)?
             .read(guard)
-            .or_cannot(format_args!("access variable `{var}`"))?)
+            .or_cannot(format_args!("access variable `{var}`"))
     }
 
     /// Try to access a binding.
@@ -122,9 +118,7 @@ impl<'a> Scopes<'a> {
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
                     Some(binding) => match binding.read(guard) {
-                        Err(err) => {
-                            err.cannot(format_args!("access variable `{var}`")).into()
-                        }
+                        Err(err) => err.cannot(format_args!("access variable `{var}`")),
                         _ => cannot_mutate_constant(var),
                     },
                     _ if var == "std" => cannot_mutate_constant(var),
@@ -467,21 +461,22 @@ impl BindingInfo {
 
 /// There was an error accessing a binding.
 ///
-/// A [`Result<T, BindingError>`] can be converted into a [`StrResult`] using
-/// the [`BindingAccess`] trait, see [`Binding::read`].
+/// A [`Result<T, BindingError>`] can be converted into a [`HintedStrResult`]
+/// using the [`BindingAccess`] trait, see [`Binding::read`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum BindingError {
     /// The binding cannot be written to, because it is captured.
     Captured(Capturer),
     /// The feature that gates it isn't enabled.
     ///
-    /// A [`Result<T, BindingError>`] can be converted into a [`StrResult`]
-    /// using the [`BindingAccess`] trait, see [`Binding::read`].
+    /// A [`Result<T, BindingError>`] can be converted into a
+    /// [`HintedStrResult`] using the [`BindingAccess`] trait, see
+    /// [`Binding::read`].
     Feature(FeatureError),
 }
 
 impl BindingError {
-    pub fn cannot(self, what: impl Display) -> EcoString {
+    pub fn cannot(self, what: impl Display) -> HintedString {
         match self {
             BindingError::Captured(capturer) => {
                 error!(
@@ -502,33 +497,38 @@ impl From<FeatureError> for BindingError {
 
 /// There was an error accessing a binding.
 ///
-/// A [`Result<T, FeatureError>`] can be converted into a [`StrResult`] using
-/// the [`BindingAccess`] trait, see [`Binding::read`].
+/// A [`Result<T, FeatureError>`] can be converted into a [`HintedStrResult`]
+/// using the [`BindingAccess`] trait, see [`Binding::read`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct FeatureError(Feature);
 
 impl FeatureError {
-    pub fn cannot(self, what: impl Display) -> EcoString {
+    pub fn cannot(self, what: impl Display) -> HintedString {
         let Self(feature) = self;
-        error!("cannot {what} because the `{feature}` feature is not enabled")
+        error!(
+            "cannot {what} because the `{feature}` feature is not enabled";
+            // TODO: Support for CLI-specific hints would be nice.
+            hint: "try enabling the `{feature}` feature";
+            hint: "see https://typst.app/help/compiler-features for more details";
+        )
     }
 }
 
-/// Convert a [`BindingError`] to a [`StrResult`] by providing a description of
-/// what kind of binding couldn't be accessed.
+/// Convert a [`BindingError`] to a [`HintedStrResult`] by providing a
+/// description of what kind of binding couldn't be accessed.
 pub trait BindingAccess<T> {
     /// Add a description of what kind of binding couldn't be accessed.
-    fn or_cannot(self, what: impl Display) -> StrResult<T>;
+    fn or_cannot(self, what: impl Display) -> HintedStrResult<T>;
 }
 
 impl<T> BindingAccess<T> for Result<T, BindingError> {
-    fn or_cannot(self, what: impl Display) -> StrResult<T> {
+    fn or_cannot(self, what: impl Display) -> HintedStrResult<T> {
         self.map_err(|err| err.cannot(what))
     }
 }
 
 impl<T> BindingAccess<T> for Result<T, FeatureError> {
-    fn or_cannot(self, what: impl Display) -> StrResult<T> {
+    fn or_cannot(self, what: impl Display) -> HintedStrResult<T> {
         self.map_err(|err| err.cannot(what))
     }
 }

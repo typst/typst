@@ -77,8 +77,12 @@
 
 --- field-feature-gated eval features() ---
 // Error: 6-15 cannot access field `data-cell` because the `a11y-extras` feature is not enabled
+// Hint: 6-15 try enabling the `a11y-extras` feature
+// Hint: 6-15 see https://typst.app/help/compiler-features for more details
 #pdf.data-cell
 
 --- field-call-feature-gated eval features() ---
 // Error: 6-15 cannot access field `data-cell` because the `a11y-extras` feature is not enabled
+// Hint: 6-15 try enabling the `a11y-extras` feature
+// Hint: 6-15 see https://typst.app/help/compiler-features for more details
 #pdf.data-cell()

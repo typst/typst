@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 use ecow::{EcoString, eco_format};
 use typst_utils::{DefSite, Static};
 
-use crate::diag::{StrResult, bail};
+use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
     AutoValue, BindingAccess, BindingGuard, Func, NativeFuncData, NoneValue, Repr, Scope,
     Since, Value, cast, func,
@@ -125,7 +125,7 @@ impl Type {
         &self,
         field: &str,
         guard: impl BindingGuard,
-    ) -> StrResult<&'static Value> {
+    ) -> HintedStrResult<&'static Value> {
         match self.scope().get(field) {
             Some(binding) => binding
                 .read(guard)
