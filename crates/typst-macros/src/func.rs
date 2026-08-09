@@ -334,11 +334,7 @@ fn create_func_data(func: &Func) -> TokenStream {
         quote! { #name }
     };
 
-    let since = if let Some(since) = since {
-        quote! { Some(#since) }
-    } else {
-        quote! { None }
-    };
+    let since = quote_option(since);
 
     quote! {
         #foundations::NativeFuncData {
