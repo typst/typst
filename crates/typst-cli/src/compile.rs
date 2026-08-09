@@ -53,7 +53,7 @@ pub struct CompileConfig {
     pub warnings: Vec<HintedString>,
     /// Whether we are watching.
     pub watching: bool,
-    /// Whether to clear the terminal on recompilation (only while watching)
+    /// Whether to clear the terminal on recompilation (only while watching).
     pub clear_terminal: bool,
     /// Path to input Typst file or stdin.
     pub input: Input,
