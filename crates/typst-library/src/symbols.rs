@@ -16,14 +16,22 @@ pub(super) fn define_math(math: &mut Scope) {
 
 fn extend_scope_from_codex_module(scope: &mut Scope, module: codex::Module) {
     for (name, binding) in module.iter() {
+        let mut data = None;
         let value = match binding.def {
-            codex::Def::Symbol(s) => Value::Symbol(s.into()),
+            codex::Def::Symbol(s) => {
+                let symbol = Symbol::from(s);
+                data = symbol.func().ok().and_then(|func| func.to_native());
+                Value::Symbol(symbol)
+            }
             codex::Def::Module(m) => Value::Module(Module::new(name, m.into())),
         };
 
         let scope_binding = scope.define(name, value);
         if let Some(message) = binding.deprecation {
             scope_binding.with_deprecation(Deprecation::new().with_message(message));
+        }
+        if let Some(data) = data {
+            scope_binding.with_documentation(data.into());
         }
     }
 }

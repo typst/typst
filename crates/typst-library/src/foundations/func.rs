@@ -314,6 +314,14 @@ impl Func {
         }
     }
 
+    /// Extract the native function data, if this is a native function.
+    pub fn to_native(&self) -> Option<&'static NativeFuncData> {
+        match self.inner {
+            FuncInner::Native(func) => Some(func.0),
+            _ => None,
+        }
+    }
+
     /// Extract the plugin function, if it is one.
     pub fn to_plugin(&self) -> Option<&PluginFunc> {
         match &self.inner {

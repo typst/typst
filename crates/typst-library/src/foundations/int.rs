@@ -17,9 +17,7 @@ use crate::foundations::{
 ///
 /// Typst stores signed integers with the #wiki("Two%27s_complement")[two's
 /// complement] representation in 64 bits. This allows storing numbers up to
-/// $2^63-1$ or `{9223372036854775807}`, and down to $-2^63$ or
-/// `{-9223372036854775808}`. These values are accessible as `{int.max}` and
-/// `{int.min}`.
+/// $2^63-1$ (@int.max), and down to $-2^63$ (@int.min).
 ///
 /// Integers can also be specified as hexadecimal, octal, or binary by starting
 /// with the prefixes: `0x`, `0o`, or `0b`.
@@ -51,17 +49,16 @@ use crate::foundations::{
 ///
 /// Hexadecimal numbers use the letters a--f or A--F for the values 10--15.
 ///
-/// Typst will error if an integer is written that is larger than `int.max` or
-/// smaller than `int.min`. If this happens, you may want to use a
-/// @float[floating point number] instead by appending a period to the end of
-/// the number.
+/// Typst will error if an integer is written that is larger than @int.max. If
+/// this happens, you may want to use a @float[floating point number] instead by
+/// appending a period to the end of the number.
 ///
 /// Typst differs from some other programming languages by not treating negative
 /// integers as individual tokens in its syntax. Instead, input like `{-6}` is
 /// treated as the negation operator applied to the positive integer `6`. This
 /// may cause an issue when trying to write the minimum negative integer
 /// `{-9223372036854775808}`, as `{9223372036854775808}` is larger than
-/// `{int.max}`. To write the minimum negative integer, use `{int.min}` instead.
+/// @int.max. To write the minimum negative integer, use @int.min instead.
 ///
 /// This also means that if you want to embed a negative integer in markup, you
 /// will need to use parentheses to group the negation operator: `[#(-6)]`.
@@ -70,13 +67,25 @@ type i64;
 
 #[scope(ext)]
 impl i64 {
-    /// The maximum value that can be represented by a Typst integer: $2^63-1$,
-    /// `{9223372036854775807}`, or `{0x7FFFFFFFFFFFFFFF}`.
+    /// The maximum value that can be represented as a Typst integer: $2^63-1$.
+    ///
+    /// ```example
+    /// #int.max \
+    /// // In hexadecimal:
+    /// #0x7FFFFFFFFFFFFFFF
+    /// ```
     #[constant(title = "Maximum integer", since = "forever")]
     const MAX: i64 = i64::MAX;
 
-    /// The minimum value that can be represented by a Typst integer: $-(2^63)$,
-    /// `{-9223372036854775808}`, or `{0x8000000000000000}`.
+    /// The minimum value that can be represented as a Typst integer: $-2^63$.
+    ///
+    /// Trying to write this integer explicitly as `{-9223372036854775808}`
+    /// instead of using `{int.min}` will result in an error. For more
+    /// information, read the @int:syntax section.
+    ///
+    /// ```example
+    /// #int.min
+    /// ```
     #[constant(title = "Minimum integer", since = "forever")]
     const MIN: i64 = i64::MIN;
 

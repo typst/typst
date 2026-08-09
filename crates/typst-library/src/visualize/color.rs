@@ -171,112 +171,6 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 /// )
 /// ```
 ///
-/// = Predefined color maps <predefined-color-maps>
-/// Typst also includes a number of preset color maps that can be used for
-/// @gradient:stops[gradients]. These are simply arrays of colors defined in the
-/// module `color.map`.
-///
-/// ```example
-/// #circle(fill: gradient.linear(..color.map.crest))
-/// ```
-///
-/// #docs-table(
-///   table.header[Map][Details],
-///
-///   [`turbo`],
-///   [
-///     A perceptually uniform rainbow-like color map. Read
-///     #link("https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html")[this blog post]
-///     for more details.
-///   ],
-///
-///   [`cividis`],
-///   [
-///     A blue to gray to yellow color map. See
-///     #link("https://bids.github.io/colormap/")[this blog post] for more
-///     details.
-///   ],
-///
-///   [`rainbow`],
-///   [
-///     Cycles through the full color spectrum. This color map is best used by
-///     setting the interpolation color space to @color.hsl[HSL]. The rainbow
-///     gradient is *not suitable* for data visualization because it is not
-///     perceptually uniform, so the differences between values become unclear
-///     to your readers. It should only be used for decorative purposes.
-///   ],
-///
-///   [`spectral`],
-///   [Red to yellow to blue color map.],
-///
-///   [`viridis`],
-///   [A purple to teal to yellow color map.],
-///
-///   [`inferno`],
-///   [A black to red to yellow color map.],
-///
-///   [`magma`],
-///   [A black to purple to yellow color map.],
-///
-///   [`plasma`],
-///   [A purple to pink to yellow color map.],
-///
-///   [`rocket`],
-///   [A black to red to white color map.],
-///
-///   [`mako`],
-///   [A black to teal to white color map.],
-///
-///   [`coolwarm`],
-///   [A blue to white to red color map with smooth transitions.],
-///
-///   [`vlag`],
-///   [A light blue to white to red color map.],
-///
-///   [`icefire`],
-///   [A light teal to black to orange color map.],
-///
-///   [`flare`],
-///   [A orange to purple color map that is perceptually uniform.],
-///
-///   [`crest`],
-///   [A light green to blue color map.],
-/// )
-///
-/// Some popular presets are not included because they are not available under a
-/// free licence. Others, like
-/// #link("https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/")[Jet],
-/// are not included because they are not color blind friendly. Feel free to use
-/// or create a package with other presets that are useful to you!
-///
-/// ```preview
-/// #set page(width: auto, height: auto)
-/// #set text(font: "PT Sans", size: 8pt)
-///
-/// #let maps = (
-///   "turbo", "cividis", "rainbow", "spectral",
-///   "viridis", "inferno", "magma", "plasma",
-///   "rocket", "mako", "coolwarm", "vlag",
-///   "icefire", "flare", "crest",
-/// )
-///
-/// #stack(dir: ltr, spacing: 3pt, ..maps.map((name) => {
-///   let map = eval("color.map." + name)
-///   stack(
-///     dir: ttb,
-///     block(
-///       width: 15pt,
-///       height: 100pt,
-///       fill: gradient.linear(..map, angle: 90deg),
-///     ),
-///     block(
-///       width: 15pt,
-///       height: 32pt,
-///       move(dy: 8pt, rotate(90deg, name)),
-///     ),
-///   )
-/// }))
-/// ```
 #[ty(scope, cast, since = "forever")]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Color {
@@ -339,7 +233,111 @@ impl Color {
     pub const LIME: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.0039216, 1.0, 0.4392157, 1.0)));
 
-    /// The module of preset color maps.
+    /// A collection of preset color maps that can be used for
+    /// @gradient:stops[gradients]. These are simply arrays of colors.
+    ///
+    /// ```example
+    /// #circle(fill: gradient.linear(..color.map.crest))
+    /// ```
+    ///
+    /// #docs-table(
+    ///   table.header[Map][Details],
+    ///
+    ///   [`turbo`],
+    ///   [
+    ///     A perceptually uniform rainbow-like color map. Read
+    ///     #link("https://ai.googleblog.com/2019/08/turbo-improved-rainbow-colormap-for.html")[this blog post]
+    ///     for more details.
+    ///   ],
+    ///
+    ///   [`cividis`],
+    ///   [
+    ///     A blue to gray to yellow color map. See
+    ///     #link("https://bids.github.io/colormap/")[this blog post] for more
+    ///     details.
+    ///   ],
+    ///
+    ///   [`rainbow`],
+    ///   [
+    ///     Cycles through the full color spectrum. This color map is best used
+    ///     by setting the interpolation color space to @color.hsl[HSL]. The
+    ///     rainbow gradient is *not suitable* for data visualization because it
+    ///     is not perceptually uniform, so the differences between values
+    ///     become unclear to your readers. It should only be used for
+    ///     decorative purposes.
+    ///   ],
+    ///
+    ///   [`spectral`],
+    ///   [Red to yellow to blue color map.],
+    ///
+    ///   [`viridis`],
+    ///   [A purple to teal to yellow color map.],
+    ///
+    ///   [`inferno`],
+    ///   [A black to red to yellow color map.],
+    ///
+    ///   [`magma`],
+    ///   [A black to purple to yellow color map.],
+    ///
+    ///   [`plasma`],
+    ///   [A purple to pink to yellow color map.],
+    ///
+    ///   [`rocket`],
+    ///   [A black to red to white color map.],
+    ///
+    ///   [`mako`],
+    ///   [A black to teal to white color map.],
+    ///
+    ///   [`coolwarm`],
+    ///   [A blue to white to red color map with smooth transitions.],
+    ///
+    ///   [`vlag`],
+    ///   [A light blue to white to red color map.],
+    ///
+    ///   [`icefire`],
+    ///   [A light teal to black to orange color map.],
+    ///
+    ///   [`flare`],
+    ///   [A orange to purple color map that is perceptually uniform.],
+    ///
+    ///   [`crest`],
+    ///   [A light green to blue color map.],
+    /// )
+    ///
+    /// Some popular presets are not included because they are not available
+    /// under a free licence. Others, like
+    /// #link("https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/")[Jet],
+    /// are not included because they are not color blind friendly. Feel free to
+    /// use or create a package with other presets that are useful to you!
+    ///
+    /// ```preview
+    /// #set page(width: auto, height: auto)
+    /// #set text(font: "PT Sans", size: 8pt)
+    ///
+    /// #let maps = (
+    ///   "turbo", "cividis", "rainbow", "spectral",
+    ///   "viridis", "inferno", "magma", "plasma",
+    ///   "rocket", "mako", "coolwarm", "vlag",
+    ///   "icefire", "flare", "crest",
+    /// )
+    ///
+    /// #stack(dir: ltr, spacing: 3pt, ..maps.map((name) => {
+    ///   let map = eval("color.map." + name)
+    ///   stack(
+    ///     dir: ttb,
+    ///     block(
+    ///       width: 15pt,
+    ///       height: 100pt,
+    ///       fill: gradient.linear(..map, angle: 90deg),
+    ///     ),
+    ///     block(
+    ///       width: 15pt,
+    ///       height: 32pt,
+    ///       move(dy: 8pt, rotate(90deg, name)),
+    ///     ),
+    ///   )
+    /// }))
+    /// ```
     #[constant(title = "Predefined color maps", since = "0.9.0")]
     pub const MAP: fn() -> Module = || typst_utils::singleton!(Module, map()).clone();
 
