@@ -45,9 +45,13 @@ impl Dir {
 
 #[scope]
 impl Dir {
+    #[constant(title = "Left to right", since = "forever")]
     pub const LTR: Self = Self::LTR;
+    #[constant(title = "Right to left", since = "forever")]
     pub const RTL: Self = Self::RTL;
+    #[constant(title = "Top to bottom", since = "forever")]
     pub const TTB: Self = Self::TTB;
+    #[constant(title = "Bottom to top", since = "forever")]
     pub const BTT: Self = Self::BTT;
 
     /// Returns a direction from a starting point.

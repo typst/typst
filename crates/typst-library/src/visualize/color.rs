@@ -288,40 +288,59 @@ pub enum Color {
 
 #[scope]
 impl Color {
+    #[constant(since = "forever")]
     pub const BLACK: Self = Self::Process(ProcessColor::Luma(Luma::new(0.0, 1.0)));
+    #[constant(since = "forever")]
     pub const GRAY: Self = Self::Process(ProcessColor::Luma(Luma::new(0.6666666, 1.0)));
+    #[constant(since = "forever")]
     pub const WHITE: Self = Self::Process(ProcessColor::Luma(Luma::new(1.0, 1.0)));
+    #[constant(since = "forever")]
     pub const SILVER: Self = Self::Process(ProcessColor::Luma(Luma::new(0.8666667, 1.0)));
+    #[constant(since = "forever")]
     pub const NAVY: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.0, 0.121569, 0.247059, 1.0)));
+    #[constant(since = "forever")]
     pub const BLUE: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.0, 0.454902, 0.85098, 1.0)));
+    #[constant(since = "forever")]
     pub const AQUA: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.4980392, 0.858823, 1.0, 1.0)));
+    #[constant(since = "forever")]
     pub const TEAL: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.223529, 0.8, 0.8, 1.0)));
+    #[constant(since = "forever")]
     pub const EASTERN: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.13725, 0.615686, 0.678431, 1.0)));
+    #[constant(since = "forever")]
     pub const PURPLE: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.694118, 0.050980, 0.788235, 1.0)));
+    #[constant(since = "forever")]
     pub const FUCHSIA: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.941177, 0.070588, 0.745098, 1.0)));
+    #[constant(since = "forever")]
     pub const MAROON: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.521569, 0.078431, 0.294118, 1.0)));
+    #[constant(since = "forever")]
     pub const RED: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(1.0, 0.254902, 0.211765, 1.0)));
+    #[constant(since = "forever")]
     pub const ORANGE: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(1.0, 0.521569, 0.105882, 1.0)));
+    #[constant(since = "forever")]
     pub const YELLOW: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(1.0, 0.8627451, 0.0, 1.0)));
+    #[constant(since = "forever")]
     pub const OLIVE: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.239216, 0.6, 0.4392157, 1.0)));
+    #[constant(since = "forever")]
     pub const GREEN: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.1803922, 0.8, 0.2509804, 1.0)));
+    #[constant(since = "forever")]
     pub const LIME: Self =
         Self::Process(ProcessColor::Rgb(Rgb::new(0.0039216, 1.0, 0.4392157, 1.0)));
 
     /// The module of preset color maps.
+    #[constant(title = "Predefined color maps", since = "0.9.0")]
     pub const MAP: fn() -> Module = || typst_utils::singleton!(Module, map()).clone();
 
     /// Create a grayscale color.

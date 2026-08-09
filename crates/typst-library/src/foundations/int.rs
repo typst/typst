@@ -72,10 +72,12 @@ type i64;
 impl i64 {
     /// The maximum value that can be represented by a Typst integer: $2^63-1$,
     /// `{9223372036854775807}`, or `{0x7FFFFFFFFFFFFFFF}`.
+    #[constant(title = "Maximum integer", since = "forever")]
     const MAX: i64 = i64::MAX;
 
     /// The minimum value that can be represented by a Typst integer: $-(2^63)$,
     /// `{-9223372036854775808}`, or `{0x8000000000000000}`.
+    #[constant(title = "Minimum integer", since = "forever")]
     const MIN: i64 = i64::MIN;
 
     /// Converts a value to an integer. Raises an error if there is an attempt

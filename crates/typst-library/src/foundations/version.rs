@@ -216,7 +216,7 @@ cast! {
 }
 
 /// When a feature was introduced.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Since {
     /// The feature was introduced before Typst 0.1.0.
     Forever,
