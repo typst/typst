@@ -117,8 +117,7 @@ use crate::visualize::{
 /// )
 /// ```
 ///
-/// Typst predefines color maps that you can use as stops. See the
-/// @color:predefined-color-maps[`color`] documentation for more details.
+/// Typst predefines color maps that you can use as stops in @color.map.
 ///
 /// = Relativeness <relativeness>
 /// The location of the `{0%}` and `{100%}` stops depends on the dimensions of a

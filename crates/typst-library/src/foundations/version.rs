@@ -18,7 +18,7 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 /// special case, the empty version (that has no components at all) is the same
 /// as `0`, `0.0`, `0.0.0`, and so on.
 ///
-/// The current version of the Typst compiler is available as `sys.version`.
+/// The current version of the Typst compiler is available as @sys.version.
 ///
 /// You can convert a version to an array of explicitly given components using
 /// the @array constructor.
@@ -75,8 +75,8 @@ impl Version {
     ///   ```
     /// )
     ///
-    /// As a practical use case, this allows comparing the current version
-    /// (@version[`{sys.version}`]) to a specific one.
+    /// As a practical use case, this allows comparing the current compiler
+    /// version (available as @sys.version) to a specific one.
     ///
     /// #example(
     ///   title: "Comparing with the current version",

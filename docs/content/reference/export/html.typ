@@ -9,10 +9,9 @@
     (
       name: "typed",
       title: "Typed HTML",
-      items: {
+      definitions: {
         dictionary(html)
-          .pairs()
-          .filter(((_, val)) => {
+          .filter(val => {
             let info = stdx.describe(val)
             info != none and "typed-html" in info.keywords
           })
