@@ -79,7 +79,7 @@ pub fn parse_attr<T: Parse>(
         .transpose()
 }
 
-/// Whether an attribute list has a specified attribute.
+/// Extracts a specific attribute.
 pub fn take_attr(
     attrs: &mut Vec<syn::Attribute>,
     target: &str,
