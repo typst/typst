@@ -13,7 +13,7 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, String as BumpString, Vec as BumpVec};
 use comemo::Track;
 use ecow::EcoString;
-use typst_html::HtmlElem;
+use typst_html::{FrameElem, HtmlElem};
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
@@ -1052,6 +1052,7 @@ static PAR: GroupingRule = GroupingRule {
             || elem == SmartQuoteElem::ELEM
             || elem == InlineElem::ELEM
             || elem == BoxElem::ELEM
+            || elem == FrameElem::ELEM
         {
             GroupingEffect::Trigger
         } else if elem == SpaceElem::ELEM {

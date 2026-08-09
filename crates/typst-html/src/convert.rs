@@ -16,7 +16,8 @@ use typst_utils::SliceExt;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{
-    FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
+    FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlFrameLevel, HtmlNode, attr, css,
+    property, tag,
 };
 
 /// What and how to convert.
@@ -147,11 +148,7 @@ fn handle(
             styles.chain(&style),
             Region::new(Size::splat(Abs::inf()), Axes::splat(false)),
         )?;
-        let mut node = HtmlFrame::new(frame, styles, elem.span()).into();
-        // A frame is block-level by default like a Typst `image`. It can
-        // be wrapped in a `box` to omit the `display` annotation.
-        make_block_level(&mut node).unwrap();
-        converter.push(node);
+        converter.push(HtmlFrame::new(frame, styles, elem.span()));
     } else {
         converter.engine.sink.warn(warning!(
             child.span(),
@@ -379,6 +376,10 @@ fn handle_box(
 /// element has its `display` attribute set to `block`, then we need to
 /// override it.
 fn make_inline_level(node: &mut HtmlNode) {
+    if let HtmlNode::Frame(frame) = node {
+        frame.level = HtmlFrameLevel::Inline;
+    }
+
     let mode = if let HtmlNode::Element(element) = node
         && element.tag == tag::mathml::math
         && element.attrs.get(attr::mathml::display).is_some_and(|v| v == "block")
@@ -442,6 +443,10 @@ fn handle_block(
 /// Configures the `display` property of the HTML node (if it is an element or
 /// frame).
 fn make_block_level(node: &mut HtmlNode) -> Result<(), Unblockable> {
+    if let HtmlNode::Frame(frame) = node {
+        frame.level = HtmlFrameLevel::Block;
+    }
+
     let default = match node {
         // A math element's default display property depends on its `display`
         // attribute.

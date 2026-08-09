@@ -280,11 +280,11 @@ See #metadata(none) <t8>
 ]
 
 #document("folder/a.html")[
-  #html.frame[
+  #block(html.frame[
     #v(10pt)
     = Frame <frame> // Link point should be at `translate(0 10)`
     #link(<index>)[Into index]
-  ]
+  ])
 ]
 
 --- link-bundle-pdf-internal bundle ---

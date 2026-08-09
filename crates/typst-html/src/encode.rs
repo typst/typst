@@ -8,8 +8,8 @@ use typst_library::model::LateLinkResolver;
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, property,
-    tag,
+    HtmlDocument, HtmlElement, HtmlFrame, HtmlFrameLevel, HtmlNode, HtmlTag, attr,
+    charsets, property, tag,
 };
 
 /// Settings for HTML export.
@@ -389,12 +389,23 @@ fn unencodable(c: char) -> EcoString {
 
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
+    let mut css = frame.css.clone();
+    if frame.level == HtmlFrameLevel::Inline {
+        let shift = typst_utils::round_with_precision(
+            -frame.inner.descent() / frame.text_size,
+            4,
+        );
+        if shift != 0.0 {
+            css.push("vertical-align", eco_format!("{shift}em"));
+        }
+    }
+
     let svg = typst_svg::svg_in_html(
         &frame.inner,
         frame.text_size,
         w.pretty,
         frame.id.as_deref(),
-        &eco_format!("{}", frame.css.to_inline()),
+        &eco_format!("{}", css.to_inline()),
         &frame.anchors,
         w.link_resolver,
     );
