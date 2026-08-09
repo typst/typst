@@ -464,7 +464,7 @@ pub fn defer<T, F: FnOnce(&mut T)>(
 /// to find the element. Identifiers of a semantical parent may also be used in
 /// this key. This has the added benefit that we can reliably find the
 /// definition site in the presence of edits (for hot reload).
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct DefSite {
     /// The path to the file as returned by the `file!()` macro.
     ///

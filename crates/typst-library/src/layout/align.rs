@@ -175,13 +175,21 @@ impl Alignment {
 
 #[scope]
 impl Alignment {
+    #[constant(since = "forever")]
     pub const START: Self = Alignment::H(HAlignment::Start);
-    pub const LEFT: Self = Alignment::H(HAlignment::Left);
-    pub const CENTER: Self = Alignment::H(HAlignment::Center);
-    pub const RIGHT: Self = Alignment::H(HAlignment::Right);
+    #[constant(since = "forever")]
     pub const END: Self = Alignment::H(HAlignment::End);
+    #[constant(since = "forever")]
+    pub const LEFT: Self = Alignment::H(HAlignment::Left);
+    #[constant(since = "forever")]
+    pub const CENTER: Self = Alignment::H(HAlignment::Center);
+    #[constant(since = "forever")]
+    pub const RIGHT: Self = Alignment::H(HAlignment::Right);
+    #[constant(since = "forever")]
     pub const TOP: Self = Alignment::V(VAlignment::Top);
+    #[constant(since = "forever")]
     pub const HORIZON: Self = Alignment::V(VAlignment::Horizon);
+    #[constant(since = "forever")]
     pub const BOTTOM: Self = Alignment::V(VAlignment::Bottom);
 
     /// The axis this alignment belongs to.

@@ -6,11 +6,13 @@ use indexmap::IndexMap;
 use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
+use typst_utils::DefSite;
 
 use crate::diag::{HintedStrResult, HintedString, SourceDiagnostic, WarningSink, error};
 use crate::engine::Engine;
 use crate::foundations::{
-    Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
+    Element, Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType,
+    NativeTypeData, Since, Value,
 };
 use crate::{Category, Feature, Features, Library, World};
 
@@ -167,10 +169,12 @@ impl Scope {
     }
 
     /// Define a native function through a Rust type that shadows the function.
+    ///
+    /// Copies documentation information from the native function data to the
+    /// binding.
     #[track_caller]
     pub fn define_func<T: NativeFunc>(&mut self) -> &mut Binding {
-        let data = T::data();
-        self.define(data.name, Func::from(data))
+        self.define_func_with_data(T::data())
     }
 
     /// Define a native function with raw function data.
@@ -180,20 +184,21 @@ impl Scope {
         data: &'static NativeFuncData,
     ) -> &mut Binding {
         self.define(data.name, Func::from(data))
+            .with_documentation(data.into())
     }
 
     /// Define a native type.
     #[track_caller]
     pub fn define_type<T: NativeType>(&mut self) -> &mut Binding {
         let ty = T::ty();
-        self.define(ty.short_name(), ty)
+        self.define(ty.short_name(), ty).with_documentation(T::data().into())
     }
 
     /// Define a native element.
     #[track_caller]
     pub fn define_elem<T: NativeElement>(&mut self) -> &mut Binding {
         let elem = T::ELEM;
-        self.define(elem.name(), elem)
+        self.define(elem.name(), elem).with_documentation(elem.into())
     }
 
     /// Define a built-in with compile-time known name and returns a mutable
@@ -347,6 +352,15 @@ impl Binding {
         self
     }
 
+    /// Sets documentation for this binding.
+    pub fn with_documentation(
+        &mut self,
+        documentation: BindingDocumentation,
+    ) -> &mut Self {
+        self.init_info().documentation = Some(documentation);
+        self
+    }
+
     fn init_info(&mut self) -> &mut BindingInfo {
         self.info.get_or_insert_default()
     }
@@ -438,6 +452,44 @@ impl Binding {
     pub fn deprecation(&self) -> Option<Deprecation> {
         self.info.as_ref()?.deprecation
     }
+
+    /// Whether the binding should be listed in the documentation.
+    pub fn is_documented(&self) -> bool {
+        self.info.as_ref().is_some_and(|info| info.documentation.is_some())
+    }
+
+    /// The name for the binding.
+    pub fn name(&self) -> Option<&'static str> {
+        Some(self.info.as_ref()?.documentation?.name)
+    }
+
+    /// The title for the binding.
+    pub fn title(&self) -> Option<&'static str> {
+        Some(self.info.as_ref()?.documentation?.title)
+    }
+
+    /// The documentation for the binding, if any.
+    pub fn docs(&self) -> Option<&'static str> {
+        Some(self.info.as_ref()?.documentation?.docs)
+    }
+
+    /// The version of Typst the binding was introduced in, if any.
+    pub fn since(&self) -> Option<Since> {
+        self.info.as_ref()?.documentation?.since
+    }
+
+    /// The keywords associated with this binding.
+    pub fn keywords(&self) -> &'static [&'static str] {
+        self.info
+            .as_ref()
+            .and_then(|info| Some(info.documentation?.keywords))
+            .unwrap_or_default()
+    }
+
+    /// Where this binding is defined in the source code.
+    pub fn def_site(&self) -> Option<DefSite> {
+        self.info.as_ref()?.documentation?.def_site
+    }
 }
 
 /// Infrequently accessed information related to a binding.
@@ -449,6 +501,8 @@ struct BindingInfo {
     feature: Option<Feature>,
     /// The deprecation information if this item is deprecated.
     deprecation: Option<Deprecation>,
+    /// Documentation for the binding.
+    documentation: Option<BindingDocumentation>,
 }
 
 impl BindingInfo {
@@ -456,6 +510,62 @@ impl BindingInfo {
     /// it when it's accessed.
     fn has_checked_access(self) -> bool {
         self.feature.is_some() || self.deprecation.is_some()
+    }
+}
+
+/// Documentation information for a binding.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct BindingDocumentation {
+    /// The name for the binding.
+    pub name: &'static str,
+    /// The title for the binding.
+    pub title: &'static str,
+    /// The documentation for the binding as a Typst markup.
+    pub docs: &'static str,
+    /// The version of Typst the binding was introduced in.
+    pub since: Option<Since>,
+    /// The keywords associated with this binding.
+    pub keywords: &'static [&'static str],
+    /// Where the binding is defined in the source code.
+    pub def_site: Option<DefSite>,
+}
+
+impl From<&'static NativeFuncData> for BindingDocumentation {
+    fn from(data: &'static NativeFuncData) -> Self {
+        Self {
+            name: data.name,
+            title: data.title,
+            docs: data.docs,
+            since: data.since,
+            keywords: data.keywords,
+            def_site: data.def_site,
+        }
+    }
+}
+
+impl From<&'static NativeTypeData> for BindingDocumentation {
+    fn from(data: &'static NativeTypeData) -> Self {
+        Self {
+            name: data.name,
+            title: data.title,
+            docs: data.docs,
+            since: data.since,
+            keywords: data.keywords,
+            def_site: Some(data.def_site),
+        }
+    }
+}
+
+impl From<Element> for BindingDocumentation {
+    fn from(elem: Element) -> Self {
+        Self {
+            name: elem.name(),
+            title: elem.title(),
+            docs: elem.docs(),
+            since: elem.since(),
+            keywords: elem.keywords(),
+            def_site: Some(elem.def_site()),
+        }
     }
 }
 

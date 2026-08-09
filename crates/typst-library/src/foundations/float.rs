@@ -32,10 +32,12 @@ type f64;
 #[scope(ext)]
 impl f64 {
     /// Positive infinity.
+    #[constant(title = "Infinity", since = "0.12.0")]
     const INF: f64 = f64::INFINITY;
 
     /// A NaN value, as defined by the
     /// [IEEE 754 standard](https://en.wikipedia.org/wiki/IEEE_754).
+    #[constant(title = "NaN", since = "0.12.0")]
     const NAN: f64 = f64::NAN;
 
     /// Converts a value to a float.

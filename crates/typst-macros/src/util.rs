@@ -90,6 +90,11 @@ pub fn take_attr(
         .map(|i| attrs.remove(i))
 }
 
+/// Removes all attributes of a specific type.
+pub fn remove_attrs(attrs: &mut Vec<syn::Attribute>, target: &str) {
+    attrs.retain(|attr| !attr.path().is_ident(target));
+}
+
 /// Ensure that no unrecognized attributes remain.
 pub fn validate_attrs(attrs: &[syn::Attribute]) -> Result<()> {
     for attr in attrs {
