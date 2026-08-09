@@ -132,7 +132,7 @@ pub struct WatchCommand {
     pub server: ServerArgs,
 
     /// Do not clear the terminal on recompilation.
-    #[arg(long, default_value_t = false)]
+    #[arg(long)]
     pub no_clear: bool,
 }
 
