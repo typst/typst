@@ -13,7 +13,9 @@ use typst_utils::Numeric;
 use super::*;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::{Adjustability, ShapedGlyph};
-use crate::modifiers::{FrameModifyText, layout_and_modify_without_links};
+use crate::modifiers::{
+    FrameModifiers, FrameModify, FrameModifyText, layout_and_modify_without_links,
+};
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -703,7 +705,14 @@ pub fn commit<'l>(
 
         // TODO: a single modify call, calculating the height needed in real-time when going over text...
         let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
-        frame.modify_text(StyleChain::new(&styles));
+        let stylechain = StyleChain::new(&styles);
+        if link_info.spans_text {
+            frame.modify_text(stylechain);
+        } else {
+            // Don't add padding; restrict the link to the box.
+            // TODO: also need to consider equations...
+            frame.modify(&FrameModifiers::get_in(stylechain));
+        }
         output.push_frame(Point::new(x, y), frame);
     }
 
