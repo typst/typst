@@ -486,6 +486,20 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
+#[derive(Default)]
+struct LinkRenderInfo {
+    spans_text: bool,
+    height: Abs,
+    start: Abs,
+    y: Abs,
+}
+
+impl LinkRenderInfo {
+    fn with_start(start: Abs) -> Self {
+        Self { start, ..Default::default() }
+    }
+}
+
 /// Commit to a line and build its frame.
 pub fn commit<'l>(
     engine: &mut Engine,
@@ -559,12 +573,12 @@ pub fn commit<'l>(
         }
     }
 
-    // Keep track of items spanned by each link, including the destination, the
-    // horizontal offset where it starts, and (for finished links) the offset
-    // where it ends.
-    let mut link_stack: Vec<(&Destination, Abs)> =
-        active_links.iter().map(|&l| (l, Abs::zero())).collect();
-    let mut finished_links: Vec<(&Destination, Abs, Abs)> = vec![];
+    // Keep track of items spanned by each link, including the destination,
+    // whether a text was spanned, the height, the horizontal offset where it
+    // starts, and (for finished links) the offset where it ends.
+    let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
+        active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
+    let mut finished_links: Vec<(&Destination, LinkRenderInfo, Abs)> = vec![];
 
     // Horizontal offset after the last frame in the line.
     let mut last_frame_end = Abs::zero();
@@ -577,8 +591,16 @@ pub fn commit<'l>(
     for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
+            let frame_bottom = frame.size().y - frame.baseline();
             top.set_max(frame.baseline());
-            bottom.set_max(frame.size().y - frame.baseline());
+            bottom.set_max(frame_bottom);
+
+            for (_, link_info) in &mut link_stack {
+                // Ensure link covers this frame.
+                link_info.height.set_max(frame.height());
+                link_info.y.set_max(frame_bottom);
+            }
+
             frames.push((*offset, frame, idx));
             *offset += width;
             last_frame_end = *offset;
@@ -609,6 +631,10 @@ pub fn commit<'l>(
                     extra_justification,
                 );
                 push(&mut offset, frame, idx);
+
+                for (_, link_info) in &mut link_stack {
+                    link_info.spans_text = true;
+                }
             }
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone(), idx);
@@ -621,23 +647,26 @@ pub fn commit<'l>(
             Item::Skip(_) => {}
             Item::Event(Event::StartLink(dest)) => {
                 active_links.push(dest);
-                link_stack.push((dest, offset));
+                link_stack.push((dest, LinkRenderInfo::with_start(offset)));
             }
             Item::Event(Event::EndLink(dest)) => {
                 debug_assert_eq!(active_links.last(), Some(&dest));
                 debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
-                let (dest, start) = link_stack.pop().unwrap();
+                let (dest, link_info) = link_stack.pop().unwrap();
                 // Any external links should have been handled before.
                 active_links.pop().unwrap();
-                finished_links.push((dest, start, offset));
+                finished_links.push((dest, link_info, offset));
             }
         }
     }
 
     // Any unfinished links extend towards the very end of the last visible item
     // in the line.
-    finished_links
-        .extend(link_stack.into_iter().map(|(l, start)| (l, start, last_frame_end)));
+    finished_links.extend(
+        link_stack
+            .into_iter()
+            .map(|(l, link_info)| (l, link_info, last_frame_end)),
+    );
 
     // Remaining space is distributed now.
     if !fr.is_zero() {
@@ -665,15 +694,11 @@ pub fn commit<'l>(
     }
 
     // Construct link frames.
-    for (dest, offset, end) in finished_links {
-        let x = offset + p.config.align.position(remaining);
-        let y = bottom;
-        dbg!(x);
-        dbg!(y);
-        let width = dbg!(end) - dbg!(offset);
-        dbg!(width);
-        let height = dbg!(top) - dbg!(bottom);
-        dbg!(height);
+    for (dest, link_info, end) in finished_links {
+        let x = link_info.start + p.config.align.position(remaining);
+        let y = top - link_info.height;
+        let width = end - link_info.start;
+        let height = link_info.height;
         let mut styles = Styles::new();
         styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
 
