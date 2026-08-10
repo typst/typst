@@ -257,7 +257,6 @@ properties:
     required:
       - path
       - entrypoint
-      - thumbnail
     properties:
       path:
         type: string
@@ -279,9 +278,15 @@ properties:
       thumbnail:
         type: string
         description: |-
-          Path relative to the package root pointing to a PNG or lossless WebP thumbnail.
-          Requirements: min 1080px on longer edge, max 3 MiB file size.
+          The path relative to the package root pointing to a PNG or lossless WebP thumbnail.
+
+          Requirements:
+          - Minimum of 1080px on longer edge
+          - Maximum of 3 MiB file size.
+
           _The thumbnail will automatically be excluded from the package files._
+
+          Thumbnail is required for Universe submission.
         pattern: ^.*\.(png|webp)$
         examples:
           - thumbnail.png
