@@ -23,7 +23,7 @@ properties:
         description: |-
           The package's identifier in its namespace.
           See [Naming rules](https://github.com/typst/packages/blob/main/docs/manifest.md#naming-rules).
-        pattern: ^[a-z\d]+(-[a-z\d]+)*$
+        pattern: ^[a-z][a-z0-9]+(-[a-z0-9]+)*$
         examples:
           - my-package
           - example-template
