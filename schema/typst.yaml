@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://json-schema.org/draft-07/schema#
 
-$schema: http://json-schema.org/draft-07/schema#
-$id: https://jassielof.github.io/json-schemas/docs/typst.schema.json
+$schema: https://json-schema.org/draft-07/schema#
+$id: https://raw.githubusercontent.com/typst/typst/refs/heads/main/schema/typst.schema.json
 title: Typst Package Manifest
 description: |-
   (Community) Schema for typst.toml package manifest files, used by the Typst package manager and universe.
