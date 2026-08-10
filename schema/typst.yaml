@@ -4,8 +4,8 @@ $schema: https://json-schema.org/draft-07/schema#
 $id: https://raw.githubusercontent.com/typst/typst/refs/heads/main/schema/typst.schema.json
 title: Typst Package Manifest
 description: |-
-  (Community) Schema for typst.toml package manifest files, used by the Typst package manager and universe.
-  https://github.com/typst/packages/blob/main/docs/manifest.md
+  Schema for typst.toml package manifest files, used by the Typst package manager and universe.
+  See the [documentation](https://github.com/typst/packages/blob/main/docs/manifest.md).
 type: object
 required:
   - package
@@ -97,7 +97,7 @@ properties:
           See [Writing a good description](https://github.com/typst/packages/blob/main/docs/manifest.md#writing-a-good-description).
         # According to docs: ideally 40-60 characters, but this is a recommendation not a hard requirement
         minLength: 10
-        maxLength: 200 
+        maxLength: 200
       homepage:
         type: string
         description: A link to the package's web presence, where there could be more details, an issue tracker, or something else. Will be linked to from the package list. If there is no dedicated web page for the package, don't link to its repository here. Omit this field and prefer `repository`.
