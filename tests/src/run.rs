@@ -19,7 +19,7 @@ use crate::notes::{Note, NoteKind, NoteStatus};
 use crate::output::{FileOutputType, HashOutputType, HashedRef, HashedRefs, OutputType};
 use crate::report::{Old, ReportFile};
 use crate::world::TestWorld;
-use crate::{ARGS, STORE_PATH, custom, git, output};
+use crate::{ARGS, custom, git, output};
 
 /// Runs a single test.
 ///
@@ -512,9 +512,9 @@ impl<'a> Runner<'a> {
 
                         // Create a link in the store directory.
                         std::fs::remove_file(&live_path).ok();
-
-                        let relative_path = hash_path.strip_prefix(STORE_PATH).unwrap();
-                        let link_path = Path::new("..").join(relative_path);
+                        let link_path = Path::new("..")
+                            .join("by-hash")
+                            .join(hash_path.file_name().unwrap());
 
                         #[cfg(target_family = "unix")]
                         std::os::unix::fs::symlink(&link_path, &live_path).unwrap();
