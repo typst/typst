@@ -8,7 +8,7 @@ use typst_layout::PagedDocument;
 use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
 use typst_library::foundations::Bytes;
 use typst_library::introspection::Location;
-use typst_library::model::{LateLinkResolver, PagedFormat};
+use typst_library::model::{Document, LateLinkResolver, PagedFormat};
 use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
 use typst_svg::SvgOptions;
@@ -118,6 +118,7 @@ fn export_svg(
         .collect::<Vec<_>>();
     Ok(Bytes::from_string(typst_svg::svg_in_bundle(
         &doc.pages()[0],
+        doc.info(),
         options,
         &anchors,
         link_resolver,

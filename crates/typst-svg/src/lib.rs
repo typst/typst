@@ -11,15 +11,17 @@ use comemo::Tracked;
 pub use image::{WebImage, convert_image_scaling};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
-use typst_library::model::{Destination, LateLinkResolver};
+use typst_library::model::{Destination, Document, DocumentInfo, LateLinkResolver};
 
 use std::hash::Hash;
 
 use ecow::EcoString;
 use typst_layout::{Page, PagedDocument};
+use typst_library::foundations::Smart;
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
+use typst_library::text::Locale;
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
 
@@ -29,12 +31,13 @@ use crate::write::{SvgDisplay, SvgElem, SvgTransform, SvgUrl, SvgWrite};
 
 /// Export a frame into an SVG file.
 #[typst_macros::time(name = "svg")]
-pub fn svg(page: &Page, opts: &SvgOptions) -> String {
+pub fn svg(page: &Page, info: &DocumentInfo, opts: &SvgOptions) -> String {
     let (size, ts) = page_bleed(page, opts);
 
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
+    write_metadata(&mut svg, info);
 
     let state = State::new(size);
     renderer.render_page(&mut svg, &state, ts, page);
@@ -51,6 +54,7 @@ pub fn svg(page: &Page, opts: &SvgOptions) -> String {
 #[typst_macros::time(name = "svg in bundle")]
 pub fn svg_in_bundle(
     page: &Page,
+    info: &DocumentInfo,
     opts: &SvgOptions,
     anchors: &[(Point, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
@@ -60,6 +64,7 @@ pub fn svg_in_bundle(
     let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
+    write_metadata(&mut svg, info);
 
     let state = State::new(size);
     renderer.render_page(&mut svg, &state, ts, page);
@@ -134,6 +139,7 @@ pub fn svg_merged(document: &PagedDocument, opts: &SvgOptions, gap: Abs) -> Stri
     let mut renderer = SVGRenderer::new();
     let mut xml = XmlWriter::new(xml_options(opts.pretty));
     let mut svg = svg_header(&mut xml, size);
+    write_metadata(&mut svg, document.info());
 
     let mut y = Abs::zero();
     for page in document.pages() {
@@ -431,6 +437,71 @@ impl<'a> SVGRenderer<'a> {
             });
         }
     }
+}
+
+/// Write the document's metadata.
+///
+/// - Human-readable formats are: `<title>` and `<desc>`
+/// - Machine-readable formats are within the `<metadata>` element immediately after the previous ones, following the Dublin Core schema.
+///
+/// See:
+/// - [SVG 1.1 (2nd ed.), 21. Metadata](https://www.w3.org/TR/SVG11/metadata.html)
+/// - [DCMI Metadata Terms](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/)
+/// - [Orbis Cascade Alliance Dublin Core Best Practice Guidelines, 2018](https://bpb-us-e1.wpmucdn.com/sites.uw.edu/dist/8/33691/files/2025/08/Dublin-Core-Best-Practice-Guidelines-v.-2.3-February-2018-1.pdf>)
+fn write_metadata(svg: &mut SvgElem, info: &DocumentInfo) {
+    if let Some(title) = &info.title {
+        svg.elem("title").text(title);
+    }
+
+    if let Some(description) = &info.description {
+        svg.elem("desc").text(description);
+    }
+
+    let date = match &info.date {
+        Smart::Custom(Some(date)) => date.display(Smart::Auto).ok(),
+        _ => None,
+    };
+    let language = info.locale.custom().map(Locale::rfc_3066);
+
+    if info.title.is_none()
+        && info.description.is_none()
+        && info.author.is_empty()
+        && info.keywords.is_empty()
+        && date.is_none()
+        && language.is_none()
+    {
+        return;
+    }
+
+    svg.elem("metadata").with(|metadata| {
+        metadata
+            .elem("rdf:RDF")
+            .attr("xmlns:rdf", "http://www.w3.org/1999/02/22-rdf-syntax-ns#")
+            .attr("xmlns:dc", "http://purl.org/dc/elements/1.1/")
+            .with(|rdf| {
+                rdf.elem("rdf:Description").with(|description| {
+                    if let Some(title) = &info.title {
+                        description.elem("dc:title").text(title);
+                    }
+                    if let Some(desc) = &info.description {
+                        description.elem("dc:description").text(desc);
+                    }
+                    for author in &info.author {
+                        description.elem("dc:creator").text(author);
+                    }
+                    for keyword in &info.keywords {
+                        description.elem("dc:subject").text(keyword);
+                    }
+                    if let Some(date) = &date {
+                        description.elem("dc:date").text(date);
+                    }
+                    description.elem("dc:format").text("image/svg+xml");
+                    if let Some(language) = &language {
+                        description.elem("dc:language").text(language);
+                    }
+                });
+            });
+    });
 }
 
 /// Write the default SVG header, including a `typst-doc` class, the

@@ -45,6 +45,21 @@ impl<'a> SvgElem<'a> {
         f(self);
         self
     }
+
+    /// Write a text node, escaping XML metacharacters via [`escape_str`].
+    ///
+    /// `xmlwriter`'s text writer only escapes `<`, so we apply the same escaping used for attribute values before handing the string off.
+    pub fn text(&mut self, value: impl AsRef<str>) -> &mut Self {
+        let value = value.as_ref();
+        if value.bytes().any(|b| EscapedChar::from_byte(b).is_some()) {
+            let mut escaped = EcoString::new();
+            escape_str(value, |s| escaped.push_str(s));
+            self.xml.write_text(&escaped);
+        } else {
+            self.xml.write_text(value);
+        }
+        self
+    }
 }
 
 impl Drop for SvgElem<'_> {
@@ -164,9 +179,10 @@ impl SvgWrite for SvgFormatter<'_, EcoString> {
 }
 
 /// Append `value` to a buffer, escaping the XML metacharacters that
-/// `xmlwriter`'s raw attribute writer leaves untouched (it only escapes the
-/// quotation mark). Otherwise a value such as a link URL containing `&` or `<`
-/// yields malformed SVG. Runs of non-escaped characters are appended in one go.
+/// `xmlwriter` leaves untouched, attributes only escape the quotation mark,
+/// and text nodes only escape `<`. Otherwise a value containing `&`, `<`, or
+/// `>` yields malformed or brittle SVG. Runs of non-escaped characters are
+/// appended in one go.
 fn escape_str(mut value: &str, mut append: impl FnMut(&str)) {
     while let Some((i, c)) = value
         .bytes()
@@ -184,13 +200,15 @@ fn escape_str(mut value: &str, mut append: impl FnMut(&str)) {
     }
 }
 
-/// A character that should be escaped in XML attribute values.
+/// A character that should be escaped in XML attribute and text values.
 #[derive(Copy, Clone)]
 enum EscapedChar {
     /// `&`
     Amp,
     /// `<`
     Lt,
+    /// `>`
+    Gt,
 }
 
 impl EscapedChar {
@@ -198,6 +216,7 @@ impl EscapedChar {
         match byte {
             b'&' => Some(Self::Amp),
             b'<' => Some(Self::Lt),
+            b'>' => Some(Self::Gt),
             _ => None,
         }
     }
@@ -206,6 +225,7 @@ impl EscapedChar {
         match self {
             Self::Amp => "&amp;",
             Self::Lt => "&lt;",
+            Self::Gt => "&gt;",
         }
     }
 }
