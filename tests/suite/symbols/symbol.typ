@@ -176,20 +176,6 @@
   `symbol("🖅")`.text,
 )
 
---- symbol-sect-deprecated paged ---
-// Warning: 3-7 `join` is deprecated, use `bowtie.big` instead
-$ join_x x = bowtie.big_x x $
-
-// Warning: 6-10 `join` is deprecated, use `bowtie.big` instead
-#sym.join
-
---- symbol-modifier-deprecated paged ---
-// Warning: 6-9 `gt.tri` is deprecated, use `gt.closed` instead
-$ gt.tri $
-
-// Warning: 12-15 `gt.tri.eq` is deprecated, use `gt.closed.eq` instead
-#sym.gt.eq.tri.not
-
 --- issue-5930-symbol-label paged ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
