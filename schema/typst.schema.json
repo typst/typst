@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
-  "$id": "https://raw.githubusercontent.com/typst/typst/refs/heads/main/schema/typst.schema.json",
+  "$id": "https://typst.org/schema/json/package-manifest/v1/typst.schema.json",
   "title": "Typst Package Manifest",
   "description": "Schema for typst.toml package manifest files, used by the Typst package manager and universe.\nSee the [documentation](https://github.com/typst/packages/blob/main/docs/manifest.md).",
   "type": "object",
