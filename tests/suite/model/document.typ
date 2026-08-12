@@ -7,6 +7,18 @@ What's up?
 --- document-set-author-date paged empty ---
 #set document(author: ("A", "B"), date: datetime.today())
 
+--- document-set-full-metadata paged ---
+#set text(lang: "en")
+#set document(
+  title: [Hope],
+  author: ("Alice", "Bob"),
+  description: [Here lies my hopes and dreams.],
+  keywords: ("hopes", "dreams"),
+  date: datetime(year: 2002, month: 8, day: 11),
+)
+
+Content
+
 --- document-date-bad eval ---
 // Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
@@ -290,7 +302,7 @@ world
 #let counted-document(body) = {
   context {
     let i = c.get().first() + 1
-    document("doc-"  + str(i) + ".html")[
+    document("doc-" + str(i) + ".html")[
       This is document #i with content #body
     ]
   }

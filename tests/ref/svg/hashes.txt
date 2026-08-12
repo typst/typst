@@ -188,6 +188,7 @@ ed541270c7ac5a39f22df2347b0ef814 divider-basic
 94c5d7c292792533597ac514feebd267 divider-show-decorative
 7f41e672107ac987c9a302ee73de5cab divider-show-set-line
 e32d85331a6c4dff9620a3eb6e282a2b document-set-after-content
+8e87c156c9af8ed46171d525438859a6 document-set-full-metadata
 51ccc433649e5a83dda4cff99a78820f document-set-title
 6a8fea5387650f78d54b4619261a3594 ellipse
 53dc54710f181c49a14575407ddf0387 ellipse-auto-sizing
