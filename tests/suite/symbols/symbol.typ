@@ -176,20 +176,6 @@
   `symbol("🖅")`.text,
 )
 
---- symbol-sect-deprecated paged ---
-// Warning: 3-7 `join` is deprecated, use `bowtie.big` instead
-$ join_x x = bowtie.big_x x $
-
-// Warning: 6-10 `join` is deprecated, use `bowtie.big` instead
-#sym.join
-
---- symbol-modifier-deprecated paged ---
-// Warning: 6-9 `gt.tri` is deprecated, use `gt.closed` instead
-$ gt.tri $
-
-// Warning: 12-15 `gt.tri.eq` is deprecated, use `gt.closed.eq` instead
-#sym.gt.eq.tri.not
-
 --- issue-5930-symbol-label paged ---
 #emoji.face<lab>
 #context test(query(<lab>).first().text, "😀")
@@ -202,3 +188,46 @@ $ gt.tri $
 // See: https://github.com/typst/typst/pull/6875.
 #sym.copyright #emoji.copyright \
 #sym.suit.heart #emoji.suit.heart
+
+--- symbol-deprecation-warnings eval ---
+// Test symbol deprecation warnings from codex.
+#let pairs = (("emoji", emoji), ("sym", sym))
+#let symbol-paths = ()
+
+#while pairs.len() > 0 {
+  let (path, sym-or-mod) = pairs.pop()
+  let path-dot = path + "."
+
+  if type(sym-or-mod) != symbol {
+    pairs += dictionary(sym-or-mod)
+      .pairs()
+      .map(((name, s)) => (path-dot + name, s))
+    continue
+  }
+
+  let mod-array = repr(sym-or-mod)
+    .trim("symbol")
+    // Make sure the closing paren has a comma to produce an array.
+    .replace(regex("(,\\n)?\\)$"), ",)")
+
+  let (maybe-mod-pair, ..modifier-pairs) = eval(mod-array)
+
+  // The modifiers can start with a default symbol or a modifier pair.
+  if type(maybe-mod-pair) == str {
+    symbol-paths.push(path)
+  } else {
+    symbol-paths.push(path-dot + maybe-mod-pair.first())
+  }
+  // The rest are all modifier pairs.
+  symbol-paths += modifier-pairs.map(((mod, _)) => path-dot + mod)
+}
+
+// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.rr`
+// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.ll`
+// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.tt`
+// Warning: 27-31 `tack.double` is deprecated, use repeated letters instead, e.g., `tack.bb`
+// Warning: 27-31 `lt.tri` is deprecated, use `lt.closed` instead
+// Warning: 27-31 `join` is deprecated, use `bowtie.big` instead
+// Warning: 27-31 `gt.tri` is deprecated, use `gt.closed` instead
+#let _ = symbol-paths.map(eval)
+// This should be updated whenever the set of deprecated symbols updates.
