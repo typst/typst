@@ -11,6 +11,7 @@ use typst::diag::{
 };
 use typst::foundations::{Datetime, Smart};
 use typst::layout::PageRanges;
+use typst::model::Document;
 use typst::syntax::Span;
 use typst_bundle::{Bundle, BundleOptions, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
@@ -527,7 +528,7 @@ fn export_image(
                 Output::Stdout => Output::Stdout,
             };
 
-            export_image_page(config, page, &output, fmt)?;
+            export_image_page(config, page, document.info(), &output, fmt)?;
             Ok(output)
         })
         .collect::<StrResult<Vec<Output>>>()
@@ -566,6 +567,7 @@ mod output_template {
 fn export_image_page(
     config: &CompileConfig,
     page: &Page,
+    info: &typst::model::DocumentInfo,
     output: &Output,
     fmt: ImageExportFormat,
 ) -> StrResult<()> {
@@ -573,8 +575,7 @@ fn export_image_page(
         ImageExportFormat::Png => {
             let options = png_options(config);
             let pixmap = typst_render::render(page, &options);
-            let buf = pixmap
-                .encode_png()
+            let buf = typst_render::encode_png(&pixmap, info)
                 .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
             output
                 .write(&buf)
