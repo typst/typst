@@ -501,8 +501,7 @@ fn export_image(
                 png_options(config).resolve(document.options().get::<PngFormat>());
             export_image_pages(config, document, |page, output| {
                 let pixmap = typst_render::render(page, &options);
-                let buf = pixmap
-                    .encode_png()
+                let buf = typst_render::encode_png(&pixmap, document.info())
                     .map_err(|err| eco_format!("failed to encode PNG file ({err})"))?;
                 output
                     .write(&buf)

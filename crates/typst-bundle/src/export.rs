@@ -98,8 +98,8 @@ fn export_pdf(
 #[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, options: &RenderOptions) -> SourceResult<Bytes> {
     let options = options.resolve(doc.options().get::<PngFormat>());
-    typst_render::render(&doc.pages()[0], &options)
-        .encode_png()
+    let pixmap = typst_render::render(&doc.pages()[0], &options);
+    typst_render::encode_png(&pixmap, doc.info())
         .map(Bytes::new)
         .map_err(|_| "failed to encode PNG")
         .at(Span::detached())
