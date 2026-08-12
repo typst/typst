@@ -14,7 +14,7 @@ use tiny_skia as sk;
 use typst::diag::{At, SourceResult, StrResult, Warned, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
-use typst::model::{Document, ParbreakElem};
+use typst::model::{Document, DocumentInfo, ParbreakElem};
 use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_bundle::{BundleOptions, VirtualFs};
@@ -222,7 +222,7 @@ impl OutputType for Render {
 impl FileOutputType for Render {
     fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         let opts = oxipng::Options::max_compression();
-        let data = typst_render::encode_png(live, &Default::default()).unwrap();
+        let data = typst_render::encode_png(live, &DocumentInfo::default()).unwrap();
         oxipng::optimize_from_memory(&data, &opts).unwrap()
     }
 
