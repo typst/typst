@@ -76,7 +76,9 @@ fn check_png_metadata(doc: &PagedDocument) -> Result<(), String> {
         .map_err(|err| format!("failed to encode PNG: {err}"))?;
 
     let decoder = png::Decoder::new(Cursor::new(png.as_slice()));
-    let reader = decoder.read_info().map_err(|err| format!("failed to read PNG: {err}"))?;
+    let reader = decoder
+        .read_info()
+        .map_err(|err| format!("failed to read PNG: {err}"))?;
     let info = reader.info();
 
     let texts: Vec<_> = info
@@ -89,7 +91,9 @@ fn check_png_metadata(doc: &PagedDocument) -> Result<(), String> {
         .collect();
 
     let expect = |keyword: &str, value: &str, lang: &str| {
-        texts.iter().any(|(k, t, l)| *k == keyword && t == value && *l == lang)
+        texts
+            .iter()
+            .any(|(k, t, l)| *k == keyword && t == value && *l == lang)
     };
 
     let mut errors = String::new();
