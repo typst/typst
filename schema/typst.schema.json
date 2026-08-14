@@ -306,7 +306,8 @@
         "minLength": 1
       },
       "additionalProperties": {
-        "type": "object"
+        "type": "object",
+        "additionalProperties": true
       },
       "examples": [
         {
