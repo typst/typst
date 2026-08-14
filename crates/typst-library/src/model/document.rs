@@ -165,6 +165,9 @@ pub struct DocumentElem {
     /// The document's keywords.
     pub keywords: OneOrMultiple<EcoString>,
 
+    /// The document's version.
+    pub version: Option<EcoString>,
+
     /// The document's creation date.
     ///
     /// If this is `{auto}` (default), Typst uses the current date and time.
@@ -245,6 +248,7 @@ impl ShowSet for Packed<DocumentElem> {
         self.author.copy_into(&mut styles);
         self.description.copy_into(&mut styles);
         self.keywords.copy_into(&mut styles);
+        self.version.copy_into(&mut styles);
         self.date.copy_into(&mut styles);
         styles
     }
@@ -336,6 +340,8 @@ pub struct DocumentInfo {
     pub description: Option<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
+    /// The document's version.
+    pub version: Option<EcoString>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
     /// The document's language, set from the first top-level set rule, e.g.
@@ -368,6 +374,9 @@ impl DocumentInfo {
         }
         if styles.has(DocumentElem::keywords) {
             self.keywords = styles.get_cloned(DocumentElem::keywords).0;
+        }
+        if styles.has(DocumentElem::version) {
+            self.version = styles.get_cloned(DocumentElem::version);
         }
         if styles.has(DocumentElem::date) {
             self.date = styles.get(DocumentElem::date);
