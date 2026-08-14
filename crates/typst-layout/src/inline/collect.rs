@@ -262,10 +262,14 @@ pub fn collect<'a>(
                 collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
-            collector.push_item(Item::Tag(&elem.tag));
-
+            // Push tag before a corresponding start event, and after an end
+            // event, so that PDF tags can be generated with correct nesting.
             match &elem.tag {
                 Tag::Start(content, _) => {
+                    // Push the start tag BEFORE the start event, so the event
+                    // pair is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
+
                     if let Some(link_marker) = content.to_packed::<LinkMarker>() {
                         let link = link_marker.dest.clone();
                         let location = elem.tag.location();
@@ -304,6 +308,10 @@ pub fn collect<'a>(
                         initial_events.push(Event::StartLink(link.clone()));
                         collector.push_event(Event::EndLink(link.clone()));
                     }
+
+                    // Push the end tag AFTER the end event, so the event pair
+                    // is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
                 }
             }
         } else {
