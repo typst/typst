@@ -15,7 +15,7 @@ jobs:
   tests:
     name: Tests
     runs-on: ubuntu-latest
-    needs: [test-matrix]
+    needs: [test-matrix, test-schema]
     if: always()
     steps:
       - name: Tests successful
@@ -24,6 +24,44 @@ jobs:
       - name: Tests failing
         if: ${{ contains(needs.*.result, 'failure') }}
         run: exit 1
+
+  test-schema:
+    name: Test schema
+    runs-on: ubuntu-slim
+    env:
+      SCHEMA_PATH: schema/typst.schema.json
+      PACKAGES_PATH: tests/packages
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          sparse-checkout: |
+            schema
+            tests/packages
+          sparse-checkout-cone-mode: true
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: changes
+        with:
+          filters: |
+            data:
+              - 'schema/typst.schema.json'
+              - 'tests/packages/**/typst.toml'
+      # Test locally by installing `check-jsonschema` from PyPI.
+      # Test that the schema itself is just valid with `--check-metaschema`.
+      # Test that the testing packages are valid with `--schemafile`.
+      - if: steps.changes.outputs.data == 'true'
+        run: |
+          pipx install check-jsonschema==0.38.0
+
+          # Validate the schema
+          check-jsonschema --check-metaschema "$SCHEMA_PATH"
+
+          # Validate the testing packages against the schema
+          find "$PACKAGES_PATH" \
+            -type f \
+            -name typst.toml \
+            -exec check-jsonschema \
+              --schemafile "$SCHEMA_PATH" \
+              {} +
 
   test-matrix:
     name: Tests
