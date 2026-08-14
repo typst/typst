@@ -601,7 +601,7 @@ pub fn commit<'l>(
                 link_info.y.set_max(frame_bottom);
             }
 
-            frames.push((*offset, frame, idx));
+            frames.push((*offset, frame, idx, None));
             *offset += width;
             last_frame_end = *offset;
         };
@@ -642,7 +642,7 @@ pub fn commit<'l>(
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame, idx));
+                frames.push((offset, frame, idx, None));
             }
             Item::Skip(_) => {}
             Item::Event(Event::StartLink(dest)) => {
@@ -655,7 +655,27 @@ pub fn commit<'l>(
                 let (dest, link_info) = link_stack.pop().unwrap();
                 // Any external links should have been handled before.
                 active_links.pop().unwrap();
-                finished_links.push((dest, link_info, offset));
+
+                let end = offset;
+
+                let x = link_info.start;
+                let y = link_info.height;
+                let width = end - link_info.start;
+                let height = link_info.height;
+                let mut styles = Styles::new();
+                styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
+
+                // TODO: a single modify call, calculating the height needed in real-time when going over text...
+                let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+                let stylechain = StyleChain::new(&styles);
+                if link_info.spans_text {
+                    frame.modify_text(stylechain);
+                } else {
+                    // Don't add padding; restrict the link to the box.
+                    // TODO: also need to consider equations...
+                    frame.modify(&FrameModifiers::get_in(stylechain));
+                }
+                frames.push((offset, frame, idx, Some(Point::new(x, y))));
             }
         }
     }
@@ -684,16 +704,18 @@ pub fn commit<'l>(
     // Ensure that the final frame's items are in logical order rather than in
     // visual order. This is important because it affects the order of elements
     // during introspection and thus things like counters.
-    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx, _)| *idx);
 
     // Construct the line's frame.
-    for (offset, frame, _) in frames {
-        let x = offset + p.config.align.position(remaining);
-        let y = top - frame.baseline();
+    for (offset, frame, _, point) in frames {
+        let Point { x, y } =
+            point.unwrap_or_else(|| Point::new(offset, frame.baseline()));
+        let x = x + p.config.align.position(remaining);
+        let y = top - y;
         output.push_frame(Point::new(x, y), frame);
     }
 
-    // Construct link frames.
+    // Construct unfinished link frames.
     for (dest, link_info, end) in finished_links {
         let x = link_info.start + p.config.align.position(remaining);
         let y = top - link_info.height;
