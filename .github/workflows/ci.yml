@@ -48,7 +48,8 @@ jobs:
       # Test locally by installing `check-jsonschema` from PyPI.
       # Test that the schema itself is just valid with `--check-metaschema`.
       # Test that the testing packages are valid with `--schemafile`.
-      - if: steps.changes.outputs.data == 'true'
+      - name: Validate schema and testing packages
+        if: steps.changes.outputs.data == 'true'
         run: |
           pipx install check-jsonschema==0.38.0
 
