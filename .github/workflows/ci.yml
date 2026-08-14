@@ -53,13 +53,13 @@ jobs:
           pipx install check-jsonschema==0.38.0
 
           # Validate the schema
-          check-jsonschema --check-metaschema "$SCHEMA_PATH"
+          check-jsonschema --verbose --check-metaschema "$SCHEMA_PATH"
 
           # Validate the testing packages against the schema
           find "$PACKAGES_PATH" \
             -type f \
             -name typst.toml \
-            -exec check-jsonschema \
+            -exec check-jsonschema --verbose \
               --schemafile "$SCHEMA_PATH" \
               {} +
 
