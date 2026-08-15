@@ -111,6 +111,13 @@ jobs:
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo docit compile --format website --deny-warnings
       - run: cargo docit compile --format pdf --deny-warnings
+      - name: Rename documentation file
+        run: mv docs/dist/docs.pdf typst-documentation.pdf
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: typst-documentation.pdf
+          path: typst-documentation.pdf
+          compression-level: 9
 
   min-version:
     name: Check minimum Rust version
