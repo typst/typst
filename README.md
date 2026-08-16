@@ -116,6 +116,9 @@ Typst's CLI is available from different sources:
   - Linux:
       - View [Typst on Repology][repology]
       - View [Typst's Snap][snap]
+      - [Debian packages](https://apt.pkg.haus) for stable, testing, and unstable (amd64, arm64)
+        - Add the repository: see https://pkg.haus for setup instructions
+        - Install: `sudo apt install typst`
   - macOS: `brew install typst`
   - Windows: `winget install --id Typst.Typst`
 
