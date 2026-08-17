@@ -20,6 +20,7 @@ a435ca208442488e4e2aabe6e6099ba0 disable-tags-artifact
 3aac7b296f56f38b0fcc052600ee7f4e disable-tags-partially-hidden-list
 43634e3eaf8b049944de5d91b422d4f4 disable-tags-tiling
 98a66b0fbf18213150385bd502c454e7 document-set-version
+230f0601992eacf952005dac54b153e5 document-set-version-string
 859ace8e2c8a260057c11b2977712425 enum-number-override-nested
 e3af0bddd6bcdbad33943109d3c79fcb figure-basic
 cb9571403237411f8d62aa142f1f5c80 figure-tags-additional-caption-inside-body
