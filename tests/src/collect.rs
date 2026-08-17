@@ -359,7 +359,9 @@ impl TestOutput {
     /// The path at which the live output will be stored.
     pub fn hash_path(self, hash: HashedRef, name: &str) -> PathBuf {
         let ext = self.live_extension();
-        PathBuf::from(format!("{STORE_PATH}/by-hash/{hash}_{name}.{ext}"))
+        [STORE_PATH, "by-hash", format!("{hash}_{name}.{ext}").as_ref()]
+            .iter()
+            .collect()
     }
 
     /// The path at which a symlink to the [`Self::hash_path`] will be created
