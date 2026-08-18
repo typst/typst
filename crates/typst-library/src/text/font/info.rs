@@ -1,7 +1,5 @@
-use std::{
-    fmt::{self, Debug, Formatter},
-    ops::Range,
-};
+use std::fmt::{self, Debug, Formatter};
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{PlatformId, name_id};
@@ -325,7 +323,7 @@ impl Coverage {
     }
 
     /// Iterate over all covered codepoints.
-    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = u32> {
         self.iter_ranges().flatten()
     }
 
@@ -342,7 +340,8 @@ impl Coverage {
         })
     }
 
-    /// Returns an encoding of the set of codepoints covered by either `self` or `other`.
+    /// Returns an encoding of the set of codepoints covered by either `self` or
+    /// `other`.
     fn union(&self, other: &Coverage) -> Self {
         let mut builder = CoverageBuilder::new();
 
@@ -353,19 +352,19 @@ impl Coverage {
             && let Some(other_range) = other_ranges.peek()
         {
             if self_range.start < other_range.start {
-                builder.add_codepoint_range(self_range);
+                builder.add_codepoint_range(self_range.clone());
                 self_ranges.next();
             } else {
-                builder.add_codepoint_range(other_range);
+                builder.add_codepoint_range(other_range.clone());
                 other_ranges.next();
             }
         }
 
         for self_range in self_ranges {
-            builder.add_codepoint_range(&self_range);
+            builder.add_codepoint_range(self_range);
         }
         for other_range in other_ranges {
-            builder.add_codepoint_range(&other_range);
+            builder.add_codepoint_range(other_range);
         }
 
         builder.build()
@@ -378,8 +377,8 @@ impl Debug for Coverage {
     }
 }
 
-/// Incrementally builds a `Coverage` compact representation from a
-/// non-decreasing series of codepoints, or ranges thereof.
+/// Incrementally builds a [`Coverage`] set from a non-decreasing series of
+/// codepoints, or ranges thereof.
 struct CoverageBuilder {
     runs: Vec<u32>,
     next: u32,
@@ -394,27 +393,29 @@ impl CoverageBuilder {
         Coverage(self.runs)
     }
 
-    /// Add a single codepoint to the set being built. Codepoints must be
-    /// added in a strictly increasing order.
+    /// Add a single codepoint to the set being built. Codepoints must be added
+    /// in a strictly increasing order.
     fn add_codepoint(&mut self, codepoint: u32) {
         debug_assert!(codepoint >= self.next, "Codepoints provided in wrong order");
 
         let range = codepoint..(codepoint.saturating_add(1));
-        self.add_codepoint_range(&range);
+        self.add_codepoint_range(range);
     }
 
-    /// Add a continuous range of codepoints to the set being built. Ranges
-    /// must be added in non-decreasing order of start points, but may
-    /// intersect or be contained in previously added ranges.
-    fn add_codepoint_range(&mut self, range: &Range<u32>) {
+    /// Add a continuous range of codepoints to the set being built. Ranges must
+    /// be added in non-decreasing order of start codepoint, but may intersect
+    /// or be contained in previously added ranges.
+    fn add_codepoint_range(&mut self, range: Range<u32>) {
         if range.end <= self.next || range.is_empty() {
             return;
         } else if range.start <= self.next
-            && let Some(run) = self.runs.last_mut()
+            && let Some(prev_count) = self.runs.last_mut()
         {
-            *run += range.end - self.next;
+            *prev_count += range.end - self.next;
         } else {
-            self.runs.extend(&[range.start - self.next, range.end - range.start]);
+            let gap = range.start - self.next;
+            let count = range.end - range.start;
+            self.runs.extend([gap, count]);
         }
 
         self.next = range.end;
