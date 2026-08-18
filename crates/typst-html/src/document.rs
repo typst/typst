@@ -340,11 +340,11 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
         );
     }
 
-    if !info.author.is_empty() {
+    for author in &info.author {
         children.push(
             HtmlElement::new(tag::meta)
-                .with_attr(attr::name, "authors")
-                .with_attr(attr::content, info.author.join(", "))
+                .with_attr(attr::name, "author")
+                .with_attr(attr::content, author)
                 .into(),
         );
     }
