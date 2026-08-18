@@ -356,7 +356,18 @@ impl Color {
             if let Some(color) = args.find::<Color>()? {
                 color.to_luma()
             } else {
-                let Component(l) = args.expect("lightness component")?;
+                let missing_lightness = args.is_empty();
+                let Component(l) =
+                    args.expect("lightness component").map_err(|mut err| {
+                        if missing_lightness {
+                            // Before 0.16, lightness accidentally defaulted to
+                            // `100%`, so this should help with breakage. I
+                            // could not find a cleaner way to add the hint >:(
+                            let last = err.make_mut().last_mut().unwrap();
+                            last.hint("try writing `white` or `luma(100%)`");
+                        }
+                        err
+                    })?;
                 let Component(alpha) = args.eat()?.unwrap_or(Component(Ratio::one()));
                 Luma::new(l.get() as f32, alpha.get() as f32)
             },

@@ -211,6 +211,7 @@
 
 --- color-luma-empty-arguments eval ---
 // Error: 7-13 missing argument: lightness component
+// Hint: 7-13 try writing `white` or `luma(100%)`
 #test(luma(), white)
 
 --- color-luma-invalid-alpha eval ---
