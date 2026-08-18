@@ -729,7 +729,8 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                             frame.height(),
                         );
                     }
-                    self.composer.reposition_sidenotes(&frame, pos.y);
+
+                    // self.composer.reposition_sidenotes(&frame, pos.y);
 
                     // The baseline of the whole region will be the set to the
                     // baseline of the first in-flow frame. For example, of the

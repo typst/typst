@@ -473,6 +473,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
+            // The note's y position in the document from the top to it's
+            // position on the page.
             let note_y = regions.base().y - regions.size.y + y_offset + y;
 
             // The amount of space used by the in-flow content that contains the
@@ -480,7 +482,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             // the marker. For an unbreakable frame, it's the full height.
             let flow_need = if breakable { y } else { flow_need };
 
-            // Process the footnote.
+            // Process the footnote (either as a standard footnote or as
+            // a sidenote).
             let result =
                 if elem.placement.get(self.config.shared) == FootnotePlacement::Side {
                     self.sidenote(elem, &mut regions, note_y, flow_need, migratable)
@@ -650,10 +653,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         flow_need: Abs,
         migratable: bool,
     ) -> FlowResult<()> {
+        // Places the footnote according to it's overflow field
         match elem.overflow.get(self.config.shared) {
             FootnoteOverflow::Keep => self.keep_sidenote(elem, regions, y),
             FootnoteOverflow::Spill => {
                 self.spillable_sidenote(elem, regions, y, flow_need, migratable)
+            }
+            FootnoteOverflow::Pack => {
+                self.sidenotes_top_to_bottom(elem, regions, flow_need, migratable)
             }
         }
     }
@@ -691,7 +698,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         pod.expand.x = true;
         pod.expand.y = false;
         pod.size.x = width;
-        pod.size.y -= flow_need; //+ self.config.footnote.gap;
+        pod.size.y -= flow_need + self.config.footnote.gap;
+        // pod.size.y -= regions.size.y;
 
         // Layout the footnote entry.
         let frames =
@@ -725,7 +733,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let y = y - first.baseline();
 
         // Save the sidenote's frame.
-        area.push_sidenote(&first, loc, y, width, gap, side, false);
+        area.push_sidenote(&first, loc, y, width, gap, side);
         area.skips.push(loc);
         regions.size.y -= note_need;
 
@@ -737,6 +745,114 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Lay out nested footnotes.
         for (_, note) in nested {
             match self.sidenote(note, regions, y, flow_need, migratable) {
+                // This footnote was already processed or queued.
+                Ok(()) => {}
+                // Footnotes always request a relayout when processed for the
+                // first time, so we ignore a relayout request since we're
+                // about to do so afterwards. Without this check, the first
+                // inner footnote interrupts processing of the following ones.
+                Err(Stop::Relayout(_)) => {}
+                // Either of
+                // - A `Stop::Finish` indicating that the frame's origin element
+                //   should migrate to uphold the footnote invariant.
+                // - A fatal error.
+                err => return err,
+            }
+        }
+
+        // Since we laid out a footnote, we need a relayout.
+        Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// For sidenotes with `overflow: "pack"`, where the
+    /// sidenote is laid out from top to bottom, similiar
+    /// to how footnotes are laid out.
+    fn sidenotes_top_to_bottom(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &mut Regions,
+        flow_need: Abs,
+        migratable: bool,
+    ) -> FlowResult<()> {
+        // Ignore reference footnotes and already processed ones.
+        let loc = elem.location().unwrap();
+        if elem.is_ref() || self.skipped(loc) {
+            return Ok(());
+        }
+
+        // If there is already a queued spill or sidenote, queue this one as
+        // well. We don't want to disrupt the order.
+        let area = &mut self.column_insertions;
+        if self.sidenote_spill.is_some() || !self.sidenote_queue.is_empty() {
+            self.sidenote_queue.push(elem);
+            return Ok(());
+        }
+
+        let gap = self.config.sidenote.gap;
+        let Some((side, width)) = self.sidenote_side else {
+            return Ok(());
+        };
+
+        // height already used by previous sidenotes (Abs::zero if
+        // it's the first sidenote on the page)
+        let mut height_used = Abs::zero();
+        for note in &area.sidenotes {
+            height_used += note.frame.height() + self.config.footnote.gap;
+        }
+
+        // Prepare regions for the sidenote.
+        let mut pod = *regions;
+
+        pod.expand.x = true;
+        pod.expand.y = false;
+        pod.size.x = width;
+        pod.size.y = self.page_base.y - height_used;
+
+        // pod.size.y = flow_need + self.config.footnote.gap;
+        // pod.size.y -= regions.size.y;
+
+        // Layout the footnote entry.
+        let frames =
+            layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frames();
+
+        // let frame = layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frame();
+        // let y = y - frame.baseline();
+        // self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side);
+        // self.column_insertions.skips.push(loc);
+
+        // Find nested footnotes in the entry.
+        let nested = find_in_frames::<FootnoteElem>(&frames);
+
+        // Check if there are any non-empty frames.
+        let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
+
+        // Extract the first frame.
+        let mut iter = frames.into_iter();
+        let first = iter.next().unwrap();
+        // let note_need = self.config.footnote.gap + first.height();
+
+        if first.is_empty() && exist_non_empty_frame {
+            if migratable && regions.may_progress() {
+                return Err(Stop::Finish(false));
+            } else if regions.may_progress() || !flow_need.is_zero() {
+                self.sidenote_queue.push(elem);
+                return Ok(());
+            }
+        }
+
+        // Save the sidenote's frame.
+        area.push_sidenote(&first, loc, height_used, width, gap, side);
+        area.skips.push(loc);
+        // regions.size.y -= note_need;
+
+        // Save the spill.
+        if !iter.as_slice().is_empty() {
+            self.sidenote_spill = Some((iter, loc));
+        }
+
+        // Lay out nested footnotes.
+        for (_, note) in nested {
+            match self.sidenote(note, regions, height_used, flow_need, migratable) {
                 // This footnote was already processed or queued.
                 Ok(()) => {}
                 // Footnotes always request a relayout when processed for the
@@ -782,7 +898,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         let frame = layout_footnote(self.engine, self.config, &elem, pod)?.into_frame();
         let y = y - frame.baseline();
-        self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side, false);
+        self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side);
         self.column_insertions.skips.push(loc);
 
         Err(Stop::Relayout(PlacementScope::Column))
@@ -866,16 +982,24 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Save the sidenote's frame.
         let frame = iter.next().unwrap();
 
+        // height already used by previous sidenotes (Abs::zero if
+        // it's the first sidenote on the page)
+        let mut height_used = Abs::zero();
+        for note in &area.sidenotes {
+            height_used += note.frame.height() + self.config.footnote.gap;
+        }
+
+        // println!("this is the height_used variable in sidenote_spill(): {}", height_used.to_pt());
+
         if let Some((side, _)) = self.sidenote_side {
             // Pushing the frame of the current spill to the sidenotes
             area.push_sidenote(
                 &frame,
                 loc,
-                Abs::zero(),
+                height_used,
                 frame.width(),
                 sidenote_config.gap,
                 side,
-                true,
             );
         }
 
@@ -1022,10 +1146,9 @@ impl<'a, 'b> Insertions<'a, 'b> {
         width: Abs,
         gap: Abs,
         side: SideNoteSide,
-        is_spill: bool,
     ) {
         self.sidenotes
-            .push(SideNote { frame: frame.clone(), loc, y, width, gap, side, is_spill });
+            .push(SideNote { frame: frame.clone(), loc, y, width, gap, side });
     }
 
     /// The combined height of the top and bottom area (including clearances).
@@ -1140,6 +1263,7 @@ impl<'a, 'b> Insertions<'a, 'b> {
 }
 
 /// A side note awaiting final placement.
+#[derive(Debug)]
 struct SideNote {
     frame: Frame,
     loc: Location,
@@ -1147,7 +1271,6 @@ struct SideNote {
     width: Abs,
     gap: Abs,
     side: SideNoteSide,
-    is_spill: bool,
 }
 
 /// A region in the side note column occupied by wide flow content.
@@ -1169,8 +1292,10 @@ fn layout_sidenotes_overlap(
     // we also know that a full sidenote from the previous page will have
     // a negative y value, so we set it to Abs::zero so that it will appear
     // after the spill in the correct order. (maybe a bit hacky)
-    notes.iter_mut().for_each(|note| if note.y.to_raw() < 0.0 {
-        note.y = Abs::zero();
+    notes.iter_mut().for_each(|note| {
+        if note.y.to_raw() < 0.0 {
+            note.y = Abs::zero();
+        }
     });
 
     notes.sort_by(|a, b| a.y.to_pt().total_cmp(&b.y.to_pt()));
@@ -1247,6 +1372,14 @@ fn overlaps_obstacle(note: &SideNote, obstacle: SideNoteObstacle, gap: Abs) -> b
     let obstacle_end = obstacle.y + obstacle.height + gap;
     note_start < obstacle_end && obstacle_start < note_end
 }
+
+// fn overlaps_sidenotes(note: &SideNote, next_note: &SideNote, gap: Abs) -> bool {
+//     let note_start = note.y;
+//     let note_end = note.y + note.frame.height();
+//     let next_note_start = next_note.y - gap;
+//     let next_note_end = next_note.y + next_note.frame.height() + gap;
+//     note_start < next_note_end && next_note_start < note_end
+// }
 
 /// Lay out the given collected lines' line numbers to an output frame.
 ///

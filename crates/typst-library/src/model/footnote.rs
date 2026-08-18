@@ -222,6 +222,7 @@ pub enum FootnoteOverflow {
     Keep,
     /// Allow the entry to spill onto the next page.
     Spill,
+    Pack,
 }
 
 /// The side on which side notes are displayed.
