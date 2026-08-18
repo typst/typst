@@ -321,8 +321,11 @@ struct Work<'a, 'b> {
     floats: EcoVec<&'b PlacedChild<'a>>,
     /// Queued footnotes that didn't fit in previous regions.
     footnotes: EcoVec<Packed<FootnoteElem>>,
+    sidenotes: EcoVec<Packed<FootnoteElem>>,
     /// Spilled frames of a footnote that didn't fully fit. Similar to `spill`.
     footnote_spill: Option<std::vec::IntoIter<Frame>>,
+    /// Spilled frames of a sidenote that didn't fully fit. Similar to `spill`.
+    sidenote_spill: Option<(std::vec::IntoIter<Frame>, Location)>,
     /// Queued tags that will be attached to the next frame.
     tags: EcoVec<&'a Tag>,
     /// Identifies floats and footnotes that can be skipped if visited because
@@ -339,7 +342,9 @@ impl<'a, 'b> Work<'a, 'b> {
             spill: None,
             floats: EcoVec::new(),
             footnotes: EcoVec::new(),
+            sidenotes: EcoVec::new(),
             footnote_spill: None,
+            sidenote_spill: None,
             tags: EcoVec::new(),
             skips: Rc::new(FxHashSet::default()),
         }
@@ -361,7 +366,9 @@ impl<'a, 'b> Work<'a, 'b> {
             && self.spill.is_none()
             && self.floats.is_empty()
             && self.footnote_spill.is_none()
+            && self.sidenote_spill.is_none()
             && self.footnotes.is_empty()
+            && self.sidenotes.is_empty()
     }
 
     /// Add skipped floats and footnotes from the insertion areas to the skip
