@@ -35,7 +35,11 @@ rustc-hash = { workspace = true }
 default = ["all-formats"]
 
 # Adds all available formats.
-all-formats = ["pdf", "svg", "render", "bundle"]
+all-formats = ["html", "pdf", "svg", "render", "bundle"]
+
+# Adds the HTML format. The `typst-html` crate is currently still
+# unconditionally required due to architectural reasons.
+html = []
 
 # Adds the PDF format.
 pdf = ["dep:typst-pdf"]

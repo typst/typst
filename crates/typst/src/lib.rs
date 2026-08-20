@@ -302,7 +302,7 @@ impl LibraryExt for Library {
     fn builder() -> LibraryBuilder {
         // The formats can be enabled/disabled using feature flags.
         let formats = [
-            Some(typst_html::FORMAT),
+            cfg!(feature = "html").then_some(typst_html::FORMAT),
             cfg!(feature = "pdf").then_some(typst_pdf::FORMAT),
             cfg!(feature = "svg").then_some(typst_svg::FORMAT),
             cfg!(feature = "render").then_some(typst_render::FORMAT),
