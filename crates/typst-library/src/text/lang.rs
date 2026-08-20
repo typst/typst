@@ -114,6 +114,7 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("ur"),
     translation!("vi"),
     translation!("zh"),
+    translation!("zh-HK"),
     translation!("zh-TW"),
 ];
 
@@ -759,5 +760,11 @@ mod tests {
             TRANSLATIONS.is_sorted_by_key(|(lang, _)| lang),
             "TRANSLATIONS should be sorted"
         );
+    }
+
+    #[test]
+    fn test_zh_hk_heading_is_traditional() {
+        let name = localized_str(Lang::CHINESE, Some(Region(*b"HK")), "heading");
+        assert_eq!(name, "小節");
     }
 }

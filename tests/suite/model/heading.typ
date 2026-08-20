@@ -134,6 +134,16 @@ comment spans lines
 Not in heading
 =Nope
 
+--- issue-8756-heading-ref-zh-hk paged empty ---
+// Heading references must use Traditional Chinese for zh-HK.
+#set text(lang: "zh", region: "HK")
+#set heading(numbering: "1.")
+#show heading: none
+#show ref: none
+= 序言 <prelude>
+@prelude
+#context test(query(<prelude>).first().supplement, [小節])
+
 --- heading-numbering-hint paged ---
 = Heading <intro>
 
