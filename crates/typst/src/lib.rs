@@ -300,13 +300,22 @@ impl LibraryExt for Library {
     }
 
     fn builder() -> LibraryBuilder {
+        macro_rules! cfg_then {
+            ($feature:literal => $format:expr) => {
+                cfg_select! {
+                    feature = $feature => Some($format),
+                    _ => None,
+                }
+            };
+        }
+
         // The formats can be enabled/disabled using feature flags.
         let formats = [
-            cfg!(feature = "html").then_some(typst_html::FORMAT),
-            cfg!(feature = "pdf").then_some(typst_pdf::FORMAT),
-            cfg!(feature = "svg").then_some(typst_svg::FORMAT),
-            cfg!(feature = "render").then_some(typst_render::FORMAT),
-            cfg!(feature = "bundle").then_some(typst_bundle::FORMAT),
+            cfg_then!("html" => typst_html::FORMAT),
+            cfg_then!("pdf" => typst_pdf::FORMAT),
+            cfg_then!("svg" => typst_svg::FORMAT),
+            cfg_then!("render" => typst_render::FORMAT),
+            cfg_then!("bundle" => typst_bundle::FORMAT),
         ];
 
         LibraryBuilder::from_routines(&ROUTINES)
