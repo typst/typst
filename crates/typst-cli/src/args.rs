@@ -365,6 +365,11 @@ pub struct CompileArgs {
     #[arg(long = "no-pdf-tags", hide = true)]
     pub no_pdf_tags: bool,
 
+    /// Enables or disables PDF tagging.
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances (for example when trying to reduce the size of a document)
+    /// it can be desirable to disable PDF tags.
     #[arg(
         long = "pdf-tagged",
         default_missing_value = "true",
