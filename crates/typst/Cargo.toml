@@ -38,16 +38,16 @@ default = ["all-formats"]
 all-formats = ["pdf", "svg", "render", "bundle"]
 
 # Adds the PDF format.
-pdf = ["typst-pdf"]
+pdf = ["dep:typst-pdf"]
 
 # Adds the SVG format.
-svg = ["typst-svg"]
+svg = ["dep:typst-svg"]
 
 # Adds the PNG (render) format.
-render = ["typst-render"]
+render = ["dep:typst-render"]
 
 # Adds the bundle-export format and target.
-bundle = ["typst-bundle"]
+bundle = ["dep:typst-bundle"]
 
 [lints]
 workspace = true
