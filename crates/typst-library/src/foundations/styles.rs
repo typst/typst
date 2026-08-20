@@ -837,10 +837,8 @@ impl<'a> Iterator for Entries<'a> {
                 return Some(entry);
             }
 
-            match self.links.next() {
-                Some(next) => self.inner = next.iter(),
-                None => return None,
-            }
+            let next = self.links.next()?;
+            self.inner = next.iter();
         }
     }
 }

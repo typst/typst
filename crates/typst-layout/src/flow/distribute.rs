@@ -650,12 +650,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                     output.push_frame(pos, frame);
                 }
                 Item::Placed(placed) => {
-                    let container_x = if region.expand.x || used.x.is_zero() {
+                    let container_x = if region.expand.x || self.used.x.is_zero() {
                         region.size.x
                     } else {
                         size.x
                     };
-                    let container_y = if used.y.is_zero() && !region.expand.y {
+                    let container_y = if self.used.y.is_zero() && !region.expand.y {
                         self.regions.full
                     } else {
                         size.y
@@ -663,7 +663,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
                     let base = Size::new(
                         region.size.x,
-                        if used.y.is_zero() && !region.expand.y {
+                        if self.used.y.is_zero() && !region.expand.y {
                             self.regions.full
                         } else {
                             size.y
