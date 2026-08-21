@@ -17,9 +17,9 @@ use typst_html::HtmlElem;
 use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Content, Context, ContextElem, Element, NativeElement, NativeShowRule, Packed,
-    Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain, StyledElem,
-    Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
+    Chainable, Content, Context, ContextElem, Element, NativeElement, NativeShowRule,
+    Packed, Recipe, RecipeIndex, Selector, SequenceElem, ShowSet, Style, StyleChain,
+    StyledElem, Styles, SymbolElem, Synthesize, Target, TargetElem, Transformation,
 };
 use typst_library::introspection::{LocationKey, SplitLocator, Tag, TagElem, TagFlags};
 use typst_library::layout::{
@@ -604,13 +604,13 @@ fn visit_styled<'a>(
     let mut pagebreak = false;
     let mut populated_document_info = false;
     let mut populated_format_options = false;
+    let full = local.chain(&outer);
     for style in local.iter() {
         let Some(elem) = style.element() else { continue };
         if elem == DocumentElem::ELEM {
-            let local = StyleChain::new(&local);
             if let RealizationKind::Document { info, .. } = &mut s.kind {
                 if !populated_document_info {
-                    info.populate(local);
+                    info.populate(full);
                     populated_document_info = true;
                 }
             } else if !matches!(s.kind, RealizationKind::Bundle) {
@@ -630,7 +630,7 @@ fn visit_styled<'a>(
         } else if elem == TextElem::ELEM {
             // Infer the document locale from the first toplevel set rule.
             if let RealizationKind::Document { info, .. } = &mut s.kind {
-                info.populate_locale(StyleChain::new(&local));
+                info.populate_locale(full);
             }
         } else if elem == PageElem::ELEM {
             match s.kind {
@@ -658,7 +658,7 @@ fn visit_styled<'a>(
         } else if s.engine.library.formats.iter().any(|f| f.elem == elem) {
             if let RealizationKind::Document { options, .. } = &mut s.kind {
                 if !populated_format_options {
-                    options.populate(Spanned::new(StyleChain::new(&local), style.span()));
+                    options.populate(Spanned::new(full, style.span()));
                     populated_format_options = true;
                 }
             } else if !matches!(s.kind, RealizationKind::Bundle) {
