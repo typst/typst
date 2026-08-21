@@ -224,9 +224,9 @@ impl LibraryBuilder {
         self
     }
 
-    /// Add document [export formats](crate::format).
+    /// Set the registered document [export formats](crate::format).
     pub fn with_formats(mut self, formats: impl IntoIterator<Item = Format>) -> Self {
-        self.formats.extend(formats);
+        self.formats = formats.into_iter().collect();
         self
     }
 
