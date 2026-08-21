@@ -8,24 +8,23 @@ mod shape;
 mod text;
 mod write;
 
-use comemo::Tracked;
-pub use image::{WebImage, convert_image_scaling};
-use indexmap::IndexMap;
-use rustc_hash::FxBuildHasher;
-use typst_library::format::{Complete, Fields, Partial};
-use typst_library::model::{Destination, Document, LateLinkResolver};
+pub use self::format::{FORMAT, SvgFormat, SvgFormatOptions};
+pub use self::image::{WebImage, convert_image_scaling};
 
 use std::hash::Hash;
 
+use comemo::Tracked;
 use ecow::EcoString;
+use indexmap::IndexMap;
+use rustc_hash::FxBuildHasher;
 use typst_layout::{Page, PagedDocument};
+use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
+use typst_library::model::{Destination, Document, LateLinkResolver};
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
-
-pub use self::format::{FORMAT, SvgFormat, SvgFormatOptions};
 
 use crate::paint::{GradientRef, SVGSubGradient, TilingRef};
 use crate::text::RenderedGlyph;
