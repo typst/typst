@@ -428,7 +428,7 @@ fn prelude(global: &mut Scope) {
     global.define("bottom", Alignment::BOTTOM);
 
     // If available, add some items to the global prelude.
-    global.prelude_path(["format", "html"]).unwrap();
-    global.prelude_path(["format", "pdf"]).unwrap();
-    global.prelude_path(["format", "bundle", "asset"]).unwrap();
+    global.prelude_path(["format", "html"]);
+    global.prelude_path(["format", "pdf"]);
+    global.prelude_path(["format", "bundle", "asset"]);
 }
