@@ -6,6 +6,7 @@ use typst_library::foundations::{
     Args, BundlePath, Bytes, Construct, Content, NativeRuleMap, ShowFn, Str, Target,
     cast, elem, scope,
 };
+use typst_library::model::DocumentElem;
 
 /// The format element for registering the bundle format.
 pub const FORMAT: Format = Format::new::<BundleFormat>()
@@ -15,8 +16,8 @@ pub const FORMAT: Format = Format::new::<BundleFormat>()
 /// Registers show rules for bundle specific elements.
 pub fn register(rules: &mut NativeRuleMap) {
     for target in [Target::Paged, Target::Html] {
+        rules.replace(target, DOCUMENT_UNSUPPORTED_RULE);
         rules.register(target, ASSET_UNSUPPORTED_RULE);
-        rules.register(target, typst_library::model::DOCUMENT_UNSUPPORTED_RULE);
     }
 }
 
@@ -38,6 +39,16 @@ impl BundleFormat {
     #[elem]
     type AssetElem;
 }
+
+pub const DOCUMENT_UNSUPPORTED_RULE: ShowFn<DocumentElem> = |elem, _, _| {
+    bail!(
+        elem.span(),
+        "constructing a document is only supported in the bundle target";
+        // TODO: Support for CLI-specific hints would be nice.
+        hint: "try enabling the bundle target";
+        hint: "or use a `set document(..)` rule to configure metadata";
+    )
+};
 
 /// Adds a custom file to a bundle.
 ///

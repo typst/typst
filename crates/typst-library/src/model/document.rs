@@ -220,10 +220,8 @@ fn determine_format_from_path(path: &VirtualPath) -> Option<DocumentFormat> {
 pub const DOCUMENT_UNSUPPORTED_RULE: ShowFn<DocumentElem> = |elem, _, _| {
     bail!(
         elem.span(),
-        "constructing a document is only supported in the bundle target";
-        // TODO: Support for CLI-specific hints would be nice.
-        hint: "try enabling the bundle target";
-        hint: "or use a `set document(..)` rule to configure metadata";
+        "cannot construct a document";
+        hint: "use a `set document(..)` rule to configure metadata";
     )
 };
 
