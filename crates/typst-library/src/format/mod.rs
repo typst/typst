@@ -2,23 +2,27 @@
 //!
 //! All export formats have to be registered in [`Library::formats`], usually
 //! through [`LibraryBuilder::with_formats()`]. When using the `typst` crate's
-//! `LibraryExt::default()` or `LibraryExt::builder()` methods, the standard
-//! formats will automatically be registered.
+//! `LibraryExt::default()` or `LibraryExt::builder()` methods, all enabled
+//! standard formats will automatically be registered. The standard formats are
+//! listed in the `"all-formats"` Cargo feature of the `typst` crate, and when
+//! disabling `default-features` each individual format can be enabled by a
+//! separate feature flag.
 //!
-//! Each [`Format`] has an associated [`FormatElement`] with an [`FormatOption`]
+//! Each [`Format`] has an associated [`FormatElement`] with a [`FormatOption`]
 //! type. The format element will be defined on the `std.format` binding, making
 //! it available to set rules.
-//! The options are stored in the compiled document's [`FormatOptions`] and can
-//! be accessed using the [`Document::options()`] trait method. The concrete
-//! options type can be retreived using [`FormatOptions::get()`] providing the
-//! format element as a generic parameter.
+//!
+//! The options are stored in the compiled document's [`DocumentFormatOptions`]
+//! and can be accessed using the [`Document::options()`] trait method. The
+//! concrete type can be retreived using [`DocumentFormatOptions::get()`]
+//! providing the format element as a generic parameter.
 //!
 //! # Example
 //! ```
-//! use typst_library::{Library, LibraryBuilder};
+//! use typst_library::LibraryBuilder;
 //! use typst_library::diag::{SourceResult, bail};
 //! use typst_library::engine::Engine;
-//! use typst_library::format::{Complete, Format, FormatElement, Fields, Populate, SpannedValue};
+//! use typst_library::format::{Complete, Fields, Format, FormatElement, Populate};
 //! use typst_library::foundations::{Args, Construct, Content, StyleChain, elem};
 //! use typst_library::model::Document;
 //! use typst_syntax::Spanned;
@@ -52,7 +56,7 @@
 //!     }
 //! }
 //!
-//! /// Add the epub format to the library.
+//! /// Add the EPUB format to the library.
 //! fn setup_library(builder: LibraryBuilder) -> LibraryBuilder {
 //!     builder.with_formats([Format::new::<Epub>()])
 //! }
@@ -60,7 +64,7 @@
 //! /// In the export crate.
 //! fn export_epub(doc: impl Document) {
 //!     let options = doc.options().get::<Epub>();
-//!     // Export an epub here...
+//!     // Export an EPUB here...
 //! }
 //! ```
 //!
@@ -71,6 +75,8 @@
 //!
 //! [`Library::formats`]: crate::Library::formats
 //! [`LibraryBuilder::with_formats()`]: crate::LibraryBuilder::with_formats()
+//! [`LibraryExt::default()`]: crate::LibraryExt::default()
+//! [`LibraryExt::builder()`]: crate::LibraryExt::builder()
 //! [`Document::options()`]: crate::model::Document::options()
 //! [`DocumentInfo`]: crate::model::DocumentInfo
 //! [`RealizationKind::Document`]: crate::routines::RealizationKind::Document

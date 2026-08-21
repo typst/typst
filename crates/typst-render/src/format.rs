@@ -27,7 +27,7 @@ impl Construct for PngFormat {
     }
 }
 
-/// Document settings for PNG  export.
+/// Document settings for PNG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct PngFormatOptions<F: Fields = Complete> {
     /// The number of pixels per point to render at when exporting a PNG.

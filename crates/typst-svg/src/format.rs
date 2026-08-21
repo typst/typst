@@ -26,7 +26,7 @@ impl Construct for SvgFormat {
     }
 }
 
-/// Document settings for PNG  export.
+/// Document settings for SVG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct SvgFormatOptions<F: Fields = Complete> {
     pub pretty: F::Value<SvgFormat, { SvgFormat::pretty.index() }>,

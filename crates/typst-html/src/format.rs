@@ -45,6 +45,7 @@ impl HtmlFormat {
     }
 }
 
+/// Document settings for HTML export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlFormatOptions<F: Fields = Complete> {
     pub pretty: F::Value<HtmlFormat, { HtmlFormat::pretty.index() }>,
