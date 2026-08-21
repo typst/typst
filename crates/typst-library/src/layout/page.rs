@@ -831,12 +831,12 @@ cast! {
         let end =  dict.take("to").ok().map(parse_nr).transpose()?;
         dict.finish(&[])?;
         if start.is_none() && end.is_none() {
-            bail!("page export range must not be empty");
+            bail!("page range must not be empty");
         }
         if let Some((start, end)) = start.zip(end)
             && start > end
         {
-            bail!("page export range start cannot be larger than end");
+            bail!("start of page range cannot be larger than end");
         }
         Self::new(start, end)
     }

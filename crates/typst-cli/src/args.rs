@@ -781,24 +781,24 @@ impl FromStr for Pages {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.split('-').map(str::trim).collect::<Vec<_>>().as_slice() {
-            [] | [""] => Err("page export range must not be empty"),
+            [] | [""] => Err("page range must not be empty"),
             [single_page] => {
                 let page_number = parse_page_number(single_page)?;
                 Ok(Pages(Some(page_number)..=Some(page_number)))
             }
-            ["", ""] => Err("page export range must have start or end"),
+            ["", ""] => Err("page range must have start or end"),
             [start, ""] => Ok(Pages(Some(parse_page_number(start)?)..=None)),
             ["", end] => Ok(Pages(None..=Some(parse_page_number(end)?))),
             [start, end] => {
                 let start = parse_page_number(start)?;
                 let end = parse_page_number(end)?;
                 if start > end {
-                    Err("page export range must end at a page after the start")
+                    Err("page range must end at a page after the start")
                 } else {
                     Ok(Pages(Some(start)..=Some(end)))
                 }
             }
-            [_, _, _, ..] => Err("page export range must have a single hyphen"),
+            [_, _, _, ..] => Err("page range must have a single hyphen"),
         }
     }
 }

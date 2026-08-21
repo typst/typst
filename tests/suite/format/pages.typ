@@ -21,5 +21,5 @@
 #set pdf(pages: 0)
 
 --- format-options-page-range-inverted eval ---
-// Error: 17-33 page export range start cannot be larger than end
+// Error: 17-33 start of page range cannot be larger than end
 #set pdf(pages: (from: 5, to: 2))
