@@ -37,8 +37,43 @@ const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
 /// The PDF format.
 #[elem(scope, name = "pdf", since = "unreleased", Construct)]
 pub struct PdfFormat {
-    /// Specifies which ranges of pages should be exported in the PDF. When
-    /// `None`, all pages should be exported.
+    /// Specifies which page ranges should be exported in the PDF. This can be:
+    ///
+    /// - `{none}` to export all pages.
+    ///
+    /// - A single page range.
+    ///
+    /// - An array of page ranges.
+    ///
+    /// A page range can be built from:
+    ///
+    /// - A number that specifies exactly one page, starting from one.
+    ///
+    /// - A dictionary that specifies a range of pages with the following keys:
+    ///
+    ///   - `from`: The start number of the page range.
+    ///   - `to`: The end number of the page range.
+    ///
+    ///   At least one of the keys must be present, and both the start and end
+    ///   numbers are inclusive. Thus the range `{(from: 1, to: 3)}`, is the
+    ///   list of pages `{(1, 2, 3)}`.
+    ///
+    ///
+    /// = Examples <examples>
+    ///
+    /// Specifying a single page range:
+    /// ```typ
+    /// #set pdf(pages: 3)
+    /// #set pdf(pages: (from: 3))
+    /// #set pdf(pages: (to: 5))
+    /// #set pdf(pages: (from: 3, to: 5))
+    /// ```
+    ///
+    /// Specifying multiple page ranges:
+    /// ```typ
+    /// #set pdf(pages: (5, 7, 9))
+    /// #set pdf(pages: ((to: 3), 5, (from: 7, to: 8), (from: 10)))
+    /// ```
     #[default]
     pub pages: Option<PageRanges>,
     /// A list of PDF standards that Typst will enforce conformance with.
