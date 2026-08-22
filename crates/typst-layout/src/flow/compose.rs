@@ -698,8 +698,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         pod.expand.x = true;
         pod.expand.y = false;
         pod.size.x = width;
-        pod.size.y -= flow_need + self.config.footnote.gap;
-        // pod.size.y -= regions.size.y;
+        pod.size.y = self.page_base.y - y;
 
         // Layout the footnote entry.
         let frames =
