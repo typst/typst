@@ -91,9 +91,10 @@ pub fn distribute(
         stickable: None,
     };
     let init = distributor.snapshot();
-    let forced = match distributor.run() {
-        Ok(()) => distributor.composer.work.done(),
-        Err(Stop::Finish(finish)) => matches!(finish, Finish::Forced),
+    let (forced, stop) = match distributor.run() {
+        Ok(()) => (distributor.composer.work.done(), StopPoint::Unknown),
+        Err(Stop::Finish(Finish::Soft(stop))) => (false, stop),
+        Err(Stop::Finish(Finish::Forced)) => (true, StopPoint::Unknown),
         Err(Stop::Relayout(scope)) => {
             return Err(RelayoutStop::Relayout(scope));
         }
@@ -103,7 +104,7 @@ pub fn distribute(
     };
     let region = Region::new(regions.size, regions.expand);
     distributor
-        .finalize(region, init, forced)
+        .finalize(region, init, forced, stop)
         .map_err(RelayoutStop::Error)
 }
 
@@ -622,6 +623,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         region: Region,
         init: DistributionSnapshot<'a, 'b>,
         forced: bool,
+        stop: StopPoint,
     ) -> SourceResult<(Frame, Abs)> {
         if forced {
             // If this is the very end of the flow, flush pending tags.
@@ -632,8 +634,12 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         } else {
             // If we ended on a sticky block, but are not yet at the end of
             // the flow, restore the saved checkpoint to move the sticky
-            // suffix to the next region.
-            if let Some(snapshot) = self.sticky.take() {
+            // suffix to the next region. Only do so if the suffix and the
+            // following child that stopped distribution will fit there, or if
+            // a later region may improve things.
+            if let Some(snapshot) = self.sticky.take()
+                && self.should_restore_sticky(&snapshot, stop)?
+            {
                 self.restore(snapshot);
             }
         }
@@ -762,5 +768,31 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         *self.composer.work = snapshot.work;
         self.items.truncate(snapshot.items);
         self.used = snapshot.used;
+    }
+
+    /// Whether restoring a suffix of sticky blocks to migrate it to the next
+    /// region can improve layout.
+    fn should_restore_sticky(
+        &mut self,
+        snapshot: &DistributionSnapshot<'a, 'b>,
+        stop: StopPoint,
+    ) -> SourceResult<bool> {
+        // We need the stopping point to simulate, and a known stopping point
+        // means it is at the work head.
+        if matches!(stop, StopPoint::Unknown) {
+            return Ok(true);
+        }
+        let Some(target) = self.composer.work.head() else { unreachable!() };
+
+        // If the next region isn't the final one, a later region might still
+        // help, so migrate and defer to a later pass.
+        let mut regions = self.regions;
+        regions.next();
+        if regions.may_progress() {
+            return Ok(true);
+        }
+
+        // TODO: simulate migrating to the next region.
+        Ok(true)
     }
 }
