@@ -32,7 +32,7 @@ B #footnote[III]
 
 Beautiful footnotes. #footnote[Wonderful, aren't they?]
 
---- footnote-sidenote paged ---
+--- footnote-sidenote-keep paged ---
 // Test displaying footnotes in a side note column with overlap avoidance.
 #set page(
   width: 180pt,
@@ -42,7 +42,45 @@ Beautiful footnotes. #footnote[Wonderful, aren't they?]
   side-gap: 5pt,
 )
 #set text(size: 8pt)
-#set footnote(placement: "side")
+#set footnote(placement: "side", overflow: "keep")
+#show footnote.entry: set text(5.5pt)
+
+Alpha #footnote[First side note that wraps.] \
+#v(8pt)
+Beta #footnote[Second side note that also wraps.] \
+#v(30pt)
+Gamma #footnote[Third side note is shifted up from the bottom.]
+
+--- footnote-sidenote-spill paged ---
+// Test displaying footnotes in a side note column with overlap avoidance.
+#set page(
+  width: 180pt,
+  height: 120pt,
+  margin: (x: 35pt, y: 10pt),
+  side-width: (right: 34pt),
+  side-gap: 5pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side", overflow: "spill")
+#show footnote.entry: set text(5.5pt)
+
+Alpha #footnote[First side note that wraps.] \
+#v(8pt)
+Beta #footnote[Second side note that also wraps.] \
+#v(30pt)
+Gamma #footnote[Third side note is shifted up from the bottom.]
+
+--- footnote-sidenote-pack paged ---
+// Test displaying footnotes in a side note column with overlap avoidance.
+#set page(
+  width: 180pt,
+  height: 120pt,
+  margin: (x: 35pt, y: 10pt),
+  side-width: (right: 34pt),
+  side-gap: 5pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side", overflow: "pack")
 #show footnote.entry: set text(5.5pt)
 
 Alpha #footnote[First side note that wraps.] \
@@ -107,7 +145,7 @@ Alpha #footnote[Left side note.] \
 #v(16pt)
 Beta #footnote[Another left note.]
 
---- footnote-sidenote-outside paged ---
+--- footnote-sidenote-outside-keep paged ---
 // Test outside side notes across odd and even pages.
 #set page(
   width: 170pt,
@@ -118,7 +156,43 @@ Beta #footnote[Another left note.]
   side-gap: 4pt,
 )
 #set text(size: 8pt)
-#set footnote(placement: "side")
+#set footnote(placement: "side", overflow: "keep")
+#show footnote.entry: set text(5.5pt)
+
+Odd #footnote[Outside on page one.]
+#pagebreak()
+Even #footnote[Outside on page two.]
+
+--- footnote-sidenote-outside-spill paged ---
+// Test outside side notes across odd and even pages.
+#set page(
+  width: 170pt,
+  height: 80pt,
+  margin: (x: 36pt, y: 8pt),
+  binding: left,
+  side-width: (outside: 30pt),
+  side-gap: 4pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side", overflow: "spill")
+#show footnote.entry: set text(5.5pt)
+
+Odd #footnote[Outside on page one.]
+#pagebreak()
+Even #footnote[Outside on page two.]
+
+--- footnote-sidenote-outside-pack paged ---
+// Test outside side notes across odd and even pages.
+#set page(
+  width: 170pt,
+  height: 80pt,
+  margin: (x: 36pt, y: 8pt),
+  binding: left,
+  side-width: (outside: 30pt),
+  side-gap: 4pt,
+)
+#set text(size: 8pt)
+#set footnote(placement: "side", overflow: "pack")
 #show footnote.entry: set text(5.5pt)
 
 Odd #footnote[Outside on page one.]
