@@ -31,9 +31,18 @@ enum Stop {
 /// The reason why the current region should finish.
 enum Finish {
     /// A lack of space.
-    Soft,
+    Soft(StopPoint),
     /// An explicit break.
     Forced,
+}
+
+/// The point at which distribution stopped, insofar as it can be identified.
+enum StopPoint {
+    /// The current work head is the child that stopped distribution.
+    Child,
+    /// The stopping point cannot be reproduced safely, e.g. partway through the
+    /// spill of a breakable block.
+    Unknown,
 }
 
 impl From<EcoVec<SourceDiagnostic>> for Stop {
@@ -46,7 +55,9 @@ impl From<FootnoteStop> for Stop {
     fn from(stop: FootnoteStop) -> Self {
         match stop {
             FootnoteStop::Relayout(()) => Self::Relayout(PlacementScope::Column),
-            FootnoteStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
+            FootnoteStop::MigrateOrigin(()) => {
+                Self::Finish(Finish::Soft(StopPoint::Child))
+            }
             FootnoteStop::Error(error) => Self::Error(error),
         }
     }
@@ -56,7 +67,7 @@ impl From<FloatStop> for Stop {
     fn from(stop: FloatStop) -> Self {
         match stop {
             FloatStop::Relayout(scope) => Self::Relayout(scope),
-            FloatStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
+            FloatStop::MigrateOrigin(()) => Self::Finish(Finish::Soft(StopPoint::Child)),
             FloatStop::Error(error) => Self::Error(error),
         }
     }
@@ -364,7 +375,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
         if !self.fits(line.frame.height()) && self.regions.may_progress() {
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
 
         // If the line's need, which includes its own height and that of
@@ -378,7 +389,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 .nth(1)
                 .is_some_and(|region| region.y.fits(line.need))
         {
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
 
         self.frame(line.frame.clone(), line.align, false, false)
@@ -409,7 +420,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If the block doesn't fit and a followup region may improve things,
         // finish the region.
         if !self.fits(frame.height()) && self.regions.may_progress() {
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
 
         self.frame(frame, single.align, single.sticky, false)
@@ -428,7 +439,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Skip directly if the region is already (over)full. `line` and
         // `single` implicitly do this through their `fits` checks.
         if pod.is_full() {
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
 
         // Lay out the block.
@@ -440,7 +451,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             // If the first frame is empty, but there are non-empty frames in
             // the spill, the whole child should be put in the next region to
             // avoid any invisible orphans at the end of this region.
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
 
         self.frame(frame, multi.align, multi.sticky, true)?;
@@ -450,7 +461,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         if let Some(spill) = spill {
             self.composer.work.spill = Some(spill);
             self.composer.work.advance();
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Unknown)));
         }
 
         Ok(())
@@ -469,7 +480,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // Skip directly if the region is already (over)full.
         if pod.is_full() {
             self.composer.work.spill = Some(spill);
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Unknown)));
         }
 
         // Lay out the spilled remains.
@@ -481,7 +492,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // region.
         if let Some(spill) = spill {
             self.composer.work.spill = Some(spill);
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Unknown)));
         }
 
         Ok(())
@@ -586,7 +597,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // If there are still pending floats, finish the region instead of
         // adding more content to it.
         if !self.composer.work.floats.is_empty() {
-            return Err(Stop::Finish(Finish::Soft));
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
         }
         Ok(())
     }
