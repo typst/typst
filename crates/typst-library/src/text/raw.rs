@@ -480,12 +480,8 @@ impl RawElem {
     type RawLine;
 
     /// Highlight the given raw text with the specified language, theme, and syntaxes.
-    /// Producing an array of @raw.line[`raw.line`] elements.
-    ///
-    /// Similarly to @raw, you can specify the following:
-    /// - @raw.lang[`lang`]: The language to interpret the raw text as for syntax highlighting.
-    /// - @raw.syntaxes[`syntaxes`]: Additional syntax definitions to load.
-    /// - @raw.theme[`theme`]: The theme to use for syntax highlighting.
+    /// Producing an @array of @raw.line[`raw.line`] elements. Set rules applied to @raw,
+    /// such as @raw.tab-size[`tab-size`], will be applied to the highlighted lines.
     ///
     /// ````example
     /// #let code = "fn main() {\n    println!(\"Hello World!\");\n}"
@@ -500,18 +496,23 @@ impl RawElem {
     ///     )
     /// }
     /// ````
-    #[func(since = "0.16.0")]
+    #[func(since = "unreleased")]
     fn highlight(
         engine: &mut Engine,
         context: Tracked<Context>,
         args: &mut Args,
-        #[external] content: RawContent,
+        /// See @raw.text[`text`] for details.
+        #[external]
+        content: RawContent,
+        /// See @raw.lang[`lang`]: the language to interpret the raw text as for syntax highlighting.
         #[named]
         #[external]
         lang: Option<EcoString>,
+        /// See @raw.syntaxes[`syntaxes`]: additional syntax definitions to load.
         #[named]
         #[external]
         syntaxes: Option<Syntaxes>,
+        /// See @raw.theme[`theme`]: the theme to use for syntax highlighting.
         #[named]
         #[external]
         theme: Option<Theme>,
