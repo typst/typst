@@ -24,6 +24,9 @@ enum Stop {
     Finish(Finish),
     /// Indicates that the given scope should be relayouted.
     Relayout(PlacementScope),
+    /// Indicates that non-empty in-flow content was reached at or after the
+    /// target child.
+    TargetReached,
     /// A fatal error.
     Error(EcoVec<SourceDiagnostic>),
 }
@@ -73,6 +76,68 @@ impl From<FloatStop> for Stop {
     }
 }
 
+/// A distribution target to stop after.
+///
+/// The target is whichever child stopped distribution, not necessarily the
+/// first non-sticky child after the suffix of sticky blocks. If a sticky block
+/// within the suffix overflowed, it is itself the target. Each stopping child
+/// is judged on its own, so the sticky "chain" (each block staying with the
+/// content right after it) is handled one stopping child at a time.
+enum Target<'a, 'b> {
+    /// The target child to stop after.
+    Child(&'b Child<'a>),
+    /// The target child was empty, so the next non-empty in-flow frame is the
+    /// target.
+    Following,
+}
+
+/// An optional target that stops distribution once it or a following child
+/// produces non-empty in-flow content.
+struct TargetState<'a, 'b>(Option<Target<'a, 'b>>);
+
+impl<'a, 'b> TargetState<'a, 'b> {
+    /// Advance the target after processing its child.
+    fn advance(&mut self, child: &'b Child<'a>) {
+        if let Some(Target::Child(target)) = self.0
+            && std::ptr::eq(target, child)
+        {
+            self.0 = Some(Target::Following);
+        }
+    }
+
+    /// Stop if a non-empty in-flow frame satisfies the target.
+    fn stop_if_reached(
+        &mut self,
+        head: Option<&'b Child<'a>>,
+        frame: &Frame,
+        sticky: bool,
+        fits: bool,
+    ) -> FlowResult<()> {
+        // Regardless of whether we have reached the target, we need to be at a
+        // non-empty frame.
+        if frame.is_empty() {
+            return Ok(());
+        }
+
+        // Only proceed if there is a target and we have reached it.
+        match self.0 {
+            Some(Target::Child(target))
+                if head.is_some_and(|head| std::ptr::eq(target, head)) => {}
+            Some(Target::Following) => {}
+            _ => return Ok(()),
+        }
+
+        // If the frame is sticky it is part of the suffix being migrated, so
+        // it can't prove migration helped. A non-sticky target, by contrast, is
+        // accepted by a final region through its normal overflow path.
+        if sticky && !fits {
+            return Err(Stop::Finish(Finish::Soft(StopPoint::Child)));
+        }
+
+        Err(Stop::TargetReached)
+    }
+}
+
 /// Distributes as many children as fit from `composer.work` into the first
 /// region and returns the resulting frame and the height actually used
 /// by the inner contents (for column balancing).
@@ -89,6 +154,7 @@ pub fn distribute(
         balancing_target,
         sticky: None,
         stickable: None,
+        target: TargetState(None),
     };
     let init = distributor.snapshot();
     let (forced, stop) = match distributor.run() {
@@ -101,11 +167,37 @@ pub fn distribute(
         Err(Stop::Error(error)) => {
             return Err(RelayoutStop::Error(error));
         }
+        Err(Stop::TargetReached) => unreachable!(),
     };
     let region = Region::new(regions.size, regions.expand);
     distributor
         .finalize(region, init, forced, stop)
         .map_err(RelayoutStop::Error)
+}
+
+/// Distribute until the target child or, if it is empty, a following child
+/// produces non-empty in-flow content.
+pub fn distribute_until<'a, 'b>(
+    composer: &mut Composer<'a, 'b, '_, '_>,
+    regions: Regions,
+    target: &'b Child<'a>,
+) -> RelayoutResult<bool> {
+    let mut distributor = Distributor {
+        composer,
+        regions,
+        items: vec![],
+        used: Size::zero(),
+        balancing_target: None,
+        sticky: None,
+        stickable: None,
+        target: TargetState(Some(Target::Child(target))),
+    };
+    match distributor.run() {
+        Err(Stop::TargetReached) => Ok(true),
+        Ok(()) | Err(Stop::Finish(_)) => Ok(false),
+        Err(Stop::Relayout(scope)) => Err(RelayoutStop::Relayout(scope)),
+        Err(Stop::Error(error)) => Err(RelayoutStop::Error(error)),
+    }
 }
 
 /// State for distribution.
@@ -145,6 +237,8 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// blocks are supposed to always be in the same page as the subsequent
     /// frame, but that is impossible in that case, which is thus pathological.
     stickable: Option<bool>,
+    /// The target that can stop distribution early.
+    target: TargetState<'a, 'b>,
 }
 
 /// A snapshot of the distribution state.
@@ -198,6 +292,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         // or no children are left.
         while let Some(child) = self.composer.work.head() {
             self.child(child)?;
+            self.target.advance(child);
             self.composer.work.advance();
         }
 
@@ -210,6 +305,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// - Returns `Err(Stop::Finish)` if a region break should be triggered.
     /// - Returns `Err(Stop::Relayout(_))` if the region needs to be relayouted
     ///   due to an insertion (float/footnote).
+    /// - Returns `Err(Stop::TargetReached)` if a simulation reached its target.
     /// - Returns `Err(Stop::Error(_))` if there was a fatal error.
     fn child(&mut self, child: &'b Child<'a>) -> FlowResult<()> {
         match child {
@@ -413,6 +509,14 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
                 false,
                 Migration::ALLOW,
             )?;
+
+            self.target.stop_if_reached(
+                self.composer.work.head(),
+                &frame,
+                single.sticky,
+                true,
+            )?;
+
             self.flush_tags();
             self.items.push(Item::Fr(fr, 0, Some(single)));
             return Ok(());
@@ -543,6 +647,13 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             frame.height(),
             breakable,
             Migration::ALLOW,
+        )?;
+
+        self.target.stop_if_reached(
+            self.composer.work.head(),
+            &frame,
+            sticky,
+            self.fits(frame.height()),
         )?;
 
         if !sticky && !frame.is_empty() {
