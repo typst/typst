@@ -62,7 +62,12 @@ f98a3722ee4445ff9af65fd87a79385d block-sticky
 698fe05f2e4327ac8c45118f79d746b1 block-sticky-alone
 6141b30d35a16f508ef1572fd8a05e50 block-sticky-breakable
 d79d2be2d52ae40c7e51df655c2dfcf4 block-sticky-colbreak
+a76513bc4c1149fa92130a477c4e0f33 block-sticky-contextual-migration
+2727690ff0e76c6865dddfac0f8ffdaa block-sticky-float-footnote-migration
+cfe7015bd35ab6777f183bbebdccb02f block-sticky-fr-footnote-migration
+9da44c172958974e2b79091c73a9cc98 block-sticky-grid-many
 ee64bf3aa4adc633f4435cb2a142cc5d block-sticky-many
+7b3b0f35229012fdcfaa337b95d6f107 block-sticky-spill
 53f3077ff3d1349081281932240e05b1 box
 52ae12c54f6e8f1cbe6b8a89ea2609d6 box-clip-outset
 4fbef7f29d4dac197bd1322b3f4db952 box-clip-radius
