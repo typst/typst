@@ -86,7 +86,7 @@ pub fn distribute(
         regions,
         items: vec![],
         used: Size::zero(),
-        target: balancing_target,
+        balancing_target,
         sticky: None,
         stickable: None,
     };
@@ -121,7 +121,7 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// Size used by laid out items.
     used: Size,
     /// The target height for column balancing.
-    target: Option<Abs>,
+    balancing_target: Option<Abs>,
     /// A snapshot which can be restored to migrate a suffix of sticky blocks to
     /// the next region.
     sticky: Option<DistributionSnapshot<'a, 'b>>,
@@ -365,7 +365,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     pub fn fits(&self, amount: Abs) -> bool {
         self.regions.size.y.fits(amount)
             && self
-                .target
+                .balancing_target
                 // Add elements as long as the balancing target is not reached. By not including
                 // the amount itself here, we avoid protruding items to cumulate in the last column.
                 .is_none_or(|target| target.fits(self.used.y))
@@ -432,7 +432,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout.
-        if let Some(lim) = self.target {
+        if let Some(lim) = self.balancing_target {
             let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
         }
@@ -473,7 +473,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout.
-        if let Some(lim) = self.target {
+        if let Some(lim) = self.balancing_target {
             let remaining = lim - self.used.y;
             pod.size.y.set_min(remaining);
         }
