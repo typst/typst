@@ -485,16 +485,13 @@ impl RawElem {
     ///
     /// ````example
     /// #let code = "fn main() {\n    println!(\"Hello World!\");\n}"
-    /// #context {
-    ///     grid(
-    ///       columns: 2,
-    ///       gutter: 5pt,
-    ///       ..(raw.highlight(code, lang: "rust")
-    ///         .map(line => ([#line.number], line))
-    ///         .flatten()
-    ///       )
-    ///     )
-    /// }
+    /// #context grid(
+    ///   columns: 2,
+    ///   gutter: 5pt,
+    ///   ..raw.highlight(code, lang: "rust")
+    ///     .map(line => ([#line.number], line))
+    ///     .flatten(),
+    /// )
     /// ````
     #[func(since = "unreleased")]
     fn highlight(
