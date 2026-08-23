@@ -20,8 +20,8 @@ use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
-use super::distribute::distribute;
-use super::{Config, FlowMode, LineNumberConfig, PlacedChild, Work};
+use super::distribute::{distribute, distribute_until};
+use super::{Child, Config, FlowMode, LineNumberConfig, PlacedChild, Work};
 
 /// The result type for page composition.
 type PageResult<T> = Result<T, PageStop>;
@@ -390,6 +390,119 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         distribute(self, regions, balancing_target)
+    }
+
+    /// Simulate laying out the next region to decide whether a suffix of sticky
+    /// blocks should migrate into it.
+    ///
+    /// Returns whether the child `target` that stopped distribution (or, if
+    /// that child is empty, a following non-empty child) lands in the next
+    /// region once the suffix is restored ahead of it.
+    pub fn simulate_sticky_migration(
+        &mut self,
+        mut work: Work<'a, 'b>,
+        target: &'b Child<'a>,
+        mut regions: Regions,
+    ) -> SourceResult<bool> {
+        // We treat the next region as final, since we will only simulate a
+        // final region.
+        regions.backlog = &[];
+        regions.last = regions.last.map(|_| regions.full);
+
+        // Becase we only simulate a final region, this is always either the
+        // last column of a page or the first column of a new page.
+        let column = (self.column + 1) % self.config.columns.count;
+        assert!(column == 0 || column == self.config.columns.count - 1);
+
+        // Carry over processed insertions.
+        work.extend_skips(&self.page_insertions.skips);
+        work.extend_skips(&self.column_insertions.skips);
+
+        // Mirror the pending footnote queue and spill.
+        work.footnotes.extend(self.footnote_queue.iter().cloned());
+        if let Some(spill) = self.footnote_spill.clone() {
+            work.footnote_spill = Some(spill);
+        }
+
+        // On a new page we need to rebuild the page size.
+        let page_base = if column == 0 {
+            Size::new(self.page_base.x, regions.full)
+        } else {
+            self.page_base
+        };
+
+        let mut composer = Composer {
+            engine: self.engine,
+            config: self.config,
+            page_base,
+            column,
+            page_insertions: Insertions::default(),
+            column_insertions: Insertions::default(),
+            column_balancing_height: None,
+            work: &mut work,
+            footnote_spill: None,
+            footnote_queue: vec![],
+        };
+
+        // Reset column insertion when starting a new column.
+        composer.column_insertions = Insertions::default();
+
+        // Process footnote spill.
+        if let Some(spill) = composer.work.footnote_spill.take() {
+            composer.footnote_spill(spill, regions.base())?;
+        }
+
+        // This loop can restart column layout when requested to do so by a
+        // `RelayoutStop`. This happens when there is a column-scoped float.
+        let checkpoint = composer.work.clone();
+        loop {
+            // Shrink the available space by the space used by column
+            // insertions.
+            let mut pod = regions;
+            pod.size.y -= composer.column_insertions.height();
+
+            // Queued insertions may have shortened only this region on a
+            // previous simulated pass. A failed simulation then does not rule
+            // out useful migration to a later region.
+            let may_progress = pod.may_progress();
+
+            match composer.column_contents_until(pod, target) {
+                Ok(fits) => return Ok(fits || may_progress),
+                Err(RelayoutStop::Relayout(PlacementScope::Column)) => {
+                    *composer.work = checkpoint.clone();
+                }
+                // Parent-scoped relayout can't be reproduced in isolation, so
+                // it is inconclusive and we allow migration.
+                Err(RelayoutStop::Relayout(PlacementScope::Parent)) => return Ok(true),
+                Err(RelayoutStop::Error(error)) => return Err(error),
+            }
+        }
+    }
+
+    /// Lay out the inner contents of a column until a target child is reached.
+    ///
+    /// Pending floats and footnotes are also laid out at this step. For those,
+    /// however, we forbid footnote migration (moving the frame containing the
+    /// footnote reference if the corresponding entry doesn't fit), allowing
+    /// the footnote invariant to be broken, as it would require handling a
+    /// [`FootnoteStop::MigrateOrigin`] at this point, but that is exclusively
+    /// handled by the distributor.
+    fn column_contents_until(
+        &mut self,
+        regions: Regions,
+        target: &'b Child<'a>,
+    ) -> RelayoutResult<bool> {
+        // Process pending footnotes.
+        for note in std::mem::take(&mut self.work.footnotes) {
+            self.footnote(note, &mut regions.clone(), Abs::zero(), Migration::FORBID)?;
+        }
+
+        // Process pending floats.
+        for placed in std::mem::take(&mut self.work.floats) {
+            self.float(placed, &regions, false, Migration::FORBID)?;
+        }
+
+        distribute_until(self, regions, target)
     }
 
     /// Lays out an item with floating placement.

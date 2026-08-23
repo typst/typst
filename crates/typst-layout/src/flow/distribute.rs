@@ -903,7 +903,9 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             return Ok(true);
         }
 
-        // TODO: simulate migrating to the next region.
-        Ok(true)
+        // Simulate! In case of a fatal error, reject migration.
+        self.composer
+            .simulate_sticky_migration(snapshot.work.clone(), target, regions)
+            .or(Ok(false))
     }
 }
