@@ -63,6 +63,9 @@ f98a3722ee4445ff9af65fd87a79385d block-sticky
 6141b30d35a16f508ef1572fd8a05e50 block-sticky-breakable
 d79d2be2d52ae40c7e51df655c2dfcf4 block-sticky-colbreak
 a76513bc4c1149fa92130a477c4e0f33 block-sticky-contextual-migration
+931269a4b3193aa6c2b35e7e46424277 block-sticky-empty-column
+8911545f3979f3f37b6b2619266bab0a block-sticky-empty-float
+4414e1031c08c05f26e413e0085efb6b block-sticky-empty-page
 54c99c7ec80ac43f4053c20e60bdf2d7 block-sticky-float-footnote-migration
 25f3c0fa9ecd67da8d64d076002d539c block-sticky-fr-footnote-migration
 7d50393df5abfa1067c28d11d15f0ffc block-sticky-grid-many

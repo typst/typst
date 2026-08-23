@@ -262,6 +262,39 @@ E
 #block(height: 10pt, fill: green, sticky: true)
 #block(breakable: true, block(height: 25pt, fill: blue))
 
+--- block-sticky-empty-column paged ---
+// Test that there isn't an empty first column.
+#set page(height: 80pt, columns: 3)
+#for _ in range(9) {
+  block(sticky: true)[Hello]
+}
+
+--- block-sticky-empty-page paged ---
+// Test that there isn't an empty first page.
+#set page(height: 40pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+#block(height: 70pt, breakable: true, fill: fuchsia)[
+  #block(height: 50%, fill: green, sticky: true)
+  #block(height: 10pt, fill: blue)
+]
+
+--- block-sticky-empty-float paged ---
+// Test that multiple regions are considered when trying to prevent an empty
+// region.
+#set page(width: 100pt, height: 60pt, margin: 0pt, columns: 2)
+#set columns(gutter: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+
+#place(
+  top,
+  scope: "parent",
+  float: true,
+  clearance: 0pt,
+  block(height: 40pt, fill: red),
+)
+#block(height: 5pt, fill: green, sticky: true)
+#block(height: 30pt, fill: blue)
+
 --- block-sticky-colbreak paged ---
 A
 #block(sticky: true)[B]
