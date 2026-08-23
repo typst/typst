@@ -569,6 +569,29 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         if let Some(spill) = spill {
             self.composer.work.spill = Some(spill);
             self.composer.work.advance();
+
+            // If this block is sticky, migrating the sticky suffix would
+            // relayout the whole block from scratch. This is only worthwhile
+            // if there is following in-flow content that the suffix must stay
+            // attached to. Without it, stickiness is moot.
+            if self.sticky.is_some()
+                && !self
+                    .composer
+                    .work
+                    .children
+                    .iter()
+                    // A forced break severs the stickiness relationship.
+                    .take_while(|child| !matches!(child, Child::Break(_)))
+                    .any(|child| {
+                        matches!(
+                            child,
+                            Child::Line(_) | Child::Single(_) | Child::Multi(_)
+                        )
+                    })
+            {
+                self.sticky = None;
+            }
+
             return Err(Stop::Finish(Finish::Soft(StopPoint::Unknown)));
         }
 
