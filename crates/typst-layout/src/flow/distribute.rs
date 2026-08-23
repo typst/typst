@@ -221,7 +221,10 @@ struct Distributor<'a, 'b, 'x, 'y, 'z> {
     /// and may migrate with the attached frame. This is `None` while we aren't
     /// processing sticky blocks. On the first sticky block, this will become
     /// `Some(true)` if migrating sticky blocks as usual would make a
-    /// difference - this is given by `regions.may_progress()`. Otherwise, it
+    /// difference - if content was already placed in this region, this is given
+    /// by `regions.may_progress()`, but at the very top of the region it
+    /// instead requires a following region to be strictly taller, since
+    /// migrating would otherwise just leave this region empty. Otherwise, it
     /// is set to `Some(false)`, which is usually the case when the first
     /// sticky block in the group is at the very top of the page (then,
     /// migrating it would just lead us back to the top of the page, leading
@@ -620,16 +623,26 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         //
         // The criteria used here is: if migrating this group of sticky blocks
         // together with the "attached" block can't improve the lack of space,
-        // since we're at the start of the region, then we don't do so, and
-        // stickiness is disabled (at least, for this region). Otherwise,
-        // migration is allowed.
+        // then we don't do so, and stickiness is disabled (at least, for this
+        // region). Otherwise, migration is allowed. When content was already
+        // placed in this region, this is `regions.may_progress()`. When we're
+        // still at the start of the region, migrating would leave it empty, so
+        // it only helps if a following region is strictly taller.
         //
         // Note that, since the whole region is checked, this ensures sticky
         // blocks at the top of a block - but not necessarily of the page - can
         // still be migrated.
         if sticky
             && self.sticky.is_none()
-            && *self.stickable.get_or_insert_with(|| self.regions.may_progress())
+            && *self.stickable.get_or_insert_with(|| {
+                if self.used.y.is_zero() {
+                    let current = self.regions.size.y;
+                    self.regions.backlog.iter().any(|&height| height > current)
+                        || self.regions.last.is_some_and(|height| height > current)
+                } else {
+                    self.regions.may_progress()
+                }
+            })
         {
             self.sticky = Some(self.snapshot());
         }
