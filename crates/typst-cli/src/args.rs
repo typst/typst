@@ -66,7 +66,7 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Whether to use color. When set to `auto` if the terminal to supports it.
+    /// Whether to use color. When set to `auto`, uses color if the terminal supports it.
     #[clap(long, default_value_t = ColorChoice::Auto, default_missing_value = "always")]
     pub color: ColorChoice,
 
