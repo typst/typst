@@ -761,5 +761,4 @@ mod tests {
             "TRANSLATIONS should be sorted"
         );
     }
-
 }
