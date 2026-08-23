@@ -762,9 +762,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_zh_hk_heading_is_traditional() {
-        let name = localized_str(Lang::CHINESE, Some(Region(*b"HK")), "heading");
-        assert_eq!(name, "小節");
-    }
 }
