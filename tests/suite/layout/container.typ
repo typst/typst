@@ -262,6 +262,21 @@ E
 #block(height: 10pt, fill: green, sticky: true)
 #block(breakable: true, block(height: 25pt, fill: blue))
 
+--- block-sticky-spill-2 paged ---
+#set page(height: 80pt, width: 120pt, margin: 10pt)
+#set block(width: 100%, spacing: 0pt)
+#block(height: 10pt, fill: gray)
+#block(height: 90pt, fill: green, sticky: true)
+#block(height: 30pt, fill: blue, breakable: false)
+
+--- block-sticky-spill-3 paged ---
+#set page(height: 60pt, width: 120pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt)
+#block(height: 10pt, fill: gray, breakable: false)
+#block(height: 90pt, fill: green, sticky: true)
+#colbreak()
+#block(height: 30pt, fill: blue, breakable: false)
+
 --- block-sticky-empty-column paged ---
 // Test that there isn't an empty first column.
 #set page(height: 80pt, columns: 3)
@@ -306,6 +321,19 @@ C
 #set page(height: 60pt)
 #block(sticky: true, lines(4))
 E
+
+--- block-sticky-breakable-2 paged ---
+#set page(height: 100pt, margin: 0pt)
+#set par(spacing: 0cm)
+#set block(width: 100%)
+#block(breakable: false, height: 10pt, fill: gray)
+#block(sticky: true, breakable: true, height: 100pt, fill: green)
+
+--- block-sticky-breakable-3 paged ---
+#set page(height: 80pt, width: 120pt, margin: 10pt)
+#lorem(6)
+
+- #block(sticky: true, fill: red, lorem(18))
 
 --- box-clip-rect paged ---
 // Test box clipping with a rectangle

@@ -61,6 +61,8 @@ c993acad099423d8193cbe9f8052d89e block-multiple-pages
 f98a3722ee4445ff9af65fd87a79385d block-sticky
 698fe05f2e4327ac8c45118f79d746b1 block-sticky-alone
 6141b30d35a16f508ef1572fd8a05e50 block-sticky-breakable
+a5f9a0c107529403ed4e695db7b05f29 block-sticky-breakable-2
+d36011e7e815dc1ff3135aaf51d107f2 block-sticky-breakable-3
 d79d2be2d52ae40c7e51df655c2dfcf4 block-sticky-colbreak
 a76513bc4c1149fa92130a477c4e0f33 block-sticky-contextual-migration
 8911545f3979f3f37b6b2619266bab0a block-sticky-empty-float
@@ -71,6 +73,8 @@ c4a7f04deec3763f27e22f758494b0ae block-sticky-empty-page
 7d50393df5abfa1067c28d11d15f0ffc block-sticky-grid-many
 ee64bf3aa4adc633f4435cb2a142cc5d block-sticky-many
 b6b0b272d92cbd8e939a4724baaa0c75 block-sticky-spill
+16515bcfef2d5923c4dff2ef04bc071b block-sticky-spill-2
+d2fb8216d5116e6c3198045f6a767533 block-sticky-spill-3
 53f3077ff3d1349081281932240e05b1 box
 52ae12c54f6e8f1cbe6b8a89ea2609d6 box-clip-outset
 4fbef7f29d4dac197bd1322b3f4db952 box-clip-radius
