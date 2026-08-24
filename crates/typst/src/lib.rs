@@ -340,3 +340,18 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats() {
+        // No formats at all.
+        Library::new([]);
+        // Only the HTML format.
+        Library::new([typst_html::FORMAT]);
+        // Only a paged format.
+        Library::new([typst_svg::FORMAT]);
+    }
+}
