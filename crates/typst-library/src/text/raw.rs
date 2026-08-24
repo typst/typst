@@ -343,8 +343,9 @@ pub struct RawElem {
     ///       // Some tokens start with `.`. For example, `.env`. The Unicode
     ///       // Line Breaking Algorithm forbids breaking before `.`, even after
     ///       // spaces. Therefore, we add zero-width spaces to provide
-    ///       // additional break opportunities. Note that https://github.com/typst/typst/issues/5317
-    ///       // might change the situation.
+    ///       // additional break opportunities. Note that
+    ///       // https://github.com/typst/typst/issues/5317 might change the
+    ///       // situation.
     ///       tokens.map(raw).join[, #sym.zws],
     ///     )).flatten()
     ///   )
