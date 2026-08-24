@@ -407,7 +407,7 @@ fn export_pdf(
     config: &CompileConfig,
 ) -> Warned<SourceResult<()>> {
     let options = pdf_options(config);
-    Warned::from(typst_pdf::pdf(document, &options)).and_then(|buffer| {
+    typst_pdf::pdf(document, &options).and_then(|buffer| {
         config
             .output
             .write(&buffer)

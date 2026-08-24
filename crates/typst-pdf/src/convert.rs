@@ -1,5 +1,5 @@
 use comemo::Tracked;
-use ecow::{EcoString, eco_format};
+use ecow::{EcoString, EcoVec, eco_format};
 use indexmap::IndexMap;
 use krilla::configure::validate::VersionedFeature;
 use krilla::configure::{PdfVersion, ValidationError, Validator, Validators};
@@ -49,8 +49,10 @@ pub fn convert(
     options: &PdfOptions,
     anchors: &[(Location, EcoString)],
     link_resolver: Option<Tracked<LateLinkResolver>>,
+    warnings: &mut EcoVec<SourceDiagnostic>,
 ) -> SourceResult<Vec<u8>> {
-    let options = options.resolve(typst_document.options().get::<PdfFormat>())?;
+    let options =
+        options.resolve(typst_document.options().get::<PdfFormat>(), warnings)?;
 
     let tags = tags::init(typst_document, &options)?;
 

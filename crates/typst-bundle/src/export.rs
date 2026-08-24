@@ -90,9 +90,7 @@ fn export_pdf(
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
 ) -> Warned<SourceResult<Bytes>> {
-    typst_pdf::pdf_in_bundle(doc, options, anchors, link_resolver)
-        .map(Bytes::new)
-        .into()
+    typst_pdf::pdf_in_bundle(doc, options, anchors, link_resolver).map(Bytes::new)
 }
 
 /// Exports a PNG document.

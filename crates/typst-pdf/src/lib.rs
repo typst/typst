@@ -24,10 +24,10 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 use comemo::Tracked;
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 use krilla::configure::{PdfVersion, Validators};
 use typst_layout::PagedDocument;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::{SourceDiagnostic, SourceResult, Warned, bail};
 use typst_library::format::{Complete, Fields, Partial};
 use typst_library::foundations::Smart;
 use typst_library::introspection::Location;
@@ -37,8 +37,13 @@ use typst_library::model::LateLinkResolver;
 ///
 /// Returns the raw bytes making up the PDF file.
 #[typst_macros::time(name = "pdf")]
-pub fn pdf(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options, &[], None)
+pub fn pdf(
+    document: &PagedDocument,
+    options: &PdfOptions,
+) -> Warned<SourceResult<Vec<u8>>> {
+    let mut warnings = EcoVec::new();
+    let output = convert::convert(document, options, &[], None, &mut warnings);
+    Warned { output, warnings }
 }
 
 /// Export a document into a PDF file as part of a bundle.
@@ -53,8 +58,11 @@ pub fn pdf_in_bundle(
     options: &PdfOptions,
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
-) -> SourceResult<Vec<u8>> {
-    convert::convert(document, options, anchors, Some(link_resolver))
+) -> Warned<SourceResult<Vec<u8>>> {
+    let mut warnings = EcoVec::new();
+    let output =
+        convert::convert(document, options, anchors, Some(link_resolver), &mut warnings);
+    Warned { output, warnings }
 }
 
 /// Settings for PDF export.
@@ -83,7 +91,11 @@ pub struct PdfOptions<F: Fields = Partial> {
 }
 
 impl PdfOptions {
-    pub fn resolve(&self, doc: &PdfFormatOptions) -> SourceResult<PdfOptions<Complete>> {
+    pub fn resolve(
+        &self,
+        doc: &PdfFormatOptions,
+        warnings: &mut EcoVec<SourceDiagnostic>,
+    ) -> SourceResult<PdfOptions<Complete>> {
         let format = self.format.resolve(doc);
 
         if format.pages.v.is_some() {
@@ -91,17 +103,16 @@ impl PdfOptions {
                 let span = format.tagged.span.or(format.pages.span);
                 bail!(span, "cannot enable tagged PDF and export a page range");
             } else if format.tagged.v.is_auto() {
-                // TODO: Accept a warning sink of some sort.
-                // warnings.push(
-                //     SourceDiagnostic::warning(
-                //         Span::detached(),
-                //         "exporting a page range disables PDF tagging",
-                //     )
-                //     .with_hints([
-                //         "the resulting PDF will be inaccessible".into(),
-                //         "set `pdf(tagged: false)` to silence this warning".into(),
-                //     ]),
-                // );
+                warnings.push(
+                    SourceDiagnostic::warning(
+                        format.tagged.span,
+                        "exporting a page range disables PDF tagging",
+                    )
+                    .with_hints([
+                        "the resulting PDF will be inaccessible".into(),
+                        "set `pdf(tagged: false)` to silence this warning".into(),
+                    ]),
+                );
             }
         }
 

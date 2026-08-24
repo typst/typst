@@ -349,7 +349,7 @@ fn generate_pdf(
     standards: Option<&[PdfStandard]>,
 ) -> Warned<SourceResult<Vec<u8>>> {
     let options = pdf_options(standards);
-    typst_pdf::pdf(doc, &options).into()
+    typst_pdf::pdf(doc, &options)
 }
 
 fn pdf_options(standards: Option<&[PdfStandard]>) -> PdfOptions {
