@@ -1,5 +1,5 @@
-FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
-FROM --platform=$BUILDPLATFORM rust:alpine AS build
+FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.9.0 AS xx
+FROM --platform=$BUILDPLATFORM rust:1.95.0-alpine3.23 AS build
 
 COPY --from=xx / /
 
@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.cargo/git/db \
     cp target/$(xx-cargo --print-target-triple)/release/typst target/release/typst && \
     xx-verify target/release/typst
 
-FROM alpine:latest
+FROM alpine:3.23
 ARG CREATED
 ARG REVISION
 
