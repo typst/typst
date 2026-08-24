@@ -192,9 +192,9 @@ impl CompileConfig {
                     if args.no_pdf_tags {
                         bail!("cannot disable PDF tags when exporting a {name} document");
                     } else {
-                        let mut err = HintedString::from(
+                        let mut err = HintedString::from(eco_format!(
                             "cannot disable PDF tags when exporting a {name} document",
-                        );
+                        ));
                         if args.pages.is_some() {
                             err.hint("using --pages implies --pdf-tagged=false");
                         }
