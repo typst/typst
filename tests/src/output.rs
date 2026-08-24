@@ -11,7 +11,7 @@ use hayro_svg::{RenderCache, SvgRenderSettings};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use tiny_skia as sk;
-use typst::diag::{At, SourceResult, StrResult, bail};
+use typst::diag::{At, SourceResult, StrResult, Warned, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::{Document, ParbreakElem};
@@ -140,7 +140,7 @@ pub trait OutputType: Sized {
     fn is_empty(doc: &Self::Doc, live: &Self::Live) -> bool;
 
     /// Produces the live output.
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live>;
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>>;
 
     /// Converts the live output to bytes that can be saved to disk.
     fn save_live(doc: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]>;
@@ -189,8 +189,8 @@ impl OutputType for Render {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
-        Ok(render(doc, 1.0))
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
+        Ok(render(doc, 1.0)).into()
     }
 
     fn save_live(doc: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -244,7 +244,7 @@ impl OutputType for Pdf {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
         // Always run the default PDF export and PDF/UA-1 export, to detect
         // crashes, since there are quite a few different code paths involved.
         // If another standard is specified in the test, run that as well.
@@ -347,22 +347,22 @@ impl HashOutputType for Pdf {
 fn generate_pdf(
     doc: &PagedDocument,
     standards: Option<&[PdfStandard]>,
-) -> SourceResult<Vec<u8>> {
-    let options = pdf_options(standards)?;
-    typst_pdf::pdf(doc, &options)
+) -> Warned<SourceResult<Vec<u8>>> {
+    let options = pdf_options(standards);
+    typst_pdf::pdf(doc, &options).into()
 }
 
-fn pdf_options(standards: Option<&[PdfStandard]>) -> SourceResult<PdfOptions> {
+fn pdf_options(standards: Option<&[PdfStandard]>) -> PdfOptions {
     let standard = standards
         .map(|s| PdfStandards::new(s.iter().copied()))
         .transpose()
-        .at(Span::detached())?;
+        .unwrap();
     // TODO: Maybe enable pretty here too?
-    Ok(PdfOptions {
+    PdfOptions {
         creator: Smart::Custom(Some("Typst Test Runner".into())),
         format: PdfFormatOptions { standard, ..Default::default() },
         ..Default::default()
-    })
+    }
 }
 
 pub struct Pdftags;
@@ -377,8 +377,8 @@ impl OutputType for Pdftags {
         live.is_empty()
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
-        pdftags::format(doc).at(Span::detached())
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
+        pdftags::format(doc).at(Span::detached()).into()
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -414,12 +414,12 @@ impl OutputType for Svg {
         is_empty_paged_document(doc)
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
         let options = SvgOptions {
             format: SvgFormatOptions { pretty: Some(true) },
             ..Default::default()
         };
-        Ok(typst_svg::svg_merged(doc, &options, Abs::pt(1.0)))
+        Ok(typst_svg::svg_merged(doc, &options, Abs::pt(1.0))).into()
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -466,9 +466,9 @@ impl OutputType for Html {
         live == EMPTY_HTML_DOC
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
         let options = HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } };
-        typst_html::html(doc, &options)
+        typst_html::html(doc, &options).into()
     }
 
     fn save_live(_: &Self::Doc, live: &Self::Live) -> impl AsRef<[u8]> {
@@ -504,10 +504,10 @@ impl OutputType for Bundle {
         live.is_empty()
     }
 
-    fn make_live(doc: &Self::Doc) -> SourceResult<Self::Live> {
+    fn make_live(doc: &Self::Doc) -> Warned<SourceResult<Self::Live>> {
         let options = BundleOptions {
             html: HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } },
-            pdf: pdf_options(None)?,
+            pdf: pdf_options(None),
             png: RenderOptions {
                 format: PngFormatOptions { pixel_per_pt: Some(Scalar::new(1.0)) },
                 ..Default::default()

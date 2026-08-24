@@ -39,11 +39,11 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
     // Compile the main file and get the introspector.
     let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
         Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
         Target::Bundle => typst::compile::<Bundle>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
     };
 
     match output {

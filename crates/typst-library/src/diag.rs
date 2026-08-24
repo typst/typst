@@ -243,10 +243,7 @@ where
                 }
             })
             .collect();
-        if !errors.is_empty() {
-            return Err(errors);
-        }
-        Ok(collected)
+        if errors.is_empty() { Ok(collected) } else { Err(errors) }
     }
 }
 
@@ -279,6 +276,77 @@ where
     }
 }
 
+/// Collects an iterator of [`Warned<SourceResult<T>>`]s into a result containg
+/// a collection or the accumulated warnings and errors.
+///
+/// Unlike normal `FromIterator` for `Result`, this will combine all the errors.
+/// This is possible because a [`SourceResult`] can hold multiple errors.
+pub trait CollectCombinedWarnedResult {
+    type Item;
+
+    fn collect_combined_warned_result<B>(self) -> Warned<SourceResult<B>>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> CollectCombinedWarnedResult for I
+where
+    I: Iterator<Item = Warned<SourceResult<T>>>,
+{
+    type Item = T;
+
+    fn collect_combined_warned_result<B>(self) -> Warned<SourceResult<B>>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        let mut warnings = EcoVec::new();
+        let mut errors = EcoVec::new();
+        let collected = self
+            .filter_map(|result| {
+                warnings.extend(result.warnings);
+                match result.output {
+                    Ok(item) => Some(item),
+                    Err(errs) => {
+                        errors.extend(errs);
+                        None
+                    }
+                }
+            })
+            .collect();
+        let output = if errors.is_empty() { Ok(collected) } else { Err(errors) };
+        Warned { output, warnings }
+    }
+}
+
+/// A variation of [`CollectCombinedResult`] for parallel rayon iterators.
+///
+/// Needs to be a separate trait because we can't have two blanket impls.
+pub trait ParallelCollectCombinedWarnedResult {
+    type Item;
+
+    fn collect_combined_warned_result<B>(self) -> Warned<SourceResult<B>>
+    where
+        B: FromIterator<Self::Item>;
+}
+
+impl<I, T> ParallelCollectCombinedWarnedResult for I
+where
+    I: rayon::iter::ParallelIterator<Item = Warned<SourceResult<T>>>,
+    T: Send,
+{
+    type Item = T;
+
+    fn collect_combined_warned_result<B>(self) -> Warned<SourceResult<B>>
+    where
+        B: FromIterator<Self::Item>,
+    {
+        // A more efficient approach might be possible, but this is simpler and
+        // pragmatic. The point of this trait is primarily to make the call-site
+        // convenient, not to maximize efficiency.
+        self.collect::<Vec<_>>().into_iter().collect_combined_warned_result()
+    }
+}
+
 /// An output alongside warnings generated while producing it.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Warned<T> {
@@ -288,10 +356,62 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
-impl<T> Warned<T> {
+impl<T> Warned<T> {}
+
+impl<T, E> Warned<Result<T, E>> {
     /// Maps the output, keeping the same warnings.
-    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<R> {
-        Warned { output: f(self.output), warnings: self.warnings }
+    pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<Result<R, E>> {
+        Warned {
+            output: self.output.map(f),
+            warnings: self.warnings,
+        }
+    }
+
+    /// Maps the output, if the inner `Result` is `Ok`.
+    /// The additional warnings are added to the existing ones.
+    pub fn and_then<R, F>(self, f: F) -> Warned<Result<R, E>>
+    where
+        F: FnOnce(T) -> Result<R, E>,
+    {
+        Warned {
+            output: self.output.and_then(f),
+            warnings: self.warnings,
+        }
+    }
+
+    /// Maps the output, if the inner `Result` is `Ok`.
+    /// The additional warnings are added to the existing ones.
+    // TODO: better naming
+    pub fn and_run<R, F>(mut self, f: F) -> Warned<Result<R, E>>
+    where
+        F: FnOnce(T) -> Warned<Result<R, E>>,
+    {
+        Warned {
+            output: self.output.and_then(|output| {
+                let Warned { output, warnings } = f(output);
+                self.warnings.extend(warnings);
+                output
+            }),
+            warnings: self.warnings,
+        }
+    }
+
+    /// Maps the output, if the inner `Result` is `Ok`.
+    /// The additional warnings are added to the existing ones.
+    pub fn map_err<F, R>(self, f: F) -> Warned<Result<T, R>>
+    where
+        F: FnOnce(E) -> R,
+    {
+        Warned {
+            output: self.output.map_err(f),
+            warnings: self.warnings,
+        }
+    }
+}
+
+impl<T> From<T> for Warned<T> {
+    fn from(output: T) -> Self {
+        Warned { output, warnings: EcoVec::new() }
     }
 }
 

@@ -350,9 +350,8 @@ fn compile_and_export(
 ) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
         OutputFormat::Pdf | OutputFormat::Png | OutputFormat::Svg => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_paged(&document, config));
-            Warned { output: result, warnings }
+            typst::compile::<PagedDocument>(world)
+                .and_run(|document| export_paged(&document, config))
         }
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
@@ -362,11 +361,8 @@ fn compile_and_export(
                 warnings,
             }
         }
-        OutputFormat::Bundle => {
-            let Warned { output, warnings } = typst::compile::<Bundle>(world);
-            let result = output.and_then(|bundle| export_bundle(bundle, config));
-            Warned { output: result, warnings }
-        }
+        OutputFormat::Bundle => typst::compile::<Bundle>(world)
+            .and_run(|bundle| export_bundle(bundle, config)),
     }
 }
 
@@ -390,35 +386,42 @@ fn export_html(document: &HtmlDocument, config: &CompileConfig) -> SourceResult<
 fn export_paged(
     document: &PagedDocument,
     config: &CompileConfig,
-) -> SourceResult<Vec<Output>> {
+) -> Warned<SourceResult<Vec<Output>>> {
     match config.output_format {
         OutputFormat::Pdf => {
-            export_pdf(document, config).map(|()| vec![config.output.clone()])
+            export_pdf(document, config).and_then(|()| Ok(vec![config.output.clone()]))
         }
-        OutputFormat::Png => {
-            export_image(document, config, ImageExportFormat::Png).at(Span::detached())
-        }
-        OutputFormat::Svg => {
-            export_image(document, config, ImageExportFormat::Svg).at(Span::detached())
-        }
+        OutputFormat::Png => export_image(document, config, ImageExportFormat::Png)
+            .at(Span::detached())
+            .into(),
+        OutputFormat::Svg => export_image(document, config, ImageExportFormat::Svg)
+            .at(Span::detached())
+            .into(),
         OutputFormat::Html | OutputFormat::Bundle => unreachable!(),
     }
 }
 
 /// Export to a PDF.
-fn export_pdf(document: &PagedDocument, config: &CompileConfig) -> SourceResult<()> {
+fn export_pdf(
+    document: &PagedDocument,
+    config: &CompileConfig,
+) -> Warned<SourceResult<()>> {
     let options = pdf_options(config);
-    let buffer = typst_pdf::pdf(document, &options)?;
-    config
-        .output
-        .write(&buffer)
-        .map_err(|err| eco_format!("failed to write PDF file ({err})"))
-        .at(Span::detached())?;
-    Ok(())
+    Warned::from(typst_pdf::pdf(document, &options)).and_then(|buffer| {
+        config
+            .output
+            .write(&buffer)
+            .map_err(|err| eco_format!("failed to write PDF file ({err})"))
+            .at(Span::detached())?;
+        Ok(())
+    })
 }
 
 /// Export to a bundle, a collection of files in a directory.
-fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Output>> {
+fn export_bundle(
+    bundle: Bundle,
+    config: &CompileConfig,
+) -> Warned<SourceResult<Vec<Output>>> {
     let options = BundleOptions {
         html: html_options(config),
         pdf: pdf_options(config),
@@ -426,22 +429,23 @@ fn export_bundle(bundle: Bundle, config: &CompileConfig) -> SourceResult<Vec<Out
         svg: svg_options(config),
     };
 
-    let fs = typst_bundle::export(&bundle, &options)?;
-    let root = match &config.output {
-        Output::Path(path) => path,
-        Output::Stdout => {
-            bail!(Span::detached(), "cannot write bundle to standard output")
+    typst_bundle::export(&bundle, &options).and_then(|fs| {
+        let root = match &config.output {
+            Output::Path(path) => path,
+            Output::Stdout => {
+                bail!(Span::detached(), "cannot write bundle to standard output")
+            }
+        };
+
+        let outputs = write_virtual_fs(root, &fs).at(Span::detached())?;
+
+        #[cfg(feature = "http-server")]
+        if let Some(server) = &config.server {
+            server.set_bundle(bundle, fs);
         }
-    };
 
-    let outputs = write_virtual_fs(root, &fs).at(Span::detached())?;
-
-    #[cfg(feature = "http-server")]
-    if let Some(server) = &config.server {
-        server.set_bundle(bundle, fs);
-    }
-
-    Ok(outputs)
+        Ok(outputs)
+    })
 }
 
 /// Writes a bundle's files to disk.
