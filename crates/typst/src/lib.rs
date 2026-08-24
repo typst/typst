@@ -33,6 +33,7 @@
 pub extern crate comemo;
 pub extern crate ecow;
 
+use typst_library::format::Format;
 pub use typst_library::*;
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -288,38 +289,36 @@ fn warn_or_error_for_bundle(features: &Features, sink: &mut Sink) -> SourceResul
 /// Provides ways to construct a [`Library`].
 pub trait LibraryExt {
     /// Creates the default library.
-    fn default() -> Library;
+    ///
+    /// Requires passing in all formats that should be registered, see
+    /// [`Self::builder()`]
+    #[expect(clippy::new_ret_no_self)]
+    fn new(formats: impl IntoIterator<Item = Format>) -> Library;
 
     /// Creates a builder for configuring a library.
-    fn builder() -> LibraryBuilder;
+    ///
+    /// Requires passing in all formats that should be registered.
+    /// ```
+    /// use typst::{Library, LibraryExt};
+    ///
+    /// Library::builder([
+    ///     typst_html::FORMAT,
+    ///     typst_pdf::FORMAT,
+    ///     typst_svg::FORMAT,
+    ///     typst_render::FORMAT,
+    ///     typst_bundle::FORMAT,
+    /// ]);
+    /// ```
+    fn builder(formats: impl IntoIterator<Item = Format>) -> LibraryBuilder;
 }
 
 impl LibraryExt for Library {
-    fn default() -> Library {
-        Self::builder().build()
+    fn new(formats: impl IntoIterator<Item = Format>) -> Library {
+        Self::builder(formats).build()
     }
 
-    fn builder() -> LibraryBuilder {
-        macro_rules! cfg_then {
-            ($feature:literal => $format:expr) => {
-                cfg_select! {
-                    feature = $feature => Some($format),
-                    _ => None,
-                }
-            };
-        }
-
-        // The formats can be enabled/disabled using feature flags.
-        let formats = [
-            cfg_then!("html" => typst_html::FORMAT),
-            cfg_then!("pdf" => typst_pdf::FORMAT),
-            cfg_then!("svg" => typst_svg::FORMAT),
-            cfg_then!("render" => typst_render::FORMAT),
-            cfg_then!("bundle" => typst_bundle::FORMAT),
-        ];
-
-        LibraryBuilder::from_routines(&ROUTINES)
-            .with_formats(formats.into_iter().flatten())
+    fn builder(formats: impl IntoIterator<Item = Format>) -> LibraryBuilder {
+        LibraryBuilder::from_routines(&ROUTINES).with_formats(formats)
     }
 }
 

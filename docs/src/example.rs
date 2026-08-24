@@ -304,7 +304,15 @@ impl World for ExampleWorld {
 }
 
 static EXAMPLE_LIBRARY: LazyLock<LazyHash<Library>> = LazyLock::new(|| {
-    let mut lib = Library::builder().with_features(Features::all()).build();
+    let mut lib = Library::builder([
+        typst_html::FORMAT,
+        typst_pdf::FORMAT,
+        typst_svg::FORMAT,
+        typst_render::FORMAT,
+        typst_bundle::FORMAT,
+    ])
+    .with_features(Features::all())
+    .build();
 
     // Adjust the default look a bit.
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(240.0).into()));
