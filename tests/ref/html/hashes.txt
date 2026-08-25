@@ -41,6 +41,8 @@ ffa25d90e2baac1e02b03a60cae89720 block-html-block
 e87734ba4dba7fed32967be69484478c col-gutter-table
 e87734ba4dba7fed32967be69484478c col-row-gutter-table
 c3adb00220cf56685a91e1bd4d93f3b4 divider-html
+51bc0feb18dfc54b51463fa6374d9a21 document-multiple-authors-html
+ec72df663ab6b4fe6aedaec1ab3f2165 document-multiple-keywords-html
 4131a1789df95f853768971f54e850a9 enum-par
 013e6642f1140f60b83d7ca64ca77c87 enum-start
 dfd6054882467753666c1ebe54b81a0d footnote-basic
@@ -53,8 +55,6 @@ f05d21fa2b913016803bf5476a1b6826 footnote-ref-multiple
 238cfb7578ecfc0e457b2e2bb2dbba44 footnote-space-collapsing
 173d20de89ff8a56303aa8357ec2c323 heading-html-basic
 3779fea930339d8b6b37305dee2f7d1d html-deco
-51bc0feb18dfc54b51463fa6374d9a21 html-document-multiple-authors
-ec72df663ab6b4fe6aedaec1ab3f2165 html-document-multiple-keywords
 eeecf9598691783d361c20acf47a8775 html-elem-alone-context
 e34ea44e32ada9e0685b72d6e82ecfd5 html-elem-attrs-fold
 2ea76ccf8bdc8f8a39f586aab6ed80c9 html-elem-custom
