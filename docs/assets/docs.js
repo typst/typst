@@ -1188,13 +1188,16 @@ function normalizedEditDistance(left, right) {
   }
 
   const INSERTION_COST = 0.7;
+  // We use a lower cost for inserting at the end.
+  // https://github.com/typst/typst/pull/8784
+  const TAIL_INSERTION_COST = 0.5;
   const DELETION_COST = 1.0;
   const SUBSTITUTION_COST = Infinity;
 
   let previous = Array(rightLength + 1).fill(0.0);
   let current = Array(rightLength + 1).fill(0.0);
   for (let j = 0; j <= rightLength; j++) {
-    current[j] = j * INSERTION_COST;
+    current[j] = j * TAIL_INSERTION_COST;
   }
   for (let i = 1; i <= leftLength; i++) {
     const tmp = previous;
@@ -1203,7 +1206,8 @@ function normalizedEditDistance(left, right) {
     current[0] = i * DELETION_COST;
     for (let j = 1; j <= rightLength; j++) {
       current[j] = Math.min(
-        current[j - 1] + INSERTION_COST,
+        current[j - 1] +
+          (i == leftLength ? TAIL_INSERTION_COST : INSERTION_COST),
         previous[j] + DELETION_COST,
         previous[j - 1] +
           (left[i - 1] === right[j - 1] ? 0.0 : SUBSTITUTION_COST),
