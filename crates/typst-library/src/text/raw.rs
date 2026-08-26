@@ -8,6 +8,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use typst_library::text::Overhang;
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
 use typst_utils::ManuallyHash;
 use unicode_segmentation::UnicodeSegmentation;
@@ -657,7 +658,7 @@ impl Packed<RawElem> {
 impl ShowSet for Packed<RawElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(TextElem::overhang, false);
+        out.set(TextElem::overhang, Overhang::DISABLED);
         out.set(TextElem::lang, Lang::ENGLISH);
         out.set(TextElem::hyphenate, Smart::Custom(false));
         out.set(TextElem::size, TextSize(Em::new(0.8).into()));

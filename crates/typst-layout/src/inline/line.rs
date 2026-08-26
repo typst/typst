@@ -1,12 +1,18 @@
+use ecow::EcoVec;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
-
-use ecow::EcoVec;
+use std::sync::LazyLock;
+use ttf_parser::GlyphId;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{
+    Abs, Dir, Em, Fr, Frame, FrameItem, Length, Point, Ratio, Rel,
+};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
+use typst_library::text::{
+    BuiltInOverhang, FontInstance, GlyphReference, Lang, Overhang, Protrusion,
+    ProtrusionTable, TextElem, families, variant,
+};
 use typst_utils::Numeric;
 
 use super::*;
@@ -503,26 +509,28 @@ pub fn commit(
         offset += p.config.hanging_indent;
     }
 
-    // Handle hanging punctuation to the left.
-    if let Some(text) = line.items.leading_text()
-        && let Some(glyph) = text.glyphs.first()
-        && !text.dir.is_positive()
-        && text.styles.get(TextElem::overhang)
-        && (line.items.len() > 1 || text.glyphs.len() > 1)
-    {
-        let amount = overhang(glyph);
+    // Handle left margin kerning.
+    if let Some((text, glyph)) = line_side_visible_glyph(line, false) {
+        let amount = margin_kerning(
+            text.styles.get_ref(TextElem::overhang),
+            text.dir,
+            false,
+            glyph,
+        );
+
         offset -= amount;
         remaining += amount;
     }
 
-    // Handle hanging punctuation to the right.
-    if let Some(text) = line.items.trailing_text()
-        && let Some(glyph) = text.glyphs.last()
-        && text.dir.is_positive()
-        && text.styles.get(TextElem::overhang)
-        && (line.items.len() > 1 || text.glyphs.len() > 1)
-    {
-        let amount = overhang(glyph);
+    // Handle right margin kerning.
+    if let Some((text, glyph)) = line_side_visible_glyph(line, true) {
+        let amount = margin_kerning(
+            text.styles.get_ref(TextElem::overhang),
+            text.dir,
+            true,
+            glyph,
+        );
+
         remaining += amount;
     }
 
@@ -673,49 +681,131 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// How much a glyph should hang into the end margin.
-fn overhang(glyph: &ShapedGlyph) -> Abs {
-    // Note: Binary search is not currently worth it, but can be used if this
-    // grows larger.
-    font_overhang_table(&glyph.font)
-        .iter()
-        .find(|(id, _)| *id == glyph.glyph_id)
-        .map_or(Abs::zero(), |&(_, factor)| factor * glyph.x_advance.at(glyph.size))
-}
-
-/// Generates a sorted table with overhang ratios indexed by glyph ID for a
-/// particular font.
+/// Generates a sorted table with glyphs protrusions indexed by glyph ID
+/// for a particular font.
 #[comemo::memoize]
-fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
-    let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
-    for &(c, factor) in DEFAULT_OVERHANG_TABLE {
-        if let Some(id) = font.ttf().glyph_index(c) {
-            table.push((id.0, factor));
-        }
+fn instantiate_protrusion_table(
+    table: &ProtrusionTable,
+    font: &FontInstance,
+) -> EcoVec<(GlyphId, (Protrusion, Protrusion))> {
+    let mut instance = EcoVec::with_capacity(table.0.len());
+
+    let face = font.ttf();
+    for (glyph_ref, (l, r)) in table.0.iter() {
+        let Some(glyph_id) = glyph_ref.id(face) else { continue };
+        instance.push((glyph_id, (*l, *r)));
     }
-    table.make_mut().sort_unstable_by_key(|(id, _)| *id);
-    table
+
+    instance.make_mut().sort_unstable_by_key(|(id, _)| *id);
+    instance
 }
 
-/// How much a character should hang into the end margin.
+/// Gets the glyph and corresponding text at the start or end of the line
+/// for margin kerning calculation.
+pub(crate) fn line_side_visible_glyph<'a>(
+    line: &'a Line,
+    is_right_side: bool,
+) -> Option<(&'a ShapedText<'a>, &'a ShapedGlyph)> {
+    let (text, glyph) = if is_right_side {
+        let text = line.items.trailing_text()?;
+        (text, text.glyphs.last()?)
+    } else {
+        let text = line.items.leading_text()?;
+        (text, text.glyphs.first()?)
+    };
+
+    if !(line.items.len() > 1 || text.glyphs.len() > 1) {
+        return None;
+    }
+
+    Some((text, glyph))
+}
+
+/// Default values for glyph protrusion into the margin.
+/// These values are used when no font-specific protrusion table is available.
+static DEFAULT_PROTRUSION_TABLE: LazyLock<ProtrusionTable> = LazyLock::new(|| {
+    const fn entry(c: char, v: f64) -> (GlyphReference, (Protrusion, Protrusion)) {
+        let v = Smart::Custom(Rel::new(Ratio::new(v), Length::zero()));
+        (GlyphReference::CodePoint(c), (v, v))
+    }
+
+    ProtrusionTable(LazyHash::new(vec![
+        // Dashes.
+        entry('–', 0.2),
+        entry('—', 0.2),
+        entry('-', 0.55),
+        entry('\u{ad}', 0.55),
+        // Punctuation.
+        entry('.', 0.8),
+        entry(',', 0.8),
+        entry(';', 0.3),
+        entry(':', 0.3),
+        // Arabic
+        entry('\u{60C}', 0.4),
+        entry('\u{6D4}', 0.4),
+    ]))
+});
+
+/// How much a glyph should hang into the margin.
 ///
 /// For more discussion, see:
-/// <https://recoveringphysicist.com/21/>
-const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
-    // Dashes.
-    ('–', 0.2),
-    ('—', 0.2),
-    ('-', 0.55),
-    ('\u{ad}', 0.55),
-    // Punctuation.
-    ('.', 0.8),
-    (',', 0.8),
-    (';', 0.3),
-    (':', 0.3),
-    // Arabic
-    ('\u{60C}', 0.4),
-    ('\u{6D4}', 0.4),
-];
+/// - <https://recoveringphysicist.com/21/>
+/// - [Hàn Thế Thành's dissertation](https://www.tug.org/TUGboat/tb21-4/tb69thanh.pdf)
+pub(crate) fn margin_kerning(
+    overhang: &Overhang,
+    dir: Dir,
+    is_right_margin: bool,
+    glyph: &ShapedGlyph,
+) -> Abs {
+    fn default_overhang(glyph: &ShapedGlyph) -> Rel {
+        let instance =
+            instantiate_protrusion_table(&DEFAULT_PROTRUSION_TABLE, &glyph.font);
+
+        // Note: Binary search is not currently worth it, but can be used if this
+        // grows larger.
+        instance
+            .iter()
+            .find(|(id, _)| id.0 == glyph.glyph_id)
+            .map(|(_, (l, _r))| l.unwrap_or_default())
+            .unwrap_or_else(Rel::zero)
+    }
+
+    let instance = instantiate_protrusion_table(&overhang.table, &glyph.font);
+
+    let protrusion = instance
+        .binary_search_by_key(&glyph.glyph_id, |(id, _)| id.0)
+        .ok()
+        .map(|idx| {
+            let (_, (l, r)) = instance[idx];
+            if is_right_margin { r } else { l }
+        })
+        .unwrap_or_else(|| {
+            let rel = match overhang.default {
+                BuiltInOverhang::Side { left, right } => {
+                    if (is_right_margin && right) || (!is_right_margin && left) {
+                        default_overhang(glyph)
+                    } else {
+                        Rel::zero()
+                    }
+                }
+                BuiltInOverhang::Direction { start } => {
+                    let is_line_start = dir.is_positive() != is_right_margin;
+                    if is_line_start == start {
+                        default_overhang(glyph)
+                    } else {
+                        Rel::zero()
+                    }
+                }
+            };
+
+            Smart::Custom(rel)
+        })
+        .unwrap_or_else(|| default_overhang(glyph));
+
+    protrusion
+        .map(|length| length.at(glyph.size))
+        .relative_to(glyph.x_advance.at(glyph.size))
+}
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);

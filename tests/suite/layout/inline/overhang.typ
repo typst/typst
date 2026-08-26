@@ -61,3 +61,93 @@
 #set align(end)
 #set text(dir: rtl)
 :
+
+--- overhang-start paged ---
+// Test hanging punctuation at the start of a line.
+#set page(width: 130pt, margin: 15pt)
+#set text(overhang: start)
+And then he said: #linebreak(justify: true)
+
+— Hello, world!
+
+#set text(lang: "he", font: ("PT Sans", "Noto Serif Hebrew"))
+— שלום, עולם!
+
+--- overhang-left paged ---
+// Test hanging punctuation at the left margin.
+#set page(width: 130pt, margin: 15pt)
+#set text(overhang: left)
+And then he said: #linebreak(justify: true)
+
+— Hello, world!
+
+#set text(lang: "he", font: ("PT Sans", "Noto Serif Hebrew"))
+— שלום, עולם!
+
+--- overhang-right paged ---
+// Test hanging punctuation at the right margin.
+#set page(width: 130pt, margin: 15pt)
+#set text(overhang: right)
+And then he said: #linebreak(justify: true)
+
+— Hello, world!
+
+#set text(lang: "he", font: ("PT Sans", "Noto Serif Hebrew"))
+— שלום, עולם!
+
+--- overhang-custom paged ---
+// Test custom overhang values.
+#set page(width: 130pt, margin: 15pt)
+#let protrusion-table = (
+  "”": (100%, 100%),
+  "“": (100%, 100%),
+  "A": (10%, 0%),
+)
+#set text(
+  size: 9pt,
+  overhang: (map: protrusion-table, default: right),
+)
+#set par(justify: true, linebreaks: "simple")
+“A well-proportioned overhang can make a paragraph look much more
+visually appealing,” #linebreak(justify: true)
+she said.
+
+--- overhang-ligatures paged ---
+// Test that named glyphs (ligatures) can be used in protrusion tables.
+#set page(width: 80pt, margin: 10pt)
+#set text(font: "Libertinus Serif", size: 9pt)
+#let protrusion-table = (
+   "/f_f_i": (100%, 100%),
+)
+#set text(
+  size: 9pt,
+  overhang: (map: protrusion-table, default: right),
+)
+#set par(justify: true)
+#block(stroke: 0.5pt + blue, width: 100%)[
+  ffi is a common ligature in many fonts.
+]
+
+--- issue-6582-chinese-punctuation-overhang paged ---
+#set page(height: auto, width: 16em, margin: 1em, background: {
+  block(stroke: (x: blue + 0.5pt), width: 14em, height: 100%)
+})
+
+#set text(
+  lang: "zh",
+  font: "Noto Serif CJK SC",
+  top-edge: "ascender",
+  bottom-edge: "descender",
+  overhang: (
+    map: ("。": (0%, 100%)),
+    default: right,
+  ),
+)
+#set par(justify: true)
+
+字体排印不是艺术；
+字体排印也不是科学。
+字体排印是一项工艺。
+这项工艺不是对那些规则一
+知半解地盲从，
+而是要凭借尝试和验证过的经验进行精密地运用。

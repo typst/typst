@@ -9,7 +9,7 @@ use typst_library::layout::{
 };
 use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
 use typst_library::pdf::PdfMarkerTag;
-use typst_library::text::TextElem;
+use typst_library::text::{Overhang, TextElem};
 use typst_syntax::Span;
 
 use crate::stack::{StackLayoutChild, layout_stack_internal};
@@ -135,7 +135,9 @@ pub fn layout_enum(
 
         // Disable overhang as a workaround to end-aligned dots glitching
         // and decreasing spacing between numbers and items.
-        let resolved = resolved.aligned(number_align).set(TextElem::overhang, false);
+        let resolved = resolved
+            .aligned(number_align)
+            .set(TextElem::overhang, Overhang::DISABLED);
 
         // Text in wide enums shall always turn into paragraphs.
         let mut body = item.body.clone();
