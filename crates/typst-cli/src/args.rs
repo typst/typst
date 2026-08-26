@@ -381,7 +381,10 @@ pub struct CompileArgs {
 
     /// Opens the output file with the default viewer or a specific program
     /// after compilation. Ignored if output is stdout.
-    #[arg(long = "open", value_name = "VIEWER")]
+    ///
+    /// When passing a specific program, the name must be attached with
+    /// an equals sign (`--open=VIEWER`).
+    #[arg(long = "open", value_name = "VIEWER", require_equals = true)]
     pub open: Option<Option<String>>,
 
     /// Produces performance timings of the compilation process. (experimental)
