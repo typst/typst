@@ -125,6 +125,7 @@ e7049ec75acd1021f3a5a16118c056cc columns-page-height-auto
 f3ae22943e444689727510c740b2eced columns-separator
 ceda1d3ba255a74791b7544365bb0029 columns-separator-content
 6e9ee9ce8964b613bd6a7dbdf0f85e95 columns-separator-fold
+f7c61657c10a2736598a8f00c1696887 columns-separator-rtl
 bf7f4942600dcc6433d5408aaf3ca161 columns-set-page
 01d89b8d54533316ad47b63527e40165 columns-set-page-colbreak-pagebreak
 c0d67e067c09c5e95a16563e8db1e797 coma

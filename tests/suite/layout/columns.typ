@@ -299,3 +299,10 @@ A #colbreak() B
 )
 #lorem(29)
 
+--- columns-separator-rtl paged ---
+#set page(columns: 2)
+#set columns(separator: 1pt, gutter: 20pt)
+#set text(dir: rtl)
+#rect(width: 100%)[1]
+#colbreak()
+#rect(width: 100%)[2]
