@@ -2,11 +2,15 @@
 //!
 //! Cooperates with `docs/components/reflect.typ`.
 
+use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
 use heck::ToTitleCase;
+use icu_collator::options::{CollatorOptions, Strength};
+use icu_collator::preferences::CollationType;
+use icu_collator::{Collator, CollatorPreferences};
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
@@ -209,6 +213,17 @@ pub fn unicode_name(c: Cluster) -> Option<EcoString> {
     MAP.get(&c.value).cloned().or_else(|| {
         Some(unicode_names2::name(c.primary())?.to_string().to_title_case().into())
     })
+}
+
+/// Returns `{true}` if two emoji are in order.
+#[func]
+pub fn emoji_ordering(left: EcoString, right: EcoString) -> bool {
+    let mut preferences = CollatorPreferences::default();
+    preferences.collation_type = Some(CollationType::Emoji);
+    let mut options = CollatorOptions::default();
+    options.strength = Some(Strength::Quaternary);
+    let collator = Collator::try_new(preferences, options).unwrap();
+    collator.compare(&left, &right) != Ordering::Greater
 }
 
 /// Returns the name of a character in LaTeX.

@@ -67,7 +67,7 @@ hayro-svg = { git = "https://github.com/LaurenzV/hayro", rev = "d8e24e29eda62581
 hayro-syntax = { git = "https://github.com/LaurenzV/hayro", rev = "d8e24e29eda62581e1ea15497effb2a884fb1608" }
 heck = "0.5"
 hypher = "0.1.4"
-icu_collator = { version = "2.2.0" }
+icu_collator = { version = "2.3.1" }
 icu_properties = { version = "2.2.0", features = ["serde"] }
 icu_provider = { version = "2.2.0", features = ["sync"] }
 icu_provider_blob = "2.2.0"
