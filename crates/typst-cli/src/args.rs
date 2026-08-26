@@ -133,7 +133,7 @@ pub struct WatchCommand {
 
     /// Do not clear the terminal on recompilation.
     #[arg(long)]
-    pub no_clear: bool,
+    pub no_fullscreen: bool,
 }
 
 /// Initializes a new project from a template.

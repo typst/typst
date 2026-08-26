@@ -99,7 +99,7 @@ impl Status {
 
         let mut out = terminal::out();
 
-        if config.clear_terminal {
+        if config.fullscreen {
             out.clear_screen()?;
         }
 
