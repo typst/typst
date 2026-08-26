@@ -101,32 +101,35 @@ impl Status {
 
         if config.fullscreen {
             out.clear_screen()?;
-        }
 
-        out.set_color(&color)?;
-        write!(out, "watching")?;
-        out.reset()?;
-        match &config.input {
-            Input::Stdin => writeln!(out, " <stdin>"),
-            Input::Path(path) => writeln!(out, " {}", path.display()),
-        }?;
-
-        out.set_color(&color)?;
-        write!(out, "writing to")?;
-        out.reset()?;
-        writeln!(out, " {}", config.output)?;
-
-        #[cfg(feature = "http-server")]
-        if let Some(server) = &config.server {
             out.set_color(&color)?;
-            write!(out, "serving at")?;
+            write!(out, "watching")?;
             out.reset()?;
-            writeln!(out, " http://{}", server.addr())?;
-        }
+            match &config.input {
+                Input::Stdin => writeln!(out, " <stdin>"),
+                Input::Path(path) => writeln!(out, " {}", path.display()),
+            }?;
 
-        writeln!(out)?;
-        writeln!(out, "[{timestamp}] {}", self.message())?;
-        writeln!(out)?;
+            out.set_color(&color)?;
+            write!(out, "writing to")?;
+            out.reset()?;
+            writeln!(out, " {}", config.output)?;
+
+            #[cfg(feature = "http-server")]
+            if let Some(server) = &config.server {
+                out.set_color(&color)?;
+                write!(out, "serving at")?;
+                out.reset()?;
+                writeln!(out, " http://{}", server.addr())?;
+            }
+
+            writeln!(out)?;
+            writeln!(out, "[{timestamp}] {}", self.message())?;
+            writeln!(out)?;
+        } else {
+            // Just print the status
+            writeln!(out, "[{timestamp}] {}", self.message())?;
+        }
 
         out.flush()
     }
