@@ -282,6 +282,12 @@ B
 #set columns(separator: red + 1pt)
 #lorem(30)
 
+--- columns-separator-fold paged ---
+#set page(columns: 2)
+#set columns(gutter: 20pt, separator: blue)
+#set columns(gutter: 20pt, separator: 4pt)
+A #colbreak() B
+
 --- columns-separator-content paged ---
 #set page(width: 200pt, height: 100pt, columns: 2)
 #set text(hyphenate: true)

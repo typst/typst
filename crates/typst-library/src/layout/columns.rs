@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::foundations::{Content, cast, elem};
+use crate::foundations::{Content, Fold, cast, elem};
 use crate::layout::{Length, Ratio, Rel};
 use crate::visualize::Stroke;
 
@@ -129,6 +129,7 @@ pub struct ColumnsElem {
     ///   ```
     /// )
     #[default]
+    #[fold]
     pub separator: Option<Separator>,
 
     /// The content that should be layouted into the columns.
@@ -172,6 +173,15 @@ pub struct ColbreakElem {
 pub enum Separator {
     Stroke(Stroke),
     Content(Content),
+}
+
+impl Fold for Separator {
+    fn fold(self, outer: Self) -> Self {
+        match (self, outer) {
+            (Self::Stroke(inner), Self::Stroke(outer)) => Self::Stroke(inner.fold(outer)),
+            (inner, _) => inner,
+        }
+    }
 }
 
 cast! {
