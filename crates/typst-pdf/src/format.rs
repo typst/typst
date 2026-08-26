@@ -673,6 +673,9 @@ pub struct AttachElem {
     pub relationship: Option<AttachedFileRelationship>,
 
     /// The MIME type of the attached file.
+    // TODO: Use `krilla::embed::MimeType`, or a wrapper around it here.
+    // The problem is that it's currently completely opaque and doesn't allow
+    // retrieving the inner string after construction.
     pub mime_type: Option<EcoString>,
 
     /// A description for the attached file.
