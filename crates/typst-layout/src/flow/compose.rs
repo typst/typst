@@ -154,40 +154,26 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 output.size_mut().y.set_max(frame.height());
             }
 
-            let width = frame.width();
-            let x = if self.config.columns.dir == Dir::LTR {
-                offset
-            } else {
-                regions.size.x - offset - width
-            };
-            offset += width + self.config.columns.gutter;
-
-            // During distribution, the baseline of the region is set to the
-            // baseline of the first frame - e.g., the first paragraph line.
-            // However, this does not propagate outwards unless we also update
-            // the baseline of the column that region is in.
-            if i == 0 && frame.has_baseline() {
-                output.set_baseline(frame.baseline());
-            }
-
-            // Column separators.
+            // Column separator between this and the previous column.
             if let Some(separator) = &self.config.columns.separator
                 && let Some(last_separator_height) = last_column_separator_height
                 && !column_separator_height.min(last_separator_height).is_zero()
             {
-                let mut xsep = x - 0.5 * self.config.columns.gutter;
-                if self.config.columns.dir == Dir::RTL {
-                    xsep += width + self.config.columns.gutter;
-                }
-                let ysep = column_separator_height.max(last_separator_height);
+                let mid = offset + 0.5 * self.config.columns.gutter;
+                let x = if self.config.columns.dir == Dir::LTR {
+                    mid
+                } else {
+                    regions.size.x - mid
+                };
+                let height = column_separator_height.max(last_separator_height);
                 match separator {
                     Separator::Stroke(stroke) => {
                         let stroke = stroke.clone().resolve(self.config.shared);
-                        let line = Geometry::Line(Point::with_y(ysep))
+                        let line = Geometry::Line(Point::with_y(height))
                             .stroked(stroke.unwrap_or_default());
                         output.prepend(
                             // Prepend so it's behind both adjacent columns.
-                            Point::with_x(xsep),
+                            Point::with_x(x),
                             FrameItem::Shape(line, Span::detached()),
                         );
                     }
@@ -200,19 +186,38 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                             Locator::root(),
                             self.config.shared,
                             Region::new(
-                                Size::new(self.config.columns.gutter, ysep),
+                                Size::new(self.config.columns.gutter, height),
                                 Axes::new(true, true),
                             ),
                         )?;
                         output.prepend_frame(
                             // Prepend so it's behind both adjacent columns.
-                            Point::with_x(xsep - 0.5 * frame.width()),
+                            Point::with_x(x - 0.5 * frame.width()),
                             frame,
                         );
                     }
                 }
             }
             last_column_separator_height = Some(column_separator_height);
+            if i > 0 {
+                offset += self.config.columns.gutter;
+            }
+
+            let width = frame.width();
+            let x = if self.config.columns.dir == Dir::LTR {
+                offset
+            } else {
+                regions.size.x - offset - width
+            };
+            offset += width;
+
+            // During distribution, the baseline of the region is set to the
+            // baseline of the first frame - e.g., the first paragraph line.
+            // However, this does not propagate outwards unless we also update
+            // the baseline of the column that region is in.
+            if i == 0 && frame.has_baseline() {
+                output.set_baseline(frame.baseline());
+            }
 
             output.push_frame(Point::with_x(x), frame);
             inner.next();
