@@ -77,3 +77,9 @@ Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 // of the next line, which can cause issues with links in PDF.
 #set text(lang: "cs", hyphenate: true)
 #block(width: 0.9cm)[#link("x")[test-]ing]
+
+--- link-tags-nesting-across-pars pdftags ---
+This #link("https://outer.org")[is a split
+#link("https://inner.org")[ multi paragraph link.
+
+Thanks for the] multi attention.] Okay!

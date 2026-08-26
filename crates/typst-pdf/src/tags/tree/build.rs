@@ -772,7 +772,7 @@ fn split_outer_group(
         }
 
         // Update progressions to jump into the inner entry instead.
-        let prev = tree.progressions[entry.prog_idx as usize];
+        let prev = entry.id;
         for prog in &mut tree.progressions[entry.prog_idx as usize..] {
             if *prog == prev {
                 *prog = nested;
