@@ -288,8 +288,8 @@ B
 #set par(justify: true)
 #set curve(stroke: blue)
 #set columns(
-    gutter: 20pt,
-    separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%)))
+  gutter: 20pt,
+  separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%)))
 )
 #lorem(29)
 

@@ -371,6 +371,7 @@ pub struct ColumnOptions {
     pub balanced: bool,
     /// The spacing between columns.
     pub gutter: Rel<Abs>,
+    /// The separator between columns.
     pub separator: Option<Separator>,
 }
 
