@@ -831,6 +831,8 @@ c783423dcbc67df08ddb0cec95b809c0 issue-6399-grid-cell-rowspan-set-rule
 eddda896523fdf36484e5c16fa9c2271 issue-6666-auto-hlines-around-footer
 eaaca053bc6feddd3f1b9b585d92246c issue-6666-auto-hlines-around-header
 061808148873e4f5c8cea3c5b40e05af issue-6680-gradient-linear-with-aspect-correction
+77a6fe5b06d7cffd9c2039b733e05c0a issue-6822-layout-expand
+603d7dd16a5926119146683428ff5233 issue-6822-layout-multiple
 f1003f00895ba8e491665370131ce322 issue-6869-image-zero-sized
 c1e125e744728bcf7eb4d563a4350ed3 issue-6961-tab-crlf-raw-indent
 3d2d1e25d75788136e8b71bcb22d1a8f issue-7103-wrong-state-calculation

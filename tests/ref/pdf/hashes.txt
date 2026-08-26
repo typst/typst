@@ -833,6 +833,8 @@ cb0c6862c965722f7e8a4af6ed94215e issue-6597-gradient-angle-negative-size
 ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 351cf002c18462543af122efcc408045 issue-6666-auto-hlines-around-header
 512672b1f092bfb971ccdf09c04a9f8e issue-6680-gradient-linear-with-aspect-correction
+3431cebc19e3975ce34516c342abda3c issue-6822-layout-expand
+71e8903c0a518bbf5dc76efd6f2b4839 issue-6822-layout-multiple
 0193206bf0e046bb87528d6a6df9d60a issue-6869-image-zero-sized
 235e60046edf64f088ea9a8483e9ffaa issue-6961-tab-crlf-raw-indent
 e6c3701e2842f398fcb0758a4f9533ab issue-7103-wrong-state-calculation
