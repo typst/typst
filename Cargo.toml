@@ -173,6 +173,7 @@ derived_hash_with_manual_eq = "allow"
 manual_is_multiple_of = "allow"
 manual_range_contains = "allow"
 mutable_key_type = "allow"
+single_range_in_vec_init = "allow"
 wildcard_in_or_patterns = "allow"
 
 as_pointer_underscore = "warn"
