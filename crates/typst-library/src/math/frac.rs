@@ -139,8 +139,8 @@ pub struct BinomElem {
     /// left and a right delimiter.
     ///
     /// ```example
-    /// #set math.vec(delim: "[")
-    /// $ vec(1, 2) $
+    /// #set math.binom(delim: "[")
+    /// $ binom(1, 2) $
     /// ```
     #[default(DelimiterPair::PAREN)]
     pub delim: DelimiterPair,
