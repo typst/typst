@@ -14,15 +14,14 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, Region, Regions, Rel, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
@@ -35,8 +34,7 @@ use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
     Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, collect,
 };
-use self::compose::{Composer, compose};
-use self::distribute::distribute;
+use self::compose::compose;
 
 /// Lays out content into a single region, producing a single frame.
 pub fn layout_frame(
@@ -429,27 +427,4 @@ struct LineNumberConfig {
     /// value is a percentage of the page width clamped between `0.75em` and
     /// `2.5em`.
     default_clearance: Abs,
-}
-
-/// The result type for flow layout.
-///
-/// The `Err(_)` variant incorporate control flow events for finishing and
-/// relayouting regions.
-type FlowResult<T> = Result<T, Stop>;
-
-/// A control flow event during flow layout.
-enum Stop {
-    /// Indicates that the current subregion should be finished. Can be caused
-    /// by a lack of space (`false`) or an explicit column break (`true`).
-    Finish(bool),
-    /// Indicates that the given scope should be relayouted.
-    Relayout(PlacementScope),
-    /// A fatal error.
-    Error(EcoVec<SourceDiagnostic>),
-}
-
-impl From<EcoVec<SourceDiagnostic>> for Stop {
-    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
-        Stop::Error(error)
-    }
 }
