@@ -11,6 +11,7 @@ use typst_kit::watcher::Watcher;
 
 use crate::args::{Input, Output, WatchCommand};
 use crate::compile::{CompileConfig, compile_once, print_diagnostics};
+use crate::terminal::TermOut;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
@@ -94,44 +95,57 @@ pub enum Status {
 impl Status {
     /// Clear the terminal and render the status message.
     pub fn print(&self, config: &CompileConfig) -> io::Result<()> {
-        let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
-        let color = self.color();
-
         let mut out = terminal::out();
 
         if config.fullscreen {
-            out.clear_screen()?;
-
-            out.set_color(&color)?;
-            write!(out, "watching")?;
-            out.reset()?;
-            match &config.input {
-                Input::Stdin => writeln!(out, " <stdin>"),
-                Input::Path(path) => writeln!(out, " {}", path.display()),
-            }?;
-
-            out.set_color(&color)?;
-            write!(out, "writing to")?;
-            out.reset()?;
-            writeln!(out, " {}", config.output)?;
-
-            #[cfg(feature = "http-server")]
-            if let Some(server) = &config.server {
-                out.set_color(&color)?;
-                write!(out, "serving at")?;
-                out.reset()?;
-                writeln!(out, " http://{}", server.addr())?;
-            }
-
-            writeln!(out)?;
-            writeln!(out, "[{timestamp}] {}", self.message())?;
-            writeln!(out)?;
+            self.print_fullscreen(&mut out, config)?;
         } else {
             // Just print the status
-            writeln!(out, "[{timestamp}] {}", self.message())?;
+            self.print_message(&mut out)?;
         }
 
         out.flush()
+    }
+
+    fn print_fullscreen(
+        &self,
+        out: &mut TermOut,
+        config: &CompileConfig,
+    ) -> io::Result<()> {
+        let color = self.color();
+        out.clear_screen()?;
+
+        out.set_color(&color)?;
+        write!(out, "watching")?;
+        out.reset()?;
+        match &config.input {
+            Input::Stdin => writeln!(out, " <stdin>"),
+            Input::Path(path) => writeln!(out, " {}", path.display()),
+        }?;
+
+        out.set_color(&color)?;
+        write!(out, "writing to")?;
+        out.reset()?;
+        writeln!(out, " {}", config.output)?;
+
+        #[cfg(feature = "http-server")]
+        if let Some(server) = &config.server {
+            out.set_color(&color)?;
+            write!(out, "serving at")?;
+            out.reset()?;
+            writeln!(out, " http://{}", server.addr())?;
+        }
+
+        writeln!(out)?;
+        self.print_message(out)?;
+        writeln!(out)?;
+
+        Ok(())
+    }
+
+    fn print_message(&self, out: &mut TermOut) -> io::Result<()> {
+        let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
+        writeln!(out, "[{timestamp}] {}", self.message())
     }
 
     fn message(&self) -> String {
