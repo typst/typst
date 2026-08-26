@@ -93,19 +93,26 @@ pub struct ColumnsElem {
     /// ```example
     /// #set page(columns: 2, height: 5cm)
     /// #set par(justify: true)
-    /// #set columns(separator: 1pt + orange)
+    /// #set columns(
+    ///   gutter: 2em,
+    ///   separator: 0.5pt,
+    /// )
     /// #lorem(35)
     /// ```
     ///
     /// #example(
-    ///   title: "Separator with extended line",
+    ///   title: "Separator with extended, dotted line",
     ///   ```
     ///   #set page(columns: 2, height: 5cm)
     ///   #set par(justify: true)
-    ///   #set columns(separator: line(
-    ///     angle: 90deg,
-    ///     length: 100% + 2*3pt,
-    ///   ))
+    ///   #set columns(
+    ///     gutter: 2em,
+    ///     separator: line(
+    ///       stroke: (dash: "dotted"),
+    ///       angle: 90deg,
+    ///       length: 100% + 2 * 4pt,
+    ///     ),
+    ///   )
     ///   #lorem(35)
     ///   ```
     /// )
@@ -116,7 +123,7 @@ pub struct ColumnsElem {
     ///   #set page(columns: 3, width: 15cm, height: 3cm)
     ///   #set par(justify: true)
     ///   #set columns(
-    ///     gutter: 25pt,
+    ///     gutter: 30pt,
     ///     separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%))
     ///   ))
     ///   #lorem(36)
