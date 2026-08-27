@@ -21,8 +21,8 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, Binding, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope,
+    Region, Regions, Rel, SideNoteArea, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
@@ -166,6 +166,7 @@ fn layout_fragment_impl(
         regions,
         column,
         kind.into(),
+        NonZeroUsize::ONE,
     )
 }
 
@@ -191,6 +192,7 @@ impl From<FragmentKind> for FlowMode {
 }
 
 /// Lays out realized content into regions, potentially with columns.
+#[expect(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
@@ -199,6 +201,7 @@ pub fn layout_flow<'a>(
     mut regions: Regions,
     column: ColumnOptions,
     mode: FlowMode,
+    start_page: NonZeroUsize,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
     let config = configuration(shared, regions, column, mode);
@@ -221,7 +224,9 @@ pub fn layout_flow<'a>(
 
     // This loop runs once per region produced by the flow layout.
     loop {
-        let frame = compose(engine, &mut work, &config, locator.next(&()), regions)?;
+        let number = NonZeroUsize::new(start_page.get() + finished.len()).unwrap();
+        let frame =
+            compose(engine, &mut work, &config, locator.next(&()), regions, number)?;
         finished.push(frame);
 
         // Terminate the loop when everything is processed, though draining the
@@ -271,6 +276,16 @@ fn configuration<'x>(
             gap: shared.resolve(FootnoteEntry::gap),
             expand: regions.expand.x,
         },
+        sidenote: SideNoteConfig {
+            area: shared.get(PageElem::side_width).map(|side| side.resolve(shared)),
+            gap: shared.resolve(PageElem::side_gap),
+            binding: shared.get(PageElem::binding).unwrap_or_else(|| {
+                match shared.resolve(TextElem::dir) {
+                    Dir::LTR => Binding::Left,
+                    _ => Binding::Right,
+                }
+            }),
+        },
         line_numbers: (mode == FlowMode::Root).then(|| LineNumberConfig {
             scope: shared.get(ParLine::numbering_scope),
             default_clearance: {
@@ -307,8 +322,11 @@ struct Work<'a, 'b> {
     floats: EcoVec<&'b PlacedChild<'a>>,
     /// Queued footnotes that didn't fit in previous regions.
     footnotes: EcoVec<Packed<FootnoteElem>>,
+    sidenotes: EcoVec<Packed<FootnoteElem>>,
     /// Spilled frames of a footnote that didn't fully fit. Similar to `spill`.
     footnote_spill: Option<std::vec::IntoIter<Frame>>,
+    /// Spilled frames of a sidenote that didn't fully fit. Similar to `spill`.
+    sidenote_spill: Option<(std::vec::IntoIter<Frame>, Location)>,
     /// Queued tags that will be attached to the next frame.
     tags: EcoVec<&'a Tag>,
     /// Identifies floats and footnotes that can be skipped if visited because
@@ -325,7 +343,9 @@ impl<'a, 'b> Work<'a, 'b> {
             spill: None,
             floats: EcoVec::new(),
             footnotes: EcoVec::new(),
+            sidenotes: EcoVec::new(),
             footnote_spill: None,
+            sidenote_spill: None,
             tags: EcoVec::new(),
             skips: Rc::new(FxHashSet::default()),
         }
@@ -347,7 +367,9 @@ impl<'a, 'b> Work<'a, 'b> {
             && self.spill.is_none()
             && self.floats.is_empty()
             && self.footnote_spill.is_none()
+            && self.sidenote_spill.is_none()
             && self.footnotes.is_empty()
+            && self.sidenotes.is_empty()
     }
 
     /// Add skipped floats and footnotes from the insertion areas to the skip
@@ -382,6 +404,8 @@ struct Config<'x> {
     columns: ColumnConfig,
     /// Settings for footnotes.
     footnote: FootnoteConfig,
+    /// Settings for side notes.
+    sidenote: SideNoteConfig,
     /// Settings for line numbers.
     line_numbers: Option<LineNumberConfig>,
 }
@@ -396,6 +420,16 @@ struct FootnoteConfig {
     gap: Abs,
     /// Whether horizontal expansion is enabled for footnotes.
     expand: bool,
+}
+
+/// Configuration of side notes.
+struct SideNoteConfig {
+    /// The side note area, unresolved for physical page parity.
+    area: SideNoteArea<Abs>,
+    /// The gap between the document body and the side note column.
+    gap: Abs,
+    /// The page binding for resolving inside and outside.
+    binding: Binding,
 }
 
 /// Configuration of columns.

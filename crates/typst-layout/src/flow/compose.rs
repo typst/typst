@@ -12,7 +12,8 @@ use typst_library::layout::{
     OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
+    FootnoteElem, FootnoteEntry, FootnoteOverflow, FootnotePlacement, LineNumberingScope,
+    Numbering, ParLineMarker, SideNoteSide,
 };
 use typst_library::pdf::ArtifactKind;
 use typst_syntax::Span;
@@ -21,6 +22,7 @@ use typst_utils::{NonZeroExt, Numeric};
 use super::{
     Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
 };
+use crate::flow::SideNoteConfig;
 
 /// Composes the contents of a single page/region. A region can have multiple
 /// columns/subregions.
@@ -38,7 +40,9 @@ pub fn compose(
     config: &Config,
     locator: Locator,
     regions: Regions,
+    number: NonZeroUsize,
 ) -> SourceResult<Frame> {
+    let sidenote_side = resolve_sidenote_side(config, number);
     Composer {
         engine,
         config,
@@ -47,9 +51,14 @@ pub fn compose(
         page_insertions: Insertions::default(),
         column_insertions: Insertions::default(),
         column_balancing_height: None,
+        sidenote_side,
         work,
         footnote_spill: None,
         footnote_queue: vec![],
+
+        // sidenotes mimics of the standard footnote machinery
+        sidenote_queue: vec![],
+        sidenote_spill: None,
     }
     .page(locator, regions)
 }
@@ -71,12 +80,17 @@ pub struct Composer<'a, 'b, 'x, 'y> {
     page_insertions: Insertions<'a, 'b>,
     column_insertions: Insertions<'a, 'b>,
     column_balancing_height: Option<Abs>,
+    sidenote_side: Option<(SideNoteSide, Abs)>,
     // These are here because they have to survive relayout (we could lose the
     // footnotes otherwise). For floats, we revisit them anyway, so it's okay to
     // use `work.floats` directly. This is not super clean; probably there's a
     // better way.
     footnote_spill: Option<std::vec::IntoIter<Frame>>,
     footnote_queue: Vec<Packed<FootnoteElem>>,
+
+    // sidenote mimics of the above footnote machinery
+    sidenote_queue: Vec<Packed<FootnoteElem>>,
+    sidenote_spill: Option<(std::vec::IntoIter<Frame>, Location)>,
 }
 
 impl<'a, 'b> Composer<'a, 'b, '_, '_> {
@@ -103,7 +117,13 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
         drop(checkpoint);
 
-        Ok(self.page_insertions.finalize(self.work, self.config, output, None))
+        Ok(self.page_insertions.finalize(
+            self.work,
+            self.config,
+            regions.base().y,
+            output,
+            None,
+        ))
     }
 
     /// Lay out the inner contents of a container/page.
@@ -196,6 +216,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             self.footnote_spill(spill, regions.base())?;
         }
 
+        // Process sidenote spill.
+        if let Some(spill) = self.work.sidenote_spill.take() {
+            self.sidenote_spill(spill.0, spill.1, &self.config.sidenote)?;
+        }
+
         // This loop can restart column layout when requested to do so by a
         // `Stop`. This happens when there is a column-scoped float.
         let checkpoint = self.work.clone();
@@ -224,15 +249,24 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         };
         drop(checkpoint);
 
+        // setting work that survives relayout
         self.work.footnotes.extend(self.footnote_queue.drain(..));
+        self.work.sidenotes.extend(self.sidenote_queue.drain(..));
+
+        // handling if there's some spill across pages
         if let Some(spill) = self.footnote_spill.take() {
             self.work.footnote_spill = Some(spill);
+        }
+
+        if let Some(spill) = self.sidenote_spill.take() {
+            self.work.sidenote_spill = Some(spill);
         }
 
         let insertions = std::mem::take(&mut self.column_insertions);
         let mut output = insertions.finalize(
             self.work,
             self.config,
+            regions.base().y,
             inner,
             self.column_balancing_height,
         );
@@ -268,6 +302,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
             self.footnote(note, &mut regions.clone(), Abs::zero(), false)?;
+        }
+
+        // Process pending sidenotes.
+        for note in std::mem::take(&mut self.work.sidenotes) {
+            self.sidenote(note, &mut regions.clone(), Abs::zero(), Abs::zero(), true)?;
         }
 
         // Process pending floats.
@@ -394,6 +433,20 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         breakable: bool,
         migratable: bool,
     ) -> FlowResult<()> {
+        self.footnotes_at(regions, frame, Abs::zero(), flow_need, breakable, migratable)
+    }
+
+    /// Like [`Self::footnotes`], but with a vertical offset for frames that are
+    /// placed out of the normal flow.
+    pub fn footnotes_at(
+        &mut self,
+        regions: &Regions,
+        frame: &Frame,
+        y_offset: Abs,
+        flow_need: Abs,
+        breakable: bool,
+        migratable: bool,
+    ) -> FlowResult<()> {
         // Footnotes are only supported at the root level.
         if self.config.mode != FlowMode::Root {
             return Ok(());
@@ -420,13 +473,25 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut migratable = migratable && !breakable;
 
         for (y, elem) in notes {
+            // The note's y position in the document from the top to it's
+            // position on the page.
+            let note_y = regions.base().y - regions.size.y + y_offset + y;
+
             // The amount of space used by the in-flow content that contains the
             // footnote marker. For a breakable frame, it's the y position of
             // the marker. For an unbreakable frame, it's the full height.
             let flow_need = if breakable { y } else { flow_need };
 
-            // Process the footnote.
-            match self.footnote(elem, &mut regions, flow_need, migratable) {
+            // Process the footnote (either as a standard footnote or as
+            // a sidenote).
+            let result =
+                if elem.placement.get(self.config.shared) == FootnotePlacement::Side {
+                    self.sidenote(elem, &mut regions, note_y, flow_need, migratable)
+                } else {
+                    self.footnote(elem, &mut regions, flow_need, migratable)
+                };
+
+            match result {
                 // The footnote was already processed or queued.
                 Ok(()) => {}
                 // First handle more footnotes before relayouting.
@@ -579,6 +644,307 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         Err(Stop::Relayout(PlacementScope::Column))
     }
 
+    /// Handles a single sidenote
+    fn sidenote(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &mut Regions,
+        y: Abs,
+        flow_need: Abs,
+        migratable: bool,
+    ) -> FlowResult<()> {
+        // Places the footnote according to it's overflow field
+        match elem.overflow.get(self.config.shared) {
+            FootnoteOverflow::Keep => self.keep_sidenote(elem, regions, y),
+            FootnoteOverflow::Spill => {
+                self.spillable_sidenote(elem, regions, y, flow_need, migratable)
+            }
+            FootnoteOverflow::Pack => {
+                self.sidenotes_top_to_bottom(elem, regions, flow_need, migratable)
+            }
+        }
+    }
+
+    /// For sidenotes with `overflow: "spill"`
+    fn spillable_sidenote(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &mut Regions,
+        y: Abs,
+        flow_need: Abs,
+        migratable: bool,
+    ) -> FlowResult<()> {
+        // Ignore reference footnotes and already processed ones.
+        let loc = elem.location().unwrap();
+        if elem.is_ref() || self.skipped(loc) {
+            return Ok(());
+        }
+
+        // If there is already a queued spill or sidenote, queue this one as
+        // well. We don't want to disrupt the order.
+        let area = &mut self.column_insertions;
+        if self.sidenote_spill.is_some() || !self.sidenote_queue.is_empty() {
+            self.sidenote_queue.push(elem);
+            return Ok(());
+        }
+
+        let gap = self.config.sidenote.gap;
+        let Some((side, width)) = self.sidenote_side else {
+            return Ok(());
+        };
+
+        // Prepare regions for the sidenote.
+        let mut pod = *regions;
+        pod.expand.x = true;
+        pod.expand.y = false;
+        pod.size.x = width;
+        pod.size.y = self.page_base.y - y;
+
+        // Layout the footnote entry.
+        let frames =
+            layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frames();
+
+        // let frame = layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frame();
+        // let y = y - frame.baseline();
+        // self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side);
+        // self.column_insertions.skips.push(loc);
+
+        // Find nested footnotes in the entry.
+        let nested = find_in_frames::<FootnoteElem>(&frames);
+
+        // Check if there are any non-empty frames.
+        let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
+
+        // Extract the first frame.
+        let mut iter = frames.into_iter();
+        let first = iter.next().unwrap();
+        let note_need = self.config.footnote.gap + first.height();
+
+        if first.is_empty() && exist_non_empty_frame {
+            if migratable && regions.may_progress() {
+                return Err(Stop::Finish(false));
+            } else if regions.may_progress() || !flow_need.is_zero() {
+                self.sidenote_queue.push(elem);
+                return Ok(());
+            }
+        }
+
+        let y = y - first.baseline();
+
+        // Save the sidenote's frame.
+        area.push_sidenote(&first, loc, y, width, gap, side);
+        area.skips.push(loc);
+        regions.size.y -= note_need;
+
+        // Save the spill.
+        if !iter.as_slice().is_empty() {
+            self.sidenote_spill = Some((iter, loc));
+        }
+
+        // Lay out nested footnotes.
+        for (_, note) in nested {
+            match self.sidenote(note, regions, y, flow_need, migratable) {
+                // This footnote was already processed or queued.
+                Ok(()) => {}
+                // Footnotes always request a relayout when processed for the
+                // first time, so we ignore a relayout request since we're
+                // about to do so afterwards. Without this check, the first
+                // inner footnote interrupts processing of the following ones.
+                Err(Stop::Relayout(_)) => {}
+                // Either of
+                // - A `Stop::Finish` indicating that the frame's origin element
+                //   should migrate to uphold the footnote invariant.
+                // - A fatal error.
+                err => return err,
+            }
+        }
+
+        // Since we laid out a footnote, we need a relayout.
+        Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// For sidenotes with `overflow: "pack"`, where the
+    /// sidenote is laid out from top to bottom, similiar
+    /// to how footnotes are laid out.
+    fn sidenotes_top_to_bottom(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &mut Regions,
+        flow_need: Abs,
+        migratable: bool,
+    ) -> FlowResult<()> {
+        // Ignore reference footnotes and already processed ones.
+        let loc = elem.location().unwrap();
+        if elem.is_ref() || self.skipped(loc) {
+            return Ok(());
+        }
+
+        // If there is already a queued spill or sidenote, queue this one as
+        // well. We don't want to disrupt the order.
+        let area = &mut self.column_insertions;
+        if self.sidenote_spill.is_some() || !self.sidenote_queue.is_empty() {
+            self.sidenote_queue.push(elem);
+            return Ok(());
+        }
+
+        let gap = self.config.sidenote.gap;
+        let Some((side, width)) = self.sidenote_side else {
+            return Ok(());
+        };
+
+        // height already used by previous sidenotes (Abs::zero if
+        // it's the first sidenote on the page)
+        let mut height_used = Abs::zero();
+        for note in &area.sidenotes {
+            height_used += note.frame.height() + self.config.footnote.gap;
+        }
+
+        // Prepare regions for the sidenote.
+        let mut pod = *regions;
+
+        pod.expand.x = true;
+        pod.expand.y = false;
+        pod.size.x = width;
+        pod.size.y = self.page_base.y - height_used;
+
+        // pod.size.y = flow_need + self.config.footnote.gap;
+        // pod.size.y -= regions.size.y;
+
+        // Layout the footnote entry.
+        let frames =
+            layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frames();
+
+        // let frame = layout_sidenotes(self.engine, self.config, &elem, pod)?.into_frame();
+        // let y = y - frame.baseline();
+        // self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side);
+        // self.column_insertions.skips.push(loc);
+
+        // Find nested footnotes in the entry.
+        let nested = find_in_frames::<FootnoteElem>(&frames);
+
+        // Check if there are any non-empty frames.
+        let exist_non_empty_frame = frames.iter().any(|f| !f.is_empty());
+
+        // Extract the first frame.
+        let mut iter = frames.into_iter();
+        let first = iter.next().unwrap();
+        // let note_need = self.config.footnote.gap + first.height();
+
+        if first.is_empty() && exist_non_empty_frame {
+            if migratable && regions.may_progress() {
+                return Err(Stop::Finish(false));
+            } else if regions.may_progress() || !flow_need.is_zero() {
+                self.sidenote_queue.push(elem);
+                return Ok(());
+            }
+        }
+
+        // Save the sidenote's frame.
+        area.push_sidenote(&first, loc, height_used, width, gap, side);
+        area.skips.push(loc);
+        // regions.size.y -= note_need;
+
+        // Save the spill.
+        if !iter.as_slice().is_empty() {
+            self.sidenote_spill = Some((iter, loc));
+        }
+
+        // Lay out nested footnotes.
+        for (_, note) in nested {
+            match self.sidenote(note, regions, height_used, flow_need, migratable) {
+                // This footnote was already processed or queued.
+                Ok(()) => {}
+                // Footnotes always request a relayout when processed for the
+                // first time, so we ignore a relayout request since we're
+                // about to do so afterwards. Without this check, the first
+                // inner footnote interrupts processing of the following ones.
+                Err(Stop::Relayout(_)) => {}
+                // Either of
+                // - A `Stop::Finish` indicating that the frame's origin element
+                //   should migrate to uphold the footnote invariant.
+                // - A fatal error.
+                err => return err,
+            }
+        }
+
+        // Since we laid out a footnote, we need a relayout.
+        Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// For sidenotes with `overflow: "keep"`
+    fn keep_sidenote(
+        &mut self,
+        elem: Packed<FootnoteElem>,
+        regions: &Regions,
+        y: Abs,
+    ) -> FlowResult<()> {
+        // Ignore reference footnotes and already processed ones.
+        let loc = elem.location().unwrap();
+        if elem.is_ref() || self.skipped(loc) {
+            return Ok(());
+        }
+
+        let Some((side, width)) = self.sidenote_side else {
+            return Ok(());
+        };
+        let gap = self.config.sidenote.gap;
+
+        let mut pod = *regions;
+        pod.expand.x = true;
+        pod.expand.y = false;
+        pod.size.x = width;
+        pod.size.y = regions.base().y;
+
+        let frame = layout_footnote(self.engine, self.config, &elem, pod)?.into_frame();
+        let y = y - frame.baseline();
+        self.column_insertions.push_sidenote(&frame, loc, y, width, gap, side);
+        self.column_insertions.skips.push(loc);
+
+        Err(Stop::Relayout(PlacementScope::Column))
+    }
+
+    /// Correct side note anchors after fractional spacing and alignment have
+    /// been resolved during distribution finalization.
+    pub fn reposition_sidenotes(&mut self, frame: &Frame, y_offset: Abs) {
+        let mut notes = vec![];
+        find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
+
+        for (y, elem) in notes {
+            if elem.placement.get(self.config.shared) != FootnotePlacement::Side {
+                continue;
+            }
+
+            let loc = elem.location().unwrap();
+            if let Some(note) = self
+                .column_insertions
+                .sidenotes
+                .iter_mut()
+                .find(|note| note.loc == loc)
+            {
+                note.y = y_offset + y - note.frame.baseline();
+            }
+        }
+    }
+
+    /// The amount by which a wide block should grow and shift.
+    pub fn wide_block_geometry(&self) -> Option<(SideNoteSide, Abs, Abs)> {
+        if self.config.mode != FlowMode::Root {
+            return None;
+        }
+
+        self.sidenote_side
+            .map(|(side, width)| (side, width, self.config.sidenote.gap))
+    }
+
+    /// Register a wide block as occupying the side note column.
+    pub fn push_sidenote_obstacle(&mut self, side: SideNoteSide, y: Abs, height: Abs) {
+        self.column_insertions.sidenote_obstacles.push(SideNoteObstacle {
+            side,
+            y,
+            height,
+        });
+    }
+
     /// Handles spillover from a footnote.
     fn footnote_spill(
         &mut self,
@@ -603,6 +969,47 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         Ok(())
     }
 
+    /// Handles spillover from a sidenote.
+    fn sidenote_spill(
+        &mut self,
+        mut iter: std::vec::IntoIter<Frame>,
+        loc: Location,
+        sidenote_config: &SideNoteConfig,
+    ) -> SourceResult<()> {
+        let area = &mut self.column_insertions;
+
+        // Save the sidenote's frame.
+        let frame = iter.next().unwrap();
+
+        // height already used by previous sidenotes (Abs::zero if
+        // it's the first sidenote on the page)
+        let mut height_used = Abs::zero();
+        for note in &area.sidenotes {
+            height_used += note.frame.height() + self.config.footnote.gap;
+        }
+
+        // println!("this is the height_used variable in sidenote_spill(): {}", height_used.to_pt());
+
+        if let Some((side, _)) = self.sidenote_side {
+            // Pushing the frame of the current spill to the sidenotes
+            area.push_sidenote(
+                &frame,
+                loc,
+                height_used,
+                frame.width(),
+                sidenote_config.gap,
+                side,
+            );
+        }
+
+        // Save the spill.
+        if !iter.as_slice().is_empty() {
+            self.sidenote_spill = Some((iter, loc));
+        }
+
+        Ok(())
+    }
+
     /// Checks whether an insertion was already processed and doesn't need to be
     /// handled again.
     fn skipped(&self, loc: Location) -> bool {
@@ -614,6 +1021,23 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// The amount of width needed by insertions.
     pub fn insertion_width(&self) -> Abs {
         self.column_insertions.width.max(self.page_insertions.width)
+    }
+}
+
+/// Resolve the side note side for a physical page within the current page run.
+fn resolve_sidenote_side(
+    config: &Config,
+    number: NonZeroUsize,
+) -> Option<(SideNoteSide, Abs)> {
+    let mut area = config.sidenote.area;
+    if area.two_sided && config.sidenote.binding.swap(number) {
+        std::mem::swap(&mut area.sides.left, &mut area.sides.right);
+    }
+
+    if let Some(width) = area.sides.left {
+        Some((SideNoteSide::Left, width))
+    } else {
+        area.sides.right.map(|width| (SideNoteSide::Right, width))
     }
 }
 
@@ -666,6 +1090,8 @@ struct Insertions<'a, 'b> {
     top_floats: Vec<(&'b PlacedChild<'a>, Frame)>,
     bottom_floats: Vec<(&'b PlacedChild<'a>, Frame)>,
     footnotes: Vec<Frame>,
+    sidenotes: Vec<SideNote>,
+    sidenote_obstacles: Vec<SideNoteObstacle>,
     footnote_separator: Option<Frame>,
     top_size: Abs,
     bottom_size: Abs,
@@ -710,6 +1136,20 @@ impl<'a, 'b> Insertions<'a, 'b> {
         self.footnote_separator = Some(frame);
     }
 
+    /// Add a side note to the side note column.
+    fn push_sidenote(
+        &mut self,
+        frame: &Frame,
+        loc: Location,
+        y: Abs,
+        width: Abs,
+        gap: Abs,
+        side: SideNoteSide,
+    ) {
+        self.sidenotes
+            .push(SideNote { frame: frame.clone(), loc, y, width, gap, side });
+    }
+
     /// The combined height of the top and bottom area (including clearances).
     /// Subtracting this from the total region size yields the available space
     /// for distribution.
@@ -726,9 +1166,10 @@ impl<'a, 'b> Insertions<'a, 'b> {
     /// Produce a frame for the full region based on the `inner` frame produced
     /// by distribution or column layout.
     fn finalize(
-        self,
+        mut self,
         work: &mut Work,
         config: &Config,
+        base_height: Abs,
         inner: Frame,
         column_height: Option<Abs>,
     ) -> Frame {
@@ -738,6 +1179,8 @@ impl<'a, 'b> Insertions<'a, 'b> {
             && self.bottom_floats.is_empty()
             && self.footnote_separator.is_none()
             && self.footnotes.is_empty()
+            && self.sidenotes.is_empty()
+            && self.sidenote_obstacles.is_empty()
         {
             return inner;
         }
@@ -799,9 +1242,143 @@ impl<'a, 'b> Insertions<'a, 'b> {
             output.push_frame(Point::with_y(y), frame);
         }
 
+        layout_sidenotes_overlap(
+            &mut self.sidenotes,
+            &self.sidenote_obstacles,
+            size.y.max(base_height),
+            config.footnote.gap,
+        );
+
+        for note in self.sidenotes {
+            let x = match note.side {
+                SideNoteSide::Left => -note.width - note.gap,
+                SideNoteSide::Right => size.x + note.gap,
+            };
+            output.push_frame(Point::new(x, note.y), note.frame);
+        }
+
         output
     }
 }
+
+/// A side note awaiting final placement.
+#[derive(Debug)]
+struct SideNote {
+    frame: Frame,
+    loc: Location,
+    y: Abs,
+    width: Abs,
+    gap: Abs,
+    side: SideNoteSide,
+}
+
+/// A region in the side note column occupied by wide flow content.
+#[derive(Debug, Copy, Clone)]
+struct SideNoteObstacle {
+    side: SideNoteSide,
+    y: Abs,
+    height: Abs,
+}
+
+/// Side note overlaps handling
+fn layout_sidenotes_overlap(
+    notes: &mut [SideNote],
+    obstacles: &[SideNoteObstacle],
+    bottom: Abs,
+    gap: Abs,
+) {
+    // We know that spill from a previous page will be Abs::zero() but
+    // we also know that a full sidenote from the previous page will have
+    // a negative y value, so we set it to Abs::zero so that it will appear
+    // after the spill in the correct order. (maybe a bit hacky)
+    notes.iter_mut().for_each(|note| {
+        if note.y.to_raw() < 0.0 {
+            note.y = Abs::zero();
+        }
+    });
+
+    notes.sort_by(|a, b| a.y.to_pt().total_cmp(&b.y.to_pt()));
+    let mut obstacles = obstacles.to_vec();
+    obstacles.sort_by(|a, b| a.y.to_pt().total_cmp(&b.y.to_pt()));
+
+    // set the lower limit of where the note
+    // can be placed
+    let mut limit = bottom;
+    for note in notes.iter_mut().rev() {
+        let max_y = (limit - note.frame.height()).max(Abs::zero());
+        // let max_y = note.frame.height().max(Abs::zero());
+        note.y.set_min(max_y);
+        avoid_obstacles_up(note, &obstacles, gap);
+        limit = note.y - gap;
+    }
+
+    // setting the maximum y position for the
+    // note to be the absolute zero
+    let mut next = Abs::zero();
+    for note in notes.iter_mut() {
+        note.y.set_max(next);
+        avoid_obstacles_down(note, &obstacles, gap);
+        next = note.y + note.frame.height() + gap;
+    }
+}
+
+/// Layout a sidenote (based on the footnote machinery)
+fn layout_sidenotes(
+    engine: &mut Engine,
+    config: &Config,
+    elem: &Packed<FootnoteElem>,
+    pod: Regions,
+) -> SourceResult<Fragment> {
+    let loc = elem.location().unwrap();
+    crate::layout_fragment(
+        engine,
+        &FootnoteEntry::new(elem.clone())
+            .pack()
+            .spanned(elem.span())
+            .located(loc.variant(1)),
+        Locator::synthesize(loc),
+        config.shared,
+        pod,
+    )
+    .map(|mut fragment| {
+        for frame in &mut fragment {
+            frame.set_parent(FrameParent::new(loc, Inherit::No));
+        }
+        fragment
+    })
+}
+
+fn avoid_obstacles_down(note: &mut SideNote, obstacles: &[SideNoteObstacle], gap: Abs) {
+    for obstacle in obstacles.iter().filter(|obstacle| obstacle.side == note.side) {
+        if overlaps_obstacle(note, *obstacle, gap) {
+            note.y = obstacle.y + obstacle.height + gap;
+        }
+    }
+}
+
+fn avoid_obstacles_up(note: &mut SideNote, obstacles: &[SideNoteObstacle], gap: Abs) {
+    for obstacle in obstacles.iter().filter(|obstacle| obstacle.side == note.side).rev() {
+        if overlaps_obstacle(note, *obstacle, gap) {
+            note.y = (obstacle.y - note.frame.height() - gap).max(Abs::zero());
+        }
+    }
+}
+
+fn overlaps_obstacle(note: &SideNote, obstacle: SideNoteObstacle, gap: Abs) -> bool {
+    let note_start = note.y;
+    let note_end = note.y + note.frame.height();
+    let obstacle_start = obstacle.y - gap;
+    let obstacle_end = obstacle.y + obstacle.height + gap;
+    note_start < obstacle_end && obstacle_start < note_end
+}
+
+// fn overlaps_sidenotes(note: &SideNote, next_note: &SideNote, gap: Abs) -> bool {
+//     let note_start = note.y;
+//     let note_end = note.y + note.frame.height();
+//     let next_note_start = next_note.y - gap;
+//     let next_note_end = next_note.y + next_note.frame.height() + gap;
+//     note_start < next_note_end && next_note_start < note_end
+// }
 
 /// Lay out the given collected lines' line numbers to an output frame.
 ///

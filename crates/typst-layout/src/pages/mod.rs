@@ -4,6 +4,8 @@ mod collect;
 mod finalize;
 mod run;
 
+use std::num::NonZeroUsize;
+
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
@@ -181,6 +183,9 @@ fn layout_pages<'a>(
     // Slice up the children into logical parts.
     let items = collect(children, locator, styles);
 
+    let mut pages = EcoVec::new();
+    let start_page = pages.len();
+
     // Layout the page runs in parallel.
     let mut runs = engine.parallelize(
         items.iter().filter_map(|item| match item {
@@ -190,11 +195,16 @@ fn layout_pages<'a>(
             _ => None,
         }),
         |engine, (children, initial, locator)| {
-            layout_page_run(engine, children, locator, *initial)
+            layout_page_run(
+                engine,
+                children,
+                locator,
+                *initial,
+                NonZeroUsize::new(start_page + 1).unwrap(),
+            )
         },
     );
 
-    let mut pages = EcoVec::new();
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
 
@@ -214,7 +224,9 @@ fn layout_pages<'a>(
                     continue;
                 }
 
-                let layouted = layout_blank_page(engine, locator.relayout(), *initial)?;
+                let start_page = NonZeroUsize::new(pages.len() + 1).unwrap();
+                let layouted =
+                    layout_blank_page(engine, locator.relayout(), *initial, start_page)?;
                 let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                 pages.push(page);
             }

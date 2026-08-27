@@ -7,8 +7,8 @@ use typst_utils::{NonZeroExt, singleton};
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
-    elem, scope,
+    Cast, Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles,
+    cast, elem, scope,
 };
 use crate::introspection::{
     Count, Counter, CounterUpdate, Location, QueryLabelIntrospection,
@@ -79,6 +79,16 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
+    /// Where to display the footnote entry.
+    ///
+    /// The default, `{bottom}`, displays the entry at the bottom of the page,
+    /// as usual. With `{side}`, entries are displayed in a side note column
+    /// next to the page body.
+    #[default(FootnotePlacement::Bottom)]
+    pub placement: FootnotePlacement,
+
+    #[default(FootnoteOverflow::Keep)]
+    pub overflow: FootnoteOverflow,
     /// The content to put into the footnote. Can also be the label of another
     /// footnote this one should point to.
     #[required]
@@ -193,6 +203,36 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Label => Self::Reference(v),
+}
+
+/// Where a footnote entry is displayed.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FootnotePlacement {
+    /// Display the entry at the bottom of the page.
+    #[default]
+    Bottom,
+    /// Display the entry in the side note column.
+    Side,
+}
+
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum FootnoteOverflow {
+    /// Keep a sidenote entry on the same page as it's marker.
+    #[default]
+    Keep,
+    /// Allow the entry to spill onto the next page.
+    Spill,
+    Pack,
+}
+
+/// The side on which side notes are displayed.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum SideNoteSide {
+    /// Display side notes on the left.
+    Left,
+    /// Display side notes on the right.
+    #[default]
+    Right,
 }
 
 /// An entry in a footnote list.
