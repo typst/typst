@@ -22,7 +22,7 @@ use typst_library::introspection::{
 };
 use typst_library::layout::{
     Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Separator, Size,
+    Regions, Rel, Size,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
@@ -372,7 +372,7 @@ pub struct ColumnOptions {
     /// The spacing between columns.
     pub gutter: Rel<Abs>,
     /// The separator between columns.
-    pub separator: Option<Separator>,
+    pub separator: Option<Content>,
 }
 
 /// Shared configuration for the whole flow.
@@ -417,7 +417,7 @@ struct ColumnConfig {
     /// Whether to equalize the height of columns by breaking columns early.
     balanced: bool,
     /// The separator between columns.
-    separator: Option<Separator>,
+    separator: Option<Content>,
 }
 
 /// Configuration of line numbers.

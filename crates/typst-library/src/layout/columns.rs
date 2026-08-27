@@ -1,8 +1,7 @@
 use std::num::NonZeroUsize;
 
-use crate::foundations::{Content, Fold, cast, elem};
+use crate::foundations::{Content, elem};
 use crate::layout::{Length, Ratio, Rel};
-use crate::visualize::Stroke;
 
 /// Separates a region into multiple equally sized columns.
 ///
@@ -86,8 +85,7 @@ pub struct ColumnsElem {
     #[default(false)]
     pub balanced: bool,
 
-    /// The stroke of the separator line or the content to place between each
-    /// non-empty column.
+    /// The separator to place between each pair of non-empty columns.
     ///
     /// By default, the content is centered and lines use a length of `100%`
     /// and an angle of `90deg` unless specified otherwise.
@@ -97,7 +95,7 @@ pub struct ColumnsElem {
     /// #set par(justify: true)
     /// #set columns(
     ///   gutter: 2em,
-    ///   separator: 0.5pt,
+    ///   separator: line(),
     /// )
     /// #lorem(35)
     /// ```
@@ -131,8 +129,7 @@ pub struct ColumnsElem {
     ///   ```
     /// )
     #[default]
-    #[fold]
-    pub separator: Option<Separator>,
+    pub separator: Option<Content>,
 
     /// The content that should be layouted into the columns.
     #[required]
@@ -168,30 +165,4 @@ pub struct ColbreakElem {
     /// already empty.
     #[default(false)]
     pub weak: bool,
-}
-
-/// Separator as a stroked line or content
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum Separator {
-    Stroke(Stroke),
-    Content(Content),
-}
-
-impl Fold for Separator {
-    fn fold(self, outer: Self) -> Self {
-        match (self, outer) {
-            (Self::Stroke(inner), Self::Stroke(outer)) => Self::Stroke(inner.fold(outer)),
-            (inner, _) => inner,
-        }
-    }
-}
-
-cast! {
-    Separator,
-    self => match self {
-        Self::Stroke(v) => v.into_value(),
-        Self::Content(v) => v.into_value(),
-    },
-    v: Stroke => Self::Stroke(v),
-    v: Content => Self::Content(v),
 }

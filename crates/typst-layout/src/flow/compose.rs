@@ -10,13 +10,13 @@ use typst_library::introspection::{
 use typst_library::layout::{
     Abs, Angle, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent,
     HAlignment, Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel,
-    Separator, Size, VAlignment,
+    Size, VAlignment,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_library::pdf::ArtifactKind;
-use typst_library::visualize::{Geometry, LineElem};
+use typst_library::visualize::LineElem;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -166,39 +166,26 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     regions.size.x - mid
                 };
                 let height = column_separator_height.max(last_separator_height);
-                match separator {
-                    Separator::Stroke(stroke) => {
-                        let stroke = stroke.clone().resolve(self.config.shared);
-                        let line = Geometry::Line(Point::with_y(height))
-                            .stroked(stroke.unwrap_or_default());
-                        output.prepend(
-                            // Prepend so it's behind both adjacent columns.
-                            Point::with_x(x),
-                            FrameItem::Shape(line, Span::detached()),
-                        );
-                    }
-                    Separator::Content(content) => {
-                        let frame = crate::layout_frame(
-                            self.engine,
-                            &content
-                                .clone()
-                                .set(LineElem::length, Rel::one())
-                                .set(LineElem::angle, Angle::deg(90.0))
-                                .aligned(HAlignment::Center + VAlignment::Horizon),
-                            Locator::root(),
-                            self.config.shared,
-                            Region::new(
-                                Size::new(self.config.columns.gutter, height),
-                                Axes::new(true, true),
-                            ),
-                        )?;
-                        output.prepend_frame(
-                            // Prepend so it's behind both adjacent columns.
-                            Point::with_x(x - 0.5 * frame.width()),
-                            frame,
-                        );
-                    }
-                }
+
+                let frame = crate::layout_frame(
+                    self.engine,
+                    &separator
+                        .clone()
+                        .set(LineElem::length, Rel::one())
+                        .set(LineElem::angle, Angle::deg(90.0))
+                        .aligned(HAlignment::Center + VAlignment::Horizon),
+                    Locator::root(),
+                    self.config.shared,
+                    Region::new(
+                        Size::new(self.config.columns.gutter, height),
+                        Axes::new(true, true),
+                    ),
+                )?;
+                output.prepend_frame(
+                    // Prepend so it's behind both adjacent columns.
+                    Point::with_x(x - 0.5 * frame.width()),
+                    frame,
+                );
             }
             last_column_separator_height = Some(column_separator_height);
             if i > 0 {
