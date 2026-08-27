@@ -11,6 +11,7 @@ use typst_kit::watcher::Watcher;
 
 use crate::args::{Input, Output, WatchCommand};
 use crate::compile::{CompileConfig, compile_once, print_diagnostics};
+use crate::terminal::TermOut;
 use crate::world::{SystemWorld, WorldCreationError};
 use crate::{print_error, terminal};
 
@@ -94,10 +95,26 @@ pub enum Status {
 impl Status {
     /// Clear the terminal and render the status message.
     pub fn print(&self, config: &CompileConfig) -> io::Result<()> {
-        let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
-        let color = self.color();
-
         let mut out = terminal::out();
+
+        if config.fullscreen {
+            self.print_fullscreen(&mut out, config)?;
+        } else {
+            self.print_message(&mut out)?;
+            if !matches!(self, Status::Compiling) {
+                writeln!(out)?;
+            }
+        }
+
+        out.flush()
+    }
+
+    fn print_fullscreen(
+        &self,
+        out: &mut TermOut,
+        config: &CompileConfig,
+    ) -> io::Result<()> {
+        let color = self.color();
         out.clear_screen()?;
 
         out.set_color(&color)?;
@@ -122,10 +139,15 @@ impl Status {
         }
 
         writeln!(out)?;
-        writeln!(out, "[{timestamp}] {}", self.message())?;
+        self.print_message(out)?;
         writeln!(out)?;
 
-        out.flush()
+        Ok(())
+    }
+
+    fn print_message(&self, out: &mut TermOut) -> io::Result<()> {
+        let timestamp = chrono::offset::Local::now().format("%H:%M:%S");
+        writeln!(out, "[{timestamp}] {}", self.message())
     }
 
     fn message(&self) -> String {
