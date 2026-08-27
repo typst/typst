@@ -89,6 +89,9 @@ pub struct ColumnsElem {
     /// The stroke of the separator line or the content to place between each
     /// non-empty column.
     ///
+    /// By default, the content is centered and lines use a length of `100%`
+    /// and an angle of `90deg` unless specified otherwise.
+    ///
     /// ```example
     /// #set page(columns: 2, height: 5cm)
     /// #set par(justify: true)
@@ -108,7 +111,6 @@ pub struct ColumnsElem {
     ///     gutter: 2em,
     ///     separator: line(
     ///       stroke: (dash: "dotted"),
-    ///       angle: 90deg,
     ///       length: 100% + 2 * 4pt,
     ///     ),
     ///   )

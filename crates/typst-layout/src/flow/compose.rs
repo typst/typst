@@ -8,15 +8,15 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, HAlignment,
-    Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Separator,
-    Size, VAlignment,
+    Abs, Angle, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent,
+    HAlignment, Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel,
+    Separator, Size, VAlignment,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_library::pdf::ArtifactKind;
-use typst_library::visualize::Geometry;
+use typst_library::visualize::{Geometry, LineElem};
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -182,6 +182,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                             self.engine,
                             &content
                                 .clone()
+                                .set(LineElem::length, Rel::one())
+                                .set(LineElem::angle, Angle::deg(90.0))
                                 .aligned(HAlignment::Center + VAlignment::Horizon),
                             Locator::root(),
                             self.config.shared,
