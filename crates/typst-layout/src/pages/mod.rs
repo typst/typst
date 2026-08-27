@@ -184,6 +184,27 @@ fn layout_pages<'a>(
     let items = collect(children, locator, styles);
 
     let mut pages = EcoVec::new();
+    let start_page = pages.len();
+
+    // Layout the page runs in parallel.
+    let mut runs = engine.parallelize(
+        items.iter().filter_map(|item| match item {
+            Item::Run(children, initial, locator) => {
+                Some((children, initial, locator.relayout()))
+            }
+            _ => None,
+        }),
+        |engine, (children, initial, locator)| {
+            layout_page_run(
+                engine,
+                children,
+                locator,
+                *initial,
+                NonZeroUsize::new(start_page + 1).unwrap(),
+            )
+        },
+    );
+
     let mut tags = vec![];
     let mut counter = ManualPageCounter::new();
 
@@ -191,15 +212,8 @@ fn layout_pages<'a>(
     // between pages.
     for item in &items {
         match item {
-            Item::Run(children, initial, locator) => {
-                let start_page = NonZeroUsize::new(pages.len() + 1).unwrap();
-                let layouted = layout_page_run(
-                    engine,
-                    children,
-                    locator.relayout(),
-                    *initial,
-                    start_page,
-                )?;
+            Item::Run(..) => {
+                let layouted = runs.next().unwrap()?;
                 for layouted in layouted {
                     let page = finalize(engine, &mut counter, &mut tags, layouted)?;
                     pages.push(page);
