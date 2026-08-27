@@ -8,7 +8,7 @@
 //! disabling `default-features` each individual format can be enabled by a
 //! separate feature flag.
 //!
-//! Each [`Format`] has an associated [`FormatElement`] with a [`FormatOption`]
+//! Each [`Format`] has an associated [`FormatElement`] with a [`FormatOptions`]
 //! type. The format element will be defined on the `std.format` binding, making
 //! it available to set rules.
 //!
@@ -75,8 +75,6 @@
 //!
 //! [`Library::formats`]: crate::Library::formats
 //! [`LibraryBuilder::with_formats()`]: crate::LibraryBuilder::with_formats()
-//! [`LibraryExt::default()`]: crate::LibraryExt::default()
-//! [`LibraryExt::builder()`]: crate::LibraryExt::builder()
 //! [`Document::options()`]: crate::model::Document::options()
 //! [`DocumentInfo`]: crate::model::DocumentInfo
 //! [`RealizationKind::Document`]: crate::routines::RealizationKind::Document
@@ -167,7 +165,7 @@ pub trait FormatElement: NativeElement {
 
 /// A type that can be populated from a [`StyleChain`].
 ///
-/// This is used inside [`FormatOption`].
+/// This is used inside [`FormatOptions`].
 pub trait Populate: Debug + Any + Send + Sync + 'static {
     /// Populate this type with details from the given local styles.
     fn populate(&mut self, styles: Spanned<StyleChain>);
