@@ -100,8 +100,10 @@ impl Status {
         if config.fullscreen {
             self.print_fullscreen(&mut out, config)?;
         } else {
-            // Just print the status
             self.print_message(&mut out)?;
+            if !matches!(self, Status::Compiling) {
+                writeln!(out)?;
+            }
         }
 
         out.flush()
