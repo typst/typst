@@ -126,14 +126,17 @@ pub struct WatchCommand {
     #[clap(flatten)]
     pub args: CompileArgs,
 
+    /// Stops the watcher from taking over the terminal.
+    ///
+    /// With this flag, the watcher will only ever print normal output lines,
+    /// not clear or reconfigure the terminal.
+    #[arg(long)]
+    pub no_fullscreen: bool,
+
     /// Arguments for the HTTP server.
     #[cfg(feature = "http-server")]
     #[clap(flatten)]
     pub server: ServerArgs,
-
-    /// Do not clear the terminal on recompilation.
-    #[arg(long)]
-    pub no_fullscreen: bool,
 }
 
 /// Initializes a new project from a template.
