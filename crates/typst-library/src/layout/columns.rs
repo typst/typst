@@ -87,8 +87,8 @@ pub struct ColumnsElem {
 
     /// The separator to place between each pair of non-empty columns.
     ///
-    /// By default, the content is centered and lines use a length of `100%`
-    /// and an angle of `90deg` unless specified otherwise.
+    /// By default, the content is centered and @line[lines] use a length of
+    /// `{100%}` and an angle of `{90deg}` unless specified otherwise.
     ///
     /// ```example
     /// #set page(columns: 2, height: 5cm)

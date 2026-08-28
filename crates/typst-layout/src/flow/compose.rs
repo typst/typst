@@ -8,15 +8,13 @@ use typst_library::introspection::{
     SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, Angle, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent,
-    HAlignment, Inherit, OuterHAlignment, PlacementScope, Point, Region, Regions, Rel,
-    Size, VAlignment,
+    Abs, Axes, Dir, FixedAlignment, Fragment, Frame, FrameItem, FrameParent, Inherit,
+    OuterHAlignment, PlacementScope, Point, Region, Regions, Rel, Size,
 };
 use typst_library::model::{
     FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
 };
 use typst_library::pdf::ArtifactKind;
-use typst_library::visualize::LineElem;
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
@@ -166,20 +164,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     regions.size.x - mid
                 };
                 let height = column_separator_height.max(last_separator_height);
-
-                let frame = crate::layout_frame(
+                let frame = layout_column_separator(
                     self.engine,
-                    &separator
-                        .clone()
-                        .set(LineElem::length, Rel::one())
-                        .set(LineElem::angle, Angle::deg(90.0))
-                        .aligned(HAlignment::Center + VAlignment::Horizon),
-                    Locator::root(),
-                    self.config.shared,
-                    Region::new(
-                        Size::new(self.config.columns.gutter, height),
-                        Axes::new(true, true),
-                    ),
+                    separator,
+                    self.config,
+                    Size::new(self.config.columns.gutter, height),
                 )?;
                 output.prepend_frame(
                     // Prepend so it's behind both adjacent columns.
@@ -713,6 +702,22 @@ fn layout_footnote(
         }
         fragment
     })
+}
+
+/// Lay out the column separator, typically a line.
+fn layout_column_separator(
+    engine: &mut Engine,
+    separator: &Content,
+    config: &Config,
+    base: Size,
+) -> SourceResult<Frame> {
+    crate::layout_frame(
+        engine,
+        separator,
+        Locator::root(),
+        config.shared,
+        Region::new(base, Axes::splat(true)),
+    )
 }
 
 /// An additive list of insertions.

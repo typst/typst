@@ -21,13 +21,14 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, Angle, ColumnsElem, Dir, Em, Fragment, Frame, HAlignment, PageElem,
+    PlacementScope, Region, Regions, Rel, Size, VAlignment,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
+use typst_library::visualize::LineElem;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
@@ -263,7 +264,12 @@ fn configuration<'x>(
                 gutter,
                 dir,
                 balanced: column.balanced,
-                separator: column.separator,
+                separator: column.separator.map(|separator| {
+                    separator
+                        .set(LineElem::length, Rel::one())
+                        .set(LineElem::angle, Angle::deg(90.0))
+                        .aligned(HAlignment::Center + VAlignment::Horizon)
+                }),
             }
         },
         footnote: FootnoteConfig {
