@@ -271,14 +271,8 @@ pub fn collect<'a>(
                     if let Some(link_marker) = content.to_packed::<LinkMarker>() {
                         let link = link_marker.dest.clone();
                         let location = elem.tag.location();
-                        // if let Some((link, _)) = styles.get_cloned(LinkElem::current) {
-                        println!("Hi {link:?}");
                         collector.push_event(Event::StartLink(link.clone()));
                         active_links.push((link, location));
-                        // } else {
-                        // What to do if setting link to none? for now, ignore
-                        //    println!("Hi NONE...")
-                        // }
 
                         if let Some((_, loc)) = shared_link
                             && loc == &location
@@ -293,20 +287,14 @@ pub fn collect<'a>(
                     if let Some((link, _)) =
                         active_links.pop_if(|(_, loc)| loc == location)
                     {
-                        println!("Bye {link:?}");
                         collector.push_event(Event::EndLink(link));
                     // Experimentally, the link style is already reverted at the
                     // end tag, so we check the previous link style.
                     } else if let Some((link, loc)) = prev_link
                         && loc == location
                     {
-                        println!(
-                            "Found a link that started before (dest = {link:?}, loc = {location:?})"
-                        );
                         initial_events.push(Event::StartLink(link.clone()));
                         collector.push_event(Event::EndLink(link.clone()));
-                    } else {
-                        println!("(not a link link: loc = {location:?})")
                     }
 
                     collector.push_item(Item::Tag(&elem.tag));
