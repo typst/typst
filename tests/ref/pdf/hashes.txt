@@ -190,6 +190,7 @@ feaf5cfecd24a646192fef2d8b74da2a divider-show-centered
 ca74d2408bf60f1dd4d1d88eac4880f0 divider-show-decorative
 bf1164faa7b923623e76b745b723bcf4 divider-show-set-line
 aa89977fd34eef880b01b239ef47b17d document-set-after-content
+9bc028384032af3003c260caa55efed8 document-set-full-metadata
 e4af5a6e1917bab77d679d0ed1134986 document-set-title
 dd9b5fe57e921c62917743d9272d68ac ellipse
 25efdbbd0077acd6ef2d011cb1bb64cb ellipse-auto-sizing

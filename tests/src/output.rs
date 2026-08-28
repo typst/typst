@@ -15,6 +15,7 @@ use typst::diag::{At, SourceResult, StrResult, bail};
 use typst::foundations::{Content, SequenceElem, Smart};
 use typst::layout::{Abs, Frame, FrameItem, Transform};
 use typst::model::ParbreakElem;
+use typst::model::{Document, DocumentInfo};
 use typst::text::SpaceElem;
 use typst::visualize::Color;
 use typst_bundle::{BundleOptions, VirtualFs};
@@ -203,7 +204,7 @@ impl OutputType for Render {
             slot = render(doc, scale);
             pixmap_live = &slot;
         }
-        pixmap_live.encode_png().unwrap()
+        typst_render::encode_png(pixmap_live, doc.info()).unwrap()
     }
 
     fn make_hash(live: &Self::Live) -> HashedRef {
@@ -222,7 +223,7 @@ impl OutputType for Render {
 impl FileOutputType for Render {
     fn save_ref(live: &Self::Live) -> impl AsRef<[u8]> {
         let opts = oxipng::Options::max_compression();
-        let data = live.encode_png().unwrap();
+        let data = typst_render::encode_png(live, &DocumentInfo::default()).unwrap();
         oxipng::optimize_from_memory(&data, &opts).unwrap()
     }
 

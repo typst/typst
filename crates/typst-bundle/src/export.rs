@@ -8,7 +8,7 @@ use typst_layout::PagedDocument;
 use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
 use typst_library::foundations::Bytes;
 use typst_library::introspection::Location;
-use typst_library::model::{LateLinkResolver, PagedFormat};
+use typst_library::model::{Document, LateLinkResolver, PagedFormat};
 use typst_pdf::PdfOptions;
 use typst_render::RenderOptions;
 use typst_svg::SvgOptions;
@@ -90,8 +90,8 @@ fn export_pdf(
 #[comemo::memoize]
 #[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, options: &RenderOptions) -> SourceResult<Bytes> {
-    typst_render::render(&doc.pages()[0], options)
-        .encode_png()
+    let pixmap = typst_render::render(&doc.pages()[0], options);
+    typst_render::encode_png(&pixmap, doc.info())
         .map(Bytes::new)
         .map_err(|_| "failed to encode PNG")
         .at(Span::detached())

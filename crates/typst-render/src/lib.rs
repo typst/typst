@@ -7,9 +7,12 @@ mod text;
 
 use tiny_skia as sk;
 use typst_layout::{Page, PagedDocument};
+use typst_library::foundations::Smart;
 use typst_library::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Sides, Size, Transform,
 };
+use typst_library::model::DocumentInfo;
+use typst_library::text::Locale;
 use typst_library::visualize::{Color, Geometry, Paint};
 use typst_utils::Scalar;
 
@@ -83,6 +86,70 @@ pub fn render_merged(
     }
 
     canvas
+}
+
+/// Encode a pixmap as a PNG, embedding document metadata as PNG-3 `iTXt` chunks.
+pub fn encode_png(
+    pixmap: &sk::Pixmap,
+    info: &DocumentInfo,
+) -> Result<Vec<u8>, png::EncodingError> {
+    let mut buf = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut buf, pixmap.width(), pixmap.height());
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+
+        let mut writer = encoder.write_header()?;
+        for chunk in png_text_chunks(info) {
+            writer.write_text_chunk(&chunk)?;
+        }
+        writer.write_image_data(pixmap.data())?;
+    }
+    Ok(buf)
+}
+
+/// Build PNG `iTXt` chunks from document metadata.
+///
+/// See <https://www.w3.org/TR/png-3/#11textinfo>.
+fn png_text_chunks(info: &DocumentInfo) -> Vec<png::text_metadata::ITXtChunk> {
+    let date = match &info.date {
+        Smart::Custom(Some(date)) => date.display(Smart::Auto).ok(),
+        _ => None,
+    };
+
+    if info.title.is_none()
+        && info.description.is_none()
+        && info.author.is_empty()
+        && date.is_none()
+    {
+        return Vec::new();
+    }
+
+    let language = info.locale.custom().map(Locale::rfc_3066);
+    let chunk = |keyword: &str, text: &str| {
+        let mut chunk = png::text_metadata::ITXtChunk::new(keyword, text);
+        if let Some(language) = &language {
+            chunk.language_tag = language.to_string();
+        }
+        chunk
+    };
+
+    let mut chunks = Vec::new();
+    if let Some(title) = &info.title {
+        chunks.push(chunk("Title", title));
+    }
+    for author in &info.author {
+        chunks.push(chunk("Author", author));
+    }
+    if let Some(description) = &info.description {
+        chunks.push(chunk("Description", description));
+    }
+    if let Some(date) = &date {
+        chunks.push(chunk("Creation Time", date));
+    }
+    // Always pair other metadata with Software, analogous to SVG's `dc:format`.
+    chunks.push(chunk("Software", "Typst"));
+    chunks
 }
 
 /// Settings for raster image export.

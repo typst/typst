@@ -37,6 +37,7 @@ hayro-syntax = { workspace = true }
 indexmap = { workspace = true }
 open = { workspace = true }
 oxipng = { workspace = true }
+png = { workspace = true }
 parking_lot = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
