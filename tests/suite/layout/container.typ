@@ -200,6 +200,68 @@ E
 #block[F]
 #block[G]
 
+--- block-sticky-grid-many paged ---
+// Test that sticky blocks are not moved when moving can't improve things.
+#set page(height: 45pt, width: 4cm, margin: 10pt)
+#grid(columns: 1)[
+  #set block(spacing: 0pt)
+  #set block(height: 10pt, width: 100%)
+  #set block(sticky: true, breakable: false)
+  #block(fill: aqua)
+  #block(fill: green)
+  #block(fill: blue)
+  #block(fill: red)
+]
+
+--- block-sticky-contextual-migration paged ---
+// Test that decisions on whether to migrate a sticky block use the correct
+// context.
+#set page(height: 30pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+
+#block(height: 10pt, fill: red)
+#context block(
+  sticky: true,
+  fill: green,
+  height: if counter(page).get().first() == 1 { 20pt } else { 10pt },
+)
+#block(height: 15pt, fill: blue)
+
+--- block-sticky-float-footnote-migration paged ---
+// Test that a floating block containing a footnote, following a sticky block,
+// doesn't move to the next region needlessly.
+#set page(height: 30pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+#set text(size: 5pt)
+
+#block(height: 1pt, fill: red)
+#block(height: 29pt, fill: green, sticky: true)
+#place(
+  top,
+  float: true,
+  clearance: 0pt,
+  block(height: 0pt)[X#footnote[N]],
+)
+#block(height: 1pt, fill: blue)
+
+--- block-sticky-fr-footnote-migration paged ---
+// Test that a fractional height block containing a footnote, following a sticky
+// block, doesn't move to the next region needlessly.
+#set page(height: 30pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+#set text(size: 5pt)
+
+#block(height: 1pt, fill: red)
+#block(height: 29pt, fill: green, sticky: true)
+#block(height: 1fr, fill: blue)[X#footnote[N]]
+
+--- block-sticky-spill paged ---
+#set page(height: 30pt, margin: 0pt)
+#set block(width: 100%, spacing: 0pt, breakable: false)
+#block(height: 20pt, fill: red)
+#block(height: 10pt, fill: green, sticky: true)
+#block(breakable: true, block(height: 25pt, fill: blue))
+
 --- block-sticky-colbreak paged ---
 A
 #block(sticky: true)[B]
