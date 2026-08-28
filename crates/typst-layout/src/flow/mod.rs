@@ -21,13 +21,14 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, Angle, ColumnsElem, Dir, Em, Fragment, Frame, HAlignment, PageElem,
+    PlacementScope, Region, Regions, Rel, Size, VAlignment,
 };
 use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
 use typst_library::pdf::ArtifactKind;
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
+use typst_library::visualize::LineElem;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
@@ -75,6 +76,7 @@ pub fn layout_fragment(
             count: NonZeroUsize::ONE,
             balanced: false,
             gutter: Rel::zero(),
+            separator: None,
         },
     )
 }
@@ -106,6 +108,7 @@ pub fn layout_columns(
             count: elem.count.get(styles),
             balanced: elem.balanced.get(styles),
             gutter: elem.gutter.resolve(styles),
+            separator: elem.separator.get_cloned(styles),
         },
     )
 }
@@ -261,6 +264,12 @@ fn configuration<'x>(
                 gutter,
                 dir,
                 balanced: column.balanced,
+                separator: column.separator.map(|separator| {
+                    separator
+                        .set(LineElem::length, Rel::one())
+                        .set(LineElem::angle, Angle::deg(90.0))
+                        .aligned(HAlignment::Center + VAlignment::Horizon)
+                }),
             }
         },
         footnote: FootnoteConfig {
@@ -368,6 +377,8 @@ pub struct ColumnOptions {
     pub balanced: bool,
     /// The spacing between columns.
     pub gutter: Rel<Abs>,
+    /// The separator between columns.
+    pub separator: Option<Content>,
 }
 
 /// Shared configuration for the whole flow.
@@ -411,6 +422,8 @@ struct ColumnConfig {
     dir: Dir,
     /// Whether to equalize the height of columns by breaking columns early.
     balanced: bool,
+    /// The separator between columns.
+    separator: Option<Content>,
 }
 
 /// Configuration of line numbers.
