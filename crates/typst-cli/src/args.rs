@@ -381,8 +381,6 @@ pub struct CompileArgs {
     /// The PPI (pixels per inch) to use for PNG export.
     ///
     /// [default: 144]
-    // TODO: Is there a cleaner way of providing a default value hint?
-    // Maybe we should just reference the format element default value here.
     #[arg(long = "ppi")]
     pub ppi: Option<f64>,
 
