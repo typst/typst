@@ -102,6 +102,12 @@ impl<'a> Item<'a> {
     }
 }
 
+#[derive(Debug)]
+pub enum Event {
+    StartLink(Destination),
+    EndLink(Destination),
+}
+
 /// An item or not-yet shaped text. We can't shape text until we have collected
 /// all items because only then we can compute BiDi, and we need to split shape
 /// runs at level boundaries.
@@ -112,6 +118,8 @@ pub enum Segment<'a> {
     Text(usize, StyleChain<'a>),
     /// An already prepared item.
     Item(Item<'a>),
+    /// An event.
+    Event(Event),
 }
 
 impl Segment<'_> {
@@ -120,6 +128,7 @@ impl Segment<'_> {
         match self {
             Self::Text(len, _) => *len,
             Self::Item(item) => item.textual_len(),
+            Self::Event(_) => 0,
         }
     }
 }
@@ -310,6 +319,10 @@ impl<'a> Collector<'a> {
                 self.segments.push(Segment::Item(item));
             }
         }
+    }
+
+    fn push_event(&mut self, event: Event) {
+        self.segments.push(Segment::Event(event));
     }
 }
 
