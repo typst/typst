@@ -206,11 +206,11 @@ pub fn text<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || text.bbox());
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
+
+    update_bbox(gc, fc, || text.bbox());
 
     let attrs = tree::resolve_text_attrs(&mut gc.tags.tree, gc.options, text);
 
@@ -238,11 +238,11 @@ pub fn image<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
+
+    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
 
     let content = ContentTag::Span(SpanTag::empty().with_alt_text(image.alt()));
     let id = surface.start_tagged(content);
@@ -262,11 +262,11 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || shape.bbox(true));
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
+
+    update_bbox(gc, fc, || shape.bbox(true));
 
     surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
         if gc.options.standards.config.version() == PdfVersion::Pdf17
