@@ -1,18 +1,44 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, deprecation, folding-details, heading-offset, html-heading-n,
-  labelled, oneliner, paged-heading-offset, short-or-long, small, use-icon,
-  title-case, to-func, with-tooltip,
+  classnames, definition-info, folding-details, heading-offset, html-heading-n,
+  labelled, oneliner, paged-heading-offset, short-or-long, small, title-case,
+  to-func, use-icon, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
-#import "live.typ": live-docs, item-source-link
+#import "live.typ": item-source-link, live-docs
 #import "pill.typ": ty-pill
 #import "reflect.typ": cast-strings, flat-types, std-path-of
 #import "search.typ": register-index-item
 #import "section.typ": docs-section
 #import "styling.typ": prose-styling
 #import "table.typ": docs-table
+
+
+// Build a scope from a module and binding info.
+#let scope-from(mod, info) = (
+  mod: mod,
+  dict: dictionary(mod),
+  info: info,
+)
+
+// Build the scope information for a module.
+//
+// Requires the parent module and the name of the module.
+#let scope(parent, key) = scope-from(
+  dictionary(parent).at(key),
+  stdx.binding(parent, key),
+)
+
+// Get nested binding information, feature gates of the parent scope info will
+// be forwarded to the nested item info.
+#let nested-binding(scope, key) = {
+  let info = stdx.binding(scope.mod, key)
+  if info.feature == none {
+    info.feature = scope.info.feature
+  }
+  info
+}
 
 // Displays the overview box for a function signature.
 #let param-signature(func, path, params, returns) = context {
@@ -265,7 +291,7 @@
 //
 // When the labels are changed here, `docs/content/reference/index.typ` needs to
 // change, too.
-#let func-subtitle(info, deprecation-info) = context {
+#let func-subtitle(info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if info.element {
     set text(0.75em)
@@ -289,12 +315,12 @@
     panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
   }
   gap
-  deprecation(deprecation-info)
+  definition-info(binding-info)
   sources-link(info)
 }
 
 // Displays additional details about a type.
-#let ty-subtitle(ty-info, deprecation-info) = context {
+#let ty-subtitle(ty-info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
   if ty-info.since != none {
     set text(0.75em)
@@ -303,7 +329,7 @@
   } else {
     panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
   }
-  deprecation(deprecation-info)
+  definition-info(binding-info)
   sources-link(ty-info)
 }
 
@@ -312,9 +338,11 @@
 #let func-member(
   func,
   base-label: none,
-  deprecation-info: none,
+  binding-info: none,
   definitions-section: none,
 ) = {
+  assert.ne(binding-info, none, message: "binding-info is required")
+
   let info = stdx.describe(to-func(func))
   let base-label = label(str(base-label) + "-" + info.name)
   let muted = "typed-html" in info.keywords
@@ -337,7 +365,7 @@
           it.level + 1,
           class: classnames(
             "scoped-definition",
-            deprecated: deprecation-info != none,
+            deprecated: binding-info.deprecation != none,
           ),
           it.body,
         )
@@ -345,7 +373,7 @@
     }
     let title = short-or-long(
       info.title,
-      raw(info.name) + func-subtitle(info, deprecation-info),
+      raw(info.name) + func-subtitle(info, binding-info),
     )
     labelled(heading(depth: 2, title), base-label)
   }
@@ -377,9 +405,10 @@
     muted: muted,
   ))
 
+
   heading-offset(2, definitions-section(
     info.name,
-    info.scope,
+    scope-from(info.scope, binding-info),
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
@@ -425,9 +454,11 @@
 #let ty-member(
   ty,
   base-label: none,
-  deprecation-info: none,
+  binding-info: none,
   definitions-section: none,
 ) = {
+  assert.ne(binding-info, none, message: "binding-info is required")
+
   let info = stdx.describe(ty)
   let base-label = label(str(base-label) + "-" + info.short-name)
 
@@ -447,7 +478,7 @@
           it.level + 1,
           class: classnames(
             "scoped-definition",
-            deprecated: deprecation-info != none,
+            deprecated: binding-info.deprecation != none,
           ),
           it.body
         )
@@ -455,7 +486,7 @@
     }
     let title = short-or-long(
       info.title,
-      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, deprecation-info),
+      text(size: 13pt, ty-pill(ty, linked: false)) + ty-subtitle(info, binding-info),
     )
     labelled(heading(depth: 2, title), base-label)
   }
@@ -474,15 +505,14 @@
 
   heading-offset(2, definitions-section(
     info.short-name,
-    info.scope,
+    scope-from(info.scope, binding-info),
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
 
 // Renders a section that documents definitions on a type or function.
-#let definitions-section(parent, mod, base-label: <definitions>) = {
-  let scope = dictionary(mod)
-  if scope.len() == 0 {
+#let definitions-section(parent, scope, base-label: <definitions>) = {
+  if scope.dict.len() == 0 {
     return
   }
 
@@ -498,19 +528,19 @@
 
   labelled(heading(title), base-label)
 
-  for (name, value) in scope {
+  for (name, value) in scope.dict {
     if type(value) == function {
       func-member(
         value,
         base-label: base-label,
-        deprecation-info: stdx.binding(mod, name).deprecation,
+        binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
       )
     } else if type(value) == type {
       ty-member(
         value,
         base-label: base-label,
-        deprecation-info: stdx.binding(mod, name).deprecation,
+        binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
       )
     }
@@ -531,13 +561,13 @@
 }
 
 // Renders a section for a function.
-#let func-section(base-route, name, func, info, deprecation-info) = {
+#let func-section(base-route, name, func, info, binding-info) = {
   show: func-or-ty-section.with(
     kind: "Function",
     route: base-route + "/" + name,
     title: info.title,
     title-fmt: raw(info.name),
-    subtitle: func-subtitle(info, deprecation-info),
+    subtitle: func-subtitle(info, binding-info),
     has-summary: true,
     keywords: info.keywords,
     def-target: func,
@@ -561,16 +591,19 @@
     )
   }
 
-  definitions-section(info.name, info.scope)
+  definitions-section(
+    info.name,
+    scope-from(info.scope, binding-info),
+  )
 }
 
 // Renders a section for a type.
-#let ty-section(base-route, name, ty, ty-info, deprecation-info) = {
+#let ty-section(base-route, name, ty, ty-info, binding-info) = {
   show: func-or-ty-section.with(
     route: base-route + "/" + name,
     title: ty-info.title,
     title-fmt: ty-pill(ty, linked: false),
-    subtitle: ty-subtitle(ty-info, deprecation-info),
+    subtitle: ty-subtitle(ty-info, binding-info),
     has-summary: true,
     kind: "Type",
     keywords: ty-info.keywords,
@@ -587,7 +620,10 @@
     constructor-section(ty-info.constructor)
   }
 
-  definitions-section(ty-info.short-name, ty-info.scope)
+  definitions-section(
+    ty-info.short-name,
+    scope-from(ty-info.scope, binding-info),
+  )
 }
 
 // The definition target for a group.
@@ -617,8 +653,12 @@
   if info.items.len() > 0 {
     let base-label = <functions>
     labelled(heading[Functions], base-label)
-    for item in info.items {
-      func-member(item, base-label: base-label)
+    for (key, value) in info.items {
+      func-member(
+        value,
+        base-label: base-label,
+        binding-info: nested-binding(info.scope, key),
+      )
     }
   }
 
@@ -719,7 +759,7 @@
   description: none,
   // The scope from which the definitions to be documented are taken. It is
   // filtered by category.
-  scope: std,
+  scope: none,
   // Additional definitions to document.
   scope-additions: (:),
   // Definitions that should be documented together as a group.
@@ -730,32 +770,39 @@
   assert.ne(category, none, message: "category is required")
 
   let route = "/reference/" + category
-  let def-target = if scope == std {
+  let def-target = if scope == none {
     label("reference:" + category)
   } else {
+    scope.mod
+  }
+
+  let scope = if scope != none {
     scope
+  } else {
+    scope-from(std, (feature: none))
   }
 
   let definitions = {
     // Non-grouped definitions from the scope.
-    let skip = groups.map(g => g.items).flatten()
-    dictionary(scope)
+    let skip = groups.map(g => g.items.map(((k, v)) => v)).flatten()
+    scope
+      .dict
       .pairs()
       .filter(((k, v)) => (
-        stdx.binding(scope, k).category == category
+        stdx.binding(scope.mod, k).category == category
           and type(v) in (function, type)
           and v not in skip
           and not (
-            (scope == math and k == "text") // dupe
-              or (scope == pdf and k == "embed") // deprecated
-              or (scope == std and k == "pattern") // deprecated
+            (scope.mod == math and k == "text") // dupe
+              or (scope.mod == pdf and k == "embed") // deprecated
+              or (scope.mod == std and k == "pattern") // deprecated
           )
       ))
       .map(((k, v)) => (
         k,
         v,
         stdx.describe(v),
-        stdx.binding(scope, k).deprecation,
+        nested-binding(scope, k),
       ))
 
     // Manual ddditions.
@@ -785,12 +832,15 @@
 
   // The individual sections for all definitions.
   show: paged-heading-offset.with(1)
-  for (name, value, info, deprecation-info) in definitions {
+  for (name, value, info, binding-info) in definitions {
     if type(value) == function {
-      func-section(route, name, value, info, deprecation-info)
+      func-section(route, name, value, info, binding-info)
     } else if type(value) == type {
-      ty-section(route, name, value, info, deprecation-info)
+      ty-section(route, name, value, info, binding-info)
     } else {
+      if info.at("scope", default: none) == none {
+        info.scope = scope
+      }
       group-section(route, def-target, info)
     }
   }

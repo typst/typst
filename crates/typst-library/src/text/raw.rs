@@ -340,7 +340,13 @@ pub struct RawElem {
     ///     table.header[Name][Tags],
     ///     ..stdx.raw-langs.map(((name, tokens)) => (
     ///       name,
-    ///       tokens.map(raw).join[, ],
+    ///       // Some tokens start with `.`. For example, `.env`. The Unicode
+    ///       // Line Breaking Algorithm forbids breaking before `.`, even after
+    ///       // spaces. Therefore, we add zero-width spaces to provide
+    ///       // additional break opportunities. Note that
+    ///       // https://github.com/typst/typst/issues/5317 might change the
+    ///       // situation.
+    ///       tokens.map(raw).join[, #sym.zws],
     ///     )).flatten()
     ///   )
     /// )

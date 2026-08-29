@@ -172,6 +172,9 @@
 #test-components(rgb(1, 2, 3, 4), (0.39%, 0.78%, 1.18%, 1.57%))
 #test-components(luma(40), (15.69%, 100%))
 #test-components(luma(40, 50%), (15.69%, 50%))
+#test-components(luma(40, 127), (15.69%, 49.8%))
+#test-components(luma(40, 0), (15.69%, 0%))
+#test-components(luma(40, 255), (15.69%, 100%))
 #test-components(cmyk(4%, 5%, 6%, 7%), (4%, 5%, 6%, 7%), has-alpha: false)
 #test-components(oklab(10%, 0.2, 0.4), (10%, 0.2, 0.4, 100%))
 #test-components(oklch(10%, 0.2, 90deg), (10%, 0.2, 90deg, 100%))
@@ -206,9 +209,26 @@
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
+--- color-luma-empty-arguments eval ---
+// Error: 7-13 missing argument: lightness component
+// Hint: 7-13 try writing `white` or `luma(100%)`
+#test(luma(), white)
+
+--- color-luma-invalid-alpha eval ---
+// Error: 7-16 expected integer or ratio, found string
+#luma("invalid")
+
+--- color-luma-invalid-lightness eval ---
+// Error: 12-21 expected integer or ratio, found string
+#luma(10%, "invalid")
+
 --- color-luma-unexpected-argument eval ---
-// Error: 10-20 unexpected argument: key
-#luma(1, key: "val")
+// Error: 12-22 unexpected argument: key
+#luma(255, key: "val")
+
+--- color-luma-unexpected-pos-argument eval ---
+// Error: 17-22 unexpected argument
+#luma(25%, 50%, "val")
 
 --- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string

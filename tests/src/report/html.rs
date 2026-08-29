@@ -497,31 +497,35 @@ fn test_reports(body: &mut HtmlElem, reports: &[TestReport]) {
                         };
                         div.div()
                             .id(display!("test-report-body-{test_idx}"))
-                            .class(display!("test-report-body{image_kind}"))
+                            .class("test-report-body")
                             .hidden(close)
                             .with(|div| {
                                 test_report_source(div, test_report, test_idx);
 
-                                for (file_idx, report_file) in
-                                    test_report.files.iter().enumerate()
-                                {
-                                    report_file_tab_panel(
-                                        div,
-                                        test_report,
-                                        report_file,
-                                        test_idx,
-                                        file_idx,
-                                    );
-                                }
+                                div.div()
+                                    .class(display!("test-report-area{image_kind}"))
+                                    .with(|div| {
+                                        for (file_idx, report_file) in
+                                            test_report.files.iter().enumerate()
+                                        {
+                                            report_file_tab_panel(
+                                                div,
+                                                test_report,
+                                                report_file,
+                                                test_idx,
+                                                file_idx,
+                                            );
+                                        }
 
-                                // There is one set of image controls for the
-                                // image diffs of all outputs of a test report.
-                                let has_image_diff = (test_report.files.iter())
-                                    .flat_map(|f| f.diffs.iter())
-                                    .any(Diff::is_image);
-                                if has_image_diff {
-                                    image_diff_controls(div, test_idx);
-                                }
+                                        // There is one set of image controls for the
+                                        // image diffs of all outputs of a test report.
+                                        let has_image_diff = (test_report.files.iter())
+                                            .flat_map(|f| f.diffs.iter())
+                                            .any(Diff::is_image);
+                                        if has_image_diff {
+                                            image_diff_controls(div, test_idx);
+                                        }
+                                    });
                             });
                     });
             }
@@ -786,28 +790,24 @@ fn test_report_header(
 
 fn test_report_source(parent: &mut HtmlElem, test_report: &TestReport, test_idx: usize) {
     parent
-        .div()
+        .table()
         .class("test-report-source")
         .hidden(true)
         .id(display!("test-report-source-{test_idx}"))
-        .with(|div| {
-            div.table().class("file-diff html").with(|table| {
-                table.colgroup().with(|colgroup| {
-                    colgroup.col().attr("span", 1).class("col-line-gutter");
-                    colgroup.col().attr("span", 1).class("col-source-line-body");
-                });
-
-                let lines = super::diff::file_lines(
-                    test_report.source.text(),
-                    LineKind::Unchanged,
-                );
-
-                for line in lines.lines {
-                    table.tr().class("diff-line").with(|tr| {
-                        diff_cells(tr, &line);
-                    });
-                }
+        .with(|table| {
+            table.colgroup().with(|colgroup| {
+                colgroup.col().attr("span", 1).class("col-line-gutter");
+                colgroup.col().attr("span", 1).class("col-source-line-body");
             });
+
+            let lines =
+                super::diff::file_lines(test_report.source.text(), LineKind::Unchanged);
+
+            for line in lines.lines {
+                table.tr().class("diff-line").with(|tr| {
+                    diff_cells(tr, &line);
+                });
+            }
         });
 }
 

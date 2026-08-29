@@ -26,7 +26,9 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use std::fmt::Display;
 use std::ops::{Deref, Range};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
@@ -221,7 +223,7 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(self.routines, math.clone(), inputs, &self.features);
+        let global = global(self.routines, math.clone(), inputs);
         Library {
             routines: self.routines,
             global: global.clone(),
@@ -237,7 +239,7 @@ impl LibraryBuilder {
 /// A selection of in-development features that should be enabled.
 ///
 /// Can be collected from an iterator of [`Feature`]s.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Features(SmallBitSet);
 
 impl Features {
@@ -280,6 +282,29 @@ impl Feature {
     /// Iterates over all available features.
     pub fn all() -> impl Iterator<Item = Self> {
         [Self::Html, Self::Bundle, Self::A11yExtras].into_iter()
+    }
+}
+
+impl Display for Feature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Feature::Html => "html",
+            Feature::Bundle => "bundle",
+            Feature::A11yExtras => "a11y-extras",
+        })
+    }
+}
+
+impl FromStr for Feature {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "html" => Ok(Self::Html),
+            "bundle" => Ok(Self::Bundle),
+            "a11y-extras" => Ok(Self::A11yExtras),
+            _ => Err(()),
+        }
     }
 }
 
@@ -326,16 +351,11 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(
-    routines: &Routines,
-    math: Module,
-    inputs: Dict,
-    features: &Features,
-) -> Module {
+fn global(routines: &Routines, math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs);
-    self::model::define(&mut global, features);
+    self::model::define(&mut global);
     self::text::define(&mut global);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
@@ -344,10 +364,10 @@ fn global(
     self::symbols::define(&mut global);
 
     global.define("math", math);
-    global.define("pdf", self::pdf::module(features));
-    if features.is_enabled(Feature::Html) {
-        global.define("html", (routines.html_module)());
-    }
+    global.define("pdf", self::pdf::module());
+    global
+        .define("html", (routines.html_module)())
+        .with_feature(Feature::Html);
 
     prelude(&mut global);
 

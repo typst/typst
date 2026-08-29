@@ -110,7 +110,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     fn page_contents(&mut self, locator: Locator, regions: Regions) -> FlowResult<Frame> {
         // No point in create column regions, if there's just one!
         if self.config.columns.count == 1 {
-            return self.column(locator, regions).map(|(frame, _)| frame);
+            return self.column(locator, regions).map(|(frame, ..)| frame);
         }
 
         // Create a backlog for multi-column layout.
@@ -139,15 +139,46 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         let mut offset = Abs::zero();
         let mut locator = locator.split();
         let mut total_used_height = Abs::zero();
+        let mut last_column_separator_height = None;
 
         // Lay out the columns and stitch them together.
         for i in 0..self.config.columns.count {
             self.column = i;
-            let (frame, used_height) = self.column(locator.next(&()), inner)?;
+            let (frame, used_height, column_separator_height) =
+                self.column(locator.next(&()), inner)?;
             total_used_height += used_height;
 
             if !regions.expand.y {
                 output.size_mut().y.set_max(frame.height());
+            }
+
+            // Column separator between this and the previous column.
+            if let Some(separator) = &self.config.columns.separator
+                && let Some(last_separator_height) = last_column_separator_height
+                && !column_separator_height.min(last_separator_height).is_zero()
+            {
+                let mid = offset + 0.5 * self.config.columns.gutter;
+                let x = if self.config.columns.dir == Dir::LTR {
+                    mid
+                } else {
+                    regions.size.x - mid
+                };
+                let height = column_separator_height.max(last_separator_height);
+                let frame = layout_column_separator(
+                    self.engine,
+                    separator,
+                    self.config,
+                    Size::new(self.config.columns.gutter, height),
+                )?;
+                output.prepend_frame(
+                    // Prepend so it's behind both adjacent columns.
+                    Point::with_x(x - 0.5 * frame.width()),
+                    frame,
+                );
+            }
+            last_column_separator_height = Some(column_separator_height);
+            if i > 0 {
+                offset += self.config.columns.gutter;
             }
 
             let width = frame.width();
@@ -156,7 +187,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             } else {
                 regions.size.x - offset - width
             };
-            offset += width + self.config.columns.gutter;
+            offset += width;
 
             // During distribution, the baseline of the region is set to the
             // baseline of the first frame - e.g., the first paragraph line.
@@ -186,8 +217,14 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     ///
     /// Returns a `FlowResult` containing a tuple of
     /// - `0`: The laid out frame.
-    /// - `1`: The height actually used by the inner contents (used for column balancing logic).
-    fn column(&mut self, locator: Locator, regions: Regions) -> FlowResult<(Frame, Abs)> {
+    /// - `1`: The height actually used by the inner contents (used for column
+    ///   balancing logic).
+    /// - `2`: The height the column separator (if any) should have.
+    fn column(
+        &mut self,
+        locator: Locator,
+        regions: Regions,
+    ) -> FlowResult<(Frame, Abs, Abs)> {
         // Reset column insertion when starting a new column.
         self.column_insertions = Insertions::default();
 
@@ -219,10 +256,17 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 Err(Stop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
                 }
-                err => return err,
+                Err(err) => return Err(err),
             }
         };
         drop(checkpoint);
+
+        let column_separator_height = if self.column_insertions.bottom_floats.is_empty() {
+            used_height
+        } else {
+            self.column_balancing_height
+                .unwrap_or(inner.height() + self.column_insertions.float_height())
+        };
 
         self.work.footnotes.extend(self.footnote_queue.drain(..));
         if let Some(spill) = self.footnote_spill.take() {
@@ -249,7 +293,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             )?;
         }
 
-        Ok((output, used_height))
+        Ok((output, used_height, column_separator_height))
     }
 
     /// Lay out the inner contents of a column.
@@ -658,6 +702,22 @@ fn layout_footnote(
         }
         fragment
     })
+}
+
+/// Lay out the column separator, typically a line.
+fn layout_column_separator(
+    engine: &mut Engine,
+    separator: &Content,
+    config: &Config,
+    base: Size,
+) -> SourceResult<Frame> {
+    crate::layout_frame(
+        engine,
+        separator,
+        Locator::root(),
+        config.shared,
+        Region::new(base, Axes::splat(true)),
+    )
 }
 
 /// An additive list of insertions.

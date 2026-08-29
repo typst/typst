@@ -706,7 +706,7 @@ mod tests {
 
     #[test]
     fn test_region_option_eq() {
-        let region = Some(Region([b'U', b'S']));
+        let region = Some(Region(*b"US"));
         assert!(option_eq(region, "US"));
         assert!(!option_eq(region, "AB"));
     }
