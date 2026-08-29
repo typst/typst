@@ -42,7 +42,8 @@ use crate::layout::{Abs, Axes, Length, Region, Size};
 /// ```
 ///
 /// The measure function returns a dictionary with the entries `width` and
-/// `height`, both of type @length.
+/// `height`, both of type @length. When `baseline` is `{true}`, the dictionary
+/// additionally contains the `baseline` entry.
 #[func(contextual, since = "forever")]
 pub fn measure(
     engine: &mut Engine,
@@ -71,6 +72,12 @@ pub fn measure(
     #[named]
     #[default(Smart::Auto)]
     height: Smart<Length>,
+    /// Whether to include the content's baseline in the returned dictionary.
+    ///
+    /// The baseline is measured from the top of the content.
+    #[named]
+    #[default(false)]
+    baseline: bool,
     /// The content whose size to measure.
     content: Content,
 ) -> SourceResult<Dict> {
@@ -101,5 +108,16 @@ pub fn measure(
         pod,
     )?;
     let Size { x, y } = frame.size();
-    Ok(dict! { "width" => x, "height" => y })
+    Ok(if baseline {
+        dict! {
+            "width" => x,
+            "height" => y,
+            "baseline" => frame.baseline(),
+        }
+    } else {
+        dict! {
+            "width" => x,
+            "height" => y,
+        }
+    })
 }
