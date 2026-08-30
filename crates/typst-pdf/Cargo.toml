@@ -35,5 +35,9 @@ rustc-hash = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
 
+[features]
+default = ["pdf-images"]
+pdf-images = ["typst-library/pdf-images"]
+
 [lints]
 workspace = true

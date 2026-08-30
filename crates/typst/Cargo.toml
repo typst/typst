@@ -27,5 +27,9 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
 
+[features]
+default = ["pdf-images"]
+pdf-images = ["typst-html/pdf-images", "typst-library/pdf-images"]
+
 [lints]
 workspace = true

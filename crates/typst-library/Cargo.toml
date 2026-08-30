@@ -32,7 +32,7 @@ flate2 = { workspace = true }
 fontdb = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
-hayro-syntax = { workspace = true }
+hayro-syntax = { workspace = true, optional = true }
 icu_collator = { workspace = true }
 icu_properties = { workspace = true }
 image = { workspace = true }
@@ -76,6 +76,10 @@ xmlwriter = { workspace = true }
 
 [dev-dependencies]
 typst-dev-assets = { workspace = true }
+
+[features]
+default = ["pdf-images"]
+pdf-images = ["dep:hayro-syntax"]
 
 [lints]
 workspace = true

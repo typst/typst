@@ -13,7 +13,7 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst-assets = { workspace = true }
+typst-assets = { workspace = true, optional = true }
 typst-layout = { workspace = true }
 typst-library = { workspace = true }
 typst-macros = { workspace = true }
@@ -23,8 +23,8 @@ base64 = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }
 flate2 = { workspace = true }
-hayro = { workspace = true }
-hayro-svg = { workspace = true }
+hayro = { workspace = true, optional = true }
+hayro-svg = { workspace = true, optional = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 itoa = { workspace = true }
@@ -32,6 +32,15 @@ rustc-hash = { workspace = true }
 ryu = { workspace = true }
 ttf-parser = { workspace = true }
 xmlwriter = { workspace = true }
+
+[features]
+default = ["pdf-images"]
+pdf-images = [
+    "dep:hayro",
+    "dep:hayro-svg",
+    "dep:typst-assets",
+    "typst-library/pdf-images",
+]
 
 [lints]
 workspace = true

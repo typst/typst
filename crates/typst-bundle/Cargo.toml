@@ -30,5 +30,15 @@ indexmap = { workspace = true }
 rayon = { workspace = true }
 rustc-hash = { workspace = true }
 
+[features]
+default = ["pdf-images"]
+pdf-images = [
+    "typst-html/pdf-images",
+    "typst-library/pdf-images",
+    "typst-pdf/pdf-images",
+    "typst-render/pdf-images",
+    "typst-svg/pdf-images",
+]
+
 [lints]
 workspace = true

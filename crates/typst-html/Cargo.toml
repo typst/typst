@@ -29,5 +29,9 @@ rustc-hash = { workspace = true }
 time = { workspace = true }
 unicode-math-class = { workspace = true }
 
+[features]
+default = ["pdf-images"]
+pdf-images = ["typst-library/pdf-images", "typst-svg/pdf-images"]
+
 [lints]
 workspace = true

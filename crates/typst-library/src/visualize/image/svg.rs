@@ -398,6 +398,7 @@ impl<'a> ImageResolver<'a> {
                         VectorFormat::Svg => {
                             Err("SVG images are not supported yet".into())
                         }
+                        #[cfg(feature = "pdf-images")]
                         VectorFormat::Pdf => {
                             Err("PDF documents are not supported".into())
                         }

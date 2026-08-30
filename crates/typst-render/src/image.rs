@@ -1,16 +1,24 @@
+#[cfg(feature = "pdf-images")]
 use hayro::RenderCache;
+#[cfg(feature = "pdf-images")]
 use hayro::RenderSettings;
+#[cfg(feature = "pdf-images")]
 use hayro::hayro_interpret::InterpreterSettings;
+#[cfg(feature = "pdf-images")]
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+#[cfg(feature = "pdf-images")]
 use hayro::vello_cpu::color::palette::css::TRANSPARENT;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use std::sync::Arc;
 use tiny_skia as sk;
+#[cfg(feature = "pdf-images")]
 use tiny_skia::IntSize;
 use typst_library::foundations::Smart;
 use typst_library::layout::Size;
-use typst_library::visualize::{Image, ImageKind, ImageScaling, PdfImage};
+#[cfg(feature = "pdf-images")]
+use typst_library::visualize::PdfImage;
+use typst_library::visualize::{Image, ImageKind, ImageScaling};
 
 use crate::{AbsExt, State};
 
@@ -106,6 +114,7 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
             resvg::render(tree, ts, &mut texture.as_mut());
             texture
         }
+        #[cfg(feature = "pdf-images")]
         ImageKind::Pdf(pdf) => build_pdf_texture(pdf, w, h)?,
     };
 
@@ -113,6 +122,7 @@ fn build_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
 }
 
 // Keep this in sync with `typst-svg`!
+#[cfg(feature = "pdf-images")]
 fn build_pdf_texture(pdf: &PdfImage, w: u32, h: u32) -> Option<sk::Pixmap> {
     let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {

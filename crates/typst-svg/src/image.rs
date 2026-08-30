@@ -1,15 +1,21 @@
+#[cfg(feature = "pdf-images")]
 use std::sync::Arc;
 
 use base64::Engine;
 use ecow::{EcoString, eco_format};
+#[cfg(feature = "pdf-images")]
 use hayro::hayro_interpret::InterpreterSettings;
+#[cfg(feature = "pdf-images")]
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
+#[cfg(feature = "pdf-images")]
 use hayro_svg::{RenderCache, SvgRenderSettings};
 use image::{ImageEncoder, codecs::png::PngEncoder};
 use typst_library::foundations::{Bytes, Smart};
 use typst_library::layout::{Abs, Axes};
+#[cfg(feature = "pdf-images")]
+use typst_library::visualize::PdfImage;
 use typst_library::visualize::{
-    ExchangeFormat, Image, ImageKind, ImageScaling, PdfImage, RasterFormat,
+    ExchangeFormat, Image, ImageKind, ImageScaling, RasterFormat,
 };
 
 use crate::write::{SvgElem, SvgTransform, SvgWrite};
@@ -123,6 +129,7 @@ impl WebImage {
                 }),
             },
             ImageKind::Svg(svg) => (WebImageFormat::Svg, svg.data().clone()),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => {
                 (WebImageFormat::Svg, Bytes::from_string(pdf_to_svg(pdf)))
             }
@@ -143,6 +150,7 @@ impl WebImage {
 }
 
 // Keep this in sync with `typst-png`!
+#[cfg(feature = "pdf-images")]
 fn pdf_to_svg(pdf: &PdfImage) -> String {
     let select_standard_font = move |font: StandardFont| -> Option<(FontData, u32)> {
         let bytes = match font {

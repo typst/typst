@@ -1,9 +1,11 @@
 //! Image handling.
 
+#[cfg(feature = "pdf-images")]
 mod pdf;
 mod raster;
 mod svg;
 
+#[cfg(feature = "pdf-images")]
 pub use self::pdf::PdfImage;
 pub use self::raster::{
     ExchangeFormat, PixelEncoding, PixelFormat, RasterFormat, RasterImage,
@@ -14,12 +16,17 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use ecow::{EcoString, eco_format};
+use ecow::EcoString;
+#[cfg(feature = "pdf-images")]
+use ecow::eco_format;
+#[cfg(feature = "pdf-images")]
 use hayro_syntax::LoadPdfError;
 use typst_syntax::{Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
-use crate::diag::{At, LoadError, LoadedWithin, SourceResult, StrResult, bail, warning};
+use crate::diag::{At, LoadedWithin, SourceResult, StrResult, warning};
+#[cfg(feature = "pdf-images")]
+use crate::diag::{LoadError, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
@@ -28,6 +35,7 @@ use crate::layout::{Length, Rel, Sizing};
 use crate::loading::{DataSource, Load, Loaded};
 use crate::model::Figurable;
 use crate::text::{LocalName, Locale, families};
+#[cfg(feature = "pdf-images")]
 use crate::visualize::image::pdf::PdfDocument;
 
 /// A raster or vector graphic.
@@ -284,6 +292,7 @@ impl Packed<ImageElem> {
                     .within(loaded)?,
                 )
             }
+            #[cfg(feature = "pdf-images")]
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 let document = match PdfDocument::new(loaded.data.clone()) {
                     Ok(doc) => doc,
@@ -380,6 +389,7 @@ fn determine_format_from_path(path: &VirtualPath) -> Option<ImageFormat> {
         "webp" => Some(ExchangeFormat::Webp.into()),
         // Vector formats
         "svg" | "svgz" => Some(VectorFormat::Svg.into()),
+        #[cfg(feature = "pdf-images")]
         "pdf" => Some(VectorFormat::Pdf.into()),
         _ => None,
     }
@@ -463,6 +473,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.format().into(),
             ImageKind::Svg(_) => VectorFormat::Svg.into(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => VectorFormat::Pdf.into(),
         }
     }
@@ -472,6 +483,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.width() as f64,
             ImageKind::Svg(svg) => svg.width(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.width() as f64,
         }
     }
@@ -481,6 +493,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.height() as f64,
             ImageKind::Svg(svg) => svg.height(),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(pdf) => pdf.height() as f64,
         }
     }
@@ -490,6 +503,7 @@ impl Image {
         match &self.0.kind {
             ImageKind::Raster(raster) => raster.dpi(),
             ImageKind::Svg(_) => Some(Image::USVG_DEFAULT_DPI),
+            #[cfg(feature = "pdf-images")]
             ImageKind::Pdf(_) => Some(Image::DEFAULT_DPI),
         }
     }
@@ -530,6 +544,7 @@ pub enum ImageKind {
     /// An SVG image.
     Svg(SvgImage),
     /// A PDF image.
+    #[cfg(feature = "pdf-images")]
     Pdf(PdfImage),
 }
 
@@ -565,6 +580,7 @@ impl ImageFormat {
             return Some(Self::Vector(VectorFormat::Svg));
         }
 
+        #[cfg(feature = "pdf-images")]
         if is_pdf(data) {
             return Some(Self::Vector(VectorFormat::Pdf));
         }
@@ -574,6 +590,7 @@ impl ImageFormat {
 }
 
 /// Checks whether the data looks like a PDF file.
+#[cfg(feature = "pdf-images")]
 fn is_pdf(data: &[u8]) -> bool {
     let head = &data[..data.len().min(2048)];
     memchr::memmem::find(head, b"%PDF-").is_some()
@@ -601,6 +618,7 @@ pub enum VectorFormat {
     Svg,
     /// High-fidelity document and graphics format, with focus on exact
     /// reproduction in print.
+    #[cfg(feature = "pdf-images")]
     Pdf,
 }
 
@@ -610,6 +628,21 @@ where
 {
     fn from(format: R) -> Self {
         Self::Raster(format.into())
+    }
+}
+
+#[cfg(all(test, not(feature = "pdf-images")))]
+mod tests {
+    use typst_syntax::VirtualPath;
+
+    use super::{ImageFormat, determine_format_from_path};
+
+    #[test]
+    fn pdf_is_unsupported_without_pdf_images() {
+        assert_eq!(ImageFormat::detect(b"%PDF-1.7"), None);
+
+        let path = VirtualPath::new("image.pdf").unwrap();
+        assert_eq!(determine_format_from_path(&path), None);
     }
 }
 
