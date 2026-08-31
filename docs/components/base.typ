@@ -222,41 +222,6 @@
     .join()
 }
 
-// Displays binding information, if any, such as:
-// - A deprecation
-// - A feature gate
-#let definition-info(info) = {
-  if info == none { return }
-
-  let item(size, name, alt, body) = {
-    context if target() == "paged" {
-      small(icon(size, name, alt) + [ ] + body)
-    } else {
-      html.small(class: "definition-info", {
-        html.div(use-icon(size, name, alt))
-        html.span(body)
-      })
-    }
-  }
-
-  if info.feature != none {
-    item(16, "toggle", "Feature toggle", {
-      [Requires the ]
-      raw(info.feature)
-      [ feature]
-    })
-  }
-
-  if info.deprecation != none {
-    item(16, "warn", "Warning", {
-      text-with-code(info.deprecation.message)
-      if info.deprecation.until != none {
-        [; it will be removed in Typst #info.deprecation.until]
-      }
-    })
-  }
-}
-
 // Displays a search box.
 //
 // Only support in the web output.

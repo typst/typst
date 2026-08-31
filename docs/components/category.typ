@@ -1,8 +1,8 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, definition-info, folding-details, heading-offset, html-heading-n,
-  labelled, oneliner, paged-heading-offset, short-or-long, small, title-case,
-  to-func, use-icon, with-tooltip,
+  classnames, folding-details, heading-offset, html-heading-n, icon, labelled,
+  oneliner, paged-heading-offset, short-or-long, small, text-with-code,
+  title-case, to-func, use-icon, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
@@ -284,6 +284,41 @@
       class: "sources-link",
       use-icon(16, "code", "Go to source"),
     )
+  }
+}
+
+// Displays binding information, if any, such as:
+// - A deprecation
+// - A feature gate
+#let definition-info(info) = {
+  if info == none { return }
+
+  let item(size, name, alt, body) = {
+    context if target() == "paged" {
+      small(icon(size, name, alt) + [ ] + body)
+    } else {
+      html.small(class: "definition-info", {
+        html.div(use-icon(size, name, alt))
+        html.span(body)
+      })
+    }
+  }
+
+  if info.feature != none {
+    item(16, "toggle", "Feature toggle", {
+      [Requires the ]
+      raw(info.feature)
+      [ feature]
+    })
+  }
+
+  if info.deprecation != none {
+    item(16, "warn", "Warning", {
+      text-with-code(info.deprecation.message)
+      if info.deprecation.until != none {
+        [; it will be removed in Typst #info.deprecation.until]
+      }
+    })
   }
 }
 
