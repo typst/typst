@@ -1,4 +1,4 @@
-use ecow::eco_format;
+use ecow::string::ToEcoString;
 
 use crate::{HtmlElement, HtmlNode, attr};
 
@@ -14,15 +14,11 @@ pub fn resolve_inline_styles(root: &mut HtmlElement) {
 
 fn visit_elem(elem: &mut HtmlElement) {
     if !elem.css.is_empty() {
-        // TODO: Use to_eco_string once merged:
-        // https://github.com/typst/ecow/pull/60
-        let mut generated = eco_format!("{}", elem.css.to_inline());
+        let mut generated = elem.css.to_inline().to_eco_string();
         if let Some(style) = elem.attrs.get_mut(attr::style) {
             if !style.is_empty() {
                 generated.push_str("; ");
             }
-            // TODO: Use insert_str once merged:
-            // https://github.com/typst/ecow/pull/59
             generated.push_str(style);
             *style = generated;
         } else {

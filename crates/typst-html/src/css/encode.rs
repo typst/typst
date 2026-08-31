@@ -306,19 +306,11 @@ impl Drop for CalcWriter<'_, '_> {
             }
             1 => (),
             2.. => {
-                // TODO: Use insert_str once merged:
-                // https://github.com/typst/ecow/pull/59
-                let mut buf = EcoString::with_capacity(self.w.buf.len() + 6);
-
                 // NOTE: This assumes the `ToCss` implementation of all values
                 // should only modify text that itself has written into the
                 // buffer, which seems reasonable.
-                buf.push_str(&self.w.buf[..self.start_idx]);
-                buf.push_str("calc(");
-                buf.push_str(&self.w.buf[self.start_idx..]);
-                buf.push_str(")");
-
-                self.w.buf = buf;
+                self.w.buf.insert_str(self.start_idx, "calc(");
+                self.w.write(")");
             }
         }
     }
