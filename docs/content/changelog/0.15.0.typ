@@ -166,7 +166,7 @@ This section documents all changes to the Typst language and compiler between Ty
   - Added @tiling.constructor.offset[`offset` parameter] for shifting the starting position of a tiling #pr(7506)
   - Fixed parent-relative placement for @stack and @polygon #pr(8324)
 - Gradients
-  - Added @color:predefined-color-maps[`color.map.coolwarm`] for use with gradients #pr(7489)
+  - Added @color.map[`color.map.coolwarm`] for use with gradients #pr(7489)
   - Fixed interpolation of gradient @gradient.stops[stops] in Oklab color space #pr(7326)
   - Fixed gradient @gradient.angle[angle] handling for negative-size shapes #pr(7826)
   - Fixed gradient strokes for @line[lines] and @curve[curves] #pr(7863)

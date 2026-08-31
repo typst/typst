@@ -287,6 +287,24 @@
   }
 }
 
+// Displays additional details about a constant.
+#let const-subtitle(value, binding-info) = context {
+  let gap = if target() == "paged" { h(0.5em, weak: true) }
+  {
+    show: it => if target() == "paged" {
+      h(1em)
+      it
+    } else {
+      html.div(class: "additional-info", it)
+    }
+    ty-pill(type(value))
+    gap
+    definition-info(binding-info)
+  }
+
+  sources-link(binding-info)
+}
+
 // Displays additional details about a function.
 //
 // When the labels are changed here, `docs/content/reference/index.typ` needs to
@@ -307,13 +325,6 @@
       Contextual functions can only be used when the context is known.
     ])
   }
-  if info.since != none {
-    set text(0.75em)
-    gap
-    small[Since: #info.since]
-  } else {
-    panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
-  }
   gap
   definition-info(binding-info)
   sources-link(info)
@@ -321,16 +332,64 @@
 
 // Displays additional details about a type.
 #let ty-subtitle(ty-info, binding-info) = context {
-  let gap = if target() == "paged" { h(0.5em, weak: true) }
-  if ty-info.since != none {
-    set text(0.75em)
-    gap
-    small[Since: #ty-info.since]
-  } else {
-    panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
-  }
+  if target() == "paged" { h(0.5em, weak: true) }
   definition-info(binding-info)
   sources-link(ty-info)
+}
+
+// Renders documentation for a constant as part of a large documentation
+// section.
+#let const-member(
+  value,
+  parent: none,
+  base-label: none,
+  binding-info: none,
+) = {
+  assert.ne(binding-info, none, message: "binding-info is required")
+
+  let base-label = label(str(base-label) + "-" + binding-info.name)
+
+  let canonical-name = {
+    if parent != none {
+      parent + "."
+    }
+    binding-info.name
+  }
+
+  {
+    show heading: it => {
+      register-def(label(canonical-name), it.location())
+      register-index-item(
+        kind: stdx.describe(type(value)).title,
+        title: binding-info.title,
+        dest: it.location(),
+        keywords: binding-info.keywords,
+      )
+      if target() == "paged" {
+        it
+      } else {
+        html-heading-n(
+          it.level + 1,
+          class: classnames(
+            "scoped-definition",
+            deprecated: binding-info.deprecation != none,
+          ),
+          it.body,
+        )
+      }
+    }
+    let title = short-or-long(
+      binding-info.title,
+      raw(binding-info.name) + const-subtitle(value, binding-info),
+    )
+    labelled(heading(depth: 2, title), base-label)
+  }
+
+  show raw.where(lang: "example"): example.with(folding: true, open: true)
+  prose-styling(
+    live-docs(binding-info.docs, binding-info.def-site),
+    base-target: value,
+  )
 }
 
 // Renders documentation for a function as part of a large documentation
@@ -543,6 +602,14 @@
         binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
       )
+    } else if type(value) != color {
+      // We don't document named colors.
+      const-member(
+        value,
+        parent: parent,
+        base-label: base-label,
+        binding-info: nested-binding(scope, name),
+      )
     }
   }
 }
@@ -650,10 +717,32 @@
 
   prose-styling(info.docs, base-target: def-target)
 
-  if info.items.len() > 0 {
+  let is-function(value) = {
+    // We don't document symbols individually, so when we encounter an
+    // individual symbol to document, that must mean it is a callable symbol
+    // whose underlying function should be documented.
+    type(value) in (function, symbol)
+  }
+
+  let constants = info.definitions.filter(v => not is-function(v))
+  if constants.len() > 0 {
+    let base-label = <constants>
+    labelled(heading[Constants], base-label)
+    for (key, value) in constants {
+      const-member(
+        value,
+        parent: std-path-of(info.scope.mod),
+        base-label: base-label,
+        binding-info: nested-binding(info.scope, key),
+      )
+    }
+  }
+
+  let functions = info.definitions.filter(is-function)
+  if functions.len() > 0 {
     let base-label = <functions>
     labelled(heading[Functions], base-label)
-    for (key, value) in info.items {
+    for (key, value) in functions {
       func-member(
         value,
         base-label: base-label,
@@ -784,7 +873,10 @@
 
   let definitions = {
     // Non-grouped definitions from the scope.
-    let skip = groups.map(g => g.items.map(((k, v)) => v)).flatten()
+    let skip = groups
+      .map(g => g.definitions.values())
+      .filter(v => type(v) != function)
+      .flatten()
     scope
       .dict
       .pairs()

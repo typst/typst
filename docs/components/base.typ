@@ -223,10 +223,17 @@
 }
 
 // Displays binding information, if any, such as:
+// - An introducing version
 // - A deprecation
 // - A feature gate
 #let definition-info(info) = {
   if info == none { return }
+
+  // The only items that don't have a `since` are symbol functions.
+  if info.since != none {
+    text(0.75em, small[Since: #info.since])
+    if target() == "paged" { h(0.5em, weak: true) }
+  }
 
   let item(size, name, alt, body) = {
     context if target() == "paged" {

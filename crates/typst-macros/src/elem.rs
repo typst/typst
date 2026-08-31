@@ -8,7 +8,7 @@ use syn::{Ident, Result, Token};
 use crate::util::{
     BlockWithReturn, Since, determine_name_and_title, documentation, foundations,
     has_attr, kw, oneliner, parse_attr, parse_flag, parse_key_value, parse_string,
-    parse_string_array, validate_attrs,
+    parse_string_array, quote_option, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.
@@ -388,11 +388,7 @@ fn create_native_elem_impl(element: &Elem) -> Result<TokenStream> {
     } = element;
     let def_site_key = ident.to_string();
 
-    let since = if let Some(since) = since {
-        quote! { Some(#since) }
-    } else {
-        quote! { None }
-    };
+    let since = quote_option(since);
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;

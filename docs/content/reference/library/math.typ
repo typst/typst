@@ -2,7 +2,7 @@
 
 #let math-definitions = dictionary(math)
 #let math-items(..keys) = {
-  keys.pos().map(k => (k, math-definitions.at(k)))
+  keys.pos().map(k => (k, math-definitions.at(k))).to-dict()
 }
 
 #show: docs-category.with(
@@ -14,7 +14,7 @@
     (
       name: "variants",
       title: "Variants",
-      items: math-items("serif", "sans", "frak", "mono", "bb", "cal", "scr"),
+      definitions: math-items("serif", "sans", "frak", "mono", "bb", "cal", "scr"),
       description: "Documentation for functions which allow switching to alternative math typefaces.",
       docs: [
         Alternate typefaces within formulas.
@@ -25,7 +25,7 @@
     (
       name: "styles",
       title: "Styles",
-      items: math-items("upright", "italic", "bold"),
+      definitions: math-items("upright", "italic", "bold"),
       description: "Documentation for functions which allow switching to alternative math letterforms.",
       docs: [
         Alternate letterforms within formulas.
@@ -36,7 +36,7 @@
     (
       name: "sizes",
       title: "Sizes",
-      items: math-items("display", "inline", "script", "sscript"),
+      definitions: math-items("display", "inline", "script", "sscript"),
       description: "Documentation for functions which allow switching to alternative math text sizes.",
       docs: [
         Forced size styles for expressions within formulas.
@@ -47,7 +47,7 @@
     (
       name: "underover",
       title: "Under/Over",
-      items: math-items(
+      definitions: math-items(
         "underline",
         "overline",
         "underbrace",
@@ -69,7 +69,7 @@
     (
       name: "roots",
       title: "Roots",
-      items: math-items("root", "sqrt"),
+      definitions: math-items("root", "sqrt"),
       description: "Documentation for functions that typeset mathematical roots.",
       docs: [
         Square and non-square roots.
@@ -84,7 +84,7 @@
     (
       name: "attach",
       title: "Attach",
-      items: math-items("attach", "scripts", "limits"),
+      definitions: math-items("attach", "scripts", "limits"),
       description: "Documentation for functions that allows to precisely attach sub-, superscripts, and limits to parts of an equation.",
       docs: [
         Subscript, superscripts, and limits.
@@ -105,7 +105,7 @@
     (
       name: "lr",
       title: "Left/Right",
-      items: math-items("lr", "mid", "abs", "norm", "floor", "ceil", "round"),
+      definitions: math-items("lr", "mid", "abs", "norm", "floor", "ceil", "round"),
       description: "Documentation for functions that enable typesetting of matched, potentially scaled, delimiters.",
       docs: [
         Delimiter matching.
@@ -123,6 +123,15 @@
         #set math.lr(size: 1em)
         $ { (a / b), a, b in (0; 1/2] } $
         ```
+      ],
+    ),
+    (
+      name: "spaces",
+      title: "Spaces",
+      definitions: math-items("thin", "med", "thick", "quad", "wide"),
+      description: "Documentation for math spaces.",
+      docs: [
+        Predefined mathematical spaces of various widths.
       ],
     ),
   ),

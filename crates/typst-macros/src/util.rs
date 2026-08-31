@@ -79,7 +79,7 @@ pub fn parse_attr<T: Parse>(
         .transpose()
 }
 
-/// Whether an attribute list has a specified attribute.
+/// Extracts a specific attribute.
 pub fn take_attr(
     attrs: &mut Vec<syn::Attribute>,
     target: &str,
@@ -88,6 +88,11 @@ pub fn take_attr(
         .iter()
         .position(|attr| attr.path().is_ident(target))
         .map(|i| attrs.remove(i))
+}
+
+/// Removes all attributes of a specific type.
+pub fn remove_attrs(attrs: &mut Vec<syn::Attribute>, target: &str) {
+    attrs.retain(|attr| !attr.path().is_ident(target));
 }
 
 /// Ensure that no unrecognized attributes remain.

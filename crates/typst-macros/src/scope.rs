@@ -1,11 +1,14 @@
-use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{BareType, foundations, kw, parse_flag};
+use crate::util::{
+    BareType, Since, determine_name_and_title, documentation, foundations, kw,
+    parse_flag, parse_key_value, parse_string, parse_string_array, quote_option,
+    remove_attrs, take_attr,
+};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -36,7 +39,7 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
         let bare: BareType;
         let (mut def, attrs) = match child {
             syn::ImplItem::Const(item) => {
-                (handle_const(&self_ty_expr, item)?, &item.attrs)
+                (handle_const(&self_ty_expr, self_ty, item)?, &item.attrs)
             }
             syn::ImplItem::Fn(item) => (
                 match handle_fn(self_ty, item)? {
@@ -137,10 +140,50 @@ impl Parse for Meta {
 }
 
 /// Process a const item and returns its definition.
-fn handle_const(self_ty: &TokenStream, item: &syn::ImplItemConst) -> Result<TokenStream> {
+fn handle_const(
+    self_ty: &TokenStream,
+    parent: &syn::Type,
+    item: &mut syn::ImplItemConst,
+) -> Result<TokenStream> {
     let ident = &item.ident;
-    let name = ident.to_string().to_kebab_case();
-    Ok(quote! { scope.define(#name, #self_ty::#ident) })
+
+    let Some(attr) = take_attr(&mut item.attrs, "constant") else {
+        bail!(item, "scope constant is missing #[constant] attribute");
+    };
+
+    let meta = match &attr.meta {
+        syn::Meta::Path(_) => ConstantMeta::default(),
+        syn::Meta::List(list) => syn::parse2(list.tokens.clone())?,
+        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid #[constant] attribute"),
+    };
+
+    let docs = documentation(&item.attrs);
+    remove_attrs(&mut item.attrs, "doc");
+
+    let (name, title) = determine_name_and_title(meta.name, meta.title, ident, None)?;
+    let since = quote_option(&meta.since);
+    let keywords = meta.keywords;
+
+    let def_site_key = if let syn::Type::Path(path) = parent
+        && let Some(parent) = path.path.get_ident()
+    {
+        format!("{parent}::{ident}")
+    } else {
+        ident.to_string()
+    };
+
+    Ok(quote! {
+        scope
+            .define(#name, #self_ty::#ident)
+            .with_documentation(::typst_library::foundations::BindingDocumentation {
+                name: #name,
+                title: #title,
+                docs: #docs,
+                since: #since,
+                keywords: &[#(#keywords),*],
+                def_site: Some(::typst_utils::DefSite { path: file!(), key: #def_site_key }),
+            })
+    })
 }
 
 /// Process a type item.
@@ -176,7 +219,7 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
                 return Ok(FnKind::Constructor(quote! { Some(#self_ty::#ident_data()) }));
             }
         }
-        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid func attribute"),
+        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid #[func] attribute"),
     }
 
     Ok(FnKind::Member(quote! { scope.define_func_with_data(#self_ty::#ident_data()) }))
@@ -231,5 +274,29 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident_ext: &syn::Ident) -> Token
         impl #ident_ext for #self_ty {
             #(#items)*
         }
+    }
+}
+
+/// The `..` in `#[constant(..)]`.
+#[derive(Default)]
+struct ConstantMeta {
+    /// The function's name as exposed to Typst.
+    name: Option<String>,
+    /// The function's title case name.
+    title: Option<String>,
+    /// The version of Typst the function was introduced in.
+    since: Option<Since>,
+    /// A list of alternate search terms for this function.
+    keywords: Vec<String>,
+}
+
+impl Parse for ConstantMeta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            name: parse_string::<kw::name>(input)?,
+            title: parse_string::<kw::title>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
+            keywords: parse_string_array::<kw::keywords>(input)?,
+        })
     }
 }
