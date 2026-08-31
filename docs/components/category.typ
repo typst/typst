@@ -291,7 +291,7 @@
 // - A deprecation
 // - A feature gate
 #let definition-info(info) = {
-  if info == none { return }
+  let gap = if target() == "paged" { h(0.5em, weak: true) }
 
   let item(size, name, alt, body) = {
     context if target() == "paged" {
@@ -305,6 +305,7 @@
   }
 
   if info.feature != none {
+    gap
     item(16, "toggle", "Feature toggle", {
       [Requires the ]
       raw(info.feature)
@@ -313,6 +314,7 @@
   }
 
   if info.deprecation != none {
+    gap
     item(16, "warn", "Warning", {
       text-with-code(info.deprecation.message)
       if info.deprecation.until != none {
@@ -328,43 +330,44 @@
 // change, too.
 #let func-subtitle(info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
+  set text(0.75em)
   if info.element {
-    set text(0.75em)
     gap
     small(with-tooltip[Element][
       Element functions can be customized with `set` and `show` rules.
     ])
   }
   if info.contextual != none and info.contextual {
-    set text(0.75em)
     gap
     small(with-tooltip[Contextual][
       Contextual functions can only be used when the context is known.
     ])
   }
   if info.since != none {
-    set text(0.75em)
     gap
     small[Since: #info.since]
   } else {
     panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
   }
-  gap
-  definition-info(binding-info)
+  if binding-info != none {
+    definition-info(binding-info)
+  }
   sources-link(info)
 }
 
 // Displays additional details about a type.
 #let ty-subtitle(ty-info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
+  set text(0.75em)
   if ty-info.since != none {
-    set text(0.75em)
     gap
     small[Since: #ty-info.since]
   } else {
     panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
   }
-  definition-info(binding-info)
+  if binding-info != none {
+    definition-info(binding-info)
+  }
   sources-link(ty-info)
 }
 
