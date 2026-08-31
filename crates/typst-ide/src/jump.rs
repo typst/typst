@@ -715,7 +715,7 @@ mod tests {
         test_click_html(
             "A math formula:\n\n#html.frame($a x + b = 0$)",
             // Click on the "b" in the math formula
-            HtmlPosition::new(eco_vec![1, 1]).in_frame(point(27.0, 5.0)),
+            HtmlPosition::new(eco_vec![1, 1, 0]).in_frame(point(27.0, 5.0)),
             cursor(37),
         );
     }

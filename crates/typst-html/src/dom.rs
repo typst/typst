@@ -501,6 +501,15 @@ cast! {
     v: Str => Self::intern(&v)?,
 }
 
+/// How an HTML frame participates in the surrounding HTML flow.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum HtmlFrameLevel {
+    /// The frame participates in inline line layout.
+    Inline,
+    /// The frame forms its own block.
+    Block,
+}
+
 /// Layouted content that will be embedded into HTML as an SVG.
 #[derive(Debug, Clone, Hash)]
 pub struct HtmlFrame {
@@ -510,6 +519,8 @@ pub struct HtmlFrame {
     /// frame with em units to make text in and outside of the frame sized
     /// consistently.
     pub text_size: Abs,
+    /// The frame's resolved level in the HTML flow.
+    pub level: HtmlFrameLevel,
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// The element's CSS properties.
@@ -526,6 +537,7 @@ impl HtmlFrame {
         Self {
             inner,
             text_size: styles.resolve(TextElem::size),
+            level: HtmlFrameLevel::Inline,
             id: None,
             css: css::Properties::new(),
             anchors: EcoVec::new(),

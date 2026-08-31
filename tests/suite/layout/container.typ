@@ -309,6 +309,7 @@ Text #box({
 A
 #box(html.frame(rect()))
 #box(html.frame(rect()))
+#box(html.frame[$1/(2/(3/(4/5)))$])
 B
 
 --- block-html-text html ---
@@ -356,6 +357,7 @@ Paragraph B
 #block(html.li())     // display: list-item -> nothing
 #block(html.span())   // display: inline -> block
 #block(html.input())  // display: inline-block -> block
+#block(html.frame(rect())) // display: inline -> block
 #block(html.slot())   // display: contents -> nothing
 #block(html.ruby())   // display: ruby -> wrapped in div
 
