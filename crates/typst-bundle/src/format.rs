@@ -21,9 +21,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     }
 }
 
-/// Typst's bundle export format.
-///
-/// #import "../../../docs/components/index.typ": info
+/// Typst's bundle export format (experimental).
 ///
 /// #info[
 ///   Bundle export is only available for experimentation behind a feature flag.
@@ -207,7 +205,9 @@ pub const DOCUMENT_UNSUPPORTED_RULE: ShowFn<DocumentElem> = |elem, _, _| {
 /// }
 /// ```
 ///
-/// This function may only be used in the @format.bundle[bundle] target.
+/// This function is defined on the @format.bundle element, but is also
+/// available directly in the global scope. It may only be used in the
+/// @format.bundle[bundle] target.
 #[elem(since = "0.15.0", Locatable)]
 pub struct AssetElem {
     /// The path in the bundle at which the asset will be placed.

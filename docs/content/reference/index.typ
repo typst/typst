@@ -24,7 +24,7 @@
     The second part includes sections
   ] on all functions, types, and other definitions provided by the _standard library_ of the Typst language.
 
-  The definition sections are grouped by topic. For example, if you would like to explore all tools Typst provides to adjust where elements land on the page, you should start in the @reference:layout section.
+  The definition sections are grouped by topic. For example, if you would like to explore all tools Typst provides to adjust where elements land on the page, you should start in the @reference:layout section. If instead you'd rather learn more about what formats Typst can export to, you should peruse the @format[Formats] section.
 
   = Reading the reference <reading-the-reference>
   This reference uses a few graphical conventions and labels to let you quickly scan its sections.

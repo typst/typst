@@ -6,6 +6,8 @@ mod paint;
 mod shape;
 mod text;
 
+pub use self::format::{FORMAT, PngFormat, PngFormatOptions};
+
 use tiny_skia as sk;
 use typst_layout::{Page, PagedDocument};
 use typst_library::format::{Complete, Fields, Partial};
@@ -14,8 +16,6 @@ use typst_library::layout::{
 };
 use typst_library::model::Document;
 use typst_library::visualize::{Color, Geometry, Paint};
-
-pub use self::format::{FORMAT, PngFormat, PngFormatOptions};
 
 /// Export a page into a raster image.
 ///
@@ -104,6 +104,7 @@ pub struct RenderOptions<F: Fields = Partial> {
 }
 
 impl RenderOptions {
+    /// Resolves the final options given those set by the document.
     pub fn resolve(&self, doc: &PngFormatOptions) -> RenderOptions<Complete> {
         RenderOptions {
             render_bleed: self.render_bleed,

@@ -49,9 +49,9 @@ pub const FORMAT: Format = Format::new::<SvgFormat>();
 ///
 /// When exporting to SVG, you have the following configuration options:
 ///
-/// - Which pages to export by specifying `--pages` followed by a comma-
-///   separated list of numbers or dash-separated number ranges. Ranges can
-///   be half-open. Example: `2,3,7-9,11-`.
+/// - Which pages to export by specifying `--pages` followed by a
+///   comma-separated list of numbers or dash-separated number ranges. Ranges
+///   can be half-open. Example: `2,3,7-9,11-`.
 ///
 /// == Web App <web-app>
 /// Click "File" > "Export as" > "SVG" or click the downwards-facing arrow next
@@ -62,7 +62,7 @@ pub const FORMAT: Format = Format::new::<SvgFormat>();
 ///   "Custom ranges". Custom ranges are a comma-separated list of numbers or
 ///   dash-separated number ranges. Ranges can be half-open. Example:
 ///   `2,3,7-9,11-`.
-#[elem(name = "svg", since = "unreleased", Construct)]
+#[elem(name = "svg", title = "SVG", since = "unreleased", Construct)]
 pub struct SvgFormat {
     /// Whether to pretty-print the produced SVG file.
     ///

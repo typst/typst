@@ -16,10 +16,12 @@ use crate::{
 /// Settings for HTML export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlOptions<F: Fields = Partial> {
+    /// Format options that override the defaults set by the document.
     pub format: HtmlFormatOptions<F>,
 }
 
 impl HtmlOptions {
+    /// Resolves the final options given those set by the document.
     pub fn resolve(&self, doc: &HtmlFormatOptions) -> HtmlOptions<Complete> {
         HtmlOptions { format: self.format.resolve(doc) }
     }

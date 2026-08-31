@@ -13,44 +13,7 @@ use crate::{HtmlAttr, HtmlAttrs, HtmlTag, css};
 /// The format element for registering the HTML format.
 pub const FORMAT: Format = Format::new::<HtmlFormat>().with_feature(Feature::Html);
 
-/// Typst's HTML export format.
-///
-/// #import "../../../docs/components/index.typ": info, insertion, category-settings
-///
-/// #category-settings(
-///   groups: (
-///     (
-///       name: "typed",
-///       title: "Typed HTML",
-///       items: dictionary(stdx.describe(html).scope)
-///         .filter(val => "typed-html" in stdx.describe(val).keywords),
-///       description: "Documentation for the typed HTML API.",
-///       docs: [
-///         A typed layer over raw HTML elements.
-///
-///         The `html` module provides a typed layer over the raw @html.elem function that allows you to conveniently create HTML elements. HTML attributes are exposed as function parameters that accept Typst types and automatically take care of converting those into the appropriate HTML.
-///
-///         Some parameters are common to all typed HTML functions. These are listed at the bottom in the @html:typed:global-attributes[Global Attributes] section instead of explicitly on each element for readability.
-///
-///         = Example <example>
-///         ```typ
-///         #html.video(
-///           controls: true,
-///           width: 1280,
-///           height: 720,
-///           src: "sunrise.mp4",
-///         )[
-///           Your browser does not support the video tag.
-///         ]
-///         ```
-///       ],
-///       epilogue: [
-///         = Global Attributes <global-attributes>
-///         These parameters are common to all typed HTML functions. They are listed here once instead of explicitly on each element for readability.
-///       ],
-///     ),
-///   ),
-/// )
+/// Typst's HTML export format (experimental).
 ///
 /// #info[
 ///   Typst's HTML export is currently under active development. The feature is
@@ -119,7 +82,49 @@ pub const FORMAT: Format = Format::new::<HtmlFormat>().with_feature(Feature::Htm
 /// = HTML-specific functionality <html-specific-functionality>
 /// Typst exposes HTML-specific functionality in the global `html` element. See
 /// below for the definitions and options it contains.
-#[elem(scope, name = "html", since = "unreleased", Construct)]
+///
+/// #category-settings(groups: (
+///   (
+///     name: "typed",
+///     title: "Typed HTML",
+///     items: dictionary(stdx.describe(html).scope)
+///       .filter(val => "typed-html" in stdx.describe(val).keywords),
+///     description: "Documentation for the typed HTML API.",
+///     docs: [
+///       A typed layer over raw HTML elements.
+///
+///       The `html` module provides a typed layer over the raw @html.elem
+///       function that allows you to conveniently create HTML elements. HTML
+///       attributes are exposed as function parameters that accept Typst
+///       types and automatically take care of converting those into the
+///       appropriate HTML.
+///
+///       Some parameters are common to all typed HTML functions. These are
+///       listed at the bottom in the
+///       @html:typed:global-attributes[Global Attributes] section instead of
+///       explicitly on each element for readability.
+///
+///       = Example <example>
+///       ```typ
+///       #html.video(
+///         controls: true,
+///         width: 1280,
+///         height: 720,
+///         src: "sunrise.mp4",
+///       )[
+///         Your browser does not support the video tag.
+///       ]
+///       ```
+///     ],
+///     epilogue: [
+///       = Global Attributes <global-attributes>
+///       These parameters are common to all typed HTML functions. They are
+///       listed here once instead of explicitly on each element for
+///       readability.
+///     ],
+///   ),
+/// ))
+#[elem(scope, name = "html", title = "HTML", since = "0.13.0", Construct)]
 pub struct HtmlFormat {
     /// Whether to pretty-print the produced HTML document.
     ///

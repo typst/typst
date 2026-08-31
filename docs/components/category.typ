@@ -14,10 +14,6 @@
 #import "styling.typ": prose-styling
 #import "table.typ": docs-table
 
-// Emits category settings as labelled metadata to be picked up and used when
-// generating a sub-category definitions section.
-#let category-settings(..args) = [#metadata(args.named())<category-settings>]
-
 // Build a scope from a module and binding info.
 #let scope-from(val, info) = {
   let mod = if type(val) == function {
@@ -25,12 +21,7 @@
   } else {
     val
   }
-
-  (
-    val: val,
-    dict: dictionary(mod),
-    info: info,
-  )
+  (val: val, dict: dictionary(mod), info: info)
 }
 
 // Build the scope information for a module.
@@ -230,7 +221,10 @@
   {
     show raw.where(lang: "example"): example.with(folding: true)
     set par(spacing: 1em)
-    prose-styling(live-docs(param.docs, param.def-site), base-target: param-label)
+    heading-offset(2, prose-styling(
+      live-docs(param.docs, param.def-site),
+      base-target: param-label,
+    ))
   }
 
   // For things that take constant strings, we show a table with additional
@@ -263,13 +257,17 @@
 // Displays a signature overview followed by docs for the individual parameters.
 #let params-section(
   func,
-  path,
   params,
   returns,
   base-label,
+  path: auto,
   indent: false,
   muted: false,
 ) = {
+  if path == auto {
+    path = std-path-of(func).split(".")
+  }
+
   param-signature(func, path, params, returns)
 
   // A bit of indent in paged export.
@@ -399,7 +397,7 @@
     params = params.slice(1)
     ("self", info.name)
   } else {
-    std-path-of(func).split(".")
+    auto
   }
 
   if "typed-html" in info.keywords {
@@ -408,10 +406,10 @@
 
   heading-offset(1, params-section(
     func,
-    path,
     params,
     info.returns,
     base-label,
+    path: path,
     indent: true,
     muted: muted,
   ))
@@ -424,10 +422,9 @@
 }
 
 // Documents the constructor of a type.
-#let constructor-section(func, path: none) = {
+#let constructor-section(func, path) = {
   let info = stdx.describe(func)
   let base-label = <constructor>
-  let path = if path != none { path } else { (info.name,) }
 
   let title = short-or-long(
     [Constructor],
@@ -452,9 +449,9 @@
 
   params-section(
     func,
-    path,
     info.params,
     info.returns,
+    path: path,
     base-label,
     indent: true,
   )
@@ -509,7 +506,7 @@
   if info.constructor != none {
     heading-offset(2, constructor-section(
       info.constructor,
-      path: std-path-of(ty).split("."),
+      std-path-of(ty).split("."),
     ))
   }
 
@@ -571,7 +568,13 @@
 }
 
 // Renders a section for a function.
-#let func-section(base-route, name, func, info, binding-info) = {
+#let func-section(
+  base-route,
+  name,
+  func,
+  info,
+  binding-info,
+) = {
   show: func-or-ty-section.with(
     kind: "Function",
     route: base-route + "/" + name,
@@ -594,7 +597,6 @@
     labelled(heading[Parameters], base-label)
     params-section(
       func,
-      (info.name,),
       info.params,
       info.returns,
       base-label,
@@ -627,7 +629,10 @@
   )
 
   if ty-info.constructor != none {
-    constructor-section(ty-info.constructor)
+    constructor-section(
+      ty-info.constructor,
+      std-path-of(ty).split("."),
+    )
   }
 
   definitions-section(
@@ -805,7 +810,13 @@
 }
 
 // Show a list of category definitions built by `build-category-definitions()`.
-#let category-definitions(route, scope, def-target, definitions, func-category: none) = {
+#let category-definitions(
+  route,
+  scope,
+  def-target,
+  definitions,
+  func-category: none,
+) = {
   // The individual sections for all definitions.
   show: paged-heading-offset.with(1)
 
@@ -830,6 +841,7 @@
   }
 }
 
+// Renders a section for a combined type and category (used for export formats).
 #let func-category(
   base-route,
   // The name of the function.
@@ -845,10 +857,10 @@
   let route = base-route + "/" + name
   let scope = scope-from(func, binding-info)
 
-  // TODO: Decide whether to actually use metadata to define groups.
   let settings = query(selector(<category-settings>).within(here()))
     .map(m => m.value)
     .first(default: none)
+
   let definitions = build-category-definitions(
     category: name,
     scope: scope,
@@ -876,7 +888,6 @@
         labelled(heading[Parameters], base-label)
         params-section(
           func,
-          (info.name,),
           info.params,
           info.returns,
           base-label,
@@ -889,7 +900,13 @@
     },
   )
 
-  category-definitions(route, scope, def-target, definitions, func-category: func-category)
+  category-definitions(
+    route,
+    scope,
+    def-target,
+    definitions,
+    func-category: func-category,
+  )
 }
 
 // Renders the docs for one category, including an overview section and sections
@@ -952,5 +969,11 @@
     },
   )
 
-  category-definitions(route, scope, def-target, definitions, func-category: func-category)
+  category-definitions(
+    route,
+    scope,
+    def-target,
+    definitions,
+    func-category: func-category,
+  )
 }

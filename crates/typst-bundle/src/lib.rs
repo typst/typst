@@ -6,8 +6,6 @@ mod format;
 mod introspect;
 mod link;
 
-use crate::introspect::BundleIntrospector;
-
 pub use self::export_::{BundleOptions, VirtualFs, export};
 pub use self::format::{AssetData, AssetElem, BundleFormat, FORMAT};
 
@@ -36,6 +34,8 @@ use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::{Feature, Library, World};
 use typst_syntax::VirtualPath;
 use typst_utils::{LazyHash, Protected};
+
+use crate::introspect::BundleIntrospector;
 
 /// A collection of files resulting from compilation.
 ///

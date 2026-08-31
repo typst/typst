@@ -189,6 +189,7 @@ pub struct SvgOptions<F: Fields = Partial> {
 }
 
 impl SvgOptions<Partial> {
+    /// Resolves the final options given those set by the document.
     pub fn resolve(&self, doc: &SvgFormatOptions) -> SvgOptions<Complete> {
         SvgOptions {
             render_bleed: self.render_bleed,

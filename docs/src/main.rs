@@ -147,9 +147,9 @@ impl Config {
 fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
     let mut warned = match config.output_format {
         OutputFormat::Website => typst::compile::<Bundle>(world)
-            .and_run(|bundle| export_website(bundle, config)),
+            .and_then(|bundle| export_website(bundle, config)),
         OutputFormat::Pdf => typst::compile::<PagedDocument>(world)
-            .and_run(|document| export_pdf(&document, config)),
+            .and_then(|document| export_pdf(&document, config)),
     };
 
     if config.open && warned.output.is_ok() {
@@ -183,7 +183,7 @@ fn export_website(mut bundle: Bundle, config: &Config) -> Warned<SourceResult<()
 
             Ok(BundleOptions::default())
         })
-        .and_run(|options| typst_bundle::export(&bundle, &options))
+        .and_then(|options| typst_bundle::export(&bundle, &options))
         .and_then(|fs| {
             if let Some(path) = &config.output {
                 write_virtual_fs(path, &fs);
@@ -242,13 +242,5 @@ impl Report {
             diagnostics::DiagnosticFormat::Human,
         )
         .unwrap();
-
-        if !errors.is_empty() {
-            eprintln!("compiled with errors");
-        } else if !warnings.is_empty() {
-            eprintln!("compiled with warnings");
-        } else {
-            eprintln!("compiled successfully");
-        }
     }
 }

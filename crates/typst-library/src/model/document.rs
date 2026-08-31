@@ -123,6 +123,26 @@ use crate::text::{Locale, TextElem};
 ///   #context document.title
 /// ]
 /// ```
+///
+/// == Export settings <export-settings>
+/// Just like with document metadata, you can use set rules on @format[format
+/// elements] to configure export settings for a particular document.
+///
+/// ```typ
+/// // Pretty-print all HTML.
+/// #set format.html(pretty: true)
+///
+/// #document("index.html")[
+///   ...
+/// ]
+///
+/// #document("archive.pdf")[
+///   // And use a specific PDF standard
+///   // for `archive.pdf`.
+///   #set pdf(standard: "a-2a")
+///   ...
+/// ]
+/// ```
 #[elem(since = "forever", Locatable, ShowSet)]
 pub struct DocumentElem {
     /// The path in the bundle at which the exported document will be placed.

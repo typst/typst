@@ -201,12 +201,15 @@ pub struct LibraryBuilder {
 impl LibraryBuilder {
     /// Creates a new builder.
     #[doc(hidden)]
-    pub fn from_routines(routines: &'static Routines) -> Self {
+    pub fn from_routines(
+        routines: &'static Routines,
+        formats: impl IntoIterator<Item = Format>,
+    ) -> Self {
         Self {
             routines,
             inputs: None,
             features: Features::default(),
-            formats: Vec::new(),
+            formats: formats.into_iter().collect(),
         }
     }
 
@@ -221,12 +224,6 @@ impl LibraryBuilder {
     /// No guarantees whatsover!
     pub fn with_features(mut self, features: Features) -> Self {
         self.features = features;
-        self
-    }
-
-    /// Set the registered document [export formats](crate::format).
-    pub fn with_formats(mut self, formats: impl IntoIterator<Item = Format>) -> Self {
-        self.formats = formats.into_iter().collect();
         self
     }
 

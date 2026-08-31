@@ -33,7 +33,6 @@
 pub extern crate comemo;
 pub extern crate ecow;
 
-use typst_library::format::Format;
 pub use typst_library::*;
 #[doc(inline)]
 pub use typst_syntax as syntax;
@@ -50,6 +49,7 @@ use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::Format;
 use typst_library::foundations::{
     NativeRuleMap, Output, StyleChain, Styles, Target, TargetElem, Value,
 };
@@ -318,7 +318,7 @@ impl LibraryExt for Library {
     }
 
     fn builder(formats: impl IntoIterator<Item = Format>) -> LibraryBuilder {
-        LibraryBuilder::from_routines(&ROUTINES).with_formats(formats)
+        LibraryBuilder::from_routines(&ROUTINES, formats)
     }
 }
 

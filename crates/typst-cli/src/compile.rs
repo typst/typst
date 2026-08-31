@@ -351,7 +351,7 @@ fn compile_and_export(
     match config.output_format {
         OutputFormat::Pdf | OutputFormat::Png | OutputFormat::Svg => {
             typst::compile::<PagedDocument>(world)
-                .and_run(|document| export_paged(&document, config))
+                .and_then(|document| export_paged(&document, config))
         }
         OutputFormat::Html => {
             let Warned { output, warnings } = typst::compile::<HtmlDocument>(world);
@@ -362,7 +362,7 @@ fn compile_and_export(
             }
         }
         OutputFormat::Bundle => typst::compile::<Bundle>(world)
-            .and_run(|bundle| export_bundle(bundle, config)),
+            .and_then(|bundle| export_bundle(bundle, config)),
     }
 }
 
@@ -527,6 +527,8 @@ fn export_image(
     }
 }
 
+/// Exports the document's pages as separate images, each exported with a
+/// format-specific `export_image_page` function.
 fn export_image_pages<F>(
     config: &CompileConfig,
     document: &PagedDocument,

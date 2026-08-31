@@ -91,6 +91,7 @@ pub struct PdfOptions<F: Fields = Partial> {
 }
 
 impl PdfOptions {
+    /// Resolves the final options given those set by the document.
     pub fn resolve(
         &self,
         doc: &PdfFormatOptions,

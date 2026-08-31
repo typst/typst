@@ -1,12 +1,8 @@
 //! Specify configurable export formats.
 //!
-//! All export formats have to be registered in [`Library::formats`], usually
-//! through [`LibraryBuilder::with_formats()`]. When using the `typst` crate's
-//! `LibraryExt::default()` or `LibraryExt::builder()` methods, all enabled
-//! standard formats will automatically be registered. The standard formats are
-//! listed in the `"all-formats"` Cargo feature of the `typst` crate, and when
-//! disabling `default-features` each individual format can be enabled by a
-//! separate feature flag.
+//! All export formats have to be registered in [`Library::formats`], by passing
+//! them to the `typst` crate's
+//! `LibraryExt::new()` or `LibraryExt::builder()` methods.
 //!
 //! Each [`Format`] has an associated [`FormatElement`] with a [`FormatOptions`]
 //! type. The format element will be defined on the `std.format` binding, making
@@ -14,12 +10,12 @@
 //!
 //! The options are stored in the compiled document's [`DocumentFormatOptions`]
 //! and can be accessed using the [`Document::options()`] trait method. The
-//! concrete type can be retreived using [`DocumentFormatOptions::get()`]
+//! concrete type can be retrieved using [`DocumentFormatOptions::get()`]
 //! providing the format element as a generic parameter.
 //!
 //! # Example
 //! ```
-//! use typst_library::LibraryBuilder;
+//! use typst_library::Library;
 //! use typst_library::diag::{SourceResult, bail};
 //! use typst_library::engine::Engine;
 //! use typst_library::format::{Complete, Fields, Format, FormatElement, Populate};
@@ -27,6 +23,8 @@
 //! use typst_library::model::Document;
 //! use typst_syntax::Spanned;
 //!
+//! // This can be passed to `Library::new` as `Format::new::<Epub>()` to
+//! // register the format.
 //! #[elem(Construct)]
 //! pub struct Epub {
 //!     #[default]
@@ -56,12 +54,8 @@
 //!     }
 //! }
 //!
-//! /// Add the EPUB format to the library.
-//! fn setup_library(builder: LibraryBuilder) -> LibraryBuilder {
-//!     builder.with_formats([Format::new::<Epub>()])
-//! }
 //!
-//! /// In the export crate.
+//! // In the export crate.
 //! fn export_epub(doc: impl Document) {
 //!     let options = doc.options().get::<Epub>();
 //!     // Export an EPUB here...
@@ -74,7 +68,6 @@
 //! [`RealizationKind::Document`].
 //!
 //! [`Library::formats`]: crate::Library::formats
-//! [`LibraryBuilder::with_formats()`]: crate::LibraryBuilder::with_formats()
 //! [`Document::options()`]: crate::model::Document::options()
 //! [`DocumentInfo`]: crate::model::DocumentInfo
 //! [`RealizationKind::Document`]: crate::routines::RealizationKind::Document
@@ -216,8 +209,6 @@ impl DocumentFormatOptions {
     /// let pdf_options = document.options().get::<typst_pdf::Pdf>();
     /// ```
     pub fn get<T: FormatElement>(&self) -> &T::Options {
-        // TODO: Maybe just return default options, if the document doesn't have
-        // the format registered?
         self.0
             .iter()
             .find_map(FormatOptions::downcast::<T>)

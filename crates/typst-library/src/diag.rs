@@ -318,7 +318,7 @@ where
     }
 }
 
-/// A variation of [`CollectCombinedResult`] for parallel rayon iterators.
+/// A variation of [`CollectCombinedWarnedResult`] for parallel rayon iterators.
 ///
 /// Needs to be a separate trait because we can't have two blanket impls.
 pub trait ParallelCollectCombinedWarnedResult {
@@ -356,8 +356,6 @@ pub struct Warned<T> {
     pub warnings: EcoVec<SourceDiagnostic>,
 }
 
-impl<T> Warned<T> {}
-
 impl<T, E> Warned<Result<T, E>> {
     /// Maps the output, keeping the same warnings.
     pub fn map<R, F: FnOnce(T) -> R>(self, f: F) -> Warned<Result<R, E>> {
@@ -367,43 +365,33 @@ impl<T, E> Warned<Result<T, E>> {
         }
     }
 
-    /// Maps the output, if the inner `Result` is `Ok`.
-    /// The additional warnings are added to the existing ones.
-    pub fn and_then<R, F>(self, f: F) -> Warned<Result<R, E>>
-    where
-        F: FnOnce(T) -> Result<R, E>,
-    {
-        Warned {
-            output: self.output.and_then(f),
-            warnings: self.warnings,
-        }
-    }
-
-    /// Maps the output, if the inner `Result` is `Ok`.
-    /// The additional warnings are added to the existing ones.
-    // TODO: better naming
-    pub fn and_run<R, F>(mut self, f: F) -> Warned<Result<R, E>>
-    where
-        F: FnOnce(T) -> Warned<Result<R, E>>,
-    {
-        Warned {
-            output: self.output.and_then(|output| {
-                let Warned { output, warnings } = f(output);
-                self.warnings.extend(warnings);
-                output
-            }),
-            warnings: self.warnings,
-        }
-    }
-
-    /// Maps the output, if the inner `Result` is `Ok`.
-    /// The additional warnings are added to the existing ones.
+    /// Maps the error, if the inner `Result` is `Err`, keeping the same
+    /// warnings.
     pub fn map_err<F, R>(self, f: F) -> Warned<Result<T, R>>
     where
         F: FnOnce(E) -> R,
     {
         Warned {
             output: self.output.map_err(f),
+            warnings: self.warnings,
+        }
+    }
+
+    /// Maps the output, if the inner `Result` is `Ok`.
+    ///
+    /// If `f` returns a `Warned`, the additional warnings are added. If it just
+    /// returns a bare result, the same warnings as before are kept.
+    pub fn and_then<R, F, W>(mut self, f: F) -> Warned<Result<R, E>>
+    where
+        F: FnOnce(T) -> W,
+        W: Into<Warned<Result<R, E>>>,
+    {
+        Warned {
+            output: self.output.and_then(|output| {
+                let Warned { output, warnings } = f(output).into();
+                self.warnings.extend(warnings);
+                output
+            }),
             warnings: self.warnings,
         }
     }

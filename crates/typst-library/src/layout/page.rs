@@ -818,18 +818,12 @@ cast! {
             "to" => self.end.into_value(),
         })
     },
-    nr: i64 => {
-        let nr = parse_page_number(nr)?;
-        Self::splat(nr)
-    },
+    nr: i64 => Self::at(parse_page_number(nr)?),
     mut dict: Dict => {
-        let parse_nr = |val: Value| {
-            let nr = val.cast::<i64>()?;
-            parse_page_number(nr)
-        };
+        let parse_nr = |val: Value| parse_page_number(val.cast::<i64>()?);
         let start = dict.take("from").ok().map(parse_nr).transpose()?;
         let end =  dict.take("to").ok().map(parse_nr).transpose()?;
-        dict.finish(&[])?;
+        dict.finish(&["from", "to"])?;
         if start.is_none() && end.is_none() {
             bail!("page range must not be empty");
         }
@@ -846,10 +840,10 @@ fn parse_page_number(nr: i64) -> HintedStrResult<NonZeroUsize> {
     if nr < 1 {
         bail!("page numbers start at one");
     }
-    let Some(nr) = usize::try_from(nr).ok().and_then(NonZeroUsize::new) else {
-        bail!("not a valid page number");
-    };
-    Ok(nr)
+    Ok(usize::try_from(nr)
+        .ok()
+        .and_then(NonZeroUsize::new)
+        .ok_or("not a valid page number")?)
 }
 
 impl PageRange {
@@ -859,23 +853,18 @@ impl PageRange {
     }
 
     /// Constructs a page range with one page.
-    pub fn splat(nr: NonZeroUsize) -> Self {
+    pub fn at(nr: NonZeroUsize) -> Self {
         Self { start: Some(nr), end: Some(nr) }
     }
 
-    /// Constructs a fully specified page range with both start and end bounds.
-    pub fn full(start: NonZeroUsize, end: NonZeroUsize) -> Self {
-        Self { start: Some(start), end: Some(end) }
+    /// Constructs a page range without a start bound.
+    pub fn from(start: NonZeroUsize) -> Self {
+        Self { start: Some(start), end: None }
     }
 
     /// Constructs a page range without an end bound.
-    pub fn open_start(end: NonZeroUsize) -> Self {
+    pub fn to(end: NonZeroUsize) -> Self {
         Self { start: None, end: Some(end) }
-    }
-
-    /// Constructs a page range without a start bound.
-    pub fn open_end(start: NonZeroUsize) -> Self {
-        Self { start: Some(start), end: None }
     }
 }
 

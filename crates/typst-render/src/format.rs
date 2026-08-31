@@ -77,8 +77,7 @@ pub const FORMAT: Format = Format::new::<PngFormat>();
 ///   "Custom ranges". Custom ranges are a comma-separated list of numbers or
 ///   dash-separated number ranges. Ranges can be half-open. Example:
 ///   `2,3,7-9,11-`.
-/// The PNG format.
-#[elem(name = "png", since = "unreleased", Construct)]
+#[elem(name = "png", title = "PNG", since = "unreleased", Construct)]
 pub struct PngFormat {
     /// The PPI (pixels per inch) to use for PNG export.
     #[default(Scalar::new(144.0))]

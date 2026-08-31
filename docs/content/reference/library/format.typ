@@ -1,21 +1,33 @@
-#import "../../../components/index.typ": docs-category, scope
+#import "../../../components/index.typ": docs-category, short-or-long, scope
 
-#let scope = scope(std, "format");
 #show: docs-category.with(
   title: "Formats",
   description: "Documentation for Typst's export formats.",
   category: "format",
-  scope: scope,
-  sub-categories: scope.dict,
+  scope: scope(std, "format"),
+  sub-categories: dictionary(format),
 )
 
-Some of the features in Typst only apply to certain output file formats.
-Here you can find available format-specific settings and learn what features are available to customize your document for a given format.
+Typst documents can be exported to various different export formats. This section documents the available export formats and lists format-specific settings and features.
 
-= Setting default export options <setting-default-export-options>
-Typst allows setting the default export options for a document directly from within it. These defaults can be overridden by CLI arguments or using the web-app `Export & Preview` panel. This is done using set rules on the format elements defined below.
+Each export format has an associated element through which it can be configured. These elements are defined in the global `format` module. The major formats `pdf` and `html` are additionally directly available in the global scope.
 
-Here is an example on how you can change the default @pdf.standard of a document.
+= #short-or-long[Export setstings][Configuring export settings] <export-settings>
+There are two ways to specify export settings:
+
+- At export time, through command line arguments or the web app's "Export & Preview"  panel
+- In the document, through a @reference:styling:set-rules[set rule] on the format's element
+
+Below is an example showing how you could change the default @pdf.standard[PDF standard] for a document. Unless specified otherwise (e.g. via a command line argument), a document with this set rule will be exported as a PDF/UA-1.
+
 ```typ
-#set format.pdf(standard: "ua-1")
+// The document will now default to PDF/UA-1.
+#set pdf(standard: "ua-1")
+```
+
+Similarly, we can write a set rule that makes rendered PNG a bit sharper by default. Here, we have to write @format.png instead of just `png` since the PNG format element is not globally available (as it's a bit more niche of an export format than PDF).
+
+```typ
+// This makes PNGs a bit higher-res.
+#set format.png(ppi: 300)
 ```

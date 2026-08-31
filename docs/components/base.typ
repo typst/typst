@@ -341,3 +341,7 @@
     small(body)
   }
 }
+
+// Emits category settings as labelled metadata to be picked up and used when
+// generating a sub-category definitions section.
+#let category-settings(..args) = [#metadata(args.named())<category-settings>]
