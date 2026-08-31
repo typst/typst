@@ -3,16 +3,18 @@ use std::ops::{Deref, DerefMut};
 
 use ecow::EcoVec;
 use typst_library::engine::Engine;
-use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
-use typst_library::model::ParLineMarker;
+use typst_library::foundations::Styles;
+use typst_library::introspection::{Location, SplitLocator, Tag, TagFlags};
+use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
+use typst_library::model::{Destination, LinkElem, ParLineMarker};
 use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
+use crate::inline::collect::Event;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::{Adjustability, ShapedGlyph};
-use crate::modifiers::layout_and_modify;
+use crate::modifiers::{FrameModifiers, FrameModify, FrameModifyText, layout_and_modify};
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -484,14 +486,29 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
+#[derive(Default)]
+struct LinkRenderInfo {
+    spans_text: bool,
+    height: Abs,
+    start: Abs,
+    y: Abs,
+}
+
+impl LinkRenderInfo {
+    fn with_start(start: Abs) -> Self {
+        Self { start, ..Default::default() }
+    }
+}
+
 /// Commit to a line and build its frame.
-pub fn commit(
+pub fn commit<'l>(
     engine: &mut Engine,
     p: &Preparation,
-    line: &Line,
+    line: &'l Line,
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
+    active_links: &mut Vec<&'l Destination>,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
@@ -556,6 +573,16 @@ pub fn commit(
         }
     }
 
+    // Keep track of items spanned by each link, including the destination,
+    // whether a text was spanned, the height, the horizontal offset where it
+    // starts, and (for finished links) the offset where it ends.
+    let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
+        active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
+    let mut finished_links: Vec<(&Destination, LinkRenderInfo, Abs)> = vec![];
+
+    // Horizontal offset after the last frame in the line.
+    let mut last_frame_end = Abs::zero();
+
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
@@ -564,10 +591,19 @@ pub fn commit(
     for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
+            let frame_bottom = frame.size().y - frame.baseline();
             top.set_max(frame.baseline());
-            bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, frame, idx));
+            bottom.set_max(frame_bottom);
+
+            for (_, link_info) in &mut link_stack {
+                // Ensure link covers this frame.
+                link_info.height.set_max(frame.height());
+                link_info.y.set_max(frame_bottom);
+            }
+
+            frames.push((*offset, frame, idx, None));
             *offset += width;
+            last_frame_end = *offset;
         };
 
         match &**item {
@@ -595,6 +631,10 @@ pub fn commit(
                     extra_justification,
                 );
                 push(&mut offset, frame, idx);
+
+                for (_, link_info) in &mut link_stack {
+                    link_info.spans_text = true;
+                }
             }
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone(), idx);
@@ -602,11 +642,51 @@ pub fn commit(
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame, idx));
+                frames.push((offset, frame, idx, None));
             }
             Item::Skip(_) => {}
+            Item::Event(Event::StartLink(dest)) => {
+                active_links.push(dest);
+                link_stack.push((dest, LinkRenderInfo::with_start(offset)));
+            }
+            Item::Event(Event::EndLink(dest)) => {
+                debug_assert_eq!(active_links.last(), Some(&dest));
+                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
+                let (dest, link_info) = link_stack.pop().unwrap();
+                // Any external links should have been handled before.
+                active_links.pop().unwrap();
+
+                let end = offset;
+
+                let x = link_info.start;
+                let y = link_info.height;
+                let width = end - link_info.start;
+                let height = link_info.height;
+                let mut styles = Styles::new();
+                styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
+
+                // TODO: a single modify call, calculating the height needed in real-time when going over text...
+                let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+                let stylechain = StyleChain::new(&styles);
+                if link_info.spans_text {
+                    frame.modify_text(stylechain);
+                } else {
+                    // Don't add padding; restrict the link to the box.
+                    // TODO: also need to consider equations...
+                    frame.modify(&FrameModifiers::get_in(stylechain));
+                }
+                frames.push((offset, frame, idx, Some(Point::new(x, y))));
+            }
         }
     }
+
+    // Any unfinished links extend towards the very end of the last visible item
+    // in the line.
+    finished_links.extend(
+        link_stack
+            .into_iter()
+            .map(|(l, link_info)| (l, link_info, last_frame_end)),
+    );
 
     // Remaining space is distributed now.
     if !fr.is_zero() {
@@ -624,12 +704,36 @@ pub fn commit(
     // Ensure that the final frame's items are in logical order rather than in
     // visual order. This is important because it affects the order of elements
     // during introspection and thus things like counters.
-    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx, _)| *idx);
 
     // Construct the line's frame.
-    for (offset, frame, _) in frames {
-        let x = offset + p.config.align.position(remaining);
-        let y = top - frame.baseline();
+    for (offset, frame, _, point) in frames {
+        let Point { x, y } =
+            point.unwrap_or_else(|| Point::new(offset, frame.baseline()));
+        let x = x + p.config.align.position(remaining);
+        let y = top - y;
+        output.push_frame(Point::new(x, y), frame);
+    }
+
+    // Construct unfinished link frames.
+    for (dest, link_info, end) in finished_links {
+        let x = link_info.start + p.config.align.position(remaining);
+        let y = top - link_info.height;
+        let width = end - link_info.start;
+        let height = link_info.height;
+        let mut styles = Styles::new();
+        styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
+
+        // TODO: a single modify call, calculating the height needed in real-time when going over text...
+        let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+        let stylechain = StyleChain::new(&styles);
+        if link_info.spans_text {
+            frame.modify_text(stylechain);
+        } else {
+            // Don't add padding; restrict the link to the box.
+            // TODO: also need to consider equations...
+            frame.modify(&FrameModifiers::get_in(stylechain));
+        }
         output.push_frame(Point::new(x, y), frame);
     }
 

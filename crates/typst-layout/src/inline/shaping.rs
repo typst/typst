@@ -23,7 +23,6 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
 use super::{Item, Range, SpanMapper, decorate};
-use crate::modifiers::FrameModifyText;
 
 const SHY: char = '\u{ad}';
 const SHY_STR: &str = "\u{ad}";
@@ -459,7 +458,6 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify_text(self.styles);
         frame
     }
 

@@ -1,3 +1,4 @@
+use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
 use typst_library::model::{Destination, LinkElem, ParElem};
@@ -29,7 +30,7 @@ impl FrameModifiers {
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: styles.get_cloned(LinkElem::current),
+            dest: styles.get_cloned(LinkElem::current).map(|(dest, _)| dest),
             hidden: styles.get(HideElem::hidden),
         }
     }
@@ -89,7 +90,7 @@ impl FrameModifyText for Frame {
     }
 }
 
-fn modify_frame(
+pub(super) fn modify_frame(
     frame: &mut Frame,
     modifiers: &FrameModifiers,
     link_box_outset: Option<Sides<Abs>>,
@@ -108,6 +109,38 @@ fn modify_frame(
     if modifiers.hidden {
         frame.hide();
     }
+}
+
+/// Performs layout, while resetting modifications as they are about to be done,
+/// but not applying them just yet to allow other similar modifications to be
+/// collected and merged first.
+///
+/// This just runs `layout(styles)`, but with the additional step that redundant
+/// modifiers (which are already applied here) are removed from the `styles`
+/// passed to `layout`. This is used in inline layout for elements such as text,
+/// boxes and equations.
+pub fn layout_and_reset_modifications<F, R>(
+    styles: StyleChain<'_>,
+    layout: F,
+) -> SourceResult<(FrameModifiers, R)>
+where
+    F: FnOnce(StyleChain) -> SourceResult<R>,
+    R: FrameModify,
+{
+    let modifiers = FrameModifiers::get_in(styles);
+
+    // Disable the current link internally since it's already applied at this
+    // level of layout. This means we don't generate redundant nested links,
+    // which may bloat the output considerably.
+    let reset;
+    let outer = styles;
+    let mut styles = styles;
+    if modifiers.dest.is_some() {
+        reset = LinkElem::current.set(None).wrap();
+        styles = outer.chain(&reset);
+    }
+
+    Ok((modifiers, layout(styles)?))
 }
 
 /// Performs layout and modification in one step.
