@@ -97,7 +97,11 @@ jobs:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
       - run: cargo clippy --workspace --all-targets --all-features
-      - run: cargo clippy --workspace --all-targets --no-default-features
+      # These crates have cargo features, so we check them separately, or else
+      # feature unification may mask errors.
+      - run: cargo clippy --package typst-cli --no-default-features
+      - run: cargo clippy --package typst-kit --no-default-features
+      - run: cargo clippy --package typst-timing --no-default-features
       - run: cargo fmt --check --all
       - run: cargo doc --workspace --no-deps --document-private-items
       - run: git diff --exit-code

@@ -42,6 +42,54 @@ fn test_compile_pdf_version() {
 }
 
 #[test]
+fn test_compile_pdf_tagged_and_pages() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged")
+        .arg("--pages=1")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot enable PDF tags when exporting a page range");
+}
+
+#[test]
+fn test_compile_pages_warning_untagged() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--pages=1").arg(&hello).must_succeed();
+    output
+        .stderr
+        .must_contain("using `--pages` implies `--pdf-tagged=false`");
+}
+
+#[test]
+fn test_compile_pdf_untagged_and_accessible_standard() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged=false")
+        .arg("--pdf-standard=a-3a")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot disable PDF tags when exporting a PDF/A-3a document");
+}
+
+#[test]
+fn test_compile_no_pdf_tags_deprecated() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--no-pdf-tags").arg(&hello).must_succeed();
+    output.stderr.must_contain("`--no-pdf-tags` is deprecated");
+}
+
+#[test]
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);

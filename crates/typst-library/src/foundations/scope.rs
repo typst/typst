@@ -217,6 +217,42 @@ impl Scope {
         binding.init_info().category = self.category;
         self.bind(name.into(), binding)
     }
+
+    /// Prelude a binding from a path.
+    ///
+    /// The path may not contain multiple bindings with different feature gates,
+    /// otherwise this function will panic.
+    pub(crate) fn prelude_path<'a, const N: usize>(
+        &'a mut self,
+        path: [&'static str; N],
+    ) -> Option<&'a mut Binding> {
+        let [first, path @ .., last] = path.as_slice() else {
+            panic!("prelude path must have at least two segments");
+        };
+
+        let mut binding = self.get(first)?;
+        let mut path_feature = binding.feature();
+
+        for name in path.iter().chain([last]) {
+            binding = binding.value.scope()?.get(name)?;
+
+            if let Some(new) = binding.feature()
+                && let Some(prev) = path_feature.replace(new)
+                && prev != new
+            {
+                panic!(
+                    "cannot prelude from path {path:?} because it's \
+                     gated by two different features: `{prev}` and `{new}`"
+                );
+            }
+        }
+
+        let mut binding = binding.clone();
+        if let Some(feature) = path_feature {
+            binding.with_feature(feature);
+        }
+        Some(self.bind((*last).into(), binding))
+    }
 }
 
 /// Scope manipulation and access.

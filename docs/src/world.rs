@@ -199,7 +199,15 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// - an `stdx` module with various utilities
 /// - a few patched show rules
 fn library(is_dev_version: bool) -> Library {
-    let mut lib = Library::builder().with_features(Features::all()).build();
+    let mut lib = Library::builder([
+        typst_html::FORMAT,
+        typst_pdf::FORMAT,
+        typst_svg::FORMAT,
+        typst_render::FORMAT,
+        typst_bundle::FORMAT,
+    ])
+    .with_features(Features::all())
+    .build();
     let scope = lib.global.scope_mut();
     scope.define("stdx", stdx_module(is_dev_version));
     lib.rules.replace(Target::Html, PATCHED_LINK_RULE);

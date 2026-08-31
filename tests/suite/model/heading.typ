@@ -82,7 +82,8 @@ comment spans lines
 ===== Heading 🌍
 #heading(level: 5)[Heading]
 
---- heading-offset paged pdftags pdfstandard(ua-1) ---
+--- heading-offset paged pdftags ---
+#set pdf(standard: "ua-1")
 // Test setting the starting offset.
 #set heading(numbering: "1.1")
 #show heading.where(level: 2): set text(blue)
