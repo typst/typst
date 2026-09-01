@@ -301,6 +301,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         // An unmatched closing delimiter.
         SyntaxKind::MathClosing | SyntaxKind::RightParen => {
             p.convert_and_eat(SyntaxKind::MathClosing);
+            if math_op(p.current(), p.had_trivia()).is_some() {
+                math_unmatched_delim_error(&mut p[m]);
+            }
         }
 
         SyntaxKind::Bang | SyntaxKind::Comma | SyntaxKind::Semicolon => {
@@ -448,28 +451,50 @@ fn math_op(
 fn math_delimited(p: &mut Parser, prec: u8) {
     let m = p.marker();
     p.convert_and_eat(SyntaxKind::MathOpening); // Converts `LeftParen`.
+
     let m_body = p.marker();
     math_exprs(p, syntax_set!(Dollar, End, MathClosing, RightParen));
-    if p.at_set(syntax_set!(MathClosing, RightParen)) {
-        p.wrap(m_body, SyntaxKind::Math);
-        p.convert_and_eat(SyntaxKind::MathClosing); // Converts `RightParen`.
-        p.wrap(m, SyntaxKind::MathDelimited);
-    } else {
-        // If we had no closing delimiter, just produce a math sequence.
+
+    if !p.at_set(syntax_set!(MathClosing, RightParen)) {
         if prec > 0 {
-            // Unless we were to the right of an operator, then we error.
-            p[m].convert_to_error("unclosed delimiter");
-            p[m].hint("delimiters must be correctly matched when used for grouping");
-            let open = p[m].leaf_text().as_str().chars().next().unwrap();
-            if let Some(close) = matching_delim(open) {
-                p[m].hint(eco_format!("try adding a closing delimiter: `{close}`"));
-                p[m].hint(eco_format!(
-                    "or escape the delimiter with a backslash \
-                     to display it verbatim: `\\{open}`"
-                ));
-            }
+            // Error if we were to the right of an operator.
+            math_unmatched_delim_error(&mut p[m]);
         }
-        p.wrap(m, SyntaxKind::Math);
+        // We did parse children from `math_exprs`, but we don't need to wrap in
+        // `Math` here since we must be at `End` or `Dollar`, which means that
+        // we'll return to an outer `math_exprs` call whose parent will wrap in
+        // `Math` for us. Not wrapping here flattens expressions like `(1[2{3`
+        // instead of nesting them, which mirrors the behavior of `4}5]6)`.
+        return;
+    }
+
+    p.wrap(m_body, SyntaxKind::Math);
+    p.convert_and_eat(SyntaxKind::MathClosing); // Converts `RightParen`.
+    p.wrap(m, SyntaxKind::MathDelimited);
+}
+
+/// Error for an unmatched delimiter adjacent to an operator: `$1/($` or `$)/1$`.
+fn math_unmatched_delim_error(node: &mut SyntaxNode) {
+    let open = node.kind() == SyntaxKind::MathOpening;
+    assert!(open || node.kind() == SyntaxKind::MathClosing);
+    let a_an_other = if open { "a closing" } else { "an opening" };
+    let shorthand = node.is_inner();
+    node.convert_to_error("unmatched delimiter");
+    node.hint("delimiters must be correctly matched when used for grouping");
+    if shorthand {
+        let matching = if open { "|]" } else { "[|" };
+        node.hint(eco_format!("try adding {a_an_other} delimiter: `{matching}`"));
+        node.hint(eco_format!(
+            "or access the delimiter as a variable: `{}`",
+            if open { "bracket.l.stroked" } else { "bracket.r.stroked" },
+        ));
+    } else {
+        let delim = node.leaf_text().as_str().chars().next().unwrap();
+        let matching = matching_delim(delim).unwrap_or(if open { ')' } else { '(' });
+        node.hint(eco_format!("try adding {a_an_other} delimiter: `{matching}`"));
+        node.hint(eco_format!(
+            "or escape the delimiter with a backslash to display it verbatim: `\\{delim}`"
+        ));
     }
 }
 

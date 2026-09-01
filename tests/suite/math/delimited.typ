@@ -94,23 +94,46 @@ $ (a class("unary", |) b) $
 $ (a class("unary", mid(|)) b) $
 $ (a mid(class("unary", |)) b) $
 
---- math-lr-unbalanced eval ---
-// Test unbalanced delimiters.
-// Error: 5-6 unclosed delimiter
+--- math-lr-unmatched-adjacent-op eval ---
+// Error for unmatched delimiters adjacent to math operators.
+// Error: 5-6 unmatched delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
 // Hint: 5-6 try adding a closing delimiter: `)`
 // Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\(`
 $ 1/(2 (x) $
-// Error: 5-6 unclosed delimiter
+// Error: 5-6 unmatched delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
 // Hint: 5-6 try adding a closing delimiter: `]`
 // Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\[`
 $ 1_[2 y [x] [] $
-// Error: 5-6 unclosed delimiter
+// Error: 5-6 unmatched delimiter
 // Hint: 5-6 delimiters must be correctly matched when used for grouping
 // Hint: 5-6 try adding a closing delimiter: `⟩`
 // Hint: 5-6 or escape the delimiter with a backslash to display it verbatim: `\⟨`
 $ 1/⟨2 y ⟨x⟩ (2(3)⟩ $
+// Error: 4-5 unmatched delimiter
+// Hint: 4-5 delimiters must be correctly matched when used for grouping
+// Hint: 4-5 try adding an opening delimiter: `[`
+// Hint: 4-5 or escape the delimiter with a backslash to display it verbatim: `\]`
+$ 1]/2 $
+// Error: 4-5 unmatched delimiter
+// Hint: 4-5 delimiters must be correctly matched when used for grouping
+// Hint: 4-5 try adding an opening delimiter: `⟨`
+// Hint: 4-5 or escape the delimiter with a backslash to display it verbatim: `\⟩`
+$ 1⟩^2 $
+
+--- math-lr-unmatched-adjacent-op-shorthand eval ---
+// Custom hints for the delimiter shorthands `[|` and `|]`.
+// Error: 4-6 unmatched delimiter
+// Hint: 4-6 delimiters must be correctly matched when used for grouping
+// Hint: 4-6 try adding an opening delimiter: `[|`
+// Hint: 4-6 or access the delimiter as a variable: `bracket.r.stroked`
+$ 1|]^2 $
+// Error: 5-7 unmatched delimiter
+// Hint: 5-7 delimiters must be correctly matched when used for grouping
+// Hint: 5-7 try adding a closing delimiter: `|]`
+// Hint: 5-7 or access the delimiter as a variable: `bracket.l.stroked`
+$ 1/[|2 $
 
 --- math-lr-missing-operator-sides eval ---
 // The operator should not steal the closing paren.
