@@ -253,16 +253,23 @@ impl Packed<ImageElem> {
                 .at(span)?,
             ),
             ImageFormat::Vector(VectorFormat::Svg) => {
-                // Warn the user if the image contains a foreign object. Not
-                // perfect because the svg could also be encoded, but that's an
-                // edge case.
-                if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
+                // Warn the user if the image contains a foreign object that does
+                // not have a fallback rendering. The SVG standard at
+                // https://svgwg.org/svg2-draft/embedded.html?utm_source=copilot.com#ForeignObjectElement
+                // specifies that "A ‘foreignObject’ may be used in conjunction with the ‘switch’ element
+                // and the ‘requiredExtensions’ attribute to provide proper checking for user agent support
+                // and provide an alternate rendering in case user agent support is not available."
+                // If a foreignObject is found inside a switch, followed by other svg elements, then
+                // there is the above mentioned structure and there is no need to issue a warning.
+                // Warn the user if the image contains a foreign object not surrounded by a switch.
+                if svg_has_foreign_object_without_fallback(&loaded.data) {
+                // if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
                     engine.sink.warn(warning!(
                         span,
                         "image contains foreign object";
-                        hint: "SVG images with foreign objects might render incorrectly \
-                               in Typst";
-                        hint: "see https://github.com/typst/typst/issues/1421 for more \
+                        hint: "the content will be omitted because Typst cannot \
+                               render embedded HTML";
+                        hint: "see https://github.com/typst/typst/issues/1421 and 8794 for more \
                                information";
                     ));
                 }
@@ -368,6 +375,44 @@ impl Packed<ImageElem> {
 
         Ok(ImageFormat::detect(&loaded.data).ok_or("unknown image format")?)
     }
+}
+
+/// Checks if an SVG contains a foreignObject element that does
+/// not satisfy the following 2 conditions:
+/// (1) appears inside a switch
+/// (2) is followed by other svg elements (a fallback rendering)
+fn svg_has_foreign_object_without_fallback(data: &Bytes) -> bool {
+    // Easy case. No svg at all.
+    if memchr::memmem::find(data, b"<foreignObject").is_none() {
+        return false
+    }
+    let Ok(text) = std::str::from_utf8(data) else { return false };
+
+    // drawio and others include a DOCTYPE section.
+    let options = roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+    let Ok(document) = roxmltree::Document::parse_with_options(text, options) else {
+        // If the SVG does not parse, treat it as the worst case to keep previous behavior.
+        // A warning will be issued.
+        return true
+    };
+
+    document
+        .root()
+        .descendants()
+        .filter(|node| node.tag_name().name() == "foreignObject")
+        .any(|node| foreign_object_has_switch_fallback(node))
+}
+
+// Check if the given foreignObject is inside a switch and has non-foreignObject
+// elemets to follow.
+fn foreign_object_has_switch_fallback(node: roxmltree::Node<'_, '_>) -> bool {
+    let skipped_by_switch = node.has_attribute("requiredFeatures")
+    || node.has_attribute("requiredExtensions");
+
+    skipped_by_switch
+        && node.parent().is_some_and(|p| p.tag_name().name() == "switch")
+        && std::iter::successors(node.next_sibling_element(), |n| n.next_sibling_element())
+            .any(|n| n.tag_name().name() != "foreignObject")
 }
 
 /// Derive the image format from the file extension of a path.
