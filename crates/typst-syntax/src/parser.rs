@@ -327,6 +327,15 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.expected("an expression to the left of the operator");
         }
 
+        // Dollar signs can only occur here due to `parse_math`, such as from
+        // `#eval("$", mode: "math")`.
+        SyntaxKind::Dollar => {
+            let dollar = p.eat_and_get();
+            dollar.unexpected();
+            dollar.hint("dollar signs should be removed when evaluating math");
+            dollar.hint("or display them by escaping with a backslash: `\\$`");
+        }
+
         // Any other kinds must have been due to an error.
         SyntaxKind::Error => p.eat(),
         _ => unreachable!("the lexer doesn't produce any other syntax kinds in math"),
