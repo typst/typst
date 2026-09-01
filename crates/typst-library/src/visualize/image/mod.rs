@@ -263,7 +263,7 @@ impl Packed<ImageElem> {
                 // there is the above mentioned structure and there is no need to issue a warning.
                 // Warn the user if the image contains a foreign object not surrounded by a switch.
                 if svg_has_foreign_object_without_fallback(&loaded.data) {
-                // if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
+                    // if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
                     engine.sink.warn(warning!(
                         span,
                         "image contains foreign object";
@@ -384,7 +384,7 @@ impl Packed<ImageElem> {
 fn svg_has_foreign_object_without_fallback(data: &Bytes) -> bool {
     // Easy case. No svg at all.
     if memchr::memmem::find(data, b"<foreignObject").is_none() {
-        return false
+        return false;
     }
     let Ok(text) = std::str::from_utf8(data) else { return false };
 
@@ -393,7 +393,7 @@ fn svg_has_foreign_object_without_fallback(data: &Bytes) -> bool {
     let Ok(document) = roxmltree::Document::parse_with_options(text, options) else {
         // If the SVG does not parse, treat it as the worst case to keep previous behavior.
         // A warning will be issued.
-        return true
+        return true;
     };
 
     document
@@ -407,12 +407,14 @@ fn svg_has_foreign_object_without_fallback(data: &Bytes) -> bool {
 // elemets to follow.
 fn foreign_object_has_switch_fallback(node: roxmltree::Node<'_, '_>) -> bool {
     let skipped_by_switch = node.has_attribute("requiredFeatures")
-    || node.has_attribute("requiredExtensions");
+        || node.has_attribute("requiredExtensions");
 
     skipped_by_switch
         && node.parent().is_some_and(|p| p.tag_name().name() == "switch")
-        && std::iter::successors(node.next_sibling_element(), |n| n.next_sibling_element())
-            .any(|n| n.tag_name().name() != "foreignObject")
+        && std::iter::successors(node.next_sibling_element(), |n| {
+            n.next_sibling_element()
+        })
+        .any(|n| n.tag_name().name() != "foreignObject")
 }
 
 /// Derive the image format from the file extension of a path.
