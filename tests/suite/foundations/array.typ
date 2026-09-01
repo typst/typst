@@ -168,6 +168,14 @@
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
 
+--- array-range-too-large eval ---
+// Error: 2-19 range is too large
+#range(0, int.max)
+
+--- array-range-breadth-overflow eval ---
+// Error: 2-42 range is too large
+#range(int.min, int.max, inclusive: true)
+
 --- array-bad-method-lvalue eval ---
 // Test bad lvalue.
 #let array = (1, 2, 3)
