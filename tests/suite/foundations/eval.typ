@@ -50,7 +50,7 @@ _Tiger!_
 #test(eval(`"HELLO" in read("./eval.typ")`.text), true)
 
 --- issue-2055-math-eval paged ---
-// Evaluating a math expr should renders the same as an equation
+// Evaluating a math expr should render the same as an equation.
 #eval(mode: "math", "f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)")
 
 $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
@@ -61,3 +61,10 @@ $f(a) = cases(a + b\, space space x >= 3,a + b\, space space x = 5)$
 // Hint: 7-11 using multiple consecutive stars (e.g. **) has no additional effect
 // Hint: 7-11 from index `0` to `2`
 #eval("**", mode: "markup")
+
+--- eval-math-dollar-sign-error eval ---
+// Error: 7-16 unexpected dollar sign
+// Hint: 7-16 dollar signs should be removed when evaluating math
+// Hint: 7-16 or display them by escaping with a backslash: `\$`
+// Hint: 7-16 from index `6` to `7`
+#eval("a + b $", mode: "math")
