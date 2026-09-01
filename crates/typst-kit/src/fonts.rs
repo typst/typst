@@ -74,6 +74,17 @@ impl FontStore {
     pub fn source(&self, index: usize) -> Option<&dyn FontSource> {
         Some(&*self.slots.get(index)?.source)
     }
+
+    /// Yields the file system path of every on-disk font in the store.
+    ///
+    /// Fonts without an on-disk path (such as embedded fonts) are skipped.
+    pub fn paths(&self) -> impl Iterator<Item = &std::path::Path> {
+        self.slots.iter().filter_map(|slot| {
+            (&*slot.source as &dyn Any)
+                .downcast_ref::<FontPath>()
+                .map(|font| font.path.as_path())
+        })
+    }
 }
 
 impl Default for FontStore {
