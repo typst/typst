@@ -23,33 +23,45 @@ use typst_utils::{NonZeroExt, Numeric};
 use super::distribute::distribute;
 use super::{Config, FlowMode, LineNumberConfig, PlacedChild, Work};
 
-/// The result type for page composition.
-type PageResult<T> = Result<T, PageStop>;
-
-/// A control flow event during page composition.
-enum PageStop {
-    /// Indicates that the parent region should be relayouted.
-    Relayout,
+/// A control flow event during layout.
+///
+/// The type parameter `R` describes the requested relayout.
+pub(super) enum RelayoutStop<R = PlacementScope> {
+    /// Indicates that the given scope should be relayouted.
+    Relayout(R),
     /// A fatal error.
     Error(EcoVec<SourceDiagnostic>),
 }
 
-impl From<EcoVec<SourceDiagnostic>> for PageStop {
+impl<R> From<EcoVec<SourceDiagnostic>> for RelayoutStop<R> {
     fn from(error: EcoVec<SourceDiagnostic>) -> Self {
         Self::Error(error)
     }
 }
 
-/// The result type for layout that may request a relayout.
-pub(super) type RelayoutResult<T> = Result<T, RelayoutStop>;
+/// A version of [`PlacementScope`] that is known to be `Parent`.
+pub struct ParentScope;
 
-/// A control flow event after layout during relayout.
-pub(super) enum RelayoutStop {
-    /// Indicates that the given scope should be relayouted.
-    Relayout(PlacementScope),
-    /// A fatal error.
-    Error(EcoVec<SourceDiagnostic>),
+impl From<ParentScope> for PlacementScope {
+    fn from(_: ParentScope) -> Self {
+        PlacementScope::Parent
+    }
 }
+
+/// A version of [`PlacementScope`] that is known to be `Column`.
+pub struct ColumnScope;
+
+impl From<ColumnScope> for PlacementScope {
+    fn from(_: ColumnScope) -> Self {
+        PlacementScope::Column
+    }
+}
+
+/// A control flow event during footnote handling.
+pub(super) type FootnoteStop<M = ()> = InsertionStop<ColumnScope, M>;
+
+/// A control flow event during float handling.
+pub(super) type FloatStop<M = ()> = InsertionStop<PlacementScope, M>;
 
 /// A control flow event while handling an insertion.
 ///
@@ -65,45 +77,32 @@ pub(super) enum InsertionStop<R, M = ()> {
     Error(EcoVec<SourceDiagnostic>),
 }
 
-impl<R, M> From<EcoVec<SourceDiagnostic>> for InsertionStop<R, M> {
-    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
-        Self::Error(error)
-    }
-}
-
-/// A control flow event during footnote handling.
-pub(super) type FootnoteStop<M = ()> = InsertionStop<(), M>;
-
-/// A control flow event during float handling.
-pub(super) type FloatStop<M = ()> = InsertionStop<PlacementScope, M>;
-
 impl<M> From<FootnoteStop<M>> for FloatStop<M> {
     fn from(stop: FootnoteStop<M>) -> Self {
         match stop {
-            FootnoteStop::Relayout(()) => Self::Relayout(PlacementScope::Column),
+            FootnoteStop::Relayout(ColumnScope) => Self::Relayout(PlacementScope::Column),
             FootnoteStop::MigrateOrigin(migration) => Self::MigrateOrigin(migration),
             FootnoteStop::Error(error) => Self::Error(error),
         }
     }
 }
 
-impl From<FootnoteStop<Infallible>> for RelayoutStop {
-    fn from(stop: FootnoteStop<Infallible>) -> Self {
+impl<R> From<InsertionStop<R, Infallible>> for RelayoutStop
+where
+    R: Into<PlacementScope>,
+{
+    fn from(stop: InsertionStop<R, Infallible>) -> Self {
         match stop {
-            FootnoteStop::Relayout(()) => Self::Relayout(PlacementScope::Column),
-            FootnoteStop::MigrateOrigin(never) => match never {},
-            FootnoteStop::Error(error) => Self::Error(error),
+            InsertionStop::Relayout(r) => Self::Relayout(r.into()),
+            InsertionStop::MigrateOrigin(never) => match never {},
+            InsertionStop::Error(error) => Self::Error(error),
         }
     }
 }
 
-impl From<FloatStop<Infallible>> for RelayoutStop {
-    fn from(stop: FloatStop<Infallible>) -> Self {
-        match stop {
-            FloatStop::Relayout(scope) => Self::Relayout(scope),
-            FloatStop::MigrateOrigin(never) => match never {},
-            FloatStop::Error(error) => Self::Error(error),
-        }
+impl<R, M> From<EcoVec<SourceDiagnostic>> for InsertionStop<R, M> {
+    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
+        Self::Error(error)
     }
 }
 
@@ -199,7 +198,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lay out a container/page region, including container/page insertions.
     fn page(mut self, locator: Locator, regions: Regions) -> SourceResult<Frame> {
         // This loop can restart region layout when requested to do so by a
-        // `PageStop::Relayout`. This happens when there is a parent-scoped float.
+        // `RelayoutStop::Relayout`. This happens when there is a parent-scoped float.
         let checkpoint = self.work.clone();
         let output = loop {
             // Shrink the available space by the space used by page
@@ -209,8 +208,10 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
             match self.page_contents(locator.relayout(), pod) {
                 Ok(frame) => break frame,
-                Err(PageStop::Relayout) => *self.work = checkpoint.clone(),
-                Err(PageStop::Error(err)) => return Err(err),
+                Err(RelayoutStop::Relayout(ParentScope)) => {
+                    *self.work = checkpoint.clone();
+                }
+                Err(RelayoutStop::Error(err)) => return Err(err),
             }
         };
         drop(checkpoint);
@@ -219,7 +220,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     }
 
     /// Lay out the inner contents of a container/page.
-    fn page_contents(&mut self, locator: Locator, regions: Regions) -> PageResult<Frame> {
+    fn page_contents(
+        &mut self,
+        locator: Locator,
+        regions: Regions,
+    ) -> Result<Frame, RelayoutStop<ParentScope>> {
         // No point in create column regions, if there's just one!
         if self.config.columns.count == 1 {
             return self.column(locator, regions).map(|(frame, ..)| frame);
@@ -318,7 +323,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             let height = total_used_height / self.config.columns.count as f64;
             if self.column_balancing_height.is_none_or(|h| h < height) {
                 self.column_balancing_height = Some(height);
-                return Err(PageStop::Relayout);
+                return Err(RelayoutStop::Relayout(ParentScope));
             }
         }
 
@@ -336,7 +341,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         &mut self,
         locator: Locator,
         regions: Regions,
-    ) -> PageResult<(Frame, Abs, Abs)> {
+    ) -> Result<(Frame, Abs, Abs), RelayoutStop<ParentScope>> {
         // Reset column insertion when starting a new column.
         self.column_insertions = Insertions::default();
 
@@ -368,9 +373,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                     *self.work = checkpoint.clone();
                 }
                 Err(RelayoutStop::Relayout(PlacementScope::Parent)) => {
-                    return Err(PageStop::Relayout);
+                    return Err(RelayoutStop::Relayout(ParentScope));
                 }
-                Err(RelayoutStop::Error(error)) => return Err(PageStop::Error(error)),
+                Err(RelayoutStop::Error(error)) => {
+                    return Err(RelayoutStop::Error(error));
+                }
             }
         };
         drop(checkpoint);
@@ -422,7 +429,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         &mut self,
         regions: Regions,
         balancing_target: Option<Abs>,
-    ) -> RelayoutResult<(Frame, Abs)> {
+    ) -> Result<(Frame, Abs), RelayoutStop> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
             self.footnote(note, &mut regions.clone(), Abs::zero(), Migration::FORBID)?;
@@ -595,7 +602,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 // The footnote was already processed or queued.
                 Ok(()) => {}
                 // First handle more footnotes before relayouting.
-                Err(FootnoteStop::Relayout(())) => relayout = true,
+                Err(FootnoteStop::Relayout(ColumnScope)) => relayout = true,
                 // Either of
                 // - A `FootnoteStop::MigrateOrigin` indicating that the frame's
                 //   origin element should migrate to uphold the footnote
@@ -608,7 +615,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // If this is set, we laid out at least one footnote, so we need a
         // relayout.
         if relayout {
-            return Err(FootnoteStop::Relayout(()));
+            return Err(FootnoteStop::Relayout(ColumnScope));
         }
 
         Ok(())
@@ -730,7 +737,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
                 // first time, so we ignore a relayout request since we're
                 // about to do so afterwards. Without this check, the first
                 // inner footnote interrupts processing of the following ones.
-                Err(FootnoteStop::Relayout(())) => {}
+                Err(FootnoteStop::Relayout(ColumnScope)) => {}
                 // Either of
                 // - A `FootnoteStop::MigrateOrigin` indicating that the frame's
                 //   origin element should migrate to uphold the footnote
@@ -741,7 +748,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Since we laid out a footnote, we need a relayout.
-        Err(FootnoteStop::Relayout(()))
+        Err(FootnoteStop::Relayout(ColumnScope))
     }
 
     /// Handles spillover from a footnote.

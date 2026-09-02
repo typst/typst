@@ -7,16 +7,8 @@ use typst_library::layout::{
 };
 use typst_utils::Numeric;
 
-use super::compose::{
-    Composer, FloatStop, FootnoteStop, Migration, RelayoutResult, RelayoutStop,
-};
+use super::compose::{Composer, InsertionStop, Migration, RelayoutStop};
 use super::{Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, Work};
-
-/// The result type for internal distributor control flow.
-///
-/// The `Err(_)` variant incorporate control flow events for finishing and
-/// relayouting regions.
-type FlowResult<T> = Result<T, Stop>;
 
 /// A control flow event during distribution.
 enum Stop {
@@ -36,29 +28,22 @@ enum Finish {
     Forced,
 }
 
+impl<R> From<InsertionStop<R, ()>> for Stop
+where
+    R: Into<PlacementScope>,
+{
+    fn from(stop: InsertionStop<R, ()>) -> Self {
+        match stop {
+            InsertionStop::Relayout(r) => Self::Relayout(r.into()),
+            InsertionStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
+            InsertionStop::Error(error) => Self::Error(error),
+        }
+    }
+}
+
 impl From<EcoVec<SourceDiagnostic>> for Stop {
     fn from(error: EcoVec<SourceDiagnostic>) -> Self {
         Self::Error(error)
-    }
-}
-
-impl From<FootnoteStop> for Stop {
-    fn from(stop: FootnoteStop) -> Self {
-        match stop {
-            FootnoteStop::Relayout(()) => Self::Relayout(PlacementScope::Column),
-            FootnoteStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
-            FootnoteStop::Error(error) => Self::Error(error),
-        }
-    }
-}
-
-impl From<FloatStop> for Stop {
-    fn from(stop: FloatStop) -> Self {
-        match stop {
-            FloatStop::Relayout(scope) => Self::Relayout(scope),
-            FloatStop::MigrateOrigin(()) => Self::Finish(Finish::Soft),
-            FloatStop::Error(error) => Self::Error(error),
-        }
     }
 }
 
@@ -69,7 +54,7 @@ pub fn distribute(
     composer: &mut Composer,
     regions: Regions,
     balancing_target: Option<Abs>,
-) -> RelayoutResult<(Frame, Abs)> {
+) -> Result<(Frame, Abs), RelayoutStop> {
     let mut distributor = Distributor {
         composer,
         regions,
@@ -83,12 +68,8 @@ pub fn distribute(
     let forced = match distributor.run() {
         Ok(()) => distributor.composer.work.done(),
         Err(Stop::Finish(finish)) => matches!(finish, Finish::Forced),
-        Err(Stop::Relayout(scope)) => {
-            return Err(RelayoutStop::Relayout(scope));
-        }
-        Err(Stop::Error(error)) => {
-            return Err(RelayoutStop::Error(error));
-        }
+        Err(Stop::Relayout(scope)) => return Err(RelayoutStop::Relayout(scope)),
+        Err(Stop::Error(error)) => return Err(RelayoutStop::Error(error)),
     };
     let region = Region::new(regions.size, regions.expand);
     distributor
@@ -176,7 +157,7 @@ impl Item<'_, '_> {
 
 impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Distributes content into the region.
-    fn run(&mut self) -> FlowResult<()> {
+    fn run(&mut self) -> Result<(), Stop> {
         // First, handle spill of a breakable block.
         if let Some(spill) = self.composer.work.spill.take() {
             self.multi_spill(spill)?;
@@ -199,7 +180,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// - Returns `Err(Stop::Relayout(_))` if the region needs to be relayouted
     ///   due to an insertion (float/footnote).
     /// - Returns `Err(Stop::Error(_))` if there was a fatal error.
-    fn child(&mut self, child: &'b Child<'a>) -> FlowResult<()> {
+    fn child(&mut self, child: &'b Child<'a>) -> Result<(), Stop> {
         match child {
             Child::Tag(tag) => self.tag(tag),
             Child::Rel(amount, weakness) => self.rel(*amount, *weakness),
@@ -360,7 +341,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes a line of a paragraph.
-    fn line(&mut self, line: &'b LineChild) -> FlowResult<()> {
+    fn line(&mut self, line: &'b LineChild) -> Result<(), Stop> {
         // If the line doesn't fit and a followup region may improve things,
         // finish the region.
         if !self.fits(line.frame.height()) && self.regions.may_progress() {
@@ -385,7 +366,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes an unbreakable block.
-    fn single(&mut self, single: &'b SingleChild<'a>) -> FlowResult<()> {
+    fn single(&mut self, single: &'b SingleChild<'a>) -> Result<(), Stop> {
         // Lay out the block.
         let frame = single.layout(
             self.composer.engine,
@@ -416,7 +397,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes a breakable block.
-    fn multi(&mut self, multi: &'b MultiChild<'a>) -> FlowResult<()> {
+    fn multi(&mut self, multi: &'b MultiChild<'a>) -> Result<(), Stop> {
         let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout.
@@ -457,7 +438,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes spillover from a breakable block.
-    fn multi_spill(&mut self, spill: MultiSpill<'a, 'b>) -> FlowResult<()> {
+    fn multi_spill(&mut self, spill: MultiSpill<'a, 'b>) -> Result<(), Stop> {
         let mut pod = self.regions;
 
         // For column balancing, reduce the region size for layout.
@@ -494,7 +475,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         align: Axes<FixedAlignment>,
         sticky: bool,
         breakable: bool,
-    ) -> FlowResult<()> {
+    ) -> Result<(), Stop> {
         // If the frame is sticky and we haven't remembered a preceding sticky
         // element, make a checkpoint which we can restore should we end on
         // this sticky element.
@@ -550,7 +531,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes an absolutely or floatingly placed child.
-    fn placed(&mut self, placed: &'b PlacedChild<'a>) -> FlowResult<()> {
+    fn placed(&mut self, placed: &'b PlacedChild<'a>) -> Result<(), Stop> {
         if placed.float {
             // If the element is floatingly placed, let the composer handle it.
             // It might require relayout because the area available for
@@ -582,7 +563,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes a float flush.
-    fn flush(&mut self) -> FlowResult<()> {
+    fn flush(&mut self) -> Result<(), Stop> {
         // If there are still pending floats, finish the region instead of
         // adding more content to it.
         if !self.composer.work.floats.is_empty() {
@@ -592,7 +573,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     }
 
     /// Processes a column break.
-    fn break_(&mut self, weak: bool) -> FlowResult<()> {
+    fn break_(&mut self, weak: bool) -> Result<(), Stop> {
         // If there is a region to break into, break into it.
         if (!weak || !self.items.is_empty())
             && (!self.regions.backlog.is_empty() || self.regions.last.is_some())
