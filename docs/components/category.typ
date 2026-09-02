@@ -1,8 +1,8 @@
 #import "system.typ": colors
 #import "base.typ": (
-  classnames, definition-info, folding-details, heading-offset, html-heading-n,
-  labelled, oneliner, paged-heading-offset, short-or-long, small, title-case,
-  to-func, use-icon, with-tooltip,
+  classnames, folding-details, heading-offset, html-heading-n, icon, labelled,
+  oneliner, paged-heading-offset, short-or-long, small, text-with-code,
+  title-case, to-func, use-icon, with-tooltip,
 )
 #import "example.typ": example, example-like-block
 #import "linking.typ": def-dest, def-label, register-def
@@ -296,49 +296,87 @@
   }
 }
 
+// Displays binding information, if any, such as:
+// - A deprecation
+// - A feature gate
+#let definition-info(info) = {
+  let gap = if target() == "paged" { h(0.5em, weak: true) }
+
+  let item(size, name, alt, body) = {
+    context if target() == "paged" {
+      small(icon(size, name, alt) + [ ] + body)
+    } else {
+      html.small(class: "definition-info", {
+        html.div(use-icon(size, name, alt))
+        html.span(body)
+      })
+    }
+  }
+
+  if info.feature != none {
+    gap
+    item(16, "toggle", "Feature toggle", {
+      [Requires the ]
+      raw(info.feature)
+      [ feature]
+    })
+  }
+
+  if info.deprecation != none {
+    gap
+    item(16, "warn", "Warning", {
+      text-with-code(info.deprecation.message)
+      if info.deprecation.until != none {
+        [; it will be removed in Typst #info.deprecation.until]
+      }
+    })
+  }
+}
+
 // Displays additional details about a function.
 //
 // When the labels are changed here, `docs/content/reference/index.typ` needs to
 // change, too.
 #let func-subtitle(info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
+  set text(0.75em)
   if info.element {
-    set text(0.75em)
     gap
     small(with-tooltip[Element][
       Element functions can be customized with `set` and `show` rules.
     ])
   }
   if info.contextual != none and info.contextual {
-    set text(0.75em)
     gap
     small(with-tooltip[Contextual][
       Contextual functions can only be used when the context is known.
     ])
   }
   if info.since != none {
-    set text(0.75em)
     gap
     small[Since: #info.since]
   } else {
     panic("missing `since` for function " + info.def-site.key + " (" + stdx.str-from-path(info.def-site.path) + ")")
   }
-  gap
-  definition-info(binding-info)
+  if binding-info != none {
+    definition-info(binding-info)
+  }
   sources-link(info)
 }
 
 // Displays additional details about a type.
 #let ty-subtitle(ty-info, binding-info) = context {
   let gap = if target() == "paged" { h(0.5em, weak: true) }
+  set text(0.75em)
   if ty-info.since != none {
-    set text(0.75em)
     gap
     small[Since: #ty-info.since]
   } else {
     panic("missing `since` for type " + ty-info.def-site.key + " (" + stdx.str-from-path(ty-info.def-site.path) + ")")
   }
-  definition-info(binding-info)
+  if binding-info != none {
+    definition-info(binding-info)
+  }
   sources-link(ty-info)
 }
 
