@@ -50,8 +50,8 @@ impl Display for DurationDisplay {
         let fract = |exp| round_with_precision(nanos as f64 / order(exp) as f64, 2);
 
         if nanos == 0 || self.0 >= Duration::from_secs(1) {
-            // For durations > 5 min, we drop the fractional part.
-            if self.0 > Duration::from_secs(300) {
+            // For durations >= 5 min, we drop the fractional part.
+            if self.0 >= Duration::from_mins(5) {
                 piece!("{secs} s");
             } else {
                 piece!("{} s", fract(3));
