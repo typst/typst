@@ -6,7 +6,7 @@ pub mod tag;
 
 mod charsets;
 mod convert;
-mod css;
+pub mod css;
 mod document;
 mod dom;
 mod encode;
@@ -22,7 +22,8 @@ pub use self::document::{html_document, html_document_for_bundle};
 pub use self::dom::*;
 pub use self::encode::{HtmlOptions, html, html_in_bundle};
 pub use self::format::{
-    FORMAT, FrameElem, HtmlElem, HtmlFormat, HtmlFormatOptions, HtmlStyleProfile,
+    FORMAT, FrameElem, HtmlElem, HtmlFormat, HtmlFormatOptions, HtmlStyleLocation,
+    HtmlStyleProfile, HtmlStyles,
 };
 pub use self::introspect::HtmlIntrospector;
 pub use self::link::create_link_anchors;

@@ -13,6 +13,7 @@ See also @arrgh #cite(<distress>, supplement: [p.~22]), @arrgh[p.~4], and @distr
 #bibliography("/assets/bib/works.bib", title: none)
 
 --- bibliography-custom-title paged html ---
+#set html(styles: "inline")
 @distress
 #bibliography("/assets/bib/works.bib", title: [My References])
 

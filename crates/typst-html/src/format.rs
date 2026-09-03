@@ -4,7 +4,8 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
 use typst_library::foundations::{
-    Args, Cast, Construct, Content, Scope, StyleChain, elem, scope,
+    Args, Cast, Construct, Content, Dict, Scope, StyleChain, Value, cast, dict, elem,
+    scope,
 };
 use typst_library::introspection::Location;
 use typst_syntax::Spanned;
@@ -136,9 +137,9 @@ pub struct HtmlFormat {
 
     /// The HTML profile controls how elements are styled in HTML.
     ///
-    /// The DOM structure will remain exactly the same.
-    #[default(Some(HtmlStyleProfile::Semantic))]
-    pub styles: Option<HtmlStyleProfile>,
+    /// The DOM structure will remains exactly the same.
+    #[default(Some(HtmlStyles::default()))]
+    pub styles: Option<HtmlStyles>,
 }
 
 impl Construct for HtmlFormat {
@@ -190,6 +191,33 @@ impl HtmlFormatOptions<Partial> {
     }
 }
 
+/// Configuration options for HTML style generation.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct HtmlStyles {
+    /// Configure which styles to include.
+    pub profile: HtmlStyleProfile,
+    /// Configure where to store styles.
+    pub location: HtmlStyleLocation,
+}
+
+impl HtmlStyles {}
+
+cast! {
+    HtmlStyles,
+    self => Value::Dict(dict! {
+        "profile" => self.profile,
+        "location" => self.location,
+    }),
+    profile: HtmlStyleProfile => Self { profile, ..Default::default() },
+    location: HtmlStyleLocation => Self { location, ..Default::default() },
+    mut dict: Dict => {
+        let profile = dict.take("profile").ok().map(Value::cast).transpose()?.unwrap_or_default();
+        let location = dict.take("location").ok().map(Value::cast).transpose()?.unwrap_or_default();
+        dict.finish(&["profile", "location"])?;
+        Self { profile, location }
+    }
+}
+
 /// The HTML styling profile.
 ///
 /// By default Typst tries to produce semantic HTML with limited styles.
@@ -202,6 +230,21 @@ pub enum HtmlStyleProfile {
     /// The presentational profile tries to closely resemble the paged output by
     /// writing additional inline style properties and nested elements.
     Presentational,
+}
+
+/// Where to store styles:
+///   (only supported in the bundle target)
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum HtmlStyleLocation {
+    /// Styles are stored inline directly on elements.
+    Inline,
+    /// A style sheet will be generated and stored a `<style>` element withing
+    /// the `<head>`.
+    #[default]
+    Embedded,
+    /// An external style sheet will generated and created.
+    // TODO: Configure the file.
+    External,
 }
 
 /// An HTML element that can contain Typst content.
