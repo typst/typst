@@ -42,6 +42,14 @@ impl FilteredProperties {
         }
     }
 
+    /// Retains only the properties specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Property) -> bool,
+    {
+        self.0.retain(|p| f(p));
+    }
+
     /// Adds a new, already serialized property in builder style.
     pub fn with(mut self, property: &'static str, value: impl Into<EcoString>) -> Self {
         self.push(property, value);
