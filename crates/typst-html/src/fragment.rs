@@ -9,8 +9,8 @@ use typst_library::text::SmartQuoter;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Protected};
 
-use crate::HtmlNode;
 use crate::convert::{ConversionLevel, Whitespace};
+use crate::{HtmlNode, HtmlStyleProfile};
 
 /// Produces HTML nodes from content contained in an HTML element that is
 /// block-level by default.
@@ -21,6 +21,7 @@ pub fn html_block_fragment(
     locator: Locator,
     styles: StyleChain,
     whitespace: Whitespace,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     html_block_fragment_impl(
         engine.world,
@@ -33,6 +34,7 @@ pub fn html_block_fragment(
         locator.track(),
         styles,
         whitespace,
+        profile,
     )
 }
 
@@ -50,6 +52,7 @@ fn html_block_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     whitespace: Whitespace,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     let introspector = Protected::from_raw(introspector);
     let link = LocatorLink::new(locator);
@@ -73,6 +76,7 @@ fn html_block_fragment_impl(
         children.iter().copied(),
         ConversionLevel::Block,
         whitespace,
+        profile,
     )
 }
 
@@ -92,6 +96,7 @@ pub fn html_inline_fragment(
     quoter: &mut SmartQuoter,
     styles: StyleChain,
     whitespace: Whitespace,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     engine.route.increase();
     engine.route.check_html_depth().at(content.span())?;
@@ -104,6 +109,7 @@ pub fn html_inline_fragment(
         children.iter().copied(),
         ConversionLevel::Inline(quoter),
         whitespace,
+        profile,
     );
 
     engine.route.decrease();
@@ -121,6 +127,7 @@ pub fn html_math_fragment(
     quoter: &mut SmartQuoter,
     styles: StyleChain,
     whitespace: Whitespace,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     engine.route.increase();
     engine.route.check_html_depth().at(content.span())?;
@@ -140,6 +147,7 @@ pub fn html_math_fragment(
         children.iter().copied(),
         ConversionLevel::Inline(quoter),
         whitespace,
+        profile,
     );
 
     engine.route.decrease();

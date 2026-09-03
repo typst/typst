@@ -11,26 +11,23 @@ use typst_library::visualize::{
 };
 use typst_utils::Numeric;
 
+use crate::format::HtmlStyleProfile;
 use crate::property;
 
-/// A list of CSS properties with values.
+/// A list of CSS properties with values, that have been filtered for a HTML
+/// styling profile.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct Properties(EcoVec<Property>);
+pub struct FilteredProperties(EcoVec<Property>);
 
-impl Properties {
+impl FilteredProperties {
     /// Creates an empty list.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Creates a builder for adding properties that implement `ToCss`.
-    pub fn build<S: WarningSink>(sink: S) -> PropertiesBuilder<S> {
-        PropertiesBuilder::new(sink)
-    }
-
     /// Adds a new, already serialized property to the list.
     pub fn push(&mut self, property: &'static str, value: impl Into<EcoString>) {
-        let property = Property::new(property, value.into());
+        let property = Property::new(property, value);
         let res = self.0.binary_search_by_key(&property.name, |p| p.name);
         match res {
             Ok(idx) => self.0.make_mut()[idx] = property,
@@ -45,22 +42,17 @@ impl Properties {
         }
     }
 
+    /// Retains only the properties specified by the predicate.
+    pub fn retain<F>(&mut self, mut f: F)
+    where
+        F: FnMut(&Property) -> bool,
+    {
+        self.0.retain(|p| f(p));
+    }
+
     /// Adds a new, already serialized property in builder style.
     pub fn with(mut self, property: &'static str, value: impl Into<EcoString>) -> Self {
         self.push(property, value);
-        self
-    }
-
-    /// Adds a new, already serialized property in builder style, if the
-    /// `condition` is true.
-    pub fn with_opt(
-        mut self,
-        property: &'static str,
-        value: Option<impl Into<EcoString>>,
-    ) -> Self {
-        if let Some(value) = value {
-            self.push(property, value);
-        }
         self
     }
 
@@ -78,11 +70,119 @@ impl Properties {
     }
 }
 
-impl Deref for Properties {
+impl Deref for FilteredProperties {
     type Target = [Property];
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+/// A list of CSS properties with values, targeting a styling profile.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct Properties(EcoVec<(Property, HtmlStyleProfile)>);
+
+impl Properties {
+    /// Creates an empty list.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Creates a builder for adding properties that implement `ToCss`.
+    pub fn build<S: WarningSink>(sink: S) -> PropertiesBuilder<S> {
+        PropertiesBuilder::new(sink)
+    }
+
+    /// Adds a new, already serialized property to the list.
+    pub fn push(
+        &mut self,
+        property: &'static str,
+        value: impl Into<EcoString>,
+        profile: HtmlStyleProfile,
+    ) {
+        let property = Property::new(property, value);
+        let res = self.0.binary_search_by_key(&property.name, |(p, _)| p.name);
+        match res {
+            Ok(idx) => self.0.make_mut()[idx] = (property, profile),
+            Err(idx) => self.0.insert(idx, (property, profile)),
+        }
+    }
+
+    /// Adds a new, already serialized [semantic] property.
+    ///
+    /// [semantic]: HtmlStyleProfile::Semantic
+    pub fn push_semantic(&mut self, property: &'static str, value: impl Into<EcoString>) {
+        self.push(property, value, HtmlStyleProfile::Semantic);
+    }
+
+    /// Adds a new, already serialized [presentational] property.
+    ///
+    /// [presentational]: HtmlStyleProfile::Presentational
+    pub fn push_presentational(
+        &mut self,
+        property: &'static str,
+        value: impl Into<EcoString>,
+    ) {
+        self.push(property, value, HtmlStyleProfile::Presentational);
+    }
+
+    /// Removes a property if it exists.
+    pub fn remove(&mut self, property: &'static str) {
+        if let Ok(i) = self.0.binary_search_by_key(&property, |(p, _)| p.name) {
+            self.0.remove(i);
+        }
+    }
+
+    /// Adds a new, already serialized property in builder style.
+    pub fn with(
+        mut self,
+        property: &'static str,
+        value: impl Into<EcoString>,
+        profile: HtmlStyleProfile,
+    ) -> Self {
+        self.push(property, value, profile);
+        self
+    }
+
+    /// Adds a new, already serialized [semantic] property in builder style.
+    ///
+    /// [semantic]: HtmlStyleProfile::Semantic
+    pub fn with_semantic(
+        mut self,
+        property: &'static str,
+        value: impl Into<EcoString>,
+    ) -> Self {
+        self.push_semantic(property, value);
+        self
+    }
+
+    /// Adds a new, already serialized [presentational] property in builder style.
+    ///
+    /// [presentational]: HtmlStyleProfile::Presentational
+    pub fn with_presentational(
+        mut self,
+        property: &'static str,
+        value: impl Into<EcoString>,
+    ) -> Self {
+        self.push_presentational(property, value);
+        self
+    }
+
+    /// Filter properties based on the target profile.
+    pub fn to_filtered(
+        &self,
+        target_profile: Option<HtmlStyleProfile>,
+    ) -> FilteredProperties {
+        let Some(target_profile) = target_profile else {
+            return FilteredProperties::new();
+        };
+
+        let list = (self.0.iter())
+            .filter(|(_, profile)| *profile <= target_profile)
+            .map(|(property, _)| property)
+            .cloned()
+            .collect();
+        FilteredProperties(list)
     }
 }
 
@@ -104,28 +204,65 @@ impl<S: WarningSink> PropertiesBuilder<S> {
     }
 
     /// Serializes a new property and adds it to the property list.
-    pub fn push(&mut self, property: &'static str, value: impl ToCss) {
+    pub fn push(
+        &mut self,
+        property: &'static str,
+        value: impl ToCss,
+        profile: HtmlStyleProfile,
+    ) {
         let mut writer = CssWriter::new(&mut self.sink);
         writer.emit(value);
 
         if !writer.error {
-            self.props.push(property, writer.buf);
+            self.props.push(property, writer.buf, profile);
         }
+    }
+
+    /// Serializes a new, [semantic] property and adds it to the property list.
+    ///
+    /// [semantic]: HtmlStyleProfile::Semantic
+    pub fn push_semantic(&mut self, property: &'static str, value: impl ToCss) {
+        self.push(property, value, HtmlStyleProfile::Semantic);
+    }
+
+    /// Serializes a new, [presentational] property and adds it to the property list.
+    ///
+    /// [presentational]: HtmlStyleProfile::Presentational
+    pub fn push_presentational(&mut self, property: &'static str, value: impl ToCss) {
+        self.push(property, value, HtmlStyleProfile::Presentational);
     }
 
     /// Serializes a new property and adds it to the property list in builder
     /// style.
-    pub fn with(mut self, property: &'static str, value: impl ToCss) -> Self {
-        self.push(property, value);
+    pub fn with(
+        mut self,
+        property: &'static str,
+        value: impl ToCss,
+        profile: HtmlStyleProfile,
+    ) -> Self {
+        self.push(property, value, profile);
         self
     }
 
-    /// Serializes a new property and adds it to the property list in builder
-    /// style, if the `condition` is true..
-    pub fn with_opt(mut self, property: &'static str, value: Option<impl ToCss>) -> Self {
-        if let Some(value) = value {
-            self.push(property, value);
-        }
+    /// Serializes a new, [semantic] property and adds it to the property list
+    /// in builder style.
+    ///
+    /// [semantic]: HtmlStyleProfile::Semantic
+    pub fn with_semantic(mut self, property: &'static str, value: impl ToCss) -> Self {
+        self.push_semantic(property, value);
+        self
+    }
+
+    /// Serializes a new, [presentational] property and adds it to the property
+    /// list in builder style.
+    ///
+    /// [presentational]: HtmlStyleProfile::Presentational
+    pub fn with_presentational(
+        mut self,
+        property: &'static str,
+        value: impl ToCss,
+    ) -> Self {
+        self.push_presentational(property, value);
         self
     }
 
@@ -141,7 +278,7 @@ impl<S: WarningSink> PropertiesBuilder<S> {
 }
 
 /// A CSS property pair such as `display: block`.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Property {
     /// The property's name, e.g. `display`.
     // TODO: Use something similar to `HtmlAttr`.
@@ -152,8 +289,8 @@ pub struct Property {
 
 impl Property {
     /// Creates a new property pair from its parts.
-    pub fn new(name: &'static str, value: EcoString) -> Self {
-        Self { name, value }
+    pub fn new(name: &'static str, value: impl Into<EcoString>) -> Self {
+        Self { name, value: value.into() }
     }
 }
 

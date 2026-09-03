@@ -32,7 +32,6 @@ use typst_library::text::{
 use typst_library::visualize::{Color, ImageElem};
 use typst_syntax::Span;
 
-use crate::format::HtmlStylechain;
 use crate::mathml::convert_math_to_nodes;
 use crate::{FrameElem, HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, attr, css, tag};
 
@@ -347,7 +346,7 @@ const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
 
-const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, styles| {
+const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
     let mut selector = FootnoteElem::ELEM.select();
 
     // In bundle export, we only want the footnotes in the current document.
@@ -390,10 +389,7 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, styles
     // represent an ordered list. However, the list is already numbered with the
     // footnote superscripts in the DOM, so we turn off CSS' list enumeration.
     let list = HtmlElem::new(tag::ol)
-        .with_css(
-            css::Properties::new()
-                .with_opt("list-style-type", styles.semantic_style("none")),
-        )
+        .with_css(css::Properties::new().with_semantic("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack();
 
@@ -433,10 +429,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
         // deprecated, so we don't do that. The elements are already easily
         // selectable via `nav[role="doc-toc"] ol`.
         HtmlElem::new(tag::ol)
-            .with_css(
-                css::Properties::new()
-                    .with_opt("list-style-type", styles.semantic_style("none")),
-            )
+            .with_css(css::Properties::new().with_semantic("list-style-type", "none"))
             .with_body(Some(Content::sequence(
                 list.into_iter().map(|node| convert_node(styles, node)),
             )))
@@ -544,10 +537,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     let title = elem.realize_title(styles);
     let list = HtmlElem::new(tag::ul)
-        .with_css(
-            css::Properties::new()
-                .with_opt("list-style-type", styles.presentational_style("none")),
-        )
+        .with_css(css::Properties::new().with_presentational("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack()
         .spanned(span);
@@ -704,25 +694,19 @@ const SUB_RULE: ShowFn<SubElem> =
 const SUPER_RULE: ShowFn<SuperElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::sup).with_body(Some(elem.body.clone())).pack());
 
-const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, styles| {
+const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // Note: In modern HTML, `<u>` is not the underline element, but
     // rather an "Unarticulated Annotation" element (see HTML spec
     // 4.5.22). Using `text-decoration` instead is recommended by MDN.
     Ok(HtmlElem::new(tag::span)
-        .with_css(
-            css::Properties::new()
-                .with_opt("text-decoration", styles.semantic_style("underline")),
-        )
+        .with_css(css::Properties::new().with_semantic("text-decoration", "underline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
 
-const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, styles| {
+const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::span)
-        .with_css(
-            css::Properties::new()
-                .with_opt("text-decoration", styles.semantic_style("overline")),
-        )
+        .with_css(css::Properties::new().with_semantic("text-decoration", "overline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -736,10 +720,7 @@ const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
     let variant = if elem.all.get(styles) { "all-small-caps" } else { "small-caps" };
     Ok(HtmlElem::new(tag::span)
-        .with_css(
-            css::Properties::new()
-                .with_opt("font-variant-caps", styles.semantic_style(variant)),
-        )
+        .with_css(css::Properties::new().with_semantic("font-variant-caps", variant))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -783,8 +764,11 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 pub fn html_span_filled(content: Content, color: Color) -> Content {
     let span = content.span();
     HtmlElem::new(tag::span)
-        // TODO: Only emit with presentational profile.
-        .with_css(css::Properties::build(()).with("color", color).finish())
+        .with_css(
+            css::Properties::build(())
+                .with_presentational("color", color)
+                .finish(),
+        )
         .with_body(Some(content))
         .pack()
         .spanned(span)
@@ -814,22 +798,19 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
 
     let mut css = css::Properties::build(engine.binding_guard(elem.span()));
 
-    // TODO: Should all of these be excluded in the semantic profile?
-    if styles.use_presentational() {
-        if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
-            css.push("image-rendering", value);
-        }
+    if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
+        css.push_presentational("image-rendering", value);
+    }
 
-        match elem.width.get(styles) {
-            Smart::Auto => {}
-            Smart::Custom(rel) => css.push("width", rel),
-        }
+    match elem.width.get(styles) {
+        Smart::Auto => {}
+        Smart::Custom(rel) => css.push_presentational("width", rel),
+    }
 
-        match elem.height.get(styles) {
-            Sizing::Auto => {}
-            Sizing::Rel(rel) => css.push("height", rel),
-            Sizing::Fr(_) => {}
-        }
+    match elem.height.get(styles) {
+        Sizing::Auto => {}
+        Sizing::Rel(rel) => css.push_presentational("height", rel),
+        Sizing::Fr(_) => {}
     }
 
     Ok(BlockElem::packed(

@@ -221,7 +221,7 @@ cast! {
 /// The HTML styling profile.
 ///
 /// By default Typst tries to produce semantic HTML with limited styles.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Cast)]
 pub enum HtmlStyleProfile {
     /// The semantic profile tries to produce most closely represent the
     /// semantic structure of the Typst document in HTML.
@@ -245,40 +245,6 @@ impl HtmlStyleProfile {
     /// [`Presentational`]: Self::Presentational
     pub fn is_presentational(self) -> bool {
         matches!(self, Self::Presentational)
-    }
-}
-
-/// Helper methods to read [`HtmlFormat::styles`].
-pub(crate) trait HtmlStylechain {
-    /// Whether [`HtmlFormat::styles`] is [`HtmlStyles::Semantic`] or
-    /// [`HtmlStyles::Presentational`].
-    fn use_semantic(&self) -> bool;
-
-    /// Whether [`HtmlFormat::styles`] is [`HtmlStyles::Presentational`].
-    fn use_presentational(&self) -> bool;
-
-    /// Returns an `Option` containing the value, if [`Self::is_semantic()`]
-    /// returns true.
-    /// [`HtmlStyles::Presentational`].
-    fn semantic_style<T>(&self, val: T) -> Option<T> {
-        self.use_semantic().then_some(val)
-    }
-
-    /// Returns an `Option` containing the value, if
-    /// [`Self::is_presentational()`] returns true.
-    fn presentational_style<T>(&self, val: T) -> Option<T> {
-        self.use_presentational().then_some(val)
-    }
-}
-
-impl HtmlStylechain for StyleChain<'_> {
-    fn use_semantic(&self) -> bool {
-        self.get(HtmlFormat::styles).is_some()
-    }
-
-    fn use_presentational(&self) -> bool {
-        self.get(HtmlFormat::styles)
-            .is_some_and(|s| s.profile.is_presentational())
     }
 }
 
