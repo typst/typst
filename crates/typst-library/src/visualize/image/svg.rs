@@ -5,12 +5,12 @@ use comemo::Tracked;
 use ecow::eco_format;
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::FileId;
+use typst_syntax::{FileId, Span};
 
 use crate::World;
 use crate::diag::{
-    FileError, LoadError, LoadResult, ReportTextPos, StrResult, bail,
-    format_xml_like_error,
+    FileError, LoadError, LoadResult, ReportTextPos, SourceDiagnostic, StrResult, Warned,
+    bail, format_xml_like_error, warning,
 };
 use crate::foundations::{Bytes, PathOrStr};
 use crate::layout::Axes;
@@ -49,6 +49,9 @@ impl SvgImage {
     }
 
     /// Decode an SVG image with access to fonts and linked images.
+    /// At the same time check whether the SVG embeds a foreignObject element
+    /// whose content usvg will silently drop while rendering. If so, return
+    /// a warning alonside the image.
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
     pub fn with_fonts_images(
@@ -56,12 +59,30 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[&str],
         svg_file: Option<FileId>,
-    ) -> LoadResult<SvgImage> {
+    ) -> LoadResult<Warned<SvgImage>> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
         let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
-        let tree = usvg::Tree::from_data(
-            &data,
+        // Parse the XML outside of usvg::Tree, use it for both checking for warnings
+        // and for the source of the usvg tree.
+        let decoded;
+        let text = if data.starts_with(&[0x1f, 0x8b]) {
+            decoded = usvg::decompress_svgz(&data).map_err(format_usvg_error)?;
+            std::str::from_utf8(&decoded)
+        } else {
+            std::str::from_utf8(&data)
+        }
+        .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
+
+        let xml_options =
+            roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+        let document = roxmltree::Document::parse_with_options(text, xml_options)
+            .map_err(|err| format_usvg_error(usvg::Error::ParsingFailed(err)))?;
+
+        let warnings = svg_foreign_object_warning(&document).into_iter().collect();
+
+        let tree = usvg::Tree::from_xmltree(
+            &document,
             &usvg::Options {
                 font_resolver: usvg::FontResolver {
                     select_font: Box::new(|font, db| {
@@ -89,12 +110,13 @@ impl SvgImage {
             return Err(err);
         }
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(SvgImageInner {
+        let output = Self(Arc::new(SvgImageInner {
             data,
             size: tree_size(&tree),
             font_hash,
             tree,
-        })))
+        }));
+        Ok(Warned { output, warnings })
     }
 
     /// The raw image data.
@@ -166,6 +188,44 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
         usvg::Error::ParsingFailed(error) => return format_xml_like_error("SVG", error),
     };
     LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
+}
+
+/// produce a warning if the SVG embeds a foreignObject element without
+/// a surrounding switch and a non-foreignObject sibling.
+///
+/// See <https://svgwg.org/svg2-draft/embedded.html#ForeignObjectElement>.
+///
+/// The returned warning has a detached span; the caller is expected to attach
+/// the span of the image element.
+fn svg_foreign_object_warning(
+    document: &roxmltree::Document,
+) -> Option<SourceDiagnostic> {
+    let has_uncovered = document
+        .root()
+        .descendants()
+        .filter(|node| node.tag_name().name() == "foreignObject")
+        .any(|node| !foreign_object_covered_by_switch(node));
+
+    has_uncovered.then(|| {
+        warning!(
+            Span::detached(),
+            "image contains foreign object";
+            hint: "its content will be omitted because Typst cannot render embedded HTML";
+            hint: "see https://github.com/typst/typst/issues/1421 for more information";
+        )
+    })
+}
+
+fn foreign_object_covered_by_switch(node: roxmltree::Node) -> bool {
+    let skipped_by_switch = node.has_attribute("requiredFeatures")
+        || node.has_attribute("requiredExtensions");
+
+    skipped_by_switch
+        && node.parent().is_some_and(|p| p.tag_name().name() == "switch")
+        && std::iter::successors(node.next_sibling_element(), |n| {
+            n.next_sibling_element()
+        })
+        .any(|n| n.tag_name().name() != "foreignObject")
 }
 
 /// Provides Typst's fonts to usvg.

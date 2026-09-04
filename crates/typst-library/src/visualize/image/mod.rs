@@ -19,7 +19,9 @@ use hayro_syntax::LoadPdfError;
 use typst_syntax::{Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
-use crate::diag::{At, LoadError, LoadedWithin, SourceResult, StrResult, bail, warning};
+use crate::diag::{
+    At, LoadError, LoadedWithin, SourceResult, StrResult, Warned, bail, warning,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Bytes, Cast, Derived, Packed, Smart, StyleChain, Synthesize, cast, elem,
@@ -253,20 +255,6 @@ impl Packed<ImageElem> {
                 .at(span)?,
             ),
             ImageFormat::Vector(VectorFormat::Svg) => {
-                // Warn the user if the image contains a foreign object. Not
-                // perfect because the svg could also be encoded, but that's an
-                // edge case.
-                if memchr::memmem::find(&loaded.data, b"<foreignObject").is_some() {
-                    engine.sink.warn(warning!(
-                        span,
-                        "image contains foreign object";
-                        hint: "SVG images with foreign objects might render incorrectly \
-                               in Typst";
-                        hint: "see https://github.com/typst/typst/issues/1421 for more \
-                               information";
-                    ));
-                }
-
                 // Identify the SVG file in case contained hrefs need to be resolved.
                 let svg_file = match &self.source.source {
                     DataSource::Path(path) => {
@@ -274,15 +262,23 @@ impl Packed<ImageElem> {
                     }
                     DataSource::Bytes(_) => span.id(),
                 };
-                ImageKind::Svg(
-                    SvgImage::with_fonts_images(
-                        loaded.data.clone(),
-                        engine.world,
-                        &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
-                        svg_file,
-                    )
-                    .within(loaded)?,
+                // Decode and check if the image contains a '<foreignObject>' element
+                // which does not have a fallback rendering, therefore, will be ignored
+                // by typst. The warning is produced without a span inside the memoized loader, so
+                // attach the image's span here.
+                let Warned { output, warnings } = SvgImage::with_fonts_images(
+                    loaded.data.clone(),
+                    engine.world,
+                    &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+                    svg_file,
                 )
+                .within(loaded)?;
+                for mut warning in warnings {
+                    warning.span = span.into();
+                    engine.sink.warn(warning);
+                }
+
+                ImageKind::Svg(output)
             }
             ImageFormat::Vector(VectorFormat::Pdf) => {
                 let document = match PdfDocument::new(loaded.data.clone()) {
