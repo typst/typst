@@ -343,3 +343,30 @@ Hello
   rows: 16pt,
   ..range(6).map(str).flatten(),
 )
+
+--- issue-3640-table-header-footer-show-set paged ---
+// Test that show-set rules on `table.header` and `table.footer` apply to the
+// cells within them, including rules with `where` selectors.
+#show table.header: set text(weight: "bold")
+#show table.footer: set text(fill: blue)
+#show table.header.where(level: 2): set text(style: "italic")
+
+#table(
+  columns: 2,
+  table.header[A][B],
+  table.header(level: 2)[C][D],
+  [E], [F],
+  table.footer[G][H],
+)
+
+--- issue-3640-grid-header-footer-show-set paged ---
+// Test that show-set rules also work on grid headers and footers.
+#show grid.header: set text(weight: "bold")
+#show grid.footer: set text(fill: blue)
+
+#grid(
+  columns: 2,
+  grid.header[A][B],
+  [C], [D],
+  grid.footer[E][F],
+)

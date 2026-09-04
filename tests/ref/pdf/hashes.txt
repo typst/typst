@@ -730,6 +730,8 @@ a5ef7d91bcfb2200b5ddc97501c535e6 issue-3355-metadata-weak-spacing
 afc89abe9dd2baf1c2e07d7492507f6d issue-3586-figure-caption-separator
 9434eb2a6cf11bf3b96129f34accf7a3 issue-3601-empty-raw
 ac3a856d74fa3d1b606ee3b5f2868758 issue-3624-spacing-behaviour
+8d9385a97984a8ff1e5d2ef62afd39bf issue-3640-grid-header-footer-show-set
+2b3dd1b9a0e73b79ed7c27cd1e8f9bad issue-3640-table-header-footer-show-set
 507ac8a0cc07d3b945877448cd578c42 issue-3641-float-loop
 17ab7b5f6361ce45d01b3cdced28dfae issue-3650-italic-equation
 0c71043431ce5059b583a3e09e42eb3e issue-3658-math-size

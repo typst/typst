@@ -728,6 +728,8 @@ f59ee4760323b4b20f4a64e57fe9c603 issue-3082-chinese-punctuation
 233725901b9628035ecb431e1453df69 issue-3586-figure-caption-separator
 c34ae7bba2e0f2e02551e712d8f7307e issue-3601-empty-raw
 cb529c1fd52a42e23d46b0f5688b0bfe issue-3624-spacing-behaviour
+b3b6252a800496eac9e9b57ec02433e2 issue-3640-grid-header-footer-show-set
+654de3d85a431f15e1f460843b95d360 issue-3640-table-header-footer-show-set
 2b3b76ec161e1eba502179c460e25a79 issue-3641-float-loop
 7c403c4e98c373c91ef4ae21f5e9aca5 issue-3650-italic-equation
 438aa608c05ca59f5b0319f73a09f92c issue-3658-math-size
