@@ -3307,6 +3307,7 @@ dependencies = [
  "bumpalo",
  "comemo",
  "ecow",
+ "indexmap",
  "palette",
  "rustc-hash",
  "time",
@@ -3657,6 +3658,7 @@ dependencies = [
 name = "typst-utils"
 version = "0.15.1"
 dependencies = [
+ "indexmap",
  "libm",
  "once_cell",
  "portable-atomic",
