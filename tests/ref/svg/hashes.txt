@@ -26,6 +26,7 @@ e99a2f88fc6c9b8dd53f93dff7349e69 bibliography-basic
 8aff142e3b3fa2346adf9fa8ba26a2c3 bibliography-custom-title
 996fb89951494a51c46665602c09aed6 bibliography-full
 b3bda22e80497127c0723feb2567b014 bibliography-grid-par
+ad5fd9d9f767d25fcb8f590a0d5ab874 bibliography-hanging-indent
 1e0bc923295d21dd96ee8294b754fbd0 bibliography-indent-par
 61f10efa6ef4c9a673d6fe67db1459af bibliography-math
 43e7375fde2ad3513fe9bbb0391326dd bibliography-multiple-files
