@@ -359,14 +359,36 @@ Hello
   table.footer[G][H],
 )
 
---- issue-3640-grid-header-footer-show-set paged ---
-// Test that show-set rules also work on grid headers and footers.
-#show grid.header: set text(weight: "bold")
-#show grid.footer: set text(fill: blue)
+--- issue-3640-table-header-show-set-precedence paged ---
+// Test that show-set rules on `table.header` override outer set rules, but
+// lose to explicit cell-level styling.
+#set text(fill: red)
+#show table.header: set text(fill: blue)
 
-#grid(
+#table(
   columns: 2,
-  grid.header[A][B],
-  [C], [D],
-  grid.footer[E][F],
+  table.header[A][B],
+  table.cell(fill: yellow)[C], [D],
+)
+
+--- issue-3640-table-header-show-set-partial-row paged ---
+// Test that an implicit empty cell in a partially filled header row is
+// styled like the rest of the header.
+#show table.header: set table.cell(fill: silver)
+
+#table(
+  columns: 3,
+  table.header[A][B],
+  [C], [D], [E],
+)
+
+--- issue-3640-table-header-show-set-repeat paged ---
+// Test that show-set styles apply to headers repeated across pages.
+#set page(height: 60pt)
+#show table.header: set text(weight: "bold")
+
+#table(
+  columns: 2,
+  table.header[H1][H2],
+  ..range(8).map(i => ([#i], [#i])).flatten(),
 )

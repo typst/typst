@@ -747,3 +747,15 @@
 	[a], [b],
 	[c], [d],
 )
+
+--- grid-header-footer-show-set paged ---
+// Test that show-set rules also work on grid headers and footers.
+#show grid.header: set text(weight: "bold")
+#show grid.footer: set text(fill: blue)
+
+#grid(
+  columns: 2,
+  grid.header[A][B],
+  [C], [D],
+  grid.footer[E][F],
+)
