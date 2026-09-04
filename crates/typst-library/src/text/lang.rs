@@ -113,6 +113,7 @@ const TRANSLATIONS: &[(&str, &str)] = &[
     translation!("uk"),
     translation!("ur"),
     translation!("vi"),
+    translation!("za"),
     translation!("zh"),
     translation!("zh-TW"),
 ];
