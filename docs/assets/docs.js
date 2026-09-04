@@ -746,6 +746,18 @@ async function setUpGlobalSearch() {
   const index = await fetchSearchIndex();
   if (!index) return;
 
+  const switchActiveResult = (target) => {
+    const prev = getAriaActiveDescendant(textBox);
+    prev?.classList.remove("active-result");
+
+    if (!target || !target.id) {
+      textBox.removeAttribute("aria-activedescendant");
+    } else {
+      target.classList.add("active-result");
+      textBox.setAttribute("aria-activedescendant", target.id);
+    }
+  };
+
   const search = () => {
     const query = textBox.value;
     const matches = searchGlobally(index, query);
@@ -766,8 +778,16 @@ async function setUpGlobalSearch() {
       const li = document.createElement("li");
       const a = document.createElement("a");
       const span = document.createElement("span");
+      // Using the unique searchindex as an id helps accessibility APIs detect
+      // when changes are relevant (esp. for the automatically selected result).
+      li.id = "search-result-" + hit;
+      li.role = "option";
+      li.dataset.route = url;
       a.href = url;
       a.textContent = item.title;
+      // Links are in the default tab sequence of some UAs (e.g. Chromium),
+      // while popup descendants generally shall not.
+      a.tabIndex = -1;
       span.classList.add("type");
       span.textContent = item.kind;
       a.appendChild(span);
@@ -776,10 +796,50 @@ async function setUpGlobalSearch() {
     });
 
     resultList.replaceChildren(...items);
-    resultList.classList.toggle("hidden", matches.length === 0);
+    switchActiveResult(items[0]);
+
+    const empty = matches.length === 0;
+    resultList.classList.toggle("hidden", empty);
+    textBox.setAttribute("aria-expanded", !empty);
   };
 
-  textBox.addEventListener("keyup", search);
+  textBox.addEventListener("input", search);
+
+  const navigationKeys = new Set(["ArrowDown", "ArrowUp", "Home", "End", "Enter"]);
+  textBox.addEventListener("keydown", (event) => {
+    if (!navigationKeys.has(event.key) || resultList.children.length === 0) return;
+    event.preventDefault();
+
+    const items = Array.from(resultList.children);
+    const currentIndex = items.indexOf(getAriaActiveDescendant(textBox));
+
+    switch (event.key) {
+      case "ArrowDown":
+        switchActiveResult(items[currentIndex + 1] ?? items[0]);
+        break;
+      case "ArrowUp":
+        switchActiveResult(items[currentIndex - 1] ?? items[items.length - 1]);
+        break;
+      case "Home":
+        switchActiveResult(items[0]);
+        break;
+      case "End":
+        switchActiveResult(items[items.length - 1]);
+        break;
+      case "Enter":
+        const active = getAriaActiveDescendant(textBox) ?? items[0];
+        if (active?.dataset.route) window.location.href = active.dataset.route;
+        break;
+    }
+  });
+
+  // Assure pointer interactions play nicely with keyboard controls.
+  resultList.addEventListener("click", (event) => {
+    const target = event.target.closest(".search-results [role=option]");
+    if (target) switchActiveResult(target);
+  });
+
+  // Global search hotkey.
   document.addEventListener("keyup", (event) => {
     if (event.key && event.key.toLowerCase() == "s") {
       event.stopPropagation();
@@ -1246,6 +1306,12 @@ function isElementInViewport(el) {
       (window.innerHeight || document.documentElement.clientHeight) &&
     rect.right <= (window.innerWidth || document.documentElement.clientWidth)
   );
+}
+
+/** Basic polyfill for `ariaActiveDescendantElement`. */
+function getAriaActiveDescendant(container) {
+  const id = container.getAttribute("aria-activedescendant");
+  return id ? document.getElementById(id) : null;
 }
 
 main();
