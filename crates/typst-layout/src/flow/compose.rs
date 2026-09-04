@@ -1,6 +1,8 @@
+use std::convert::Infallible;
 use std::num::NonZeroUsize;
 
-use typst_library::diag::SourceResult;
+use ecow::EcoVec;
+use typst_library::diag::{SourceDiagnostic, SourceResult};
 use typst_library::engine::Engine;
 use typst_library::foundations::{Content, NativeElement, Packed, Resolve, Smart};
 use typst_library::introspection::{
@@ -18,9 +20,122 @@ use typst_library::model::{
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
 
-use super::{
-    Config, FlowMode, FlowResult, LineNumberConfig, PlacedChild, Stop, Work, distribute,
-};
+use super::distribute::distribute;
+use super::{Config, FlowMode, LineNumberConfig, PlacedChild, Work};
+
+/// A control flow event during layout.
+///
+/// The type parameter `R` describes the requested relayout.
+pub(super) enum RelayoutStop<R = PlacementScope> {
+    /// Indicates that the given scope should be relayouted.
+    Relayout(R),
+    /// A fatal error.
+    Error(EcoVec<SourceDiagnostic>),
+}
+
+impl<R> From<EcoVec<SourceDiagnostic>> for RelayoutStop<R> {
+    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
+        Self::Error(error)
+    }
+}
+
+/// A version of [`PlacementScope`] that is known to be `Parent`.
+pub struct ParentScope;
+
+impl From<ParentScope> for PlacementScope {
+    fn from(_: ParentScope) -> Self {
+        PlacementScope::Parent
+    }
+}
+
+/// A version of [`PlacementScope`] that is known to be `Column`.
+pub struct ColumnScope;
+
+impl From<ColumnScope> for PlacementScope {
+    fn from(_: ColumnScope) -> Self {
+        PlacementScope::Column
+    }
+}
+
+/// A control flow event during footnote handling.
+pub(super) type FootnoteStop<M = ()> = InsertionStop<ColumnScope, M>;
+
+/// A control flow event during float handling.
+pub(super) type FloatStop<M = ()> = InsertionStop<PlacementScope, M>;
+
+/// A control flow event while handling an insertion.
+///
+/// The type parameter `R` describes the requested relayout. The type parameter
+/// `M` controls the [`MigrateOrigin`](Self::MigrateOrigin) variant. When
+/// `M = Infallible`, the variant is empty.
+pub(super) enum InsertionStop<R, M = ()> {
+    /// The insertion changed the available space.
+    Relayout(R),
+    /// The footnote did not fit with its origin frame.
+    MigrateOrigin(M),
+    /// A fatal error.
+    Error(EcoVec<SourceDiagnostic>),
+}
+
+impl<M> From<FootnoteStop<M>> for FloatStop<M> {
+    fn from(stop: FootnoteStop<M>) -> Self {
+        match stop {
+            FootnoteStop::Relayout(ColumnScope) => Self::Relayout(PlacementScope::Column),
+            FootnoteStop::MigrateOrigin(migration) => Self::MigrateOrigin(migration),
+            FootnoteStop::Error(error) => Self::Error(error),
+        }
+    }
+}
+
+impl<R> From<InsertionStop<R, Infallible>> for RelayoutStop
+where
+    R: Into<PlacementScope>,
+{
+    fn from(stop: InsertionStop<R, Infallible>) -> Self {
+        match stop {
+            InsertionStop::Relayout(r) => Self::Relayout(r.into()),
+            InsertionStop::MigrateOrigin(never) => match never {},
+            InsertionStop::Error(error) => Self::Error(error),
+        }
+    }
+}
+
+impl<R, M> From<EcoVec<SourceDiagnostic>> for InsertionStop<R, M> {
+    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
+        Self::Error(error)
+    }
+}
+
+/// Whether a footnote's origin frame may migrate to the next region.
+#[derive(Clone, Copy)]
+pub(super) struct Migration<M>(Option<M>);
+
+impl Migration<()> {
+    /// Allow the origin frame to migrate.
+    pub(super) const ALLOW: Self = Self(Some(()));
+}
+
+impl Migration<Infallible> {
+    /// Forbid the origin frame from migrating.
+    const FORBID: Self = Self(None);
+}
+
+impl<M> Migration<M> {
+    /// Forbid the origin frame from migrating.
+    fn forbid(&mut self) {
+        self.0 = None;
+    }
+
+    /// Disable migration and return the previous setting.
+    fn take(&mut self) -> Self {
+        Self(self.0.take())
+    }
+
+    /// Extract the inner value, if migration is allowed.
+    fn into_inner(self) -> Option<M> {
+        self.0
+    }
+}
 
 /// Composes the contents of a single page/region. A region can have multiple
 /// columns/subregions.
@@ -83,7 +198,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lay out a container/page region, including container/page insertions.
     fn page(mut self, locator: Locator, regions: Regions) -> SourceResult<Frame> {
         // This loop can restart region layout when requested to do so by a
-        // `Stop`. This happens when there is a parent-scoped float.
+        // `RelayoutStop::Relayout`. This happens when there is a parent-scoped float.
         let checkpoint = self.work.clone();
         let output = loop {
             // Shrink the available space by the space used by page
@@ -93,12 +208,10 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
             match self.page_contents(locator.relayout(), pod) {
                 Ok(frame) => break frame,
-                Err(Stop::Finish(_)) => unreachable!(),
-                Err(Stop::Relayout(PlacementScope::Column)) => unreachable!(),
-                Err(Stop::Relayout(PlacementScope::Parent)) => {
+                Err(RelayoutStop::Relayout(ParentScope)) => {
                     *self.work = checkpoint.clone();
                 }
-                Err(Stop::Error(err)) => return Err(err),
+                Err(RelayoutStop::Error(err)) => return Err(err),
             }
         };
         drop(checkpoint);
@@ -107,7 +220,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     }
 
     /// Lay out the inner contents of a container/page.
-    fn page_contents(&mut self, locator: Locator, regions: Regions) -> FlowResult<Frame> {
+    fn page_contents(
+        &mut self,
+        locator: Locator,
+        regions: Regions,
+    ) -> Result<Frame, RelayoutStop<ParentScope>> {
         // No point in create column regions, if there's just one!
         if self.config.columns.count == 1 {
             return self.column(locator, regions).map(|(frame, ..)| frame);
@@ -206,7 +323,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             let height = total_used_height / self.config.columns.count as f64;
             if self.column_balancing_height.is_none_or(|h| h < height) {
                 self.column_balancing_height = Some(height);
-                return Err(Stop::Relayout(PlacementScope::Parent));
+                return Err(RelayoutStop::Relayout(ParentScope));
             }
         }
 
@@ -215,7 +332,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
     /// Lay out a column, including column insertions.
     ///
-    /// Returns a `FlowResult` containing a tuple of
+    /// Returns a `PageResult` containing a tuple of
     /// - `0`: The laid out frame.
     /// - `1`: The height actually used by the inner contents (used for column
     ///   balancing logic).
@@ -224,7 +341,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         &mut self,
         locator: Locator,
         regions: Regions,
-    ) -> FlowResult<(Frame, Abs, Abs)> {
+    ) -> Result<(Frame, Abs, Abs), RelayoutStop<ParentScope>> {
         // Reset column insertion when starting a new column.
         self.column_insertions = Insertions::default();
 
@@ -234,7 +351,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // This loop can restart column layout when requested to do so by a
-        // `Stop`. This happens when there is a column-scoped float.
+        // `RelayoutStop`. This happens when there is a column-scoped float.
         let checkpoint = self.work.clone();
         let (inner, used_height) = loop {
             // Shrink the available space by the space used by column
@@ -252,11 +369,15 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
             match self.column_contents(pod, balancing_target) {
                 Ok((frame, used_height)) => break (frame, used_height + float_height),
-                Err(Stop::Finish(_)) => unreachable!(),
-                Err(Stop::Relayout(PlacementScope::Column)) => {
+                Err(RelayoutStop::Relayout(PlacementScope::Column)) => {
                     *self.work = checkpoint.clone();
                 }
-                Err(err) => return Err(err),
+                Err(RelayoutStop::Relayout(PlacementScope::Parent)) => {
+                    return Err(RelayoutStop::Relayout(ParentScope));
+                }
+                Err(RelayoutStop::Error(error)) => {
+                    return Err(RelayoutStop::Error(error));
+                }
             }
         };
         drop(checkpoint);
@@ -302,21 +423,21 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// however, we forbid footnote migration (moving the frame containing the
     /// footnote reference if the corresponding entry doesn't fit), allowing
     /// the footnote invariant to be broken, as it would require handling a
-    /// [`Stop::Finish`] at this point, but that is exclusively handled by the
-    /// distributor.
+    /// [`FootnoteStop::MigrateOrigin`] at this point, but that is exclusively
+    /// handled by the distributor.
     fn column_contents(
         &mut self,
         regions: Regions,
         balancing_target: Option<Abs>,
-    ) -> FlowResult<(Frame, Abs)> {
+    ) -> Result<(Frame, Abs), RelayoutStop> {
         // Process pending footnotes.
         for note in std::mem::take(&mut self.work.footnotes) {
-            self.footnote(note, &mut regions.clone(), Abs::zero(), false)?;
+            self.footnote(note, &mut regions.clone(), Abs::zero(), Migration::FORBID)?;
         }
 
         // Process pending floats.
         for placed in std::mem::take(&mut self.work.floats) {
-            self.float(placed, &regions, false, false)?;
+            self.float(placed, &regions, false, Migration::FORBID)?;
         }
 
         distribute(self, regions, balancing_target)
@@ -325,27 +446,27 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lays out an item with floating placement.
     ///
     /// This is called from within [`distribute()`]. When the float fits, this
-    /// returns an `Err(Stop::Relayout(..))`, which bubbles all the way through
-    /// distribution and is handled in [`Self::page`] or [`Self::column`]
-    /// (depending on `placed.scope`).
+    /// returns an `Err(FloatStop::Relayout(..))`, which bubbles all the way
+    /// through distribution and is handled in [`Self::page`] or
+    /// [`Self::column`] (depending on `placed.scope`).
     ///
     /// When the float does not fit, it is queued into `work.floats`. The
     /// value of `clearance` indicates that between the float and flow content
     /// is needed --- it is set if there are already distributed items.
     ///
-    /// The value of `migratable` determines whether footnotes within the float
+    /// The value of `migration` determines whether footnotes within the float
     /// should be allowed to prompt its migration if they don't fit in order to
     /// respect the footnote invariant (entries in the same page as the
-    /// references), triggering [`Stop::Finish`]. This is usually `true` within
-    /// the distributor, as it can handle that particular flow event, and
-    /// `false` elsewhere.
-    pub fn float(
+    /// references), triggering [`FloatStop::MigrateOrigin`]. This is usually
+    /// [`Migration::ALLOW`] within the distributor, as it can handle that
+    /// particular flow event, and [`Migration::FORBID`] elsewhere.
+    pub fn float<M: Copy>(
         &mut self,
         placed: &'b PlacedChild<'a>,
         regions: &Regions,
         clearance: bool,
-        migratable: bool,
-    ) -> FlowResult<()> {
+        migration: Migration<M>,
+    ) -> Result<(), FloatStop<M>> {
         // If the float is already processed, skip it.
         let loc = placed.location();
         if self.skipped(loc) {
@@ -393,7 +514,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // Handle footnotes in the float.
-        self.footnotes(regions, &frame, need, false, migratable)?;
+        self.footnotes(regions, &frame, need, false, migration)?;
 
         // Determine the float's vertical alignment. We can unwrap the inner
         // `Option` because `Custom(None)` is checked for during collection.
@@ -418,26 +539,27 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         area.skips.push(loc);
 
         // Trigger relayout.
-        Err(Stop::Relayout(placed.scope))
+        Err(FloatStop::Relayout(placed.scope))
     }
 
     /// Lays out footnotes in the `frame` if this is the root flow and there are
     /// any. The value of `breakable` indicates whether the element that
     /// produced the frame is breakable. If not, the frame is treated as atomic.
     ///
-    /// The value of `migratable` indicates whether footnote migration should be
+    /// The value of `migration` indicates whether footnote migration should be
     /// possible (at least for the first footnote found in the frame, as it is
-    /// forbidden for the second footnote onwards). It is usually `true` within
-    /// the distributor and `false` elsewhere, as the distributor can handle
-    /// [`Stop::Finish`] which is returned when migration is requested.
-    pub fn footnotes(
+    /// forbidden for the second footnote onwards). It is usually
+    /// [`Migration::ALLOW`] within the distributor and [`Migration::FORBID`]
+    /// elsewhere, as the distributor can handle [`FootnoteStop::MigrateOrigin`]
+    /// which is returned when migration is requested.
+    pub fn footnotes<M: Copy>(
         &mut self,
         regions: &Regions,
         frame: &Frame,
         flow_need: Abs,
         breakable: bool,
-        migratable: bool,
-    ) -> FlowResult<()> {
+        mut migration: Migration<M>,
+    ) -> Result<(), FootnoteStop<M>> {
         // Footnotes are only supported at the root level.
         if self.config.mode != FlowMode::Root {
             return Ok(());
@@ -461,7 +583,9 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // The first footnote's origin frame should be migratable if the region
         // may progress (already checked by the footnote function) and if the
         // origin frame isn't breakable (checked here).
-        let mut migratable = migratable && !breakable;
+        if breakable {
+            migration.forbid();
+        }
 
         for (y, elem) in notes {
             // The amount of space used by the in-flow content that contains the
@@ -469,41 +593,42 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
             // the marker. For an unbreakable frame, it's the full height.
             let flow_need = if breakable { y } else { flow_need };
 
+            // We only migrate the origin frame if the first footnote's first
+            // line didn't fit.
+            let migration = migration.take();
+
             // Process the footnote.
-            match self.footnote(elem, &mut regions, flow_need, migratable) {
+            match self.footnote(elem, &mut regions, flow_need, migration) {
                 // The footnote was already processed or queued.
                 Ok(()) => {}
                 // First handle more footnotes before relayouting.
-                Err(Stop::Relayout(_)) => relayout = true,
+                Err(FootnoteStop::Relayout(ColumnScope)) => relayout = true,
                 // Either of
-                // - A `Stop::Finish` indicating that the frame's origin element
-                //   should migrate to uphold the footnote invariant.
+                // - A `FootnoteStop::MigrateOrigin` indicating that the frame's
+                //   origin element should migrate to uphold the footnote
+                //   invariant.
                 // - A fatal error.
                 err => return err,
             }
-
-            // We only migrate the origin frame if the first footnote's first
-            // line didn't fit.
-            migratable = false;
         }
 
         // If this is set, we laid out at least one footnote, so we need a
         // relayout.
         if relayout {
-            return Err(Stop::Relayout(PlacementScope::Column));
+            return Err(FootnoteStop::Relayout(ColumnScope));
         }
 
         Ok(())
     }
 
     /// Handles a single footnote.
-    fn footnote(
+    fn footnote<M: Copy>(
         &mut self,
         elem: Packed<FootnoteElem>,
         regions: &mut Regions,
         flow_need: Abs,
-        migratable: bool,
-    ) -> FlowResult<()> {
+        migration: Migration<M>,
+    ) -> Result<(), FootnoteStop<M>> {
         // Ignore reference footnotes and already processed ones.
         let loc = elem.location().unwrap();
         if elem.is_ref() || self.skipped(loc) {
@@ -577,8 +702,10 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         // `regions.may_progress()` must still be checked separately for
         // migration, regardless of the presence of flow need.
         if first.is_empty() && exist_non_empty_frame {
-            if migratable && regions.may_progress() {
-                return Err(Stop::Finish(false));
+            if let Some(m) = migration.into_inner()
+                && regions.may_progress()
+            {
+                return Err(FootnoteStop::MigrateOrigin(m));
             } else if regions.may_progress() || !flow_need.is_zero() {
                 self.footnote_queue.push(elem);
                 return Ok(());
@@ -603,24 +730,25 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Lay out nested footnotes.
         for (_, note) in nested {
-            match self.footnote(note, regions, flow_need, migratable) {
+            match self.footnote(note, regions, flow_need, migration) {
                 // This footnote was already processed or queued.
                 Ok(()) => {}
                 // Footnotes always request a relayout when processed for the
                 // first time, so we ignore a relayout request since we're
                 // about to do so afterwards. Without this check, the first
                 // inner footnote interrupts processing of the following ones.
-                Err(Stop::Relayout(_)) => {}
+                Err(FootnoteStop::Relayout(ColumnScope)) => {}
                 // Either of
-                // - A `Stop::Finish` indicating that the frame's origin element
-                //   should migrate to uphold the footnote invariant.
+                // - A `FootnoteStop::MigrateOrigin` indicating that the frame's
+                //   origin element should migrate to uphold the footnote
+                //   invariant.
                 // - A fatal error.
                 err => return err,
             }
         }
 
         // Since we laid out a footnote, we need a relayout.
-        Err(Stop::Relayout(PlacementScope::Column))
+        Err(FootnoteStop::Relayout(ColumnScope))
     }
 
     /// Handles spillover from a footnote.
