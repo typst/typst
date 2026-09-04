@@ -507,6 +507,7 @@ pub struct FontArgs {
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
         value_delimiter = ENV_PATH_SEP,
+        value_parser = font_path_value_parser(),
     )]
     pub font_paths: Vec<PathBuf>,
 
@@ -836,6 +837,10 @@ fn output_value_parser() -> impl TypedValueParser<Value = Output> {
             Ok(Output::Path(value.into()))
         }
     })
+}
+
+fn font_path_value_parser() -> impl TypedValueParser<Value = PathBuf> {
+    clap::builder::OsStringValueParser::new().map(PathBuf::from)
 }
 
 /// Parses key/value pairs split by the first equal sign.
