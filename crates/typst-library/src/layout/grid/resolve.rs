@@ -177,12 +177,16 @@ pub fn table_to_cellgrid(
 /// realization, since those elements are never realized as content: the grid
 /// and table resolution process destructures them directly into their cells.
 /// To still support the most common use case — styling headers and footers
-/// with show-set rules such as `show table.header: set text(weight: \"bold\")`
+/// with show-set rules such as `show table.header: set text(weight: "bold")`
 /// — the style maps of matching show-set rules are collected here, so that
 /// they can be applied both when resolving the properties of the cells within
 /// the header or footer and when laying out their bodies. Show rules with
 /// other kinds of transformations (e.g. functions replacing the element) are
 /// not supported, as a header or footer must always expand into grid rows.
+///
+/// Note that, unlike during realization, no pre-synthesis is performed before
+/// matching the selectors here. This is fine as long as the header and footer
+/// elements don't have synthesized fields, which is currently the case.
 fn show_set_styles(elem: &Content, styles: StyleChain) -> Styles {
     let mut map = Styles::new();
     for recipe in styles.recipes() {
@@ -1028,6 +1032,7 @@ where
         engine,
         styles,
         span,
+        row_group_show_sets: vec![],
     }
     .resolve(children)
 }
@@ -1042,6 +1047,10 @@ struct CellGridResolver<'a, 'b> {
     engine: &'a mut Engine<'b>,
     styles: StyleChain<'a>,
     span: Span,
+    /// The combined show-set styles of each resolved header or footer,
+    /// together with the range of rows it occupies. Used to style implicit
+    /// empty cells in partially filled header or footer rows.
+    row_group_show_sets: Vec<(Range<usize>, Styles)>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1374,8 +1383,8 @@ impl CellGridResolver<'_, '_> {
         // The styles to resolve this child's cells and lines with, including
         // the show-set styles collected for headers and footers.
         let outer = self.styles;
-        let styles = match show_set.as_ref().filter(|show_set| !show_set.is_empty()) {
-            Some(show_set) => outer.chain(show_set),
+        let styles = match show_set.as_ref() {
+            Some(show_set) => chain_show_set(&outer, show_set),
             None => outer,
         };
 
@@ -1685,6 +1694,15 @@ impl CellGridResolver<'_, '_> {
                 }
             };
 
+            if let Some(show_set) =
+                show_set.as_ref().filter(|show_set| !show_set.is_empty())
+            {
+                // Remember the show-set styles for this row group so that
+                // implicit empty cells in partially filled header or footer
+                // rows are styled consistently with the group's cells.
+                self.row_group_show_sets.push((group_range.clone(), show_set.clone()));
+            }
+
             let top_hlines_end = row_group.top_hlines_end.unwrap_or(pending_hlines.len());
             for (_, top_hline, has_auto_y) in pending_hlines
                 .get_mut(row_group.top_hlines_start..top_hlines_end)
@@ -1791,13 +1809,27 @@ impl CellGridResolver<'_, '_> {
                     let x = i % columns;
                     let y = i / columns;
 
+                    // Implicit empty cells within a header or footer row
+                    // receive the group's show-set styles, just like its
+                    // explicitly specified cells.
+                    let outer = self.styles;
+                    let show_set = self
+                        .row_group_show_sets
+                        .iter()
+                        .find(|(range, _)| range.contains(&y))
+                        .map(|(_, show_set)| show_set.clone());
+                    let styles = match &show_set {
+                        Some(show_set) => chain_show_set(&outer, show_set),
+                        None => outer,
+                    };
+
                     Ok(Entry::Cell(self.resolve_cell(
                         T::default(),
                         x,
                         y,
                         1,
                         Smart::Auto,
-                        self.styles,
+                        styles,
                     )?))
                 }
             })
