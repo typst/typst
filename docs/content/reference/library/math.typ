@@ -189,7 +189,7 @@ $ (3x + y) / 7 &= 9 && "given" \
 ```
 
 = Math fonts <math-fonts>
-You can set the math font by with a @reference:styling:show-rules[show-set rule] as demonstrated below. Note that only special OpenType math fonts are suitable for typesetting maths.
+You can set the math font with a @reference:styling:show-rules[show-set rule] as demonstrated below. Note that only special OpenType math fonts are suitable for typesetting maths.
 
 ```example
 #show math.equation: set text(font: "Pennstander Math")
