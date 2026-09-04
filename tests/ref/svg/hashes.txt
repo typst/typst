@@ -426,6 +426,7 @@ fed7b27df99f5845ff9be88cef976c26 grid-header-containing-rowspan
 4c84342868c9f4f495b576ddb4c58e26 grid-header-footer-and-rowspan-non-contiguous-1
 058baa8144b92cf3b2efbedab4313f98 grid-header-footer-and-rowspan-non-contiguous-2
 bf27be21bf3aacedffe86845524a6f77 grid-header-footer-block-with-fixed-height
+b3b6252a800496eac9e9b57ec02433e2 grid-header-footer-show-set
 69a3f4e53f9b1cfbbc44808cd1b25b97 grid-header-hline-and-vline
 5e57ccc3d70adcdda2893e077d8fa0db grid-header-hline-bottom
 9ea64a0e01baff2c26750017bcfc392d grid-header-hline-bottom-manually
@@ -728,6 +729,10 @@ f59ee4760323b4b20f4a64e57fe9c603 issue-3082-chinese-punctuation
 233725901b9628035ecb431e1453df69 issue-3586-figure-caption-separator
 c34ae7bba2e0f2e02551e712d8f7307e issue-3601-empty-raw
 cb529c1fd52a42e23d46b0f5688b0bfe issue-3624-spacing-behaviour
+654de3d85a431f15e1f460843b95d360 issue-3640-table-header-footer-show-set
+7c3c5e7437b4506b6f07804a2a3349ef issue-3640-table-header-show-set-partial-row
+44a4dfa9a2382d8dbcadba0deedc8b24 issue-3640-table-header-show-set-precedence
+1ea569abb4a26dbac0c28bb3bfe00c56 issue-3640-table-header-show-set-repeat
 2b3b76ec161e1eba502179c460e25a79 issue-3641-float-loop
 7c403c4e98c373c91ef4ae21f5e9aca5 issue-3650-italic-equation
 438aa608c05ca59f5b0319f73a09f92c issue-3658-math-size

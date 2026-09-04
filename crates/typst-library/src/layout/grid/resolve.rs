@@ -8,7 +8,9 @@ use typst_library::diag::{
     At, Hint, HintedStrResult, HintedString, SourceResult, Trace, Tracepoint, bail,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Content, Fold, Packed, Smart, StyleChain};
+use typst_library::foundations::{
+    Content, Fold, Packed, Smart, StyleChain, Styles, Transformation,
+};
 use typst_library::layout::{
     Abs, Alignment, Axes, Celled, GridCell, GridChild, GridElem, GridItem, Length,
     OuterHAlignment, OuterVAlignment, Rel, ResolvedCelled, Sides, Sizing,
@@ -42,21 +44,42 @@ pub fn grid_to_cellgrid(
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
     // Use trace to link back to the grid when a specific cell errors
     let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
-    let resolve_item = |item: &GridItem| grid_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
-        GridChild::Header(header) => ResolvableGridChild::Header {
-            repeat: header.repeat.get(styles),
-            level: header.level.get(styles),
-            span: header.span(),
-            items: header.children.iter().map(resolve_item),
-        },
-        GridChild::Footer(footer) => ResolvableGridChild::Footer {
-            repeat: footer.repeat.get(styles),
-            span: footer.span(),
-            items: footer.children.iter().map(resolve_item),
-        },
+        GridChild::Header(header) => {
+            let show_set = show_set_styles(header.pack_ref(), styles);
+            let chained = chain_show_set(&styles, &show_set);
+            let items = header
+                .children
+                .iter()
+                .map(|item| grid_item_to_resolvable(item, chained, Some(&show_set)))
+                .collect::<Vec<_>>()
+                .into_iter();
+            ResolvableGridChild::Header {
+                repeat: header.repeat.get(chained),
+                level: header.level.get(chained),
+                span: header.span(),
+                show_set,
+                items,
+            }
+        }
+        GridChild::Footer(footer) => {
+            let show_set = show_set_styles(footer.pack_ref(), styles);
+            let chained = chain_show_set(&styles, &show_set);
+            let items = footer
+                .children
+                .iter()
+                .map(|item| grid_item_to_resolvable(item, chained, Some(&show_set)))
+                .collect::<Vec<_>>()
+                .into_iter();
+            ResolvableGridChild::Footer {
+                repeat: footer.repeat.get(chained),
+                span: footer.span(),
+                show_set,
+                items,
+            }
+        }
         GridChild::Item(item) => {
-            ResolvableGridChild::Item(grid_item_to_resolvable(item, styles))
+            ResolvableGridChild::Item(grid_item_to_resolvable(item, styles, None))
         }
     });
     resolve_cellgrid(
@@ -94,21 +117,42 @@ pub fn table_to_cellgrid(
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
     // Use trace to link back to the table when a specific cell errors
     let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
-    let resolve_item = |item: &TableItem| table_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
-        TableChild::Header(header) => ResolvableGridChild::Header {
-            repeat: header.repeat.get(styles),
-            level: header.level.get(styles),
-            span: header.span(),
-            items: header.children.iter().map(resolve_item),
-        },
-        TableChild::Footer(footer) => ResolvableGridChild::Footer {
-            repeat: footer.repeat.get(styles),
-            span: footer.span(),
-            items: footer.children.iter().map(resolve_item),
-        },
+        TableChild::Header(header) => {
+            let show_set = show_set_styles(header.pack_ref(), styles);
+            let chained = chain_show_set(&styles, &show_set);
+            let items = header
+                .children
+                .iter()
+                .map(|item| table_item_to_resolvable(item, chained, Some(&show_set)))
+                .collect::<Vec<_>>()
+                .into_iter();
+            ResolvableGridChild::Header {
+                repeat: header.repeat.get(chained),
+                level: header.level.get(chained),
+                span: header.span(),
+                show_set,
+                items,
+            }
+        }
+        TableChild::Footer(footer) => {
+            let show_set = show_set_styles(footer.pack_ref(), styles);
+            let chained = chain_show_set(&styles, &show_set);
+            let items = footer
+                .children
+                .iter()
+                .map(|item| table_item_to_resolvable(item, chained, Some(&show_set)))
+                .collect::<Vec<_>>()
+                .into_iter();
+            ResolvableGridChild::Footer {
+                repeat: footer.repeat.get(chained),
+                span: footer.span(),
+                show_set,
+                items,
+            }
+        }
         TableChild::Item(item) => {
-            ResolvableGridChild::Item(table_item_to_resolvable(item, styles))
+            ResolvableGridChild::Item(table_item_to_resolvable(item, styles, None))
         }
     });
     resolve_cellgrid(
@@ -126,9 +170,47 @@ pub fn table_to_cellgrid(
     .trace(engine.world, tracepoint, elem.span())
 }
 
+/// Collects the combined style map of all show-set rules in the style chain
+/// that match the given header or footer element.
+///
+/// Show rules on headers and footers cannot be applied through normal
+/// realization, since those elements are never realized as content: the grid
+/// and table resolution process destructures them directly into their cells.
+/// To still support the most common use case — styling headers and footers
+/// with show-set rules such as `show table.header: set text(weight: "bold")`
+/// — the style maps of matching show-set rules are collected here, so that
+/// they can be applied both when resolving the properties of the cells within
+/// the header or footer and when laying out their bodies. Show rules with
+/// other kinds of transformations (e.g. functions replacing the element) are
+/// not supported, as a header or footer must always expand into grid rows.
+///
+/// Note that, unlike during realization, no pre-synthesis is performed before
+/// matching the selectors here. This is fine as long as the header and footer
+/// elements don't have synthesized fields, which is currently the case.
+fn show_set_styles(elem: &Content, styles: StyleChain) -> Styles {
+    let mut map = Styles::new();
+    for recipe in styles.recipes() {
+        if recipe
+            .selector()
+            .is_some_and(|selector| selector.matches(elem, Some(styles)))
+            && let Transformation::Style(transform) = recipe.transform()
+        {
+            map.apply(transform.clone());
+        }
+    }
+    map
+}
+
+/// Chains the collected show-set styles of a header or footer on top of the
+/// given styles, if any.
+fn chain_show_set<'a>(styles: &'a StyleChain, show_set: &'a Styles) -> StyleChain<'a> {
+    if show_set.is_empty() { *styles } else { styles.chain(show_set) }
+}
+
 fn grid_item_to_resolvable(
     item: &GridItem,
     styles: StyleChain,
+    show_set: Option<&Styles>,
 ) -> ResolvableGridItem<Packed<GridCell>> {
     match item {
         GridItem::HLine(hline) => ResolvableGridItem::HLine {
@@ -159,13 +241,22 @@ fn grid_item_to_resolvable(
                 OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
             },
         },
-        GridItem::Cell(cell) => ResolvableGridItem::Cell(cell.clone()),
+        GridItem::Cell(cell) => {
+            let mut cell = cell.clone();
+            if let Some(show_set) = show_set.filter(|show_set| !show_set.is_empty()) {
+                // Apply the show-set styles to the cell's body so that they
+                // are still in effect when the body is laid out.
+                cell.body.style_in_place(show_set.clone());
+            }
+            ResolvableGridItem::Cell(cell)
+        }
     }
 }
 
 fn table_item_to_resolvable(
     item: &TableItem,
     styles: StyleChain,
+    show_set: Option<&Styles>,
 ) -> ResolvableGridItem<Packed<TableCell>> {
     match item {
         TableItem::HLine(hline) => ResolvableGridItem::HLine {
@@ -196,7 +287,15 @@ fn table_item_to_resolvable(
                 OuterHAlignment::End | OuterHAlignment::Right => LinePosition::After,
             },
         },
-        TableItem::Cell(cell) => ResolvableGridItem::Cell(cell.clone()),
+        TableItem::Cell(cell) => {
+            let mut cell = cell.clone();
+            if let Some(show_set) = show_set.filter(|show_set| !show_set.is_empty()) {
+                // Apply the show-set styles to the cell's body so that they
+                // are still in effect when the body is laid out.
+                cell.body.style_in_place(show_set.clone());
+            }
+            ResolvableGridItem::Cell(cell)
+        }
     }
 }
 
@@ -648,8 +747,8 @@ impl Entry {
 
 /// Any grid child, which can be either a header or an item.
 pub enum ResolvableGridChild<T: ResolvableCell, I> {
-    Header { repeat: bool, level: NonZeroU32, span: Span, items: I },
-    Footer { repeat: bool, span: Span, items: I },
+    Header { repeat: bool, level: NonZeroU32, span: Span, show_set: Styles, items: I },
+    Footer { repeat: bool, span: Span, show_set: Styles, items: I },
     Item(ResolvableGridItem<T>),
 }
 
@@ -933,6 +1032,7 @@ where
         engine,
         styles,
         span,
+        row_group_show_sets: vec![],
     }
     .resolve(children)
 }
@@ -947,6 +1047,10 @@ struct CellGridResolver<'a, 'b> {
     engine: &'a mut Engine<'b>,
     styles: StyleChain<'a>,
     span: Span,
+    /// The combined show-set styles of each resolved header or footer,
+    /// together with the range of rows it occupies. Used to style implicit
+    /// empty cells in partially filled header or footer rows.
+    row_group_show_sets: Vec<(Range<usize>, Styles)>,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1210,8 +1314,8 @@ impl CellGridResolver<'_, '_> {
         // The cell kind is currently only used for tagged PDF.
         let cell_kind;
 
-        let (header_footer_items, simple_item) = match child {
-            ResolvableGridChild::Header { repeat, level, span, items } => {
+        let (header_footer_items, simple_item, show_set) = match child {
+            ResolvableGridChild::Header { repeat, level, span, show_set, items } => {
                 cell_kind =
                     Smart::Custom(TableCellKind::Header(level, TableHeaderScope::Column));
 
@@ -1239,9 +1343,9 @@ impl CellGridResolver<'_, '_> {
                 // previous one. Therefore, this will be >= auto_index.
                 *local_auto_index = first_available_row * columns;
 
-                (Some(items), None)
+                (Some(items), None, Some(show_set))
             }
-            ResolvableGridChild::Footer { repeat, span, items } => {
+            ResolvableGridChild::Footer { repeat, span, show_set, items } => {
                 if footer.is_some() {
                     bail!(span, "cannot have more than one footer");
                 }
@@ -1263,7 +1367,7 @@ impl CellGridResolver<'_, '_> {
 
                 *local_auto_index = first_available_row * columns;
 
-                (Some(items), None)
+                (Some(items), None, Some(show_set))
             }
             ResolvableGridChild::Item(item) => {
                 cell_kind = Smart::Custom(TableCellKind::Data);
@@ -1272,8 +1376,16 @@ impl CellGridResolver<'_, '_> {
                     *at_least_one_cell = true;
                 }
 
-                (None, Some(item))
+                (None, Some(item), None)
             }
+        };
+
+        // The styles to resolve this child's cells and lines with, including
+        // the show-set styles collected for headers and footers.
+        let outer = self.styles;
+        let styles = match show_set.as_ref() {
+            Some(show_set) => chain_show_set(&outer, show_set),
+            None => outer,
         };
 
         let mut had_auto_cells = false;
@@ -1382,13 +1494,13 @@ impl CellGridResolver<'_, '_> {
                 ResolvableGridItem::Cell(cell) => cell,
             };
             let cell_span = cell.span();
-            let colspan = cell.colspan(self.styles).get();
-            let rowspan = cell.rowspan(self.styles).get();
+            let colspan = cell.colspan(styles).get();
+            let rowspan = cell.rowspan(styles).get();
             // Let's calculate the cell's final position based on its
             // requested position.
             let resolved_index = {
-                let cell_x = cell.x(self.styles);
-                let cell_y = cell.y(self.styles);
+                let cell_x = cell.x(styles);
+                let cell_y = cell.y(styles);
                 had_auto_cells |= cell_x.is_auto() && cell_y.is_auto();
                 resolve_cell_position(
                     cell_x,
@@ -1462,7 +1574,7 @@ impl CellGridResolver<'_, '_> {
 
             // Let's resolve the cell so it can determine its own fields
             // based on its final position.
-            let cell = self.resolve_cell(cell, x, y, rowspan, cell_kind)?;
+            let cell = self.resolve_cell(cell, x, y, rowspan, cell_kind, styles)?;
 
             if largest_index >= resolved_cells.len() {
                 // Ensure the length of the vector of resolved cells is
@@ -1575,11 +1687,21 @@ impl CellGridResolver<'_, '_> {
                             first_available_row,
                             1,
                             Smart::Custom(kind),
+                            styles,
                         )?));
 
                     group_start..group_end
                 }
             };
+
+            if let Some(show_set) =
+                show_set.as_ref().filter(|show_set| !show_set.is_empty())
+            {
+                // Remember the show-set styles for this row group so that
+                // implicit empty cells in partially filled header or footer
+                // rows are styled consistently with the group's cells.
+                self.row_group_show_sets.push((group_range.clone(), show_set.clone()));
+            }
 
             let top_hlines_end = row_group.top_hlines_end.unwrap_or(pending_hlines.len());
             for (_, top_hline, has_auto_y) in pending_hlines
@@ -1687,12 +1809,27 @@ impl CellGridResolver<'_, '_> {
                     let x = i % columns;
                     let y = i / columns;
 
+                    // Implicit empty cells within a header or footer row
+                    // receive the group's show-set styles, just like its
+                    // explicitly specified cells.
+                    let outer = self.styles;
+                    let show_set = self
+                        .row_group_show_sets
+                        .iter()
+                        .find(|(range, _)| range.contains(&y))
+                        .map(|(_, show_set)| show_set.clone());
+                    let styles = match &show_set {
+                        Some(show_set) => chain_show_set(&outer, show_set),
+                        None => outer,
+                    };
+
                     Ok(Entry::Cell(self.resolve_cell(
                         T::default(),
                         x,
                         y,
                         1,
                         Smart::Auto,
+                        styles,
                     )?))
                 }
             })
@@ -1949,6 +2086,7 @@ impl CellGridResolver<'_, '_> {
         y: usize,
         rowspan: usize,
         kind: Smart<TableCellKind>,
+        styles: StyleChain,
     ) -> SourceResult<Cell>
     where
         T: ResolvableCell + Default,
@@ -1978,12 +2116,12 @@ impl CellGridResolver<'_, '_> {
         Ok(cell.resolve_cell(
             x,
             y,
-            &self.fill.resolve(self.engine, self.styles, x, y)?,
-            self.align.resolve(self.engine, self.styles, x, y)?,
-            self.inset.resolve(self.engine, self.styles, x, y)?,
-            self.stroke.resolve(self.engine, self.styles, x, y)?,
+            &self.fill.resolve(self.engine, styles, x, y)?,
+            self.align.resolve(self.engine, styles, x, y)?,
+            self.inset.resolve(self.engine, styles, x, y)?,
+            self.stroke.resolve(self.engine, styles, x, y)?,
             breakable,
-            self.styles,
+            styles,
             kind,
         ))
     }

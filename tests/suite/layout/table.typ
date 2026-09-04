@@ -343,3 +343,52 @@ Hello
   rows: 16pt,
   ..range(6).map(str).flatten(),
 )
+
+--- issue-3640-table-header-footer-show-set paged ---
+// Test that show-set rules on `table.header` and `table.footer` apply to the
+// cells within them, including rules with `where` selectors.
+#show table.header: set text(weight: "bold")
+#show table.footer: set text(fill: blue)
+#show table.header.where(level: 2): set text(style: "italic")
+
+#table(
+  columns: 2,
+  table.header[A][B],
+  table.header(level: 2)[C][D],
+  [E], [F],
+  table.footer[G][H],
+)
+
+--- issue-3640-table-header-show-set-precedence paged ---
+// Test that show-set rules on `table.header` override outer set rules, but
+// lose to explicit cell-level styling.
+#set text(fill: red)
+#show table.header: set text(fill: blue)
+
+#table(
+  columns: 2,
+  table.header[A][B],
+  table.cell(fill: yellow)[C], [D],
+)
+
+--- issue-3640-table-header-show-set-partial-row paged ---
+// Test that an implicit empty cell in a partially filled header row is
+// styled like the rest of the header.
+#show table.header: set table.cell(fill: silver)
+
+#table(
+  columns: 3,
+  table.header[A][B],
+  [C], [D], [E],
+)
+
+--- issue-3640-table-header-show-set-repeat paged ---
+// Test that show-set styles apply to headers repeated across pages.
+#set page(height: 60pt)
+#show table.header: set text(weight: "bold")
+
+#table(
+  columns: 2,
+  table.header[H1][H2],
+  ..range(8).map(i => ([#i], [#i])).flatten(),
+)
