@@ -34,6 +34,8 @@ pub enum Item<'a> {
     Text(ShapedText<'a>),
     /// Absolute spacing between other items, and whether it is weak.
     Absolute(Abs, bool),
+    /// Spacing produced by paragraph geometry, such as a first-line or hanging indent.
+    Indent(Abs),
     /// Fractional spacing between other items.
     Fractional(Fr, Option<(&'a Packed<BoxElem>, Locator<'a>, StyleChain<'a>)>),
     /// Layouted inline-level content.
@@ -78,7 +80,9 @@ impl<'a> Item<'a> {
     pub fn textual(&self) -> &str {
         match self {
             Self::Text(shaped) => shaped.text,
-            Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
+            Self::Absolute(_, _) | Self::Indent(_) | Self::Fractional(_, _) => {
+                SPACING_REPLACE
+            }
             Self::Frame(_) => OBJ_REPLACE,
             Self::Tag(_) => "",
             Self::Skip(s) => s,
@@ -94,7 +98,7 @@ impl<'a> Item<'a> {
     pub fn natural_width(&self) -> Abs {
         match self {
             Self::Text(shaped) => shaped.width(),
-            Self::Absolute(v, _) => *v,
+            Self::Absolute(v, _) | Self::Indent(v) => *v,
             Self::Frame(frame) => frame.width(),
             Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
@@ -139,12 +143,12 @@ pub fn collect<'a>(
     let mut quoter = SmartQuoter::new();
 
     if !config.first_line_indent.is_zero() {
-        collector.push_item(Item::Absolute(config.first_line_indent, false));
+        collector.push_item(Item::Indent(config.first_line_indent));
         collector.spans.push(1, Span::detached());
     }
 
     if !config.hanging_indent.is_zero() {
-        collector.push_item(Item::Absolute(-config.hanging_indent, false));
+        collector.push_item(Item::Indent(-config.hanging_indent));
         collector.spans.push(1, Span::detached());
     }
 

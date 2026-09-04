@@ -94,7 +94,7 @@ impl Line<'_> {
     /// Whether the line has items with negative width.
     pub fn has_negative_width_items(&self) -> bool {
         self.items.iter().any(|item| match item {
-            Item::Absolute(amount, _) => *amount < Abs::zero(),
+            Item::Absolute(amount, _) | Item::Indent(amount) => *amount < Abs::zero(),
             Item::Frame(frame) => frame.width() < Abs::zero(),
             _ => false,
         })
@@ -344,10 +344,10 @@ fn collect_range<'a>(
 ///
 /// The `range` should only contain regular texts, with linebreaks trimmed.
 fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items) {
+    let range = trim_leading_indent(p, range);
     let text = &p.text[range];
 
-    // Ignore leading whitespace (e.g., indents) to properly detect beginning punctuation.
-    if text.trim_start().starts_with(BEGIN_PUNCT_PAT)
+    if text.starts_with(BEGIN_PUNCT_PAT)
         || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
     {
         adjust_cj_at_line_start(p, items);
@@ -358,6 +358,24 @@ fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items
     {
         adjust_cj_at_line_end(p, items);
     }
+}
+
+/// Trim paragraph-generated indent placeholders from the start of a line range.
+///
+/// The range must start exactly at an indent item. This avoids treating a text
+/// item that merely contains the range's start offset as a paragraph indent.
+fn trim_leading_indent(p: &Preparation, mut range: Range) -> Range {
+    while range.start < range.end {
+        let (item_range, item) = p.get(range.start);
+
+        if item_range.start != range.start || !matches!(item, Item::Indent(_)) {
+            break;
+        }
+
+        range.start = item_range.end;
+    }
+
+    range
 }
 
 /// Remove stretchability from the last glyph in the line to avoid trailing
@@ -378,7 +396,12 @@ fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
 fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
-    let Some(shaped) = items.leading_visible_text_mut() else {
+    let Some(shaped) = items
+        .0
+        .iter_mut()
+        .find(|(_, item)| !(item.is_skippable() || matches!(**item, Item::Indent(_))))
+        .and_then(|(_, item)| item.text_mut())
+    else {
         return;
     };
     let Some(glyph) = shaped.glyphs.first() else { return };
@@ -574,7 +597,7 @@ pub fn commit(
         };
 
         match &**item {
-            Item::Absolute(v, _) => {
+            Item::Absolute(v, _) | Item::Indent(v) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {
@@ -765,13 +788,6 @@ impl<'a> Items<'a> {
         let (idx, item) = self.0.iter().find(|(_, item)| !item.is_skippable())?;
         let text = item.text()?;
         Some((*idx, text))
-    }
-
-    /// Access the first text item mutably.
-    pub fn leading_visible_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        let (_, item) =
-            self.0.iter_mut().find(|(_, item)| matches!(**item, Item::Text(_)))?;
-        item.text_mut()
     }
 
     /// Access the last unskippable item, if it is text.
