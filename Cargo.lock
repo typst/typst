@@ -2813,7 +2813,7 @@ dependencies = [
  "kurbo",
  "rustc-hash",
  "skrifa 0.42.1",
- "write-fonts",
+ "write-fonts 0.48.1",
 ]
 
 [[package]]
@@ -3579,6 +3579,7 @@ dependencies = [
  "typst-syntax",
  "typst-timing",
  "typst-utils",
+ "write-fonts 0.50.0",
  "xmlwriter",
 ]
 
@@ -4202,6 +4203,19 @@ dependencies = [
  "kurbo",
  "log",
  "read-fonts 0.39.2",
+]
+
+[[package]]
+name = "write-fonts"
+version = "0.50.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cae90d1d9f6d1d36ef116b0b1e651a6d7c12ba925439d4d06ff9adc94662a3d8"
+dependencies = [
+ "font-types 0.12.2",
+ "indexmap",
+ "kurbo",
+ "log",
+ "read-fonts 0.41.0",
 ]
 
 [[package]]
