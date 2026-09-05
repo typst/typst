@@ -486,17 +486,19 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct LinkRenderInfo {
     spans_text: bool,
     height: Abs,
     start: Abs,
     y: Abs,
+    last_index: Option<usize>,
+    last_end: Abs,
 }
 
 impl LinkRenderInfo {
     fn with_start(start: Abs) -> Self {
-        Self { start, ..Default::default() }
+        Self { start, last_end: start, ..Default::default() }
     }
 }
 
@@ -578,7 +580,6 @@ pub fn commit<'l>(
     // starts, and (for finished links) the offset where it ends.
     let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
         active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
-    let mut finished_links: Vec<(&Destination, LinkRenderInfo, Abs)> = vec![];
 
     // Horizontal offset after the last frame in the line.
     let mut last_frame_end = Abs::zero();
@@ -591,17 +592,10 @@ pub fn commit<'l>(
     for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
-            let frame_bottom = frame.size().y - frame.baseline();
             top.set_max(frame.baseline());
-            bottom.set_max(frame_bottom);
+            bottom.set_max(frame.size().y - frame.baseline());
 
-            for (_, link_info) in &mut link_stack {
-                // Ensure link covers this frame.
-                link_info.height.set_max(frame.height());
-                link_info.y.set_max(frame_bottom);
-            }
-
-            frames.push((*offset, frame, idx, None));
+            frames.push((*offset, Some(frame), idx, frames.len(), item));
             *offset += width;
             last_frame_end = *offset;
         };
@@ -631,10 +625,6 @@ pub fn commit<'l>(
                     extra_justification,
                 );
                 push(&mut offset, frame, idx);
-
-                for (_, link_info) in &mut link_stack {
-                    link_info.spans_text = true;
-                }
             }
             Item::Frame(frame) => {
                 push(&mut offset, frame.clone(), idx);
@@ -642,51 +632,17 @@ pub fn commit<'l>(
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame, idx, None));
+                frames.push((offset, Some(frame), idx, frames.len(), item));
             }
             Item::Skip(_) => {}
-            Item::Event(Event::StartLink(dest)) => {
-                active_links.push(dest);
-                link_stack.push((dest, LinkRenderInfo::with_start(offset)));
+            Item::Event(Event::StartLink(_)) => {
+                frames.push((offset, None, idx, frames.len(), item));
             }
-            Item::Event(Event::EndLink(dest)) => {
-                debug_assert_eq!(active_links.last(), Some(&dest));
-                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
-                let (dest, link_info) = link_stack.pop().unwrap();
-                // Any external links should have been handled before.
-                active_links.pop().unwrap();
-
-                let end = offset;
-
-                let x = link_info.start;
-                let y = link_info.height;
-                let width = end - link_info.start;
-                let height = link_info.height;
-                let mut styles = Styles::new();
-                styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
-
-                // TODO: a single modify call, calculating the height needed in real-time when going over text...
-                let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
-                let stylechain = StyleChain::new(&styles);
-                if link_info.spans_text {
-                    frame.modify_text(stylechain);
-                } else {
-                    // Don't add padding; restrict the link to the box.
-                    // TODO: also need to consider equations...
-                    frame.modify(&FrameModifiers::get_in(stylechain));
-                }
-                frames.push((offset, frame, idx, Some(Point::new(x, y))));
+            Item::Event(Event::EndLink(_)) => {
+                frames.push((offset, None, idx, frames.len(), item));
             }
         }
     }
-
-    // Any unfinished links extend towards the very end of the last visible item
-    // in the line.
-    finished_links.extend(
-        link_stack
-            .into_iter()
-            .map(|(l, link_info)| (l, link_info, last_frame_end)),
-    );
 
     // Remaining space is distributed now.
     if !fr.is_zero() {
@@ -704,19 +660,9 @@ pub fn commit<'l>(
     // Ensure that the final frame's items are in logical order rather than in
     // visual order. This is important because it affects the order of elements
     // during introspection and thus things like counters.
-    frames.sort_unstable_by_key(|(_, _, idx, _)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx, _, _)| *idx);
 
-    // Construct the line's frame.
-    for (offset, frame, _, point) in frames {
-        let Point { x, y } =
-            point.unwrap_or_else(|| Point::new(offset, frame.baseline()));
-        let x = x + p.config.align.position(remaining);
-        let y = top - y;
-        output.push_frame(Point::new(x, y), frame);
-    }
-
-    // Construct unfinished link frames.
-    for (dest, link_info, end) in finished_links {
+    let prepare_link = |dest: &Destination, link_info: &LinkRenderInfo, end: Abs| {
         let x = link_info.start + p.config.align.position(remaining);
         let y = top - link_info.height;
         let width = end - link_info.start;
@@ -734,7 +680,88 @@ pub fn commit<'l>(
             // TODO: also need to consider equations...
             frame.modify(&FrameModifiers::get_in(stylechain));
         }
-        output.push_frame(Point::new(x, y), frame);
+
+        (Point::new(x, y), frame)
+    };
+
+    // Construct the line's frame.
+    for (offset, frame, _, frame_index, item) in frames {
+        let mut frame_width = Abs::zero();
+        let mut frame_height = Abs::zero();
+        let mut frame_bottom = Abs::zero();
+
+        if let Some(frame) = frame {
+            let x = offset + p.config.align.position(remaining);
+            let y = top - frame.baseline();
+
+            frame_width = frame.width();
+            frame_height = frame.height();
+            frame_bottom = frame.size().y - frame.baseline();
+
+            output.push_frame(Point::new(x, y), frame);
+        }
+
+        for (dest, link_info) in &mut link_stack {
+            // Check if link items are discontinuous, i.e. if despite the two
+            // being adjacent in the source code (consecutive logical indices),
+            // they are not adjacent in the resulting line (non-consecutive
+            // frame indices) due to RTL reordering.
+            if let Some(last_index) = link_info.last_index {
+                if frame_index + 1 == last_index {
+                    // RTL (items reversed), so just move the link backwards
+                    // instead of forwards.
+                    link_info.start.set_min(offset);
+                } else if frame_index != last_index + 1 {
+                    let (pos, frame) = prepare_link(dest, link_info, link_info.last_end);
+                    output.push_frame(pos, frame);
+
+                    // Items are discontinuous; break and begin a new link
+                    // bounding box.
+                    *link_info = LinkRenderInfo::with_start(offset);
+                }
+            }
+
+            // Ensure link spans at least this frame as well.
+            link_info.height.set_max(frame_height);
+            link_info.y.set_max(frame_bottom);
+            link_info.last_end.set_max(offset + frame_width);
+            link_info.last_index = Some(frame_index);
+
+            if matches!(**item, Item::Text(_)) {
+                link_info.spans_text = true;
+            }
+        }
+
+        match &**item {
+            Item::Event(Event::StartLink(dest)) => {
+                active_links.push(dest);
+                link_stack.push((dest, LinkRenderInfo::with_start(offset)));
+            }
+            Item::Event(Event::EndLink(dest)) => {
+                debug_assert_eq!(active_links.last(), Some(&dest));
+                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
+
+                let (dest, link_info) = link_stack.pop().unwrap();
+                // Any external links should have been handled before.
+                active_links.pop().unwrap();
+
+                // Place a link all the way to the end of the rightmost one.
+                // Ignore the offset of the end event itself as it might
+                // (visually) be at the start rather than the end of the link
+                // due to RTL reversal.
+                let (pos, frame) = prepare_link(dest, &link_info, link_info.last_end);
+                output.push_frame(pos, frame);
+            }
+            _ => {}
+        }
+    }
+
+    // Construct unfinished link frames.
+    for (dest, link_info) in link_stack {
+        // Any unfinished links extend towards the very end of the last visible
+        // item in the line.
+        let (pos, frame) = prepare_link(dest, &link_info, last_frame_end);
+        output.push_frame(pos, frame);
     }
 
     Ok(output)
