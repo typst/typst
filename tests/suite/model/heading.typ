@@ -82,7 +82,8 @@ comment spans lines
 ===== Heading 🌍
 #heading(level: 5)[Heading]
 
---- heading-offset paged pdftags pdfstandard(ua-1) ---
+--- heading-offset paged pdftags ---
+#set pdf(standard: "ua-1")
 // Test setting the starting offset.
 #set heading(numbering: "1.1")
 #show heading.where(level: 2): set text(blue)
@@ -100,6 +101,14 @@ comment spans lines
 --- heading-hanging-indent-auto paged ---
 #set heading(numbering: "1.1.a.")
 = State of the Art
+
+--- heading-hanging-indent-auto-cj-punct paged ---
+#set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC", fallback: false)
+
+// If the numbering starts or ends with a CJ punctuation and its width is
+// allowed to be shrunk or stretched, then the heading should still be aligned.
+#set heading(numbering: "〔1〕")
+= 犹可说也不可说也
 
 --- heading-hanging-indent-auto-center-align paged ---
 #set heading(numbering: "1.1.a.")

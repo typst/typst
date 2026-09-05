@@ -227,7 +227,7 @@
 // Warning: 9-14 this import has no effect
 #import mymod
 // The name `chap1` is not bound.
-// Error: 2-7 unknown variable: chap1
+// Error: 2-7 unknown variable `chap1`
 #chap1
 
 --- import-module-nested eval ---
@@ -351,7 +351,7 @@ This is never reached.
 // Renaming does not import the old name (without items).
 #import "./modules/chap1.typ" as something
 #test(something.name, "Klaus")
-// Error: 7-12 unknown variable: chap1
+// Error: 7-12 unknown variable `chap1`
 #test(chap1.name, "Klaus")
 
 --- import-items-renamed-old-name eval ---
@@ -359,7 +359,7 @@ This is never reached.
 #import "./modules/chap1.typ" as something: name as other
 #test(other, "Klaus")
 #test(something.name, "Klaus")
-// Error: 7-12 unknown variable: chap1
+// Error: 7-12 unknown variable `chap1`
 #test(chap1.b, "Klaus")
 
 --- import-nested-invalid-type eval ---
@@ -491,6 +491,57 @@ This is never reached.
 --- import-from-file-package-lookalike eval ---
 // Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
 #import "#test/mypkg:1.0.0": *
+
+--- import-feature-gated-item eval features() ---
+// Error: 14-18 cannot import `html` because the `html` feature is not enabled
+// Hint: 14-18 try enabling the `html` feature
+// Hint: 14-18 see https://typst.app/help/compiler-features for more details
+#import std: html
+
+--- import-feature-gated-field eval features() ---
+// Error: 18-31 cannot import `table-summary` because the `a11y-extras` feature is not enabled
+// Hint: 18-31 try enabling the `a11y-extras` feature
+// Hint: 18-31 see https://typst.app/help/compiler-features for more details
+#import std: pdf.table-summary
+
+--- import-deprecated-item eval ---
+// Warning: 15-25 this function is useless
+#import test: deprecated
+// Warning: 16-26 this value is useless
+#import check: deprecated
+
+--- import-feature-gated-value eval features() ---
+// Error: 16-21 cannot import `gated` because the `html` feature is not enabled
+// Hint: 16-21 try enabling the `html` feature
+// Hint: 16-21 see https://typst.app/help/compiler-features for more details
+#import check: gated
+
+--- import-feature-gated-field-of-type eval features() ---
+// Error: 15-20 cannot import `gated` because the `html` feature is not enabled
+// Hint: 15-20 try enabling the `html` feature
+// Hint: 15-20 see https://typst.app/help/compiler-features for more details
+#import test: gated
+
+--- import-feature-gated-wildcard-unused eval features() ---
+#let func() = {
+  import check: *
+}
+
+--- import-feature-gated-wildcard-shadowed eval features() ---
+#let gated() = {}
+#let func() = {
+  import check: *
+  gated()
+}
+#func()
+
+--- import-feature-gated-wildcard-used eval features() ---
+#let func() = {
+  import check: *
+  // Error: 3-8 unknown variable `gated`
+  gated()
+}
+#func()
 
 --- issue-7393-import-error-string-unclosed eval ---
 // More dedicated tests for this are in `crates/typst-syntax/src/reparser.rs`

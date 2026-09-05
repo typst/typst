@@ -142,6 +142,7 @@
 
 // Similar to `icon` but ensures that the SVG will respect the current
 // foreground `color` by emitting an inline `<svg>` with a `<use>` element.
+// NOTE: The icon needs to be added `docs/assets/index.typ`.
 #let use-icon(size, name, alt) = html.elem(
   "svg",
   attrs: {
@@ -188,14 +189,20 @@
 
 // Displays a foldable details block or just the content in paged export.
 #let folding-details(title: none, open: false, body) = context {
-  if target() == "paged" { return body }
-  html.details(class: "folding-example", open: open, {
-    html.summary({
-      icon(16, "chevron-right", "Expand")
-      title
-    })
+  assert.ne(title, none)
+  if target() == "paged" {
+    emph(underline(title))
+    parbreak()
     body
-  })
+  } else {
+    html.details(class: "folding-details", open: open, {
+      html.summary({
+        icon(16, "chevron-right", "Expand")
+        title
+      })
+      body
+    })
+  }
 }
 
 // Displays a string containing plain text and backticks as text with inline raw
@@ -213,27 +220,6 @@
       }
     })
     .join()
-}
-
-// Displays a deprecation info, if any.
-#let deprecation(info) = {
-  if info == none { return }
-
-  let body = {
-    text-with-code(info.message)
-    if info.until != none {
-      [; it will be removed in Typst #info.until]
-    }
-  }
-
-  context if target() == "paged" {
-    small(icon(16, "warn", "Warning") + [ ] + body)
-  } else {
-    html.small(class: "deprecation", {
-      html.div(use-icon(16, "warn", "Warning"))
-      html.span(body)
-    })
-  }
 }
 
 // Displays a search box.
@@ -265,20 +251,6 @@
     )
   } else {
     html.div(class: "info-box", body)
-  }
-}
-
-// Displays a combination of a summary and a body.
-#let details(summary, body) = context {
-  if target() == "paged" {
-    emph(summary)
-    parbreak()
-    body
-  } else {
-    html.details({
-      html.summary(summary)
-      body
-    })
   }
 }
 
@@ -334,3 +306,7 @@
     small(body)
   }
 }
+
+// Emits category settings as labelled metadata to be picked up and used when
+// generating a sub-category definitions section.
+#let category-settings(..args) = [#metadata(args.named())<category-settings>]

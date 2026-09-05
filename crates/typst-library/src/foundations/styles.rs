@@ -45,6 +45,14 @@ impl Styles {
         self.0.as_slice()
     }
 
+    /// Whether there is a style for the given field of the given element.
+    pub fn has<E: NativeElement, const I: u8>(&self, _: Field<E, I>) -> bool {
+        let elem = E::ELEM;
+        self.iter()
+            .filter_map(|style| style.property())
+            .any(|property| property.is(elem, I))
+    }
+
     /// Set an inner value for a style property.
     ///
     /// If the property needs folding and the value is already contained in the
@@ -638,7 +646,7 @@ impl<'a> StyleChain<'a> {
         let elem = E::ELEM;
         self.entries()
             .filter_map(|style| style.property())
-            .any(|property| property.is_of(elem) && property.id == I)
+            .any(|property| property.is(elem, I))
     }
 
     /// Retrieves a reference to a field, also taking into account the
@@ -837,10 +845,7 @@ impl<'a> Iterator for Entries<'a> {
                 return Some(entry);
             }
 
-            match self.links.next() {
-                Some(next) => self.inner = next.iter(),
-                None => return None,
-            }
+            self.inner = self.links.next()?.iter();
         }
     }
 }
@@ -1027,7 +1032,6 @@ impl NativeRuleMap {
         }
 
         for target in [Target::Paged, Target::Html] {
-            rules.register(target, crate::model::ASSET_UNSUPPORTED_RULE);
             rules.register(target, crate::model::DOCUMENT_UNSUPPORTED_RULE);
         }
 

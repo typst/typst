@@ -146,16 +146,10 @@ impl Config {
 /// printing.
 fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
     let mut warned = match config.output_format {
-        OutputFormat::Website => {
-            let Warned { output, warnings } = typst::compile::<Bundle>(world);
-            let result = output.and_then(|bundle| export_website(bundle, config));
-            Warned { output: result, warnings }
-        }
-        OutputFormat::Pdf => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_pdf(&document, config));
-            Warned { output: result, warnings }
-        }
+        OutputFormat::Website => typst::compile::<Bundle>(world)
+            .and_then(|bundle| export_website(bundle, config)),
+        OutputFormat::Pdf => typst::compile::<PagedDocument>(world)
+            .and_then(|document| export_pdf(&document, config)),
     };
 
     if config.open && warned.output.is_ok() {
@@ -177,26 +171,30 @@ fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
 
 /// Exports the built website, adding a search index, and refreshes the live
 /// reload server.
-fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
-    let index = crate::search::build_search_index(&bundle)?;
-    let search_path = crate::search::index_path(&bundle).at(Span::detached())?;
-    Arc::make_mut(&mut bundle.files).insert(
-        search_path,
-        BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
-    );
+fn export_website(mut bundle: Bundle, config: &Config) -> Warned<SourceResult<()>> {
+    Warned::from(Ok(()))
+        .and_then(|()| {
+            let index = crate::search::build_search_index(&bundle)?;
+            let search_path = crate::search::index_path(&bundle).at(Span::detached())?;
+            Arc::make_mut(&mut bundle.files).insert(
+                search_path,
+                BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
+            );
 
-    let options = BundleOptions::default();
-    let fs = typst_bundle::export(&bundle, &options)?;
+            Ok(BundleOptions::default())
+        })
+        .and_then(|options| typst_bundle::export(&bundle, &options))
+        .and_then(|fs| {
+            if let Some(path) = &config.output {
+                write_virtual_fs(path, &fs);
+            }
 
-    if let Some(path) = &config.output {
-        write_virtual_fs(path, &fs);
-    }
+            if let Some(server) = &config.server {
+                server.set_bundle(bundle, fs);
+            }
 
-    if let Some(server) = &config.server {
-        server.set_bundle(bundle, fs);
-    }
-
-    Ok(())
+            Ok(())
+        })
 }
 
 /// Writes a bundle's files to disk.
@@ -212,15 +210,16 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
 }
 
 /// Exports a document to PDF and writes it to disk.
-fn export_pdf(document: &PagedDocument, config: &Config) -> SourceResult<()> {
-    let data = typst_pdf::pdf(document, &PdfOptions::default())?;
-    if let Some(path) = &config.output {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).unwrap();
+fn export_pdf(document: &PagedDocument, config: &Config) -> Warned<SourceResult<()>> {
+    typst_pdf::pdf(document, &PdfOptions::default()).and_then(|data| {
+        if let Some(path) = &config.output {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(path, data).unwrap();
         }
-        std::fs::write(path, data).unwrap();
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 /// Acquires the output stream for user-facing messages.

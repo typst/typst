@@ -1,6 +1,7 @@
 // Test term list.
 
---- terms-constructor paged pdftags pdfstandard(ua-1) ---
+--- terms-constructor paged pdftags ---
+#set pdf(standard: "ua-1")
 // Test with constructor.
 #terms(
   terms.item([One], [First]),
@@ -85,12 +86,6 @@ Not in list
 
   / World: B // Paragraph because it's a wide term list.
 ]
-
---- terms-array-deprecated paged ---
-// Warning: 8-24 implicit conversion from array to `terms.item` is deprecated
-// Hint: 8-24 use `terms.item(term, description)` instead
-// Hint: 8-24 this conversion was never documented and is being phased out
-#terms(([One], [First]))
 
 --- issue-1050-terms-indent paged ---
 #set page(width: 110pt)

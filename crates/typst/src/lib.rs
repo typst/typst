@@ -49,6 +49,7 @@ use typst_library::diag::{
     FileError, SourceDiagnostic, SourceResult, Warned, bail, warning,
 };
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::Format;
 use typst_library::foundations::{
     NativeRuleMap, Output, StyleChain, Styles, Target, TargetElem, Value,
 };
@@ -288,19 +289,36 @@ fn warn_or_error_for_bundle(features: &Features, sink: &mut Sink) -> SourceResul
 /// Provides ways to construct a [`Library`].
 pub trait LibraryExt {
     /// Creates the default library.
-    fn default() -> Library;
+    ///
+    /// Requires passing in all formats that should be registered, see
+    /// [`Self::builder()`]
+    #[expect(clippy::new_ret_no_self)]
+    fn new(formats: impl IntoIterator<Item = Format>) -> Library;
 
     /// Creates a builder for configuring a library.
-    fn builder() -> LibraryBuilder;
+    ///
+    /// Requires passing in all formats that should be registered.
+    /// ```
+    /// use typst::{Library, LibraryExt};
+    ///
+    /// Library::builder([
+    ///     typst_html::FORMAT,
+    ///     typst_pdf::FORMAT,
+    ///     typst_svg::FORMAT,
+    ///     typst_render::FORMAT,
+    ///     typst_bundle::FORMAT,
+    /// ]);
+    /// ```
+    fn builder(formats: impl IntoIterator<Item = Format>) -> LibraryBuilder;
 }
 
 impl LibraryExt for Library {
-    fn default() -> Library {
-        Self::builder().build()
+    fn new(formats: impl IntoIterator<Item = Format>) -> Library {
+        Self::builder(formats).build()
     }
 
-    fn builder() -> LibraryBuilder {
-        LibraryBuilder::from_routines(&ROUTINES)
+    fn builder(formats: impl IntoIterator<Item = Format>) -> LibraryBuilder {
+        LibraryBuilder::from_routines(&ROUTINES, formats)
     }
 }
 
@@ -319,7 +337,21 @@ static ROUTINES: LazyLock<Routines> = LazyLock::new(|| Routines {
     eval_closure: typst_eval::eval_closure,
     realize: typst_realize::realize,
     layout_frame: typst_layout::layout_frame,
-    html_module: typst_html::module,
     html_mathml_body: typst_html::html_mathml_body,
     html_span_filled: typst_html::html_span_filled,
 });
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn formats() {
+        // No formats at all.
+        Library::new([]);
+        // Only the HTML format.
+        Library::new([typst_html::FORMAT]);
+        // Only a paged format.
+        Library::new([typst_svg::FORMAT]);
+    }
+}

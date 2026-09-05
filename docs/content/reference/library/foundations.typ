@@ -1,4 +1,4 @@
-#import "../../../components/index.typ": docs-category
+#import "../../../components/index.typ": docs-category, scope
 
 #show: docs-category.with(
   title: "Foundations",
@@ -13,7 +13,8 @@
       name: "calc",
       def-target: calc,
       title: "Calculation",
-      items: dictionary(calc).values().filter(v => type(v) == function),
+      scope: scope(std, "calc"),
+      items: dictionary(calc).filter(v => type(v) == function),
       description: "Documentation for the `calc` module, which contains definitions for mathematical computation.",
       docs: [
         Module for calculations and processing of numeric values.
@@ -25,7 +26,7 @@
       name: "std",
       def-target: std,
       title: "Standard Library",
-      items: (),
+      items: (:),
       description: "Documentation for the `std` module, which contains all globally accessible items.",
       docs: [
         A module that contains all globally accessible items.
@@ -63,7 +64,7 @@
       name: "sys",
       def-target: sys,
       title: "System",
-      items: (),
+      items: (:),
       description: "Documentation for the `sys` module.",
       docs: [
         Module for system interactions.

@@ -1,5 +1,5 @@
 #import "../../components/index.typ": (
-  checked-list, details, docs-chapter, docs-figure, example, info,
+  checked-list, docs-chapter, docs-figure, example, folding-details, info,
   short-or-long,
 )
 
@@ -299,9 +299,9 @@ First, notice how we called the title function with empty, round parentheses. Be
 Next, take a look at the header. Instead of the title in square parentheses, we used the context keyword to access the document title. This inserted exactly what we set above. The role of context is not limited to accessing properties: With it, you can check if some elements are present in the document, measure the physical dimensions of others, and more. Using context, you can build powerful templates that react to the preferences of the end-user.
 
 #info[
-  #details[
-    Why is the context keyword required to access element properties?
-  ][
+  #folding-details(
+    title: [Why is the context keyword required to access element properties?],
+  )[
     Normally, when we access a variable, we know exactly what its value is going to be:
 
     - The variable could be a constant built into Typst, like `[#sym.pi]`

@@ -66,7 +66,7 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Whether to use color. When set to `auto` if the terminal to supports it.
+    /// Whether to use color. When set to `auto`, uses color if the terminal supports it.
     #[clap(long, default_value_t = ColorChoice::Auto, default_missing_value = "always")]
     pub color: ColorChoice,
 
@@ -125,6 +125,13 @@ pub struct WatchCommand {
     /// Arguments for compilation.
     #[clap(flatten)]
     pub args: CompileArgs,
+
+    /// Stops the watcher from taking over the terminal.
+    ///
+    /// With this flag, the watcher will only ever print normal output lines,
+    /// not clear or reconfigure the terminal.
+    #[arg(long)]
+    pub no_fullscreen: bool,
 
     /// Arguments for the HTTP server.
     #[cfg(feature = "http-server")]
@@ -209,7 +216,7 @@ pub struct EvalCommand {
 
     /// The format to serialize in.
     #[clap(long = "format", default_value_t)]
-    pub format: SerializationFormat,
+    pub format: EvalSerializationFormat,
 
     /// Whether to pretty-print the serialized output.
     ///
@@ -324,8 +331,13 @@ pub struct CompileArgs {
     /// This formats the output in a more human-readable, but less
     /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
     /// export.
-    #[arg(long = "pretty")]
-    pub pretty: bool,
+    #[arg(
+        long = "pretty",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pretty: Option<bool>,
 
     /// Which pages to export. When unspecified, all pages are exported.
     ///
@@ -349,12 +361,29 @@ pub struct CompileArgs {
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances (for example when trying to reduce the size of a document)
     /// it can be desirable to disable tagged PDF.
-    #[arg(long = "no-pdf-tags")]
+    // TODO: Remove deprecated flag in the 0.17 release cycle.
+    #[arg(long = "no-pdf-tags", hide = true)]
     pub no_pdf_tags: bool,
 
+    /// Enables or disables PDF tagging.
+    ///
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances (for example when trying to reduce the size of a document)
+    /// it can be desirable to disable PDF tags.
+    #[arg(
+        long = "pdf-tagged",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pdf_tagged: Option<bool>,
+
     /// The PPI (pixels per inch) to use for PNG export.
-    #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f64,
+    ///
+    /// [default: 144]
+    #[arg(long = "ppi")]
+    pub ppi: Option<f64>,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
@@ -381,7 +410,10 @@ pub struct CompileArgs {
 
     /// Opens the output file with the default viewer or a specific program
     /// after compilation. Ignored if output is stdout.
-    #[arg(long = "open", value_name = "VIEWER")]
+    ///
+    /// When passing a specific program, the name must be attached with
+    /// an equals sign (`--open=VIEWER`).
+    #[arg(long = "open", value_name = "VIEWER", require_equals = true)]
     pub open: Option<Option<String>>,
 
     /// Produces performance timings of the compilation process. (experimental)
@@ -443,7 +475,7 @@ pub struct ProcessArgs {
     pub features: Vec<Feature>,
 
     /// The format to emit diagnostics in.
-    #[clap(long, default_value_t)]
+    #[clap(long, default_value_t, env = "TYPST_DIAGNOSTIC_FORMAT")]
     pub diagnostic_format: DiagnosticFormat,
 }
 
@@ -722,6 +754,19 @@ pub enum SerializationFormat {
 
 display_possible_values!(SerializationFormat);
 
+/// Output file format for eval command
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum EvalSerializationFormat {
+    #[default]
+    Json,
+    Yaml,
+    /// Prints the output without any additional formatting or escaping
+    /// (only supports strings and bytes).
+    Raw,
+}
+
+display_possible_values!(EvalSerializationFormat);
+
 /// Implements parsing of page ranges (`1-3`, `4`, `5-`, `-2`), used by the
 /// `CompileCommand.pages` argument, through the `FromStr` trait instead of a
 /// value parser, in order to generate better errors.
@@ -735,24 +780,24 @@ impl FromStr for Pages {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.split('-').map(str::trim).collect::<Vec<_>>().as_slice() {
-            [] | [""] => Err("page export range must not be empty"),
+            [] | [""] => Err("page range must not be empty"),
             [single_page] => {
                 let page_number = parse_page_number(single_page)?;
                 Ok(Pages(Some(page_number)..=Some(page_number)))
             }
-            ["", ""] => Err("page export range must have start or end"),
+            ["", ""] => Err("page range must have start or end"),
             [start, ""] => Ok(Pages(Some(parse_page_number(start)?)..=None)),
             ["", end] => Ok(Pages(None..=Some(parse_page_number(end)?))),
             [start, end] => {
                 let start = parse_page_number(start)?;
                 let end = parse_page_number(end)?;
                 if start > end {
-                    Err("page export range must end at a page after the start")
+                    Err("page range must end at a page after the start")
                 } else {
                     Ok(Pages(Some(start)..=Some(end)))
                 }
             }
-            [_, _, _, ..] => Err("page export range must have a single hyphen"),
+            [_, _, _, ..] => Err("page range must have a single hyphen"),
         }
     }
 }

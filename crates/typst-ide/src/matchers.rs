@@ -1,5 +1,5 @@
 use ecow::EcoString;
-use typst::foundations::{Module, Value};
+use typst::foundations::{Module, Value, WorldBindingExt};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{LinkedNode, Span, SyntaxKind, ast};
 
@@ -77,11 +77,14 @@ pub fn named_items<T>(
                     Some(ast::Imports::Wildcard) => {
                         if let Some(scope) = source_value.and_then(Value::scope) {
                             for (name, binding) in scope.iter() {
-                                let item = NamedItem::Import(
-                                    name,
-                                    binding.span(),
-                                    Some(binding.read()),
-                                );
+                                let Ok(value) =
+                                    binding.read(world.silent_binding_guard())
+                                else {
+                                    continue;
+                                };
+
+                                let item =
+                                    NamedItem::Import(name, binding.span(), Some(value));
                                 if let Some(res) = recv(item) {
                                     return Some(res);
                                 }
@@ -101,13 +104,20 @@ pub fn named_items<T>(
 
                             for ident in iter {
                                 binding = binding.and_then(|binding| {
-                                    binding.read().scope()?.get(&ident)
+                                    binding
+                                        .read(world.silent_binding_guard())
+                                        .ok()?
+                                        .scope()?
+                                        .get(&ident)
                                 });
                             }
 
                             let bound = item.bound_name();
                             let (span, value) = match binding {
-                                Some(binding) => (binding.span(), Some(binding.read())),
+                                Some(binding) => (
+                                    binding.span(),
+                                    binding.read(world.silent_binding_guard()).ok(),
+                                ),
                                 None => (bound.span(), None),
                             };
 

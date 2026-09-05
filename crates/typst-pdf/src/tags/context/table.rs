@@ -11,8 +11,7 @@ use smallvec::SmallVec;
 use typst_library::foundations::Packed;
 use typst_library::layout::resolve::{CellGrid, Line, LinePosition};
 use typst_library::layout::{Abs, Sides};
-use typst_library::model::{TableCell, TableElem};
-use typst_library::pdf::{TableCellKind, TableHeaderScope};
+use typst_library::model::{TableCell, TableCellKind, TableElem, TableHeaderScope};
 use typst_library::visualize::{FixedStroke, Stroke};
 
 use crate::tags::GroupId;

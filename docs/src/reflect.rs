@@ -2,11 +2,15 @@
 //!
 //! Cooperates with `docs/components/reflect.typ`.
 
+use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
 use heck::ToTitleCase;
+use icu_collator::options::{CollatorOptions, Strength};
+use icu_collator::preferences::CollationType;
+use icu_collator::{Collator, CollatorPreferences};
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
@@ -14,6 +18,7 @@ use typst::foundations::{
     Type, Value, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
+use typst::text::RawElem;
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
@@ -21,12 +26,32 @@ use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;
 
+/// A value that can have a scope.
+pub enum ToScope {
+    Module(Module),
+    Type(Type),
+    Func(Func),
+}
+
+cast! {
+    ToScope,
+    m: Module => Self::Module(m),
+    t: Type => Self::Type(t),
+    f: Func => Self::Func(f),
+}
+
 /// Provides details about a binding in a module.
 #[func]
-pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
-    let binding = module.scope().get(&name)?;
+pub fn binding(scope: ToScope, name: EcoString) -> Option<Dict> {
+    let scope = match &scope {
+        ToScope::Module(module) => module.scope(),
+        ToScope::Type(ty) => ty.scope(),
+        ToScope::Func(func) => func.scope()?,
+    };
+    let binding = scope.get(&name)?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
+        "feature" => binding.feature().map(|f| f.to_string()),
         "deprecation" => binding.deprecation().map(|d| dict! {
             "message" => d.message(),
             "until" => d.until(),
@@ -209,6 +234,17 @@ pub fn unicode_name(c: Cluster) -> Option<EcoString> {
     })
 }
 
+/// Returns `{true}` if two emoji are in order.
+#[func]
+pub fn emoji_ordering(left: EcoString, right: EcoString) -> bool {
+    let mut preferences = CollatorPreferences::default();
+    preferences.collation_type = Some(CollationType::Emoji);
+    let mut options = CollatorOptions::default();
+    options.strength = Some(Strength::Quaternary);
+    let collator = Collator::try_new(preferences, options).unwrap();
+    collator.compare(&left, &right) != Ordering::Greater
+}
+
 /// Returns the name of a character in LaTeX.
 #[func]
 pub fn latex_name(c: Cluster) -> Option<Str> {
@@ -277,4 +313,18 @@ pub fn is_global_html_attr(name: EcoString) -> bool {
     data::ATTRS[..data::ATTRS_GLOBAL]
         .iter()
         .any(|global| global.name == name)
+}
+
+/// Returns the list of raw languages available.
+pub fn raw_langs() -> Array {
+    RawElem::languages()
+        .into_iter()
+        .map(|(name, tokens)| {
+            dict! {
+                "name" => name,
+                "tokens" => tokens,
+            }
+            .into_value()
+        })
+        .collect()
 }

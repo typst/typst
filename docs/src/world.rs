@@ -199,7 +199,15 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// - an `stdx` module with various utilities
 /// - a few patched show rules
 fn library(is_dev_version: bool) -> Library {
-    let mut lib = Library::builder().with_features(Features::all()).build();
+    let mut lib = Library::builder([
+        typst_html::FORMAT,
+        typst_pdf::FORMAT,
+        typst_svg::FORMAT,
+        typst_render::FORMAT,
+        typst_bundle::FORMAT,
+    ])
+    .with_features(Features::all())
+    .build();
     let scope = lib.global.scope_mut();
     scope.define("stdx", stdx_module(is_dev_version));
     lib.rules.replace(Target::Html, PATCHED_LINK_RULE);
@@ -223,10 +231,12 @@ fn stdx_module(is_dev_version: bool) -> Module {
     scope.define_func::<crate::reflect::math_class>();
     scope.define_func::<crate::reflect::is_accent>();
     scope.define_func::<crate::reflect::unicode_name>();
+    scope.define_func::<crate::reflect::emoji_ordering>();
     scope.define_func::<crate::reflect::latex_name>();
     scope.define_func::<crate::reflect::is_global_html_attr>();
     scope.define("commit", typst_utils::version().commit());
     scope.define("shorthands", crate::reflect::shorthands());
+    scope.define("raw-langs", crate::reflect::raw_langs());
     scope.define("commit", display_commit(typst_utils::version().commit()));
     scope.define("is-dev-version", is_dev_version);
     Module::new("stdx", scope)

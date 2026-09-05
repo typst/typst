@@ -9,7 +9,7 @@ use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Content, Repr, Resolve, Smart, StyleChain, func, scope, ty};
 use crate::introspection::Locator;
-use crate::layout::{Abs, Axes, Frame, Length, Region, Rel, Size};
+use crate::layout::{Abs, Angle, Axes, Frame, Length, Region, Rel, Size, Transform};
 use crate::visualize::RelativeTo;
 
 /// A repeating tiling fill.
@@ -19,8 +19,9 @@ use crate::visualize::RelativeTo;
 /// filled or stroked. The pattern is defined by a tile
 /// @tiling.constructor.size[`size`] and a body defining the content of each
 /// cell. You can also add horizontal or vertical
-/// @tiling.constructor.spacing[`spacing`] between the cells of the tiling and
-/// @tiling.constructor.offset[`offset`] the starting position of the tiling.
+/// @tiling.constructor.spacing[`spacing`] between the cells of the tiling.
+/// The @tiling.constructor.offset[`offset`] and
+/// @tiling.constructor.angle[`angle`] determine the placement of the tiling.
 ///
 /// = Example <example>
 /// ```example
@@ -68,11 +69,14 @@ struct TilingInner {
     spacing: Size,
     /// The tiling's tile offset.
     offset: Size,
+    /// The tiling's tile angle.
+    angle: Angle,
     /// The tiling's relative transform.
     relative: Smart<RelativeTo>,
 }
 
 #[scope]
+#[expect(clippy::too_many_arguments)]
 impl Tiling {
     /// Construct a new tiling.
     ///
@@ -164,6 +168,21 @@ impl Tiling {
         #[named]
         #[default(Spanned::new(Axes::splat(Rel::zero()), Span::detached()))]
         offset: Spanned<Axes<Rel<Length>>>,
+        /// Rotates the tiles and the grid clockwise about the offset coordinates
+        /// by the specified angle. The rotation is applied after the offset.
+        ///
+        /// ```example
+        /// #let pat = tiling(
+        ///   size: (20pt, 20pt),
+        ///   angle: 45deg,
+        ///   line(start: (0%, 50%), end: (100%, 50%)),
+        /// )
+        ///
+        /// #rect(width: 100%, height: 60pt, fill: pat)
+        /// ```
+        #[named]
+        #[default(Spanned::detached(Angle::zero()))]
+        angle: Spanned<Angle>,
         /// Determines relative to which element's bounding box the tiling is
         /// drawn.
         ///
@@ -200,7 +219,7 @@ impl Tiling {
         ///   table.cell(fill: pat, none),
         ///
         ///   // These two are both page-relative, so the
-        ///   // pattern is continous.
+        ///   // pattern is continuous.
         ///   table.cell(fill: pat-with-parent, none),
         ///   table.cell(fill: pat-with-parent, none),
         /// )
@@ -252,6 +271,10 @@ impl Tiling {
             bail!(offset.span, "tile offset must be finite");
         }
 
+        if !angle.v.is_finite() {
+            bail!(angle.span, "tile angle must be finite");
+        }
+
         // The size of the frame
         let size = size.v.map(|l| l.map(|a| a.abs));
         let region = size.unwrap_or_else(|| Axes::splat(Abs::inf()));
@@ -288,6 +311,7 @@ impl Tiling {
             frame: LazyHash::new(frame),
             spacing,
             offset,
+            angle: angle.v,
             relative,
         })))
     }
@@ -311,6 +335,11 @@ impl Tiling {
     /// Return the offset of the tiling in absolute units.
     pub fn offset(&self) -> Size {
         self.0.offset
+    }
+
+    /// Return the rotation angle of the tiling.
+    pub fn angle(&self) -> Angle {
+        self.0.angle
     }
 
     /// Return the frame of the tiling.
@@ -339,6 +368,13 @@ impl Tiling {
             if on_text { RelativeTo::Parent } else { RelativeTo::Self_ }
         })
     }
+
+    /// Returns the transform of the tiling from the `offset` and `angle`
+    /// parameters.
+    pub fn transform(&self) -> Transform {
+        Transform::translate(self.offset().x, self.offset().y)
+            .pre_concat(Transform::rotate(self.angle()))
+    }
 }
 
 impl Repr for Tiling {
@@ -360,6 +396,11 @@ impl Repr for Tiling {
             out.push_str(", ");
             out.push_str(&self.0.offset.y.repr());
             out.push(')');
+        }
+
+        if self.0.angle != Angle::zero() {
+            out.push_str(", angle: ");
+            out.push_str(&self.0.angle.repr());
         }
 
         out.push_str(", ..)");
