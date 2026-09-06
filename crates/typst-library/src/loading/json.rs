@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Str, Value, func, scope};
+use crate::foundations::{Array, Str, Value, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a JSON file.
@@ -14,6 +14,10 @@ use crate::loading::{DataSource, Load};
 ///
 /// The function returns a dictionary, an array or, depending on the JSON file,
 /// another JSON data type.
+///
+/// With `{lines: true}`, reads #link("https://jsonlines.org/")[JSON Lines]
+/// (JSONL or NDJSON) instead and returns an array containing the value from each
+/// line.
 ///
 /// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.
@@ -102,6 +106,19 @@ pub fn json(
     engine: &mut Engine,
     /// A path to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
+    /// Whether to read one JSON value per line and collect the values into an
+    /// array. Each line must contain a complete JSON value; blank lines are
+    /// invalid. Both LF and CRLF line endings are supported, and the final
+    /// newline is optional. An empty file produces an empty array.
+    ///
+    /// ```typ
+    /// #let records = json(
+    ///   "results.jsonl", lines: true,
+    /// )
+    /// ```
+    #[named]
+    #[default(false)]
+    lines: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
     let raw = loaded.data.as_slice();
@@ -117,6 +134,27 @@ pub fn json(
             .within(&loaded)
             .with_hint("JSON requires UTF-8 without a BOM")
         );
+    }
+
+    if lines {
+        let mut array = Array::new();
+        for (index, line) in raw.split_inclusive(|&b| b == b'\n').enumerate() {
+            let line = line.strip_suffix(b"\n").unwrap_or(line);
+            let value = serde_json::from_slice(line)
+                .map_err(|err| {
+                    let pos = LineCol::one_based(index + 1, err.column().max(1));
+                    // The parser's location is relative to the individual line.
+                    // Let the loading diagnostic report the position in the file.
+                    let message = err.to_string();
+                    let message = message
+                        .rsplit_once(" at line ")
+                        .map_or(message.as_str(), |(message, _)| message);
+                    LoadError::text(pos, "failed to parse JSON Lines", message)
+                })
+                .within(&loaded)?;
+            array.push(value);
+        }
+        return Ok(Value::Array(array));
     }
 
     serde_json::from_slice(raw)
