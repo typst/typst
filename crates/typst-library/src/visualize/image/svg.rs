@@ -190,7 +190,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
     LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
 }
 
-/// produce a warning if the SVG embeds a foreignObject element without
+/// Produce a warning if the SVG embeds a foreignObject element without
 /// a surrounding switch and a non-foreignObject sibling.
 ///
 /// See <https://svgwg.org/svg2-draft/embedded.html#ForeignObjectElement>.
