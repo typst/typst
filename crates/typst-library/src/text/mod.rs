@@ -850,11 +850,31 @@ pub struct TextElem {
     pub variations: FontVariations,
 
     /// Content in which all text is styled according to the other arguments.
+    ///
+    /// This parameter is only available on the `text` constructor (and not on
+    /// existing `text` elements) because the `text` constructor does not
+    /// necessarily construct a single `text` element, but instead applies style
+    /// to all the text elements within the passed body.
+    ///
+    /// ```example
+    /// #text(red)[
+    ///   The `body` can be _arbitrary_
+    ///   #underline[content].
+    /// ]
+    /// ```
     #[external]
     #[required]
     pub body: Content,
 
-    /// The text.
+    /// The text contained in a `text` element.
+    ///
+    /// This parameter is not available on the constructor. Instead, you can
+    /// access it on an existing `text` element. This is because the `text`
+    /// constructor accepts arbitrary content as its body (see @text.body).
+    ///
+    /// ```example
+    /// #repr([This is just text].text)
+    /// ```
     #[required]
     pub text: EcoString,
 
