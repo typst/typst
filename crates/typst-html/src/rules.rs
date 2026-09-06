@@ -277,6 +277,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
 
     Ok(BlockElem::packed(
         HtmlElem::new(tag::figure)
+            .with_optional_attr(attr::aria_label, elem.alt.get_cloned(styles))
             .with_body(Some(realized))
             .pack()
             .spanned(elem.span()),
@@ -712,8 +713,9 @@ const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, _| {
 const STRIKE_RULE: ShowFn<StrikeElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::s).with_body(Some(elem.body.clone())).pack());
 
-const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
-    |elem, _, _| Ok(HtmlElem::new(tag::mark).with_body(Some(elem.body.clone())).pack());
+const HIGHLIGHT_RULE: ShowFn<HighlightElem> = |elem, _, _| {
+    Ok(HtmlElem::new(tag::mark).with_body(Some(elem.body.clone())).pack())
+};
 
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
     let variant = if elem.all.get(styles) { "all-small-caps" } else { "small-caps" };
@@ -755,7 +757,6 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 };
 
 /// This is used by `RawElem::synthesize` through a routine.
-///
 /// It's a temporary workaround until `TextElem::fill` is supported in HTML
 /// export.
 #[doc(hidden)]
