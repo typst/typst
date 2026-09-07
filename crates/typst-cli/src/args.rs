@@ -102,7 +102,6 @@ pub enum Command {
 
     /// Self update the Typst CLI.
     #[cfg_attr(not(feature = "self-update"), clap(hide = true))]
-    #[command(visible_alias = "up")]
     Update(UpdateCommand),
 
     /// Generates shell completion scripts.
@@ -338,7 +337,7 @@ pub struct CompileArgs {
     /// Page numbers are one-indexed and correspond to physical page numbers in
     /// the document (therefore not being affected by the document's page
     /// counter).
-    #[arg(short = 'p', long = "pages", value_delimiter = ',')]
+    #[arg(long = "pages", value_delimiter = ',')]
     pub pages: Option<Vec<Pages>>,
 
     /// One (or multiple comma-separated) PDF standards that Typst will enforce
@@ -382,7 +381,7 @@ pub struct CompileArgs {
 
     /// Opens the output file with the default viewer or a specific program
     /// after compilation. Ignored if output is stdout.
-    #[arg(short = 'o', long = "open", value_name = "VIEWER")]
+    #[arg(long = "open", value_name = "VIEWER")]
     pub open: Option<Option<String>>,
 
     /// Produces performance timings of the compilation process. (experimental)
