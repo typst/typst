@@ -53,6 +53,8 @@ fn html_impl(mut w: Writer, root: &HtmlElement) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, root)?;
+    // Writes nothing unless the document has no `body` element.
+    write_defs(&mut w);
     if w.pretty {
         w.buf.push('\n');
     }
@@ -65,9 +67,10 @@ struct Writer<'a> {
     buf: String,
     /// The current indentation level
     level: usize,
-    /// Used to resolve links between the document and contained frames as well
-    /// as cross-document links in bundle export.
-    link_resolver: Tracked<'a, LateLinkResolver<'a>>,
+    /// The definitions shared by the frames, written at the end of the body.
+    /// Also holds what resolves links between the document and its frames as
+    /// well as cross-document links in bundle export.
+    defs: typst_svg::HtmlDefs<'a>,
     /// Whether pretty printing is enabled.
     pretty: bool,
 }
@@ -78,7 +81,7 @@ impl<'a> Writer<'a> {
         Self {
             buf: String::new(),
             level: 0,
-            link_resolver,
+            defs: typst_svg::HtmlDefs::new(link_resolver),
             pretty,
         }
     }
@@ -202,6 +205,12 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         write_node(w, c, element.pre_span)?;
         indent = pretty_around;
     }
+
+    // The definitions shared by the frames are written at the end of the body.
+    if element.tag == tag::body {
+        write_defs(w);
+    }
+
     w.level -= 1;
 
     write_indent(w);
@@ -399,15 +408,27 @@ fn unencodable(c: char) -> EcoString {
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
     let svg = typst_svg::svg_in_html(
+        &mut w.defs,
         &frame.inner,
         frame.text_size,
         w.pretty,
         frame.id.as_deref(),
         &eco_format!("{}", frame.css.to_inline()),
         &frame.anchors,
-        w.link_resolver,
     );
 
+    write_svg(w, &svg);
+}
+
+/// Encode the definitions shared by the frames into the writer.
+fn write_defs(w: &mut Writer) {
+    let Some(svg) = w.defs.take_svg(w.pretty) else { return };
+    write_indent(w);
+    write_svg(w, &svg);
+}
+
+/// Encode a generated SVG into the writer.
+fn write_svg(w: &mut Writer, svg: &str) {
     if w.pretty {
         // Indent the SVG after generation. This ensures the frame is cached no
         // matter the current indentation of the outer HTML.
@@ -418,6 +439,6 @@ fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
             w.buf.push_str(line);
         }
     } else {
-        w.buf.push_str(&svg);
+        w.buf.push_str(svg);
     }
 }

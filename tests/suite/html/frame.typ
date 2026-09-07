@@ -16,3 +16,9 @@ A rectangle:
     test(here().position(), (page: 1, x: 30pt, y: 20pt))
   })
 }))
+
+--- html-frame-shared-defs html ---
+// Test that definitions shared by multiple frames (here, glyphs) are written
+// only once, at the end of the body.
+#html.frame[A]
+#html.frame[A]
