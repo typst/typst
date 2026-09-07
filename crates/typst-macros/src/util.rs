@@ -25,9 +25,9 @@ macro_rules! bail {
 
 /// A basic reimplementation of the `stringify!` macro.
 ///
-/// The `stringify!` macro does not expand eagerly so we have
-/// some very basic support for int and float expressions here.
-/// This is e.g. used for paper sizes.
+/// The `stringify!` macro does not expand eagerly so we have some very basic
+/// support for int and float expressions here. This is e.g. used for paper
+/// sizes.
 fn stringify(tokens: TokenStream) -> Option<String> {
     let lit = syn::parse2::<syn::Lit>(tokens).ok()?;
     match lit {
@@ -59,7 +59,8 @@ pub fn documentation(attrs: &[syn::Attribute]) -> Result<String> {
                 let value = stringify(expr.mac.tokens.clone()).ok_or_else(|| {
                     Error::new(
                         expr.span(),
-                        "the `stringify!` macro is not fully supported in Typst documentation",
+                        "the `stringify!` macro is not fully supported in \
+                         the Typst documentation",
                     )
                 })?;
                 doc.push_str(&value);
