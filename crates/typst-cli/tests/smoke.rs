@@ -310,9 +310,49 @@ fn test_tracepoints() {
         .must_contain(r#"include "chap" + "ter1.typ""#);
     output
         .stderr
+        .must_contain("while calling function")
+        .must_contain("main.typ:1:1")
+        .must_contain("show strong:");
+    output
+        .stderr
         .must_contain("while showing strong element at")
         .must_contain("main.typ:2:11")
         .must_contain("*Slightly unusual…*");
+}
+
+#[test]
+fn test_tracepoints_of_bare_show() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#let foo(body) = panic()
+         #show: foo",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    output
+        .stderr
+        .must_contain("while calling `foo`")
+        .must_contain("main.typ:2:1")
+        .must_contain("show: foo");
+}
+
+#[test]
+fn test_tracepoints_of_panic_in_show_rule() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#show strong: _ => panic()
+         *strong*",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    // The tracepoint is filtered out, because its span overlaps with the
+    // `panic()` call.
+    output.stderr.must_not_contain("while calling function");
+    output
+        .stderr
+        .must_contain("while showing strong element at")
+        .must_contain("main.typ:2:9")
+        .must_contain("*strong*");
 }
 
 #[test]
@@ -404,7 +444,13 @@ struct Stream<T = Vec<u8>>(T);
 impl<T: AsRef<[u8]>> Stream<T> {
     #[track_caller]
     fn must_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
-        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}",);
+        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}");
+        self
+    }
+
+    #[track_caller]
+    fn must_not_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
+        assert!(!self.contains(data.as_ref()), "{self:?} did contain {data:?}");
         self
     }
 
