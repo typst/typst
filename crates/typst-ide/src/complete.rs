@@ -1910,7 +1910,9 @@ mod tests {
     fn test_autocomplete_file_path_with_prefix() {
         let world = TestWorld::new("")
             .with_source("content/main.typ", "#read(\"a\")")
-            .with_source("content/test.typ", "#read(\"../assets/t\")")
+            .with_source("content/test1.typ", "#read(\"\")")
+            .with_source("content/test2.typ", "#read(\"..\")")
+            .with_source("content/test3.typ", "#read(\"../assets/r\")")
             .with_source("content/aux.typ", "")
             .with_asset_at("assets/tiger.jpg", "tiger.jpg")
             .with_asset_at("assets/rhino.png", "rhino.png");
@@ -1919,15 +1921,19 @@ mod tests {
             .must_include([q!("aux.typ")])
             .must_exclude([q!("test.typ")]);
 
-        test(&world, ("content/test.typ", -12))
-            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")]);
+        test(&world, ("content/test1.typ", -3)).must_include([
+            q!("aux.typ"),
+            q!("../assets/tiger.jpg"),
+            q!("../assets/tiger.jpg"),
+        ]);
 
-        test(&world, ("content/test.typ", -4))
-            .must_include([q!("../assets/tiger.jpg"), q!("../assets/rhino.png")]);
+        test(&world, ("content/test2.typ", -3))
+            .must_include([q!("../assets/rhino.png"), q!("../assets/tiger.jpg")])
+            .must_exclude([q!("aux.typ")]);
 
-        test(&world, ("content/test.typ", -3))
-            .must_include([q!("../assets/tiger.jpg")])
-            .must_exclude([q!("../assets/rhino.png")]);
+        test(&world, ("content/test3.typ", -3))
+            .must_include([q!("../assets/rhino.png")])
+            .must_exclude([q!("aux.typ"), q!("../assets/tiger.jpg")]);
     }
 
     #[test]
