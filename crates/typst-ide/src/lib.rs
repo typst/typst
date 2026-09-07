@@ -43,11 +43,11 @@ pub trait IdeWorld: World {
 
     /// Returns a list of relevant path completion candidates.
     ///
-    /// `base` refers to the source file where the completion is being
-    /// performed, and `prefix` possibly contains an already entered path to be
-    /// extended. Implementations may use either piece of information at their
-    /// discretion to narrow down the list of candidates, i.e. for relevance or
-    /// performance.
+    /// The `base` parameter refers to the source file where the completion is
+    /// being performed, and `prefix` contains an already entered path to be
+    /// extended (if any). Implementations may use either piece of information
+    /// at their discretion to narrow down the list of candidates, i.e. for
+    /// relevance or performance.
     ///
     /// This function is **optional** to implement. It enhances the user
     /// experience by enabling autocompletion for file paths.
