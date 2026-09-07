@@ -5,6 +5,7 @@
 #docs-chapter(
   title: "Reference",
   route: "/reference",
+  category: "Category",
   description: "The Typst reference is a systematic and comprehensive guide to the Typst typesetting language.",
   introduction: true,
   class: "reference-index",

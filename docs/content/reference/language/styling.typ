@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Styling",
   route: "/reference/styling",
+  category: "Reference",
   description: "All concepts needed to style your document with Typst.",
 )
 

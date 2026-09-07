@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Context",
   route: "/reference/context",
+  category: "Reference",
   description: "How to deal with content that reacts to its location in the document.",
 )
 
