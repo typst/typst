@@ -266,15 +266,27 @@ I am *strong*, I am _emphasized_, and I am #[special<special>].
 // Hint: 7-33 support for this is planned for the future
 #show selector(emph).within(par): set text(red)
 
---- show-delayed-error paged ---
+--- show-delayed-error paged trace ---
 // Error: 21-34 panicked with: hey1
 #show heading: _ => panic("hey1")
 
 // Error: 20-33 panicked with: hey2
 #show strong: _ => panic("hey2")
 
+// Trace: 1-8 (1) while showing heading element
 = Hello
+// Trace: 1-9 (1) while showing strong element
 *strong*
+
+--- show-error-trace paged trace ---
+// Error: 16-34 panicked with: Heading
+#let func(c) = panic(c.body.text)
+
+// Trace: 2-20 (1) while calling `func`
+#show heading: func
+
+// Trace: 1-10 (2) while showing heading element
+= Heading
 
 --- issue-5690-oom-par-box paged ---
 // Error: 3:6-5:1 maximum grouping depth exceeded
