@@ -53,7 +53,7 @@ fn html_impl(mut w: Writer, root: &HtmlElement) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
     write_indent(&mut w);
     write_element(&mut w, root)?;
-    // Writes nothing unless the document has no `body` element.
+    // Only writes if there is no `body` element.
     write_defs(&mut w);
     if w.pretty {
         w.buf.push('\n');
@@ -68,7 +68,7 @@ struct Writer<'a> {
     /// The current indentation level
     level: usize,
     /// The definitions shared by the frames, written at the end of the body.
-    /// Also holds what resolves links between the document and its frames as
+    /// Also owns the link resolver for the document and its frames as
     /// well as cross-document links in bundle export.
     defs: typst_svg::HtmlDefs<'a>,
     /// Whether pretty printing is enabled.
