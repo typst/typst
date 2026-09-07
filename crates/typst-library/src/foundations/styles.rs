@@ -504,10 +504,17 @@ impl Recipe {
             Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
                 let mut result = func.call(engine, context, [content.clone()]);
+
+                // Add the definition site of the show rule to the trace.
+                let point = || Tracepoint::Call(func.name().map(Into::into));
+                result = result.trace(engine.world, point, self.span);
+
+                // Add application site of the show rule to the trace.
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(engine.world, point, content.span());
                 }
+
                 result?.display()
             }
             Transformation::Style(styles) => content.styled_with_map(styles.clone()),
