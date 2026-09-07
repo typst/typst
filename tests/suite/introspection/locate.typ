@@ -105,9 +105,7 @@ A
 
 --- locate-html html empty ---
 #metadata(none)
-// Outside of a frame, positioning is the browser's business, so there are no
-// coordinates to report. (For positions inside of a frame, see the
-// `html-frame-position` test.)
+// Outside of a frame, there are no coordinates. See `html-frame-position`.
 #context test(
   locate(metadata).position(),
   (page: 1, x: none, y: none),

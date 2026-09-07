@@ -107,7 +107,7 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     ///
-    /// = HTML export <html>
+    /// = HTML export <html-export>
     /// The dictionary has the same keys in HTML export, but only the contents
     /// of an @html.frame have a position: a frame is laid out by the same
     /// engine that lays out a page, so `x` and `y` are the coordinates within
@@ -214,7 +214,7 @@ impl Introspect for PositionIntrospection {
                         coord(pos.point.y)
                     ),
                     DocumentPosition::Html(pos) => match pos.details() {
-                        Some(InnerHtmlPosition::Frame(point)) => {
+                        Some(&InnerHtmlPosition::Frame(point)) => {
                             eco_format!("({}, {})", coord(point.x), coord(point.y))
                         }
                         _ => eco_format!("no position"),
