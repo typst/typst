@@ -140,8 +140,8 @@ impl<'a> HtmlDefs<'a> {
         }
     }
 
-    /// Takes what has been collected so far as an `<svg>` element, or `None` if
-    /// there is nothing to define.
+    /// Takes the collected definitions as an `<svg>` element, or `None` if
+    /// there are none.
     ///
     /// The frames reference it by ID, so it must end up in the same document.
     pub fn take_svg(&mut self, pretty: bool) -> Option<String> {
@@ -467,7 +467,7 @@ impl<'a> SVGRenderer<'a> {
 
     /// Whether anything that `finalize` would write has been collected.
     fn is_empty(&self) -> bool {
-        self.glyphs.iter().all(|(_, glyph)| glyph.is_none())
+        !self.has_glyph_defs()
             && self.clip_paths.is_empty()
             && self.gradients.is_empty()
             && self.gradient_refs.is_empty()
