@@ -204,8 +204,9 @@
       }
       if not muted {
         register-index-item(
-          kind: "Parameter of " + repr(func),
+          kind: "Parameter",
           title: title-case(param.name),
+          path: std-path-of(func) + "." + param.name,
           dest: it.location(),
         )
       }
@@ -415,8 +416,9 @@
     show heading: it => {
       register-def(label(canonical-name), it.location())
       register-index-item(
-        kind: stdx.describe(type(value)).title,
+        kind: "Constant",
         title: binding-info.title,
+        path: canonical-name,
         dest: it.location(),
         keywords: binding-info.keywords,
       )
@@ -468,6 +470,7 @@
         register-index-item(
           kind: "Function",
           title: info.title,
+          path: std-path-of(func),
           dest: it.location(),
           keywords: info.keywords,
         )
@@ -556,8 +559,8 @@
     func,
     info.params,
     info.returns,
-    path: path,
     base-label,
+    path: path,
     indent: true,
   )
 }
@@ -580,6 +583,7 @@
       register-index-item(
         kind: "Type",
         title: info.title,
+        path: std-path-of(ty),
         dest: it.location(),
         keywords: info.keywords,
       )
@@ -700,7 +704,10 @@
 #let func-or-ty-section(..args) = {
   show heading.where(level: 3): set text(16pt)
   show heading.where(level: 3): set block(below: 16pt)
-  docs-section(..args)
+  docs-section(
+    path: std-path-of(args.def-target),
+    ..args,
+  )
 }
 
 // Renders a section for a function.
@@ -1070,8 +1077,8 @@
   )
 }
 
-// Renders the docs for one category, including an overview section and sections
-// for all definitions in the category.
+// Renders the docs for one category in the Reference, including an overview
+// section and sections for all definitions in the category.
 #let docs-category(
   // The name of the category, e.g. `"foundations"`.
   category: none,
