@@ -1,4 +1,5 @@
 #import "../../../components/index.typ": docs-chapter
+#import "../../../components/search.typ": register-index-item
 
 #show: docs-chapter.with(
   title: "Styling",
@@ -8,7 +9,12 @@
 
 Typst includes a flexible styling system that automatically applies styling of your choice to your document. With _set rules,_ you can configure basic properties of elements. This way, you create most common styles. However, there might not be a built-in property for everything you wish to do. For this reason, Typst further supports _show rules_ that can completely redefine the appearance of elements.
 
-= Set rules <set-rules>
+= Set rules <set-rules> #context register-index-item(
+  kind: "Language",
+  title: "Set rules",
+  dest: locate(selector(<set-rules>).after(<reference:styling>)),
+  keywords: ("Set",),
+)
 With set rules, you can customize the appearance of elements. They are written as a @function[function call] to an @function:element-functions[element function] preceded by the `{set}` keyword (or `[#set]` in markup). Only optional parameters of that function can be provided to the set rule. Refer to each function's documentation to see which parameters are optional. In the example below, we use two set rules to change the @text.font[font family] and @heading.numbering[heading numbering].
 
 ```example
@@ -46,7 +52,12 @@ Sometimes, you'll want to apply a set rule conditionally. For this, you can use 
 #task(critical: false)[Work deadline]
 ```
 
-= Show rules <show-rules>
+= Show rules <show-rules> #context register-index-item(
+  kind: "Language",
+  title: "Show rules",
+  dest: locate(selector(<show-rules>).after(<reference:styling>)),
+  keywords: ("Show",),
+)
 With show rules, you can deeply customize the look of a type of element. The most basic form of show rule is a _show-set rule._ Such a rule is written as the `{show}` keyword followed by a @selector[selector], a colon and then a set rule. The most basic form of selector is an @function:element-functions[element function]. This lets the set rule only apply to the selected element. In the example below, headings become dark blue while all other text stays black.
 
 ```example
