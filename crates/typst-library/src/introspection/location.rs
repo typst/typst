@@ -8,9 +8,11 @@ use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
-use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
+use crate::foundations::{
+    Content, Dict, IntoValue, Repr, Selector, func, repr, scope, ty,
+};
 use crate::introspection::{
-    DocumentPosition, History, Introspect, Introspector, PagedPosition,
+    DocumentPosition, History, InnerHtmlPosition, Introspect, Introspector, PagedPosition,
 };
 use crate::layout::Abs;
 use crate::model::Numbering;
@@ -104,9 +106,22 @@ impl Location {
     ///
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
+    ///
+    /// = HTML export <html>
+    /// The dictionary has the same keys in HTML export, but only the contents
+    /// of an @html.frame have a position: a frame is laid out by the same
+    /// engine that lays out a page, so `x` and `y` are the coordinates within
+    /// it, measured from its top-left corner. Everywhere else, positioning is
+    /// the browser's business and Typst cannot know where content will end up,
+    /// so `x` and `y` are `{none}`.
+    ///
+    /// An HTML document has no pages, so `page` is always `{1}`, just like the
+    /// result of `page()`. Note that each frame has its own coordinate system,
+    /// so positions from two different frames cannot be compared, just as
+    /// positions on two different pages cannot be.
     #[func(since = "forever")]
-    pub fn position(self, engine: &mut Engine, span: Span) -> PagedPosition {
-        engine.introspect(PositionIntrospection(self, span))
+    pub fn position(self, engine: &mut Engine, span: Span) -> Dict {
+        engine.introspect(PositionIntrospection(self, span)).into()
     }
 
     /// Returns the page numbering pattern of the page at this location. This
@@ -169,18 +184,17 @@ impl From<Location> for LocationKey {
 pub struct PositionIntrospection(pub Location, pub Span);
 
 impl Introspect for PositionIntrospection {
-    type Output = PagedPosition;
+    type Output = DocumentPosition;
 
     fn introspect(
         &self,
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        match introspector.position(self.0) {
-            Some(DocumentPosition::Paged(pos)) => pos,
-            // Maybe error here instead?
-            Some(DocumentPosition::Html(_)) | None => PagedPosition::ORIGIN,
-        }
+        // A location that is not part of the document has no position. This
+        // notably includes every location in the first iteration, before there
+        // is a document to introspect.
+        introspector.position(self.0).unwrap_or(PagedPosition::ORIGIN.into())
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -192,12 +206,20 @@ impl Introspect for PositionIntrospection {
             |element| eco_format!("{element} position"),
             |pos| {
                 let coord = |v: Abs| repr::format_float(v.to_pt(), Some(0), false, "pt");
-                eco_format!(
-                    "page {} at ({}, {})",
-                    pos.page,
-                    coord(pos.point.x),
-                    coord(pos.point.y)
-                )
+                match pos {
+                    DocumentPosition::Paged(pos) => eco_format!(
+                        "page {} at ({}, {})",
+                        pos.page,
+                        coord(pos.point.x),
+                        coord(pos.point.y)
+                    ),
+                    DocumentPosition::Html(pos) => match pos.details() {
+                        Some(InnerHtmlPosition::Frame(point)) => {
+                            eco_format!("({}, {})", coord(point.x), coord(point.y))
+                        }
+                        _ => eco_format!("no position"),
+                    },
+                }
             },
         )
     }
