@@ -281,6 +281,10 @@
 // Error: 21-26 cannot subtract integer from string
 #("a",).filter(x => x - 2)
 
+--- array-reduce-wrong-return-type eval ---
+// Error: 19-29 expected boolean, found integer
+#(1, 2, 3).filter(i => i + 1)
+
 --- array-map eval ---
 // Test the `map` method.
 #test(().map(x => x * 2), ())
