@@ -141,7 +141,7 @@ fn parse(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     let (name, title) =
         determine_name_and_title(meta.name, meta.title, &item.sig.ident, None)?;
 
-    let docs = documentation(&item.attrs);
+    let docs = documentation(&item.attrs)?;
 
     let mut special = SpecialParams::default();
     let mut params = vec![];
@@ -202,7 +202,7 @@ fn parse_param(
                     None => bail!(recv, "explicit parent type required"),
                 },
                 name: "self".into(),
-                docs: documentation(&recv.attrs),
+                docs: documentation(&recv.attrs)?,
                 named: false,
                 variadic: false,
                 external: false,
@@ -231,7 +231,7 @@ fn parse_param(
                 ident: ident.clone(),
                 ty: (*typed.ty).clone(),
                 name: ident.to_string().to_kebab_case(),
-                docs: documentation(&attrs),
+                docs: documentation(&attrs)?,
                 named: has_attr(&mut attrs, "named"),
                 variadic: has_attr(&mut attrs, "variadic"),
                 external: has_attr(&mut attrs, "external"),
