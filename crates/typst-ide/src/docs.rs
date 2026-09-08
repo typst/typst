@@ -17,12 +17,11 @@ pub fn find_value_docs(world: &dyn IdeWorld, value: &Value) -> Option<Docs> {
         && let span = func.span()
         && let Some(id) = span.id()
         && let Ok(source) = world.source(id)
-        && let Some(args) = source.find(span)
-        && let Some(parent) = args.parent()
-        && parent.kind() == SyntaxKind::Closure
-        && let Some(grand) = parent.parent()
-        && grand.kind() == SyntaxKind::LetBinding
-        && let Some(docs) = Docs::collect_doc_comment(grand.clone())
+        && let Some(node) = source.find(span)
+        && node.kind() == SyntaxKind::Closure
+        && let Some(parent) = node.parent()
+        && parent.kind() == SyntaxKind::LetBinding
+        && let Some(docs) = Docs::collect_doc_comment(parent.clone())
     {
         return Some(docs);
     }

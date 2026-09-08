@@ -631,7 +631,7 @@ impl Eval for ast::Closure<'_> {
                 .count(),
         };
 
-        Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
+        Ok(Value::Func(Func::from(closure).spanned(self.span())))
     }
 }
 
