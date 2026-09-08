@@ -22,6 +22,8 @@ use typst_syntax::{
 };
 use utf8_iter::ErrorReportingUtf8Chars;
 
+use crate::engine::Engine;
+use crate::foundations::{Context, Func, IntoArgs, Value};
 use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
@@ -587,6 +589,28 @@ impl<T> Trace<T> for SourceResult<T> {
             }
             errors
         })
+    }
+}
+
+/// Conveniently call [`Func::call_traced`].
+pub trait CallTraced {
+    /// Convenience wrapper method for calling [`Func::call_traced`].
+    fn call_traced<A: IntoArgs>(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        args: A,
+    ) -> SourceResult<Value>;
+}
+
+impl CallTraced for Spanned<Func> {
+    fn call_traced<A: IntoArgs>(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        args: A,
+    ) -> SourceResult<Value> {
+        self.v.call_traced(engine, context, args, self.span)
     }
 }
 

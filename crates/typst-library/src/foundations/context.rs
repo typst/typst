@@ -78,5 +78,8 @@ impl Construct for ContextElem {
 pub const CONTEXT_RULE: ShowFn<ContextElem> = |elem, engine, styles| {
     let loc = elem.location().unwrap();
     let context = Context::new(Some(loc), Some(styles));
-    Ok(elem.func.call::<[Value; 0]>(engine, context.track(), [])?.display())
+    Ok(elem
+        .func
+        .call_traced::<[Value; 0]>(engine, context.track(), [], elem.span())?
+        .display())
 };

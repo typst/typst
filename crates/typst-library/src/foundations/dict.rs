@@ -10,7 +10,7 @@ use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Spanned, is_ident};
 
-use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{At, CallTraced, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Func, Module, Repr, Str, Value, WorldBindingExt, array, cast, func,
@@ -318,12 +318,12 @@ impl Dict {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<Dict> {
         let mut run_test = |v: &Value| {
-            test.call(engine, context, [v.clone()])?
+            test.call_traced(engine, context, [v.clone()])?
                 .cast::<bool>()
-                .at(test.span())
+                .at(test.span)
         };
         self.into_iter()
             .filter_map(|(k, v)| run_test(&v).map(|b| b.then_some((k, v))).transpose())
@@ -342,11 +342,11 @@ impl Dict {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value.
-        mapper: Func,
+        mapper: Spanned<Func>,
     ) -> SourceResult<Dict> {
         self.into_iter()
             .map(|(k, v)| {
-                let mapped_value = mapper.call(engine, context, [v])?;
+                let mapped_value = mapper.call_traced(engine, context, [v])?;
                 Ok((k, mapped_value))
             })
             .collect()

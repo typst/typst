@@ -11,7 +11,9 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{
+    At, HintedStrResult, SourceResult, StrResult, Trace, Tracepoint, bail,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
@@ -320,6 +322,19 @@ impl Func {
             FuncInner::Plugin(func) => Some(func),
             _ => None,
         }
+    }
+
+    /// Call the function with the given context and arguments, adding a call
+    /// tracepoint at the span.
+    pub fn call_traced<A: IntoArgs>(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        args: A,
+        span: Span,
+    ) -> SourceResult<Value> {
+        let point = || Tracepoint::Call(self.name().map(Into::into));
+        self.call(engine, context, args).trace(engine.world, point, span)
     }
 
     /// Call the function with the given context and arguments.

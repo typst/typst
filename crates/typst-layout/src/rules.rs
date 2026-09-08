@@ -754,9 +754,15 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             let Size { x, y } = regions.base();
             let loc = elem.location().unwrap();
             let context = Context::new(Some(loc), Some(styles));
+
             let result = elem
                 .func
-                .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
+                .call_traced(
+                    engine,
+                    context.track(),
+                    [dict! { "width" => x, "height" => y }],
+                    elem.span(),
+                )?
                 .display();
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },
