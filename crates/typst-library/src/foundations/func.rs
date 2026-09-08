@@ -158,7 +158,35 @@ enum FuncInner {
     /// A plugin WebAssembly function.
     Plugin(Arc<PluginFunc>),
     /// A nested function with pre-applied arguments.
-    With(Arc<(Func, Args)>),
+    With(Arc<With>),
+}
+
+impl FuncInner {
+    /// The span of the function parameters.
+    pub fn params_span(&self) -> Span {
+        match self {
+            Self::Native(_) => Span::detached(),
+            Self::Element(_) => Span::detached(),
+            Self::Closure(closure) => closure.params_span,
+            Self::Plugin(_) => Span::detached(),
+            Self::With(with) => with.params_span,
+        }
+    }
+}
+
+/// A function with pre-applied arguments.
+#[derive(Clone, PartialEq, Hash)]
+struct With {
+    /// The function that will be called.
+    func: Func,
+    /// The pre-applied arguments.
+    args: Args,
+    /// The parameters span of the inner function; it will only be
+    /// non-detached when the inner node is a closure.
+    ///
+    /// Store this here to avoid potentially costly recursion when reading the
+    /// span, because it's accessed on every function call.
+    params_span: Span,
 }
 
 impl Func {
@@ -171,7 +199,7 @@ impl Func {
             FuncInner::Element(elem) => Some(elem.name()),
             FuncInner::Closure(closure) => closure.name(),
             FuncInner::Plugin(func) => Some(func.name()),
-            FuncInner::With(with) => with.0.name(),
+            FuncInner::With(with) => with.func.name(),
         }
     }
 
@@ -184,7 +212,7 @@ impl Func {
             FuncInner::Element(elem) => Some(elem.title()),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
-            FuncInner::With(with) => with.0.title(),
+            FuncInner::With(with) => with.func.title(),
         }
     }
 
@@ -195,7 +223,7 @@ impl Func {
             FuncInner::Element(elem) => elem.since(),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
-            FuncInner::With(with) => with.0.since(),
+            FuncInner::With(with) => with.func.since(),
         }
     }
 
@@ -206,7 +234,7 @@ impl Func {
             FuncInner::Element(elem) => Some(elem.docs()),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
-            FuncInner::With(with) => with.0.docs(),
+            FuncInner::With(with) => with.func.docs(),
         }
     }
 
@@ -234,7 +262,7 @@ impl Func {
                 Either::Right(Either::Right([ParamInfo::Plugin].into_iter()))
             }
             // TODO: We could take into account the known arguments.
-            FuncInner::With(with) => with.0.params(),
+            FuncInner::With(with) => with.func.params(),
         }
     }
 
@@ -252,7 +280,7 @@ impl Func {
             }
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
-            FuncInner::With(with) => with.0.returns(),
+            FuncInner::With(with) => with.func.returns(),
         }
     }
 
@@ -263,7 +291,7 @@ impl Func {
             FuncInner::Element(elem) => elem.keywords(),
             FuncInner::Closure(_) => &[],
             FuncInner::Plugin(_) => &[],
-            FuncInner::With(with) => with.0.keywords(),
+            FuncInner::With(with) => with.func.keywords(),
         }
     }
 
@@ -285,7 +313,7 @@ impl Func {
             FuncInner::Element(elem) => Some(elem.scope()),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
-            FuncInner::With(with) => with.0.scope(),
+            FuncInner::With(with) => with.func.scope(),
         }
     }
 
@@ -352,7 +380,7 @@ impl Func {
         context: Tracked<Context>,
         args: A,
     ) -> SourceResult<Value> {
-        self.call_impl(engine, context, args.into_args(self.span))
+        self.call_impl(engine, context, args.into_args(self.params_span()))
     }
 
     /// Non-generic implementation of `call`.
@@ -393,18 +421,27 @@ impl Func {
                 Ok(Value::Bytes(output))
             }
             FuncInner::With(with) => {
-                args.items = with.1.items.iter().cloned().chain(args.items).collect();
-                with.0.call(engine, context, args)
+                args.items = with.args.items.iter().cloned().chain(args.items).collect();
+                with.func.call(engine, context, args)
             }
         }
     }
 
-    /// The function's span.
+    /// The span of the function.
     pub fn span(&self) -> Span {
         self.span
     }
 
+    /// The span of the function parameters, falling back to the general report
+    /// span, if not available.
+    pub fn params_span(&self) -> Span {
+        self.inner.params_span().or(self.span)
+    }
+
     /// Attach a span to this function if it doesn't already have one.
+    ///
+    /// This is used to report errors of the return value of the closure, or
+    /// when the closure is used as a value.
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span.is_detached() {
             self.span = span;
@@ -425,10 +462,13 @@ impl Func {
         #[variadic]
         arguments: Vec<Value>,
     ) -> Func {
-        let span = self.span;
         Self {
-            inner: FuncInner::With(Arc::new((self, args.take()))),
-            span,
+            span: self.span,
+            inner: FuncInner::With(Arc::new(With {
+                params_span: self.inner.params_span(),
+                func: self,
+                args: args.take(),
+            })),
         }
     }
 
@@ -756,6 +796,8 @@ pub struct Closure {
     pub captured: Scope,
     /// The number of positional parameters in the closure.
     pub num_pos_params: usize,
+    /// The span of the function parameters.
+    pub params_span: Span,
 }
 
 impl Closure {

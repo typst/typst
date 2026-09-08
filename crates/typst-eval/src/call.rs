@@ -629,9 +629,10 @@ impl Eval for ast::Closure<'_> {
                 .children()
                 .filter(|p| matches!(p, ast::Param::Pos(_)))
                 .count(),
+            params_span: self.params().span(),
         };
 
-        Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
+        Ok(Value::Func(Func::from(closure).spanned(self.span())))
     }
 }
 
