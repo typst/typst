@@ -77,6 +77,11 @@ impl Tree {
         Some(self.ctx.bboxes.get_mut(id))
     }
 
+    /// Whether an ancestor has an alternative description.
+    pub fn parent_has_alt(&self) -> bool {
+        self.state.current_alt.is_some()
+    }
+
     pub fn assert_finished_traversal(&self) -> HintedStrResult<()> {
         assert_internal(
             self.prog_cursor + 1 == self.progressions.len(),
@@ -136,6 +141,8 @@ impl std::ops::DerefMut for TraversalStates {
 struct TraversalState {
     /// The highest artifact ancestor in the tree.
     current_artifact: Option<(GroupId, Artifact)>,
+    /// The highest artifact ancestor in the tree.
+    current_alt: Option<GroupId>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
     bbox_stack: Vec<BBoxId>,
     /// The stack of text attributes.
@@ -146,6 +153,7 @@ impl TraversalState {
     fn new() -> Self {
         Self {
             current_artifact: None,
+            current_alt: None,
             bbox_stack: Vec::new(),
             text_attrs: TextAttrs::new(),
         }
@@ -156,6 +164,7 @@ impl TraversalState {
         if self.current_artifact.take_if(|(i, _)| *i == id).is_some() {
             surface.end_tagged();
         }
+        self.current_alt.take_if(|i| *i == id);
         if let Some(id) = group.kind.bbox() {
             self.bbox_stack.pop_if(|i| *i == id);
         }
@@ -196,6 +205,7 @@ pub fn step_start_tag(gc: &mut GlobalContext, fc: &FrameContext, surface: &mut S
     } else {
         open_group(
             &gc.tags.tree.groups,
+            &gc.tags.tree.ctx,
             &mut gc.tags.tree.state,
             fc,
             gc.options,
@@ -240,7 +250,14 @@ pub fn enter_logical_child(
         current = group.parent;
         Some((id, group))
     });
-    open_multiple_groups(&mut new_state, fc, gc.options, surface, rev_iter);
+    open_multiple_groups(
+        &gc.tags.tree.ctx,
+        &mut new_state,
+        fc,
+        gc.options,
+        surface,
+        rev_iter,
+    );
 
     gc.tags.tree.state.push(new_state);
 }
@@ -325,6 +342,7 @@ fn step_break(
         Some((id, group))
     });
     open_multiple_groups(
+        &gc.tags.tree.ctx,
         &mut gc.tags.tree.state,
         fc,
         gc.options,
@@ -335,6 +353,7 @@ fn step_break(
 
 fn open_group(
     groups: &Groups,
+    ctx: &Ctx,
     state: &mut TraversalState,
     fc: &FrameContext,
     options: &PdfOptions<Complete>,
@@ -348,6 +367,9 @@ fn open_group(
         state.current_artifact = Some((id, ty));
         surface.start_tagged(ContentTag::Artifact(ty));
     }
+    if state.current_alt.is_none() && ctx.alt(&group.kind).is_some() {
+        state.current_alt = Some(id);
+    }
     if let Some(bbox) = &group.kind.bbox() {
         state.bbox_stack.push(*bbox);
     }
@@ -359,6 +381,7 @@ fn open_group(
 /// Since the groups need to be opened in order, but we can only iterate the
 /// parent hierarchy from bottom to top, this cannot simply call [`open_group`].
 fn open_multiple_groups<'a>(
+    ctx: &Ctx,
     state: &mut TraversalState,
     fc: &FrameContext,
     options: &PdfOptions<Complete>,
@@ -366,12 +389,16 @@ fn open_multiple_groups<'a>(
     rev_iter: impl Iterator<Item = (GroupId, &'a Group)>,
 ) {
     let mut new_artifact = None;
+    let mut new_alt = None;
     let bbox_start = state.bbox_stack.len();
     let text_attr_start = state.text_attrs.len();
 
     for (id, group) in rev_iter {
         if let Some(ty) = group.kind.to_artifact(options, fc.page_size()) {
             new_artifact = Some((id, ty));
+        }
+        if ctx.alt(&group.kind).is_some() {
+            new_alt = Some(id);
         }
         if let Some(bbox) = group.kind.bbox() {
             state.bbox_stack.insert(bbox_start, bbox);
@@ -386,6 +413,9 @@ fn open_multiple_groups<'a>(
     {
         state.current_artifact = new_artifact;
         surface.start_tagged(ContentTag::Artifact(ty));
+    }
+    if state.current_alt.is_none() {
+        state.current_alt = new_alt;
     }
 }
 

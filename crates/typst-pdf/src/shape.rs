@@ -17,7 +17,7 @@ pub(crate) fn handle_shape(
     surface: &mut Surface,
     gc: &mut GlobalContext,
     span: Span,
-    artifact_type: ArtifactType,
+    artifact_type: Option<ArtifactType>,
 ) -> SourceResult<()> {
     let mut handle = tags::shape(gc, fc, surface, shape, artifact_type);
     let surface = handle.surface();

@@ -253,7 +253,7 @@ pub fn shape<'a, 'b>(
     fc: &FrameContext,
     surface: &'b mut Surface<'a>,
     shape: &Shape,
-    artifact_type: ArtifactType,
+    artifact_type: Option<ArtifactType>,
 ) -> TagHandle<'a, 'b> {
     if disabled(gc) {
         return TagHandle { surface, started: false };
@@ -265,15 +265,39 @@ pub fn shape<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
-        if gc.options.version() == PdfVersion::Pdf17
-            && artifact_type == ArtifactType::Background
-        {
-            ArtifactType::Other
-        } else {
-            artifact_type
-        },
-    )));
+    match artifact_type {
+        // If we're within a tag that has an alternative description, use marked
+        // content sequences for shapes, so that they show up in the tag tree.
+        // This tag will most likely be a figure or an equation, where marked
+        // content sequences will associate it with portions of a page and might
+        // improve how AT handles the item.
+        // This *shouldn't* be an issue for any tag structure, because during
+        // resolution the structure of tags with an alternative description is
+        // flattened.
+        None if gc.tags.tree.parent_has_alt() => {
+            let id = surface.start_tagged(ContentTag::Other);
+            gc.tags.push_leaf(id);
+        }
+        None | Some(_) => {
+            // PDF 1.7 is the only PDF version that requires bounding boxes for
+            // background artifacts. Because this has no noticeable effect on
+            // how AT handles the artifacts and because we don't have a good way
+            // to compute bounding boxes for artifacts at this point in the
+            // conversion process, we just mark them as `Other` artifacts.
+            let ty = artifact_type
+                .map(|ty| {
+                    if gc.options.version() == PdfVersion::Pdf17
+                        && ty == ArtifactType::Background
+                    {
+                        ArtifactType::Other
+                    } else {
+                        ty
+                    }
+                })
+                .unwrap_or(ArtifactType::Layout);
+            surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ty)));
+        }
+    }
 
     TagHandle { surface, started: true }
 }
