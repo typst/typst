@@ -98,7 +98,12 @@ fn draw_cancel_line(
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
             CancelAngle::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), [default])?
+                .call_traced(
+                    engine,
+                    Context::new(None, Some(styles)).track(),
+                    [default],
+                    span,
+                )?
                 .cast()
                 .at(span)?,
         },
