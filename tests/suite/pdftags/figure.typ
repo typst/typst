@@ -92,6 +92,12 @@ Ein Paragraph.
   #rect(fill: red)
 ]
 
+--- figure-tags-only-marked-content-with-alt pdftags ---
+#figure(
+  rect(fill: red),
+  alt: "A red rectangle",
+)
+
 --- figure-tags-additional-caption-inside-body pdftags ---
 #figure(caption: [The real caption])[
   #image(alt: "A tiger", "/assets/images/tiger.jpg"),
