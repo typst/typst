@@ -640,7 +640,7 @@ f0efdc4f903d354f49fc52ae6fbaff82 image-natural-dpi-sizing
 e2e9531be0c7c8805e6d178dd4ad8cfc image-pdf-base14-fonts
 a1d173f3647a1993e27aba41e7df301d image-pdf-basic
 3ec779eaf2a2c8226dbb5ba22dd38069 image-pdf-complex
-f7dab754704b2cb9a67cfdac1aef8028 image-pdf-multiple-pages
+9010f3bf27caef965a8fa82054d968d2 image-pdf-multiple-pages
 6d0be651e0c2a431806480976e947426 image-pixmap-luma8
 2880b102c6b76ae1fcf2691de5ce7832 image-pixmap-lumaa8
 a63af691bb0aa3d59819cedd237ebcc4 image-pixmap-rgb8
