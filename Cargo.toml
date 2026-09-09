@@ -127,7 +127,7 @@ syntect = { version = "5.3", default-features = false, features = ["parsing", "r
 tar = "0.4.46"
 tempfile = "3.7.0"
 thin-vec = "0.2.18"
-time = { version = "0.3.20", features = ["formatting", "macros", "parsing"] }
+time = { version = "0.3.47", features = ["formatting", "macros", "parsing"] }
 tiny_http = "0.12"
 tiny-skia = "0.12"
 toml = { version = "0.8", default-features = false, features = ["parse", "display"] }
