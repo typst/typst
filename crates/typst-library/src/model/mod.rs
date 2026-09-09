@@ -10,6 +10,7 @@ mod emph;
 mod enum_;
 mod figure;
 mod footnote;
+mod form;
 mod heading;
 mod link;
 mod list;
@@ -33,6 +34,7 @@ pub use self::emph::*;
 pub use self::enum_::*;
 pub use self::figure::*;
 pub use self::footnote::*;
+pub use self::form::*;
 pub use self::heading::*;
 pub use self::link::*;
 pub use self::list::*;
@@ -71,6 +73,7 @@ pub fn define(global: &mut Scope) {
     global.define_elem::<CiteElem>();
     global.define_elem::<BibliographyElem>();
     global.define_elem::<TableElem>();
+    global.define_elem::<FormElem>();
     global.define_func::<numbering>();
     global.reset_category();
 }
