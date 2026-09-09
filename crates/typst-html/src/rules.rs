@@ -329,19 +329,19 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 
 const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
     let span = elem.span();
+    let (dest, num) = elem.realize(engine, styles)?;
+    let sup = SuperElem::new(num).pack().spanned(span);
 
     // The footnote number that links to the footnote entry.
-    let link = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(link)
+    let link = LinkElem::new(dest.into(), sup)
         .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
-        .spanned(span);
+        .styled(HtmlElem::role.set(Some("doc-noteref".into())));
 
     // Indicates the presence of a default footnote rule to emit an error when
     // no footnote container is available.
     let marker = FootnoteMarker::new().pack().spanned(span);
 
-    Ok(HElem::hole().clone() + sup + marker)
+    Ok(HElem::hole().clone() + link + marker)
 };
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());
@@ -406,20 +406,20 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
-    let (sup, body) = elem.realize(engine, styles)?;
+    let (prefix, body) = elem.realize(engine, styles)?;
 
     // The prefix is a link back to the first footnote reference, so
-    // `doc-backlink` is the appropriate ARIA role.
-    let prefix = sup
-        .styled(HtmlElem::role.set(Some("doc-backlink".into())))
-        .spanned(elem.span());
+    // `doc-backlink` is the appropriate ARIA role. Note that since we are
+    // setting it on an `<a>` with an href to another `<a role="doc-noteref">`,
+    // Pandoc will recognize these mutual ARIA-tagged links as footnotes.
+    let backlink = prefix.styled(HtmlElem::role.set(Some("doc-backlink".into())));
 
     // We do not use the ARIA role `doc-footnote` because it "is only for
     // representing individual notes that occur within the body of a work" (see
     // <https://www.w3.org/TR/dpub-aria-1.1/#doc-footnote>). Our footnotes more
     // appropriately modelled as ARIA endnotes. This is also in line with how
     // Pandoc handles footnotes.
-    Ok(prefix + body)
+    Ok(backlink + body)
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
