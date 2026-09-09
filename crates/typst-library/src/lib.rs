@@ -289,12 +289,13 @@ pub enum Feature {
     Html,
     Bundle,
     A11yExtras,
+    Forms,
 }
 
 impl Feature {
     /// Iterates over all available features.
     pub fn all() -> impl Iterator<Item = Self> {
-        [Self::Html, Self::Bundle, Self::A11yExtras].into_iter()
+        [Self::Html, Self::Bundle, Self::A11yExtras, Self::Forms].into_iter()
     }
 }
 
@@ -304,6 +305,7 @@ impl Display for Feature {
             Feature::Html => "html",
             Feature::Bundle => "bundle",
             Feature::A11yExtras => "a11y-extras",
+            Feature::Forms => "forms",
         })
     }
 }
@@ -316,6 +318,7 @@ impl FromStr for Feature {
             "html" => Ok(Self::Html),
             "bundle" => Ok(Self::Bundle),
             "a11y-extras" => Ok(Self::A11yExtras),
+            "forms" => Ok(Self::Forms),
             _ => Err(()),
         }
     }
