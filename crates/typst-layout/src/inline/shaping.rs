@@ -427,8 +427,8 @@ impl<'a> ShapedText<'a> {
                         x_offset,
                         y_advance: Em::zero(),
                         y_offset: Em::zero(),
-                        range: (shaped.range.start - range.start).saturating_as()
-                            ..(shaped.range.end - range.start).saturating_as(),
+                        range: shaped.range.start - range.start
+                            ..shaped.range.end - range.start,
                         span,
                     }
                 })
