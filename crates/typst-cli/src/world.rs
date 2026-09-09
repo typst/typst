@@ -361,6 +361,7 @@ impl From<Feature> for typst::Feature {
             Feature::Html => typst::Feature::Html,
             Feature::Bundle => typst::Feature::Bundle,
             Feature::A11yExtras => typst::Feature::A11yExtras,
+            Feature::Forms => typst::Feature::Forms,
         }
     }
 }

@@ -720,6 +720,7 @@ pub enum Feature {
     Html,
     Bundle,
     A11yExtras,
+    Forms,
 }
 
 display_possible_values!(Feature);
