@@ -77,7 +77,7 @@ pub fn svg_in_bundle(
 
 /// Export a frame into an SVG suitable for embedding into HTML.
 ///
-/// Glyphs, clip paths, gradients and tilings are collected into `<defs>` 
+/// Glyphs, clip paths, gradients and tilings are collected into `<defs>`
 /// rather than written into the frame.
 ///
 /// Takes additional `anchor` locations that will be serialized as linkable
