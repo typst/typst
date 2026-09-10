@@ -129,7 +129,7 @@ mtable mtd.{RIGHT_FLUSH_CLASS} {{
 }}
 
 /* Matrices */
-mtable:not(.aligned) > mtr > mtd {{
+mtable:not(.{MULTILINE_EQUATION_CLASS}) > mtr > mtd {{
   padding: 0.5ex;
 }}
 
