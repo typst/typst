@@ -116,7 +116,9 @@ impl Numbering {
             Self::Pattern(pattern) => {
                 Value::Str(pattern.apply(Some((engine, span)), numbers).at(span)?.into())
             }
-            Self::Func(func) => func.call(engine, context, numbers.iter().copied())?,
+            Self::Func(func) => {
+                func.call_traced(engine, context, numbers.iter().copied(), span)?
+            }
         })
     }
 

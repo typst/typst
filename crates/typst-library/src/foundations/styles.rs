@@ -8,7 +8,7 @@ use ecow::{EcoString, EcoVec, eco_vec};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -885,6 +885,14 @@ impl<T: Resolve> Resolve for Option<T> {
     }
 }
 
+impl<T: Resolve> Resolve for Spanned<T> {
+    type Output = Spanned<T::Output>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
 /// A property that is folded to determine its final value.
 ///
 /// In the example below, the chain of stroke values is folded into a single
@@ -938,6 +946,12 @@ impl<T> Fold for OneOrMultiple<T> {
     fn fold(self, mut outer: Self) -> Self {
         outer.0.extend(self.0);
         outer
+    }
+}
+
+impl<T: Fold> Fold for Spanned<T> {
+    fn fold(self, outer: Self) -> Self {
+        Spanned::new(self.v.fold(outer.v), self.span.or(outer.span))
     }
 }
 

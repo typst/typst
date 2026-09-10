@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use comemo::Tracked;
 use smallvec::SmallVec;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, NonZeroExt};
 
 use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
@@ -240,7 +240,7 @@ pub struct OutlineElem {
     /// = Designing software components
     /// = Testing and integration
     /// ```
-    pub indent: Smart<OutlineIndent>,
+    pub indent: Spanned<Smart<OutlineIndent>>,
 }
 
 #[scope]
@@ -433,7 +433,9 @@ impl OutlineIndent {
         let depth = level.get() - 1;
         match self {
             Self::Rel(length) => Ok(*length * depth as f64),
-            Self::Func(func) => func.call(engine, context, [depth])?.cast().at(span),
+            Self::Func(func) => {
+                func.call_traced(engine, context, [depth], span)?.cast().at(span)
+            }
         }
     }
 }
@@ -573,7 +575,7 @@ impl OutlineEntry {
         let prefix_inset = prefix_width.map(|w| w + gap.resolve(styles));
 
         let indent = outline.indent.get_ref(styles);
-        let (base_indent, hanging_indent) = match &indent {
+        let (base_indent, hanging_indent) = match &indent.v {
             Smart::Auto => compute_auto_indents(
                 engine,
                 outline_loc,
@@ -583,7 +585,7 @@ impl OutlineEntry {
                 span,
             ),
             Smart::Custom(amount) => {
-                let base = amount.resolve(engine, context, self.level, span)?;
+                let base = amount.resolve(engine, context, self.level, indent.span)?;
                 (base, prefix_inset)
             }
         };
@@ -599,7 +601,7 @@ impl OutlineEntry {
             // can query for (within `compute_auto_indent`) to align
             // themselves).
             let mut seq = Vec::with_capacity(5);
-            if indent.is_auto() {
+            if indent.v.is_auto() {
                 seq.push(PrefixInfo::new(outline_loc, self.level, prefix_inset).pack());
             }
 

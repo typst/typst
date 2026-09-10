@@ -116,7 +116,7 @@
 = F
 
 --- outline-indent-bad-type paged ---
-// Error: 2-35 expected relative length, found dictionary
+// Error: 18-34 expected relative length, found dictionary
 #outline(indent: n => (a: "dict"))
 
 = Heading

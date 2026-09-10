@@ -548,6 +548,12 @@ pub enum Tracepoint {
     Include(EcoString),
 }
 
+impl Tracepoint {
+    pub fn call<T: Into<EcoString>>(name: T) -> Self {
+        Self::Call(Some(name.into()))
+    }
+}
+
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
