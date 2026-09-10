@@ -2,6 +2,7 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use ecow::{EcoString, eco_format};
+use typst_syntax::Spanned;
 use typst_utils::{NonZeroExt, singleton};
 
 use crate::diag::{At, SourceResult, StrResult, bail};
@@ -172,8 +173,9 @@ impl Packed<FootnoteElem> {
 }
 
 impl Count for Packed<FootnoteElem> {
-    fn update(&self) -> Option<CounterUpdate> {
-        (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
+        (!self.is_ref())
+            .then(|| Spanned::new(CounterUpdate::Step(NonZeroUsize::ONE), self.span()))
     }
 }
 

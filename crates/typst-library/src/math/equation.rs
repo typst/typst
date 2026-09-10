@@ -221,9 +221,9 @@ impl ShowSet for Packed<EquationElem> {
 }
 
 impl Count for Packed<EquationElem> {
-    fn update(&self) -> Option<CounterUpdate> {
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
         (self.block.get(StyleChain::default()) && self.numbering().is_some())
-            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+            .then(|| Spanned::new(CounterUpdate::Step(NonZeroUsize::ONE), self.span()))
     }
 }
 
