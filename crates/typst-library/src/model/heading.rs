@@ -316,11 +316,13 @@ impl ShowSet for Packed<HeadingElem> {
 }
 
 impl Count for Packed<HeadingElem> {
-    fn update(&self) -> Option<CounterUpdate> {
-        self.numbering
-            .get_ref(StyleChain::default())
-            .is_some()
-            .then(|| CounterUpdate::Step(self.resolve_level(StyleChain::default())))
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
+        self.numbering.get_ref(StyleChain::default()).is_some().then(|| {
+            Spanned::new(
+                CounterUpdate::Step(self.resolve_level(StyleChain::default())),
+                self.span(),
+            )
+        })
     }
 }
 
