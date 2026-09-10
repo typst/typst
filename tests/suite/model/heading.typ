@@ -147,6 +147,14 @@ Cannot be used as @intro
 #show par: highlight
 = Heading
 
+--- heading-supplement-panic-trace paged trace ---
+// Error: 51-64 panicked with: oops
+#set heading(supplement: (h) => if h.depth == 2 { panic("oops") })
+
+= A
+// Trace: 1-5 (1) while calling `heading`
+== B
+
 --- heading-html-basic html ---
 // level 1 => h2
 // ...

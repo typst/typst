@@ -6,7 +6,7 @@ use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Tran
 use typst_library::math::CancelAngle;
 use typst_library::math::ir::{CancelItem, MathProperties};
 use typst_library::visualize::{FixedStroke, Geometry};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 
 use super::MathContext;
 use super::fragment::FrameFragment;
@@ -84,16 +84,16 @@ fn draw_cancel_line(
     length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
-    angle: &Smart<CancelAngle>,
+    angle: &Spanned<Smart<CancelAngle>>,
     body_size: Size,
     styles: StyleChain,
     span: Span,
 ) -> SourceResult<Frame> {
     let default = default_angle(body_size);
-    let mut angle = match angle {
+    let mut angle = match &angle.v {
         // Non specified angle defaults to the diagonal
         Smart::Auto => default,
-        Smart::Custom(angle) => match angle {
+        Smart::Custom(a) => match a {
             // This specifies the absolute angle w.r.t y-axis clockwise.
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
@@ -102,7 +102,7 @@ fn draw_cancel_line(
                     engine,
                     Context::new(None, Some(styles)).track(),
                     [default],
-                    span,
+                    angle.span,
                 )?
                 .cast()
                 .at(span)?,

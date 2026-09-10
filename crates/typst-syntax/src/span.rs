@@ -415,6 +415,12 @@ impl<T: Debug, S: Copy + SpanDetached> Debug for Spanned<T, S> {
     }
 }
 
+impl<T: Default, S: Copy + SpanDetached> Default for Spanned<T, S> {
+    fn default() -> Self {
+        Self { v: Default::default(), span: S::SPAN_DETACHED }
+    }
+}
+
 /// Allows generic access to the detached span. Only used to implement
 /// [`Spanned::detached`].
 trait SpanDetached {
