@@ -201,7 +201,7 @@ fn maybe_resolve_mutating(
         // Only arrays and dictionaries have mutable methods.
         target @ (Value::Array(_) | Value::Dict(_)) => {
             let value = call_method_mut(target, &field, args, span);
-            let point = || Tracepoint::Call(Some(field.get().clone()));
+            let point = || Tracepoint::call(field.get().clone());
             Ok(Ok(value.trace(vm.world(), point, span)?))
         }
         target => Ok(Err((target.clone(), args))),

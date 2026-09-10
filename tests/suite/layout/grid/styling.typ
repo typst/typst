@@ -103,6 +103,19 @@ a
   [A], [B], [C],
 )
 
+--- grid-inset-func-panic-trace paged trace ---
+#let compute-inset(x, y) = "100"
+
+// Error: 18-31 expected relative length or dictionary, found string
+#set grid(inset: compute-inset)
+
+// Trace: 1:2-5:2 (1) while calling `grid`
+#grid(
+  columns: 2,
+  [A], [B],
+  [C], [D],
+)
+
 --- grid-inset-folding paged ---
 // Test inset folding
 #set grid(inset: 10pt)

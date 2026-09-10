@@ -63,7 +63,7 @@ impl Access for ast::FuncCall<'_> {
                 let args = self.args().eval(vm)?.spanned(span);
                 let value = access.target().access(vm)?;
                 let result = call_method_access(value, &method, args, span);
-                let point = || Tracepoint::Call(Some(method.get().clone()));
+                let point = || Tracepoint::call(method.get().clone());
                 return result.trace(world, point, span);
             }
         }
