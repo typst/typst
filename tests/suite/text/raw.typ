@@ -854,6 +854,67 @@ hi:
   What is this?: This is incredible text!
 ```
 
+--- raw-highlight paged empty ---
+// Test `raw.highlight` function.
+#let code = "fn main() { println!(\"Hello World!\"); }"
+#context {
+  let highlighted = raw.highlight(code, lang: "rust")
+  test(highlighted.len(), 1)
+  test(highlighted.at(0).text, code)
+}
+
+--- raw-highlight-no-context eval ---
+// Test `raw.highlight` function.
+#let code = "fn main() { println!(\"Hello World!\"); }"
+// Error: 20-53 can only be used when context is known
+// Hint: 20-53 try wrapping this in a `context` expression
+// Hint: 20-53 the `context` expression should wrap everything that depends on this function
+#let highlighted = raw.highlight(code, lang: "rust")
+#test(highlighted.len(), 1)
+#test(highlighted.at(0).text, code)
+
+--- raw-highlight-multiline paged empty ---
+// Test `raw.highlight` function with multiline code.
+#context {
+  let code = "fn main() {\n    println!(\"Hello World!\");\n}"
+  let highlighted = raw.highlight(code, lang: "rust")
+  test(highlighted.len(), 3)
+  test(highlighted.at(0).text, "fn main() {")
+  test(highlighted.at(1).text, "    println!(\"Hello World!\");")
+  test(highlighted.at(2).text, "}")
+}
+
+--- raw-highlight-no-lang paged empty ---
+// Test `raw.highlight` function without specifying a language.
+#context {
+  let code = "fn main() { println!(\"Hello World!\"); }"
+  let highlighted = raw.highlight(code)
+  test(highlighted.len(), 1)
+  test(highlighted.at(0).text, code)
+}
+
+--- raw-highlight-theme paged empty ---
+// Test `raw.highlight` function with a specified theme.
+#set raw(theme: "/assets/themes/halcyon.tmTheme")
+
+#context {
+  let code = "fn main() { println!(\"Hello World!\"); }"
+  let highlighted = raw.highlight(code, lang: "rust")
+  test(highlighted.len(), 1)
+  test(highlighted.at(0).text, code)
+}
+
+--- raw-highlight-syntaxes paged empty ---
+// Test `raw.highlight` function with specified syntaxes.
+#set raw(syntaxes: "/assets/syntaxes/SExpressions.sublime-syntax")
+
+#context {
+  let code = "(defun factorial (x)\n  (if (zerop x)\n    ; with a comment\n    1\n    (* x (factorial (- x 1)))))"
+  let highlighted = raw.highlight(code, lang: "rust")
+  test(highlighted.len(), 5)
+  test(highlighted.at(0).text, "(defun factorial (x)")
+}
+
 --- raw-unclosed eval ---
 // Test unterminated raw text.
 //
