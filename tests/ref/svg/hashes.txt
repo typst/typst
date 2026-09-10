@@ -1764,6 +1764,8 @@ a48a9dfa4e0055f58be4cf6f81864e55 space-collapsing-stringy-linebreak
 24d788e5767b589ecda50b3b625ff51c space-ideographic-kept
 9544d3d7a5ca3455555d791f76398114 space-thin-kept
 3f621a90b2679a1d71b3d1b481a78e55 space-trailing-linebreak
+1ae18dc7d6c3cf8f9283ad72a2d9ab96 spacing-fr-negative-total-negative
+1ae18dc7d6c3cf8f9283ad72a2d9ab96 spacing-fr-negative-total-positive
 4af6a4906002920895f8a2f08a41b771 spacing-fr-weak-collapse
 57aed0d5b1a76bf9b69655e829110d35 spacing-fr-weak-destructs-rel-abs
 c6b09a5b69e19a1e340200a1de5d9433 spacing-fr-weak-destructs-smaller
