@@ -1,0 +1,26 @@
+[package]
+name = "amazing-apa"
+version = "7.6.7"
+entrypoint = "lib.typ"
+categories = ["paper", "layout"]
+authors = ["Jane Doe <jane.doe@example.com>", "John Doe <@johndoe>"]
+compiler = "0.15"
+description = "Amazing APA is..."
+disciplines = ["psychology", "business"]
+repository = "https://github.com/typst/typst"
+homepage = "typst.org"
+keywords = ["apa", "template", "paper"]
+license = "MIT-0"
+
+[template]
+path = "template"
+entrypoint = "main.typ"
+
+[tool]
+[tool.mytool]
+foo = "bar"
+
+[tool.another_tool]
+enabled = true
+output_dir = "./build"
+verbosity = 2
