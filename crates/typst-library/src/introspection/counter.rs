@@ -6,7 +6,7 @@ use std::sync::Arc;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use smallvec::{SmallVec, smallvec};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, NonZeroExt, Protected};
 
 use crate::diag::{At, HintedStrResult, SourceDiagnostic, SourceResult, bail, warning};
@@ -584,7 +584,7 @@ cast! {
 /// Elements that have special counting behaviour.
 pub trait Count {
     /// Get the counter update for this element.
-    fn update(&self) -> Option<CounterUpdate>;
+    fn update(&self) -> Option<Spanned<CounterUpdate>>;
 }
 
 /// Counts through elements with different levels.
@@ -602,16 +602,21 @@ impl CounterState {
     pub fn update(
         &mut self,
         engine: &mut Engine,
-        update: CounterUpdate,
+        update: Spanned<CounterUpdate>,
     ) -> SourceResult<()> {
-        match update {
+        match update.v {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
                 *self = func
-                    .call(engine, Context::none().track(), self.0.iter().copied())?
+                    .call_traced(
+                        engine,
+                        Context::none().track(),
+                        self.0.iter().copied(),
+                        update.span,
+                    )?
                     .cast()
-                    .at(func.span())?;
+                    .at(update.span)?;
             }
         }
         Ok(())
@@ -676,8 +681,8 @@ impl Construct for CounterUpdateElem {
 }
 
 impl Count for Packed<CounterUpdateElem> {
-    fn update(&self) -> Option<CounterUpdate> {
-        Some(self.update.clone())
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
+        Some(Spanned::new(self.update.clone(), self.span()))
     }
 }
 
@@ -756,7 +761,10 @@ impl ManualPageCounter {
                     };
                     if elem.key == CounterKey::Page {
                         let mut state = CounterState(smallvec![self.logical]);
-                        state.update(engine, elem.update.clone())?;
+                        state.update(
+                            engine,
+                            Spanned::new(elem.update.clone(), elem.span()),
+                        )?;
                         self.logical = state.first();
                     }
                 }
@@ -950,7 +958,7 @@ fn sequence_impl(
 
         if let Some(update) = match elem.with::<dyn Count>() {
             Some(countable) => countable.update(),
-            None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
+            None => Some(Spanned::detached(CounterUpdate::Step(NonZeroUsize::ONE))),
         } {
             current.update(&mut engine, update)?;
         }
