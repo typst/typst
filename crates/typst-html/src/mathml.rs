@@ -128,6 +128,11 @@ mtable mtd.{RIGHT_FLUSH_CLASS} {{
   padding-right: 0;
 }}
 
+/* Matrices */
+mtable:not(.aligned) > mtr > mtd {{
+  padding: 0.5ex;
+}}
+
 /* Tables */
 mtable {{
   math-style: inherit;
@@ -145,7 +150,7 @@ mtable.{MULTILINE_EQUATION_CLASS} mtd {{
   math-shift: inherit;
   padding: 0;
 }}
-math > mtable.{MULTILINE_EQUATION_CLASS} mtr:not(:last-child) mtd {{
+math > mtable.{MULTILINE_EQUATION_CLASS} > mtr:not(:last-child) > mtd {{
   padding-bottom: {};
 }}
 
