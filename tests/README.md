@@ -146,6 +146,7 @@ attributes are currently defined:
   sparingly.
 - `empty`: Indicates that a test shouldn't produce any non-trivial output. If it
   does anyway, it will fail.
+- `trace`: Check the trace points of errors using `// Trace:` notes.
 
 There are, broadly speaking, three kinds of tests:
 
@@ -177,14 +178,23 @@ There are, broadly speaking, three kinds of tests:
     ```
 
     These have inline annotations like `// Error: 2-7 thing was wrong`. An
-    annotation can start with either "Error", "Warning", or "Hint". The range
-    designates the code span the diagnostic message refers to in the _first
-    non-annotation line_ below. If the code span is in a line further below, you
-    can write ranges like `3:2-3:7` to indicate the 2-7 column in the 3rd
-    non-annotation line.
+    annotation can start with either "Error", "Warning", "Hint", or "Trace".
+    The range designates the code span the diagnostic message refers to in the
+    _first non-annotation line_ below. If the code span is in a line further
+    below, you can write ranges like `3:2-3:7` to indicate the 2-7 column in
+    the 3rd non-annotation line.
 
     Similarly to 1, these tests should have either the `eval` attribute or a
     pair like `paged empty` or `html empty`.
+
+    Using the `trace` attribute, the trace point of errors can be checked as
+    well. The position of a trace point in the list is prepended to the its
+    message as follows: `({n}) `, which will look like this:
+    ```
+    --- example-diagnostic-test eval ---
+    // Trace: 4-19 (3) while calling `func`
+    #func()
+    ```
 
 3. Tests that ensure certain **output is produced**:
     ```typ

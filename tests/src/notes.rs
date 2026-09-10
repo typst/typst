@@ -8,7 +8,6 @@ use std::ops::Range;
 use std::path::Path;
 use std::sync::LazyLock;
 
-use ecow::EcoString;
 use regex::{Captures, Regex};
 use typst::diag::{StrResult, bail};
 use typst::foundations::Bytes;
@@ -20,7 +19,7 @@ use typst_syntax::{
 };
 use unscanny::Scanner;
 
-use crate::collect::{FilePos, TestParseError, TestStages};
+use crate::collect::{Attrs, FilePos, TestParseError, TestStages};
 use crate::world::{TestFiles, TestWorld};
 
 /// The body of a test.
@@ -196,6 +195,7 @@ pub enum NoteKind {
     Error,
     Warning,
     Hint,
+    Trace,
 }
 
 impl Display for NoteKind {
@@ -204,6 +204,7 @@ impl Display for NoteKind {
             Self::Error => "Error",
             Self::Warning => "Warning",
             Self::Hint => "Hint",
+            Self::Trace => "Trace",
         })
     }
 }
@@ -213,7 +214,7 @@ impl Note {
     pub fn emitted(
         kind: NoteKind,
         stage: TestStages,
-        message: &EcoString,
+        message: impl Into<String>,
         span: DiagSpan,
         world: &TestWorld,
     ) -> Self {
@@ -235,7 +236,7 @@ impl Note {
             NoteRange::None
         };
 
-        let mut message: String = message.into();
+        let mut message = message.into();
         if message.contains('\\') {
             // HACK: Replace backslashes in path sepators with slashes for cross
             // platform reproducible error messages.
@@ -424,6 +425,7 @@ impl Display for LineCol {
 /// Parse the body of a test.
 pub fn parse_test_body(
     pos: FilePos,
+    attrs: &Attrs,
     full_body: &str,
     errors: &mut Vec<TestParseError>,
 ) -> TestBody {
@@ -453,7 +455,16 @@ pub fn parse_test_body(
         let line = pos.line + i;
         let note_pos = FilePos { path: pos.path.clone(), line };
         match parse_note(note_pos, annotated_line, &mut s, kind, source.clone()) {
-            Ok(note) => notes.push(note),
+            Ok(note) => {
+                if !attrs.trace && note.kind == NoteKind::Trace {
+                    errors.push(TestParseError::new(
+                        "found `// Trace:` note in test without `trace` attribute",
+                        &pos.path,
+                        line,
+                    ));
+                }
+                notes.push(note);
+            }
             Err(message) => errors.push(TestParseError::new(message, &pos.path, line)),
         }
     }
@@ -468,6 +479,7 @@ fn parse_note_start(s: &mut Scanner) -> Option<NoteKind> {
         ("// Error:", NoteKind::Error),
         ("// Warning:", NoteKind::Warning),
         ("// Hint:", NoteKind::Hint),
+        ("// Trace:", NoteKind::Trace),
     ] {
         if s.eat_if(pattern) {
             return Some(kind);
