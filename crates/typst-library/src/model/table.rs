@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use typst_macros::Cast;
+use typst_syntax::Spanned;
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
@@ -10,7 +11,7 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::layout::resolve::{CellGrid, table_to_cellgrid};
+use crate::layout::resolve::{CellGrid, GridStroke, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
@@ -192,8 +193,8 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+    #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into())))))]
+    pub inset: Spanned<Celled<Sides<Option<Rel<Length>>>>>,
 
     /// How to align the cells' content.
     ///
@@ -215,7 +216,7 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    pub align: Celled<Smart<Alignment>>,
+    pub align: Spanned<Celled<Smart<Alignment>>>,
 
     /// How to fill the cells.
     ///
@@ -243,7 +244,7 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    pub fill: Celled<Option<Paint>>,
+    pub fill: Spanned<Celled<Option<Paint>>>,
 
     /// How to @stroke[stroke] the cells.
     ///
@@ -265,8 +266,10 @@ pub struct TableElem {
     ///
     /// See the @guides:tables:strokes[Table Guide] for more details.
     #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
-    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
+    #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Some(
+        Arc::new(Stroke::default())
+    ))))))]
+    pub stroke: Spanned<Celled<Sides<GridStroke>>>,
 
     /// A summary of the purpose and structure of complex tables.
     ///
@@ -762,7 +765,7 @@ pub struct TableCell {
 
     /// The cell's @table.stroke[stroke] override.
     #[fold]
-    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+    pub stroke: Sides<GridStroke>,
 
     /// Whether rows spanned by this cell can be placed in different pages. When
     /// equal to `{auto}`, a cell spanning only fixed-size rows is unbreakable,

@@ -1,7 +1,8 @@
 use comemo::Track;
 use ecow::eco_format;
+use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, Hint, SourceResult, bail};
+use crate::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
@@ -176,7 +177,7 @@ pub struct RefElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    pub supplement: Smart<Option<Supplement>>,
+    pub supplement: Spanned<Smart<Option<Supplement>>>,
 
     /// The kind of reference to produce.
     ///
@@ -338,10 +339,13 @@ fn realize_reference(
     let loc = elem.location().unwrap();
     let numbers = counter.display_at(engine, loc, styles, &numbering.trimmed(), span)?;
 
-    let supplement = match reference.supplement.get_ref(styles) {
+    let sup = reference.supplement.get_ref(styles);
+    let supplement = match &sup.v {
         Smart::Auto => supplement,
         Smart::Custom(None) => Content::empty(),
-        Smart::Custom(Some(supplement)) => supplement.resolve(engine, styles, [elem])?,
+        Smart::Custom(Some(supplement)) => supplement
+            .resolve(engine, styles, [elem], sup.span)
+            .trace(engine.world, || Tracepoint::call(RefElem::ELEM.name()), span)?,
     };
 
     let alt = {
@@ -367,7 +371,7 @@ fn to_citation(
     styles: StyleChain,
 ) -> SourceResult<Packed<CiteElem>> {
     let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
-        match reference.supplement.get_cloned(styles) {
+        match reference.supplement.get_cloned(styles).v {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         },
@@ -392,11 +396,17 @@ impl Supplement {
         engine: &mut Engine,
         styles: StyleChain,
         args: impl IntoIterator<Item = T>,
+        span: Span,
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
             Supplement::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), args)?
+                .call_traced(
+                    engine,
+                    Context::new(None, Some(styles)).track(),
+                    args,
+                    span,
+                )?
                 .display(),
         })
     }
