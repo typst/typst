@@ -33,6 +33,7 @@ rustc-hash = { workspace = true }
 ryu = { workspace = true }
 ttf-parser = { workspace = true }
 xmlwriter = { workspace = true }
+write-fonts = { workspace = true }
 
 [lints]
 workspace = true
