@@ -4,30 +4,32 @@ use std::sync::Arc;
 use az::SaturatingAs;
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
-use typst_library::diag::{At, warning};
+use typst_library::diag::{At, ExpectInternal, SourceResult, WarningSink, bail, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
-    Target,
+    Content, Context, IntoValue, NativeElement, NativeRuleMap, Repr, Selector,
+    SequenceElem, ShowFn, Smart, StyleChain, Target,
 };
 use typst_library::introspection::{
-    Counter, DocumentIntrospection, Locator, QueryIntrospection,
+    Counter, CounterKey, DocumentIntrospection, Locator, QueryIntrospection,
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
 use typst_library::layout::{BlockElem, HElem, OuterVAlignment, Sizing};
 use typst_library::math::EquationElem;
 use typst_library::math::ir::resolve_equation;
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
-    FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
-    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
-    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    Attribution, BibliographyElem, ButtonAction, CiteElem, CiteGroup, ContentType,
+    CslIndentElem, CslLightElem, Destination, DirectLinkElem, DividerElem,
+    EarlyLinkResolver, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteContainer,
+    FootnoteElem, FootnoteEntry, FootnoteMarker, FormButton, FormCheckbox, FormChoice,
+    FormElem, FormLabel, FormRadioButton, FormRadioGroup, FormTextbox, HeadingElem,
+    HttpMethod, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
+    ParElem, ParbreakElem, QuoteElem, RefElem, ResolvedLink, StrongElem, TableCell,
+    TableElem, TermsElem, TitleElem, Works, form_fields_selector, gen_field_name,
 };
 use typst_library::routines::Arenas;
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_syntax::Span;
@@ -67,6 +69,14 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, CSL_INDENT_RULE);
     rules.register(Html, TABLE_RULE);
     rules.register(Html, TABLE_CELL_RULE);
+    rules.register(Html, FORM_RULE);
+    rules.register(Html, FORM_BUTTON_RULE);
+    rules.register(Html, FORM_CHECKBOX_RULE);
+    rules.register(Html, FORM_RADIO_GROUP_RULE);
+    rules.register(Html, FORM_RADIO_RULE);
+    rules.register(Html, FORM_TEXTBOX_RULE);
+    rules.register(Html, FORM_CHOICE_RULE);
+    rules.register(Html, FORM_LABEL_RULE);
 
     // Text.
     rules.register(Html, SUB_RULE);
@@ -687,6 +697,316 @@ fn show_cell(tag: HtmlTag, cell: &Cell, styles: StyleChain) -> Content {
 
 const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, _| Ok(elem.body.clone());
 
+const FORM_RULE: ShowFn<FormElem> = |elem, _, styles| {
+    let span = elem.span();
+    let mut attributes = HtmlAttrs::new();
+
+    if let Some(target) = elem.target.get_ref(styles) {
+        attributes.push(attr::action, target.url.clone());
+
+        if let Smart::Custom(content_type) = target.content_type {
+            let content_type = match content_type {
+                ContentType::UrlEncoded => "application/x-www-form-url-encoded",
+                ContentType::Multipart => "multipart/form-data",
+                ContentType::Plain => "text/plain",
+                ContentType::Pdf | ContentType::Fdf | ContentType::Xfdf => {
+                    bail!(
+                        span,
+                        "content-type `{}` is not supported in HTML export",
+                        content_type.into_value().repr()
+                    )
+                }
+            };
+            attributes.push(attr::enctype, content_type);
+        }
+
+        let method = match target.method {
+            HttpMethod::Get => "get",
+            HttpMethod::Post => "post",
+        };
+        attributes.push(attr::method, method);
+    }
+
+    Ok(HtmlElem::new(tag::form)
+        .with_attrs(attributes)
+        .with_body(Some(elem.body.clone()))
+        .pack()
+        .spanned(span))
+};
+
+const FORM_BUTTON_RULE: ShowFn<FormButton> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let mut attributes = HtmlAttrs::new();
+    let action = match elem.action.get(styles) {
+        Some(ButtonAction::Submit) => "submit",
+        Some(ButtonAction::Reset) => "reset",
+        None => "button",
+    };
+    attributes.push(attr::r#type, action);
+
+    if let Smart::Custom(name) = elem.name.get_ref(styles) {
+        attributes.push(attr::name, name);
+    }
+
+    let mut css = css::Properties::build(engine.binding_guard(span));
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
+
+    Ok(HtmlElem::new(tag::button)
+        .with_attrs(attributes)
+        .with_css(css.finish())
+        .with_body(Some(elem.body.clone()))
+        .pack()
+        .spanned(span))
+};
+
+const FORM_CHECKBOX_RULE: ShowFn<FormCheckbox> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let mut attributes = HtmlAttrs::new();
+    attributes.push(attr::r#type, "checkbox");
+    if let Smart::Custom(name) = elem.name.get_ref(styles) {
+        attributes.push(attr::name, name);
+    }
+
+    if elem.checked.get(styles) {
+        attributes.push(attr::checked, "");
+    }
+
+    if elem.disabled.get(styles) {
+        attributes.push(attr::disabled, "");
+    }
+
+    let mut css = css::Properties::build(engine.binding_guard(span));
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
+
+    Ok(HtmlElem::new(tag::input)
+        .with_attrs(attributes)
+        .with_css(css.finish())
+        .pack()
+        .spanned(span))
+};
+
+const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroup> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let mut attributes = HtmlAttrs::new();
+
+    if elem.disabled.get(styles) {
+        attributes.push(attr::disabled, "");
+    }
+
+    let selected = elem.resolve_selected_early(engine, styles);
+    engine.delay(selected);
+
+    let legend = elem.title.get_cloned(styles).map(|title| {
+        let span = title.span();
+        HtmlElem::new(tag::legend).with_body(Some(title)).pack().spanned(span)
+    });
+
+    let body = Content::sequence([legend, Some(elem.body.clone())].into_iter().flatten());
+
+    Ok(HtmlElem::new(tag::fieldset)
+        .with_attrs(attributes)
+        .with_body(Some(body))
+        .pack()
+        .spanned(span))
+};
+
+const FORM_RADIO_RULE: ShowFn<FormRadioButton> = |elem, engine, styles| {
+    let span = elem.span();
+    let group = FormRadioGroup::try_from_styles(elem, &styles)?;
+    let mut attributes = HtmlAttrs::new();
+    attributes.push(attr::r#type, "radio");
+    if let Smart::Custom(value) = elem.value.get_ref(styles) {
+        attributes.push(attr::value, value);
+    }
+
+    if group.selected.get_ref(styles) == &elem.label() {
+        attributes.push(attr::checked, "");
+    }
+
+    if group.required.get(styles) {
+        attributes.push(attr::required, "");
+    }
+
+    let group_name =
+        group
+            .name
+            .get_cloned(styles)
+            .map(SourceResult::Ok)
+            .unwrap_or_else(|| {
+                let counter =
+                    Counter::new(CounterKey::Selector(form_fields_selector().clone()));
+                let context = Context::new(group.location(), Some(styles));
+                let counter_state = counter.get(engine, context.track(), span)?;
+                Ok(gen_field_name(counter_state.first()))
+            })?;
+    attributes.push(attr::name, group_name);
+
+    let mut css = css::Properties::build(engine.binding_guard(elem.span()));
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
+
+    Ok(HtmlElem::new(tag::input)
+        .with_attrs(attributes)
+        .with_css(css.finish())
+        .pack()
+        .spanned(span))
+};
+
+const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let mut attributes = HtmlAttrs::new();
+    if let Smart::Custom(name) = elem.name.get_ref(styles) {
+        attributes.push(attr::name, name);
+    }
+
+    if elem.disabled.get(styles) {
+        attributes.push(attr::disabled, "");
+    }
+
+    if elem.required.get(styles) {
+        attributes.push(attr::required, "");
+    }
+
+    if let Some(max_length) = elem.max_length.get(styles) {
+        attributes.push(attr::maxlength, max_length.to_string());
+    }
+
+    if elem.fixed_width.get(styles) {
+        engine.sink.warn(warning!(
+            span, "`fixed-width` property was ignored during HTML export";
+            hint: "the property is not supported in this export format";
+        ));
+    }
+
+    if let Some(placeholder) = elem.placeholder.get_ref(styles) {
+        attributes.push(attr::placeholder, placeholder);
+    }
+
+    if let Smart::Custom(spellcheck) = elem.spellcheck.get(styles) {
+        attributes.push(attr::spellcheck, if spellcheck { "true" } else { "false" });
+        attributes.push(attr::autocorrect, if spellcheck { "on" } else { "off" });
+    }
+
+    let mut css = css::Properties::build(engine.binding_guard(span));
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
+
+    let is_textarea = elem.multiline.get(styles);
+    if is_textarea {
+        let body = elem
+            .value
+            .get_ref(styles)
+            .as_ref()
+            .map(|value| TextElem::new(value.into()).pack());
+
+        Ok(HtmlElem::new(tag::textarea)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .with_body(body)
+            .pack()
+            .spanned(span))
+    } else {
+        attributes.push(attr::r#type, "text");
+
+        if let Some(value) = elem.value.get_ref(styles) {
+            attributes.push(attr::value, value);
+        }
+
+        Ok(HtmlElem::new(tag::input)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .pack()
+            .spanned(span))
+    }
+};
+
+const FORM_CHOICE_RULE: ShowFn<FormChoice> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let mut attributes = HtmlAttrs::new();
+    if let Smart::Custom(name) = elem.name.get_ref(styles) {
+        attributes.push(attr::name, name);
+    }
+
+    let options = elem.options.get_ref(styles);
+    let selected_values = elem
+        .value_indexes
+        .as_ref()
+        .expect_internal("synthesized `value_indexes` not set")
+        .at(span)?;
+    let multiple = elem.multiple.get(styles);
+
+    if multiple {
+        attributes.push(attr::multiple, "");
+    }
+
+    if elem.disabled.get(styles) {
+        attributes.push(attr::disabled, "");
+    }
+
+    if elem.required.get(styles) {
+        attributes.push(attr::required, "");
+    }
+
+    let body = options
+        .0
+        .iter()
+        .enumerate()
+        .map(|(i, option)| {
+            let body = TextElem::new(option.display_or_mapping_name()).pack();
+            let mut option_attrs = HtmlAttrs::new();
+            option_attrs.push(attr::value, &option.mapping_name);
+
+            if selected_values.contains(&i) {
+                option_attrs.push(attr::selected, "");
+            }
+
+            HtmlElem::new(tag::option)
+                .with_attrs(option_attrs)
+                .with_body(Some(body))
+                .pack()
+        })
+        .collect();
+
+    let mut css = css::Properties::build(engine.binding_guard(span));
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
+
+    Ok(HtmlElem::new(tag::select)
+        .with_attrs(attributes)
+        .with_css(css.finish())
+        .with_body(Some(SequenceElem::new(body).pack()))
+        .pack()
+        .spanned(span))
+};
+
+const FORM_LABEL_RULE: ShowFn<FormLabel> = |elem, engine, _| {
+    let span = elem.span();
+    let location = elem.resolve_early(engine, span)?;
+
+    let id = EarlyLinkResolver::new(elem.location().unwrap(), span)
+        .resolve(engine, location)
+        .and_then(|link| match link {
+            ResolvedLink::Local { anchor } => Ok(anchor),
+            ResolvedLink::Cross { .. } => {
+                bail!("form labels can only target fields in the same document")
+            }
+        })
+        .at(span)?;
+
+    Ok(HtmlElem::new(tag::label)
+        .with_attr(attr::r#for, id)
+        .with_body(Some(elem.body.clone()))
+        .pack()
+        .spanned(span))
+};
+
 const SUB_RULE: ShowFn<SubElem> =
     |elem, _, _| Ok(HtmlElem::new(tag::sub).with_body(Some(elem.body.clone())).pack());
 
@@ -798,18 +1118,7 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
         css.push("image-rendering", value);
     }
 
-    // TODO: Exclude in semantic profile?
-    match elem.width.get(styles) {
-        Smart::Auto => {}
-        Smart::Custom(rel) => css.push("width", rel),
-    }
-
-    // TODO: Exclude in semantic profile?
-    match elem.height.get(styles) {
-        Sizing::Auto => {}
-        Sizing::Rel(rel) => css.push("height", rel),
-        Sizing::Fr(_) => {}
-    }
+    set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
     Ok(BlockElem::packed(
         HtmlElem::new(tag::img)
@@ -849,4 +1158,23 @@ pub fn html_mathml_body<'a>(
 ) -> Option<Option<&'a Content>> {
     let elem = content.to_packed::<HtmlElem>()?;
     tag::mathml::is_mathml(elem.tag).then(|| elem.body.get_ref(styles).as_ref())
+}
+
+/// Set the width and height css attributes on a properties builder.
+fn set_css_width_height<S: WarningSink>(
+    css: &mut css::PropertiesBuilder<S>,
+    width: impl Into<Sizing>,
+    height: impl Into<Sizing>,
+) {
+    // TODO: Exclude in semantic profile?
+    match width.into() {
+        Sizing::Auto | Sizing::Fr(_) => {}
+        Sizing::Rel(rel) => css.push("width", rel),
+    }
+
+    // TODO: Exclude in semantic profile?
+    match height.into() {
+        Sizing::Auto | Sizing::Fr(_) => {}
+        Sizing::Rel(rel) => css.push("height", rel),
+    }
 }

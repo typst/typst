@@ -11,13 +11,16 @@ use crate::diag::{
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Content, Dict, FromValue, IntoValue, Label, NativeElement, OneOrMultiple,
-    Packed, Repr, Selector, Smart, StyleChain, Synthesize, Value, dict, elem, scope,
+    Packed, Repr, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, dict,
+    elem, scope,
 };
-use crate::introspection::{Introspector, Location, QueryLabelIntrospection};
+use crate::introspection::{
+    Introspector, Location, QueryIntrospection, QueryLabelIntrospection,
+};
 use crate::layout::{Length, Rel, Sizing};
 
 /// TODO: docs
-#[elem(scope, since = "unreleased", Locatable)]
+#[elem(scope, since = "unreleased", Locatable, ShowSet)]
 pub struct FormElem {
     /// The fields belonging to this form, along with any surrounding content.
     #[required]
@@ -26,6 +29,23 @@ pub struct FormElem {
     /// Where to submit this form when a @form.button with a
     /// @form.button.action[submit action] is pressed.
     pub target: Option<FormTarget>,
+
+    /// This form, to be inherited by field elements.
+    #[internal]
+    #[ghost]
+    pub form: Option<Packed<FormElem>>,
+}
+
+impl ShowSet for Packed<FormElem> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the form itself available to its field. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone();
+        elem.materialize(styles);
+        out.set(FormElem::form, Some(elem));
+        out
+    }
 }
 
 #[scope]
@@ -44,6 +64,23 @@ impl FormElem {
     type FormChoice;
     #[elem]
     type FormLabel;
+}
+
+impl FormElem {
+    /// Get the ancestor form element that is present in the style chain, if any.
+    /// Returns an error if not.
+    pub fn try_from_styles<'a, T: NativeElement>(
+        elem: &Packed<T>,
+        styles: &'a StyleChain,
+    ) -> SourceResult<&'a Packed<FormElem>> {
+        styles.get_ref(FormElem::form).as_ref().ok_or_else(|| {
+            eco_vec![error!(
+                elem.span(),
+                "this {} element must be placed inside a form element", T::ELEM.name();
+                hint: "try surrounding this element with `#form[...]`";
+            )]
+        })
+    }
 }
 
 /// Where and how to submit a filled out form.
@@ -176,7 +213,7 @@ pub struct FormCheckbox {
 }
 
 /// TODO: docs
-#[elem(name = "radio-group", since = "unreleased", Locatable)]
+#[elem(name = "radio-group", since = "unreleased", Locatable, ShowSet)]
 pub struct FormRadioGroup {
     /// The radio buttons belonging to this group, along with any surrounding content.
     #[required]
@@ -204,6 +241,88 @@ pub struct FormRadioGroup {
     pub disabled: bool,
 }
 
+impl Packed<FormRadioGroup> {
+    /// Resolves the selected radio button early.
+    pub fn resolve_selected_early(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Option<Packed<FormRadioButton>>> {
+        let Some(selected) = self.selected.get_cloned(styles) else { return Ok(None) };
+        let location = self.location().unwrap();
+        let span = self.span();
+        let matches = engine.introspect(QueryIntrospection(
+            Selector::Label(selected).within(location.into()),
+            span,
+        ));
+        Self::try_into_radio_button(selected, &matches, span).map(Some)
+    }
+
+    /// Attempts to convert the element returned by the query to a radio button,
+    /// if there is only one.
+    ///
+    /// Returns an error instead if there is none or multiple,
+    /// or if element is not a radio button.
+    fn try_into_radio_button(
+        selected: Label,
+        matches: &[Content],
+        span: Span,
+    ) -> SourceResult<Packed<FormRadioButton>> {
+        match matches {
+            [content] => {
+                if let Some(radio_button) = content.to_packed::<FormRadioButton>() {
+                    Ok(radio_button.clone())
+                } else {
+                    bail!(
+                        span, "label `{}` is not a radio button", selected.repr();
+                        hint[content.span()]: "label refers to this {}", content.elem().name()
+                    )
+                }
+            }
+            [] => bail!(
+                span,
+                "label `{}` does not exist in the radio group",
+                selected.repr()
+            ),
+            _ => bail!(
+                span,
+                "label `{}` occurs multiple times in the radio group",
+                selected.repr()
+            ),
+        }
+    }
+}
+
+impl ShowSet for Packed<FormRadioGroup> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the radio group itself available to its radio buttons. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone();
+        elem.materialize(styles);
+        out.set(FormRadioButton::parent, Some(elem));
+        out
+    }
+}
+
+impl FormRadioGroup {
+    /// Get the ancestor radio group element that is present in the style chain, if any.
+    ///
+    /// Returns an error if not.
+    pub fn try_from_styles<'a, T: NativeElement>(
+        elem: &Packed<T>,
+        styles: &'a StyleChain,
+    ) -> SourceResult<&'a Packed<FormRadioGroup>> {
+        styles.get_ref(FormRadioButton::parent).as_ref().ok_or_else(|| {
+            eco_vec![error!(
+                elem.span(),
+                "this radio button must be placed inside a radio group";
+                hint: "try surrounding this button with `#form.radio-group[...]`";
+            )]
+        })
+    }
+}
+
 /// TODO: docs
 #[elem(name = "radio", since = "unreleased", Locatable, Tagged)]
 pub struct FormRadioButton {
@@ -217,6 +336,12 @@ pub struct FormRadioButton {
 
     /// The radio button's height.
     pub height: Sizing,
+
+    /// Lets radio buttons access the radio group they are part of.
+    /// This is a bit of a hack and should be superseded by a proper ancestry mechanism.
+    #[ghost]
+    #[internal]
+    pub parent: Option<Packed<FormRadioGroup>>,
 }
 
 /// TODO: docs
@@ -480,6 +605,11 @@ impl FormLabel {
             .map(|elem| elem.into_packed::<Self>().unwrap())
             .filter_map(|elem| elem.resolve_late(introspector).ok())
     }
+}
+
+/// Generate an implicit field name based on a counter value.
+pub fn gen_field_name(counter: u64) -> EcoString {
+    eco_format!("field-{}", counter)
 }
 
 /// Get a selector that targets all form field types.
