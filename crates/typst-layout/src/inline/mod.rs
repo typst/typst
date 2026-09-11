@@ -18,7 +18,9 @@ use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator,
 };
-use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
+use typst_library::layout::{
+    Abs, AlignElem, Dir, FixedAlignment, Fragment, Length, Size,
+};
 use typst_library::model::{
     Destination, EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem,
     ListElem, ParElem, ParLine, ParLineMarker, TermsElem,
@@ -242,6 +244,7 @@ fn configuration(
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
         costs: shared.get(TextElem::costs),
         link,
+        leading: shared.get(ParElem::leading),
     }
 }
 
@@ -303,6 +306,8 @@ struct Config {
     costs: Costs,
     /// The link active throughout the whole paragraph.
     link: Option<(Destination, Location)>,
+    /// Paragraph leading.
+    leading: Length,
 }
 
 /// Get a style property, but only if it is the same for all of the children.
