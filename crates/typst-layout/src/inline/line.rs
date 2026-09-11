@@ -7,7 +7,7 @@ use typst_library::foundations::Styles;
 use typst_library::introspection::{Location, SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
 use typst_library::model::{Destination, LinkElem, ParLineMarker};
-use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
+use typst_library::text::{FontInstance, Lang, TextElem, TextSize, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
@@ -669,8 +669,13 @@ pub fn commit<'l>(
         let y = top - link_info.height;
         let width = end - link_info.start;
         let height = link_info.height;
+
+        // TODO: pass relative leading directly to 'modify_text' instead of ad-hoc stylechain modifications?
+        // - also consider per-text run font size.
         let mut styles = Styles::new();
         styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
+        styles.set(ParElem::leading, p.config.leading);
+        styles.set(TextElem::size, TextSize(Length::from(p.config.font_size)));
 
         // TODO: a single modify call, calculating the height needed in real-time when going over text...
         let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
