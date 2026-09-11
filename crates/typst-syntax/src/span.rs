@@ -449,6 +449,14 @@ impl<T, S: Copy + SpanDetached, const SPAN_EQ: bool> Spanned<T, S, SPAN_EQ> {
     }
 }
 
+#[expect(private_bounds)]
+impl<T, S: Copy + SpanDetached, const SPAN_EQ: bool> Spanned<Option<T>, S, SPAN_EQ> {
+    /// Transposes a `Spanned` of an `Option` into an `Option` of a `Spanned`.
+    pub fn transpose(self) -> Option<Spanned<T, S, SPAN_EQ>> {
+        self.v.map(|v| Spanned::new(v, self.span))
+    }
+}
+
 impl<T: Debug, S: Copy + SpanDetached, const SPAN_EQ: bool> Debug
     for Spanned<T, S, SPAN_EQ>
 {
