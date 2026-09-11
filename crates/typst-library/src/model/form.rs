@@ -187,6 +187,19 @@ pub struct FormRadioGroup {
     // TODO: should this be on the individual buttons?
     /// Whether this radio-group is read-only and its value cannot be changed.
     pub read_only: bool,
+
+    #[internal]
+    #[ghost]
+    pub radio_group: Option<RadioGroup>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct RadioGroup {
+    pub location: Location,
+    // TODO: remove and use location to get name
+    pub name: Smart<EcoString>,
+    pub selected: Option<EcoString>,
+    pub required: bool,
 }
 
 #[elem(name = "radio", since = "unreleased", Locatable)]

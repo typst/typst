@@ -10,12 +10,13 @@ use typst_library::model::AnchorGenerator;
 
 use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, tag};
 
-/// Attaches IDs to nodes produced by link targets to make them linkable.
+/// Attaches IDs to nodes produced by link targets to make them linkable,
+/// or by form labels to be able to associate them with the respective inputs.
 ///
 /// The `targets` set should contain the locations of all elements in the HTML
-/// document that are linked to from somewhere.
+/// document that are linked or referred to from somewhere.
 ///
-/// May produce `<span>`s for link targets that turned into text nodes or no
+/// May produce `<span>`s for targets that turned into text nodes or no
 /// nodes at all. See the [`LinkElem`](typst_library::model::LinkElem)
 /// documentation for more details.
 ///
