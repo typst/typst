@@ -635,6 +635,21 @@ impl<'a> StyleChain<'a> {
         self.get_unfolded(E::ELEM, I).unwrap_or_else(|| E::default_ref())
     }
 
+    /// Retrieves an iterator over the references to all the values of the given field
+    /// from the style chain.
+    ///
+    /// Not possible if the value needs folding.
+    pub fn get_all_ref<E, const I: u8>(
+        self,
+        _: Field<E, I>,
+    ) -> impl Iterator<Item = &'a E::Type>
+    where
+        E: RefableProperty<I>,
+    {
+        let elem = E::ELEM;
+        self.properties(elem, I).map(move |block| block.downcast(elem, I))
+    }
+
     /// Retrieves the value and then immediately [resolves](Resolve) it.
     pub fn resolve<E, const I: u8>(
         self,
