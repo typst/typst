@@ -13,7 +13,7 @@ use std::str::FromStr;
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
-use clap_complete::Shell;
+use clap_complete::Generator;
 use semver::Version;
 use serde::Serialize;
 use typst_utils::display_possible_values;
@@ -277,6 +277,43 @@ pub struct CompletionsCommand {
     /// The shell to generate completions for.
     #[arg(value_enum)]
     pub shell: Shell,
+}
+
+/// Which shell to generate completions for.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+#[allow(clippy::enum_variant_names)]
+pub enum Shell {
+    Bash,
+    Elvish,
+    Fish,
+    Nushell,
+    PowerShell,
+    Zsh,
+}
+
+impl Generator for Shell {
+    fn file_name(&self, name: &str) -> String {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.file_name(name),
+            Shell::Elvish => clap_complete::shells::Elvish.file_name(name),
+            Shell::Fish => clap_complete::shells::Fish.file_name(name),
+            Shell::Nushell => clap_complete_nushell::Nushell.file_name(name),
+            Shell::PowerShell => clap_complete::shells::PowerShell.file_name(name),
+            Shell::Zsh => clap_complete::shells::Zsh.file_name(name),
+        }
+    }
+
+    fn generate(&self, cmd: &clap::Command, buf: &mut dyn Write) {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.generate(cmd, buf),
+            Shell::Elvish => clap_complete::shells::Elvish.generate(cmd, buf),
+            Shell::Fish => clap_complete::shells::Fish.generate(cmd, buf),
+            Shell::Nushell => clap_complete_nushell::Nushell.generate(cmd, buf),
+            Shell::PowerShell => clap_complete::shells::PowerShell.generate(cmd, buf),
+            Shell::Zsh => clap_complete::shells::Zsh.generate(cmd, buf),
+        }
+    }
 }
 
 /// Displays environment variables and default values Typst uses.
