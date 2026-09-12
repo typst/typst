@@ -116,8 +116,20 @@
 = F
 
 --- outline-indent-bad-type paged ---
-// Error: 2-35 expected relative length, found dictionary
+// Error: 18-34 expected relative length, found dictionary
 #outline(indent: n => (a: "dict"))
+
+= Heading
+
+--- outline-indent-function-panic-trace paged trace ---
+// Error: 19-26 panicked
+#let compute(n) = panic()
+
+// Trace: 22-29 (1) while calling `compute`
+#set outline(indent: compute)
+
+// Trace: 2-11 (2) while calling `indented`
+#outline()
 
 = Heading
 

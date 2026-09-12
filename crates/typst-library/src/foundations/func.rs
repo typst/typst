@@ -11,7 +11,9 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{
+    At, HintedStrResult, SourceResult, StrResult, Trace, Tracepoint, bail,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
@@ -322,6 +324,19 @@ impl Func {
         }
     }
 
+    /// Call the function with the given context and arguments, adding a call
+    /// tracepoint at the span.
+    pub fn call_traced<A: IntoArgs>(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        args: A,
+        span: Span,
+    ) -> SourceResult<Value> {
+        let point = || Tracepoint::Call(self.name().map(Into::into));
+        self.call(engine, context, args).trace(engine.world, point, span)
+    }
+
     /// Call the function with the given context and arguments.
     pub fn call<A: IntoArgs>(
         &self,
@@ -329,7 +344,7 @@ impl Func {
         context: Tracked<Context>,
         args: A,
     ) -> SourceResult<Value> {
-        self.call_impl(engine, context, args.into_args(self.span))
+        self.call_impl(engine, context, args.into_args(self.params_span()))
     }
 
     /// Non-generic implementation of `call`.
@@ -376,12 +391,28 @@ impl Func {
         }
     }
 
-    /// The function's span.
+    /// The span with which errors are reported when this function is called.
     pub fn span(&self) -> Span {
         self.span
     }
 
+    /// The span of the function parameters, falling back to the general report
+    /// span, if not available.
+    pub fn params_span(&self) -> Span {
+        let params_span = match &self.inner {
+            FuncInner::Native(_) => Span::detached(),
+            FuncInner::Element(_) => Span::detached(),
+            FuncInner::Closure(closure) => closure.node.params_span(),
+            FuncInner::Plugin(_) => Span::detached(),
+            FuncInner::With(with) => with.0.params_span(),
+        };
+        params_span.or(self.span)
+    }
+
     /// Attach a span to this function if it doesn't already have one.
+    ///
+    /// This is used to report errors of the return value of the closure, or
+    /// when the closure is used as a value.
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span.is_detached() {
             self.span = span;
@@ -720,6 +751,20 @@ pub enum ClosureNode {
     /// Synthetic closure used for `context` expressions. Can be any `ast::Expr`
     /// and has no parameters.
     Context(SyntaxNode),
+}
+
+impl ClosureNode {
+    /// Returns the span of the closure parameters, if any.
+    pub fn params_span(&self) -> Span {
+        match self {
+            ClosureNode::Closure(node) => node
+                .cast::<ast::Closure>()
+                .expect("node to be an `ast::Closure`")
+                .params()
+                .span(),
+            ClosureNode::Context(_) => Span::detached(),
+        }
+    }
 }
 
 /// A user-defined closure.

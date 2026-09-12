@@ -2,9 +2,10 @@ use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
 use ecow::EcoString;
+use typst_syntax::Spanned;
 use typst_utils::NonZeroExt;
 
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
@@ -107,7 +108,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
-    pub supplement: Smart<Option<Supplement>>,
+    pub supplement: Spanned<Smart<Option<Supplement>>>,
 
     /// An alternative description of the mathematical equation.
     ///
@@ -176,16 +177,22 @@ impl Synthesize for Packed<EquationElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let supplement = match self.as_ref().supplement.get_ref(styles) {
+        let sup = self.as_ref().supplement.get_ref(styles);
+        let supplement = match &sup.v {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, styles, [self.clone().pack()])?
+                let point = || Tracepoint::call(EquationElem::ELEM.name());
+                supplement
+                    .resolve(engine, styles, [self.clone().pack()], sup.span)
+                    .trace(engine.world, point, self.span())?
             }
         };
 
-        self.supplement
-            .set(Smart::Custom(Some(Supplement::Content(supplement))));
+        self.supplement.set(Spanned {
+            span: supplement.span(),
+            v: Smart::Custom(Some(Supplement::Content(supplement))),
+        });
 
         self.locale = Some(Locale::get_in(styles));
 
@@ -214,9 +221,9 @@ impl ShowSet for Packed<EquationElem> {
 }
 
 impl Count for Packed<EquationElem> {
-    fn update(&self) -> Option<CounterUpdate> {
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
         (self.block.get(StyleChain::default()) && self.numbering().is_some())
-            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+            .then(|| Spanned::new(CounterUpdate::Step(NonZeroUsize::ONE), self.span()))
     }
 }
 
@@ -227,7 +234,7 @@ impl LocalName for Packed<EquationElem> {
 impl Refable for Packed<EquationElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement.get_cloned(StyleChain::default()) {
+        match self.supplement.get_cloned(StyleChain::default()).v {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }

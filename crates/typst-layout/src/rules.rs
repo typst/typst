@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
     StyleChain, Synthesize, Target, dict,
@@ -447,7 +447,9 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::packed(body).spanned(span)
     } else {
-        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
+        let point = || Tracepoint::call(OutlineEntry::indented_data().name);
+        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())
+            .trace(engine.world, point, span)?
     };
 
     let loc = elem.element_location().at(span)?;
@@ -754,9 +756,15 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             let Size { x, y } = regions.base();
             let loc = elem.location().unwrap();
             let context = Context::new(Some(loc), Some(styles));
+
             let result = elem
                 .func
-                .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
+                .call_traced(
+                    engine,
+                    context.track(),
+                    [dict! { "width" => x, "height" => y }],
+                    elem.span(),
+                )?
                 .display();
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },

@@ -3,9 +3,10 @@ use std::num::NonZeroUsize;
 use std::str::FromStr;
 
 use ecow::EcoString;
+use typst_syntax::{Span, Spanned};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{SourceResult, Trace, Tracepoint, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Element, NativeElement, Packed, Selector, ShowSet, Smart, StyleChain,
@@ -291,7 +292,7 @@ pub struct FigureElem {
     ///   kind: "foo",
     /// )
     /// ```
-    pub supplement: Smart<Option<Supplement>>,
+    pub supplement: Spanned<Smart<Option<Supplement>>>,
 
     /// How to number the figure. Accepts a
     /// @numbering[numbering pattern or function] taking a single number.
@@ -360,7 +361,8 @@ impl Synthesize for Packed<FigureElem> {
         });
 
         // Resolve the supplement.
-        let supplement = match elem.supplement.get_ref(styles).as_ref() {
+        let sup = elem.supplement.get_ref(styles).as_ref();
+        let supplement = match &sup.v {
             Smart::Auto => {
                 // Default to the local name for the kind, if available.
                 let name = match &kind {
@@ -392,7 +394,11 @@ impl Synthesize for Packed<FigureElem> {
                 };
 
                 let target = descendant.unwrap_or_else(|| Cow::Borrowed(&elem.body));
-                Some(supplement.resolve(engine, styles, [target])?)
+                Some(supplement.resolve(engine, styles, [target], sup.span).trace(
+                    engine.world,
+                    || Tracepoint::call(FigureElem::ELEM.name()),
+                    span,
+                )?)
             }
         };
 
@@ -413,8 +419,10 @@ impl Synthesize for Packed<FigureElem> {
         }
 
         elem.kind.set(Smart::Custom(kind));
-        elem.supplement
-            .set(Smart::Custom(supplement.map(Supplement::Content)));
+        elem.supplement.set(Spanned {
+            span: supplement.as_ref().map(Content::span).unwrap_or(Span::detached()),
+            v: Smart::Custom(supplement.map(Supplement::Content)),
+        });
         elem.counter = Some(Some(counter));
         elem.caption.set(caption);
         elem.locale = Some(Locale::get_in(styles));
@@ -435,19 +443,19 @@ impl ShowSet for Packed<FigureElem> {
 }
 
 impl Count for Packed<FigureElem> {
-    fn update(&self) -> Option<CounterUpdate> {
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
         // If the figure is numbered, step the counter by one.
         // This steps the `counter(figure)` which is global to all numbered figures.
         self.numbering()
             .is_some()
-            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+            .then(|| Spanned::new(CounterUpdate::Step(NonZeroUsize::ONE), self.span()))
     }
 }
 
 impl Refable for Packed<FigureElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement.get_cloned(StyleChain::default()) {
+        match self.supplement.get_cloned(StyleChain::default()).v {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }

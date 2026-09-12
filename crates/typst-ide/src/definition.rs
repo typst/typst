@@ -166,9 +166,7 @@ mod tests {
         let world = TestWorld::new("#import \"other.typ\"; #other.foo")
             .with_source("other.typ", "#let foo(x) = x + 1");
 
-        // The span is at the args here because that's what the function value's
-        // span is. Not ideal, but also not too big of a big deal.
-        test(&world, -2, Side::Before).must_be_at("other.typ", 8..11);
+        test(&world, -2, Side::Before).must_be_at("other.typ", 5..19);
     }
 
     #[test]

@@ -500,7 +500,12 @@ fn sequence_impl(
         match &elem.update {
             StateUpdate::Set(value) => current = value.clone(),
             StateUpdate::Func(func) => {
-                current = func.call(&mut engine, Context::none().track(), [current])?;
+                current = func.call_traced(
+                    &mut engine,
+                    Context::none().track(),
+                    [current],
+                    elem.span(),
+                )?;
             }
         }
         stops.push(current.clone());
