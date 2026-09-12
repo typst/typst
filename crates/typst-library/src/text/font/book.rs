@@ -308,7 +308,7 @@ mod tests {
                     default: AxisValue((min + max) / 2.0),
                 })
                 .collect(),
-            coverage: Coverage::from_vec(vec![]),
+            coverage: Coverage::default(),
         }
     }
 
