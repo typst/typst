@@ -64,6 +64,8 @@
         Delimiters above or below parts of an equation.
 
         The braces and brackets further allow you to add an optional annotation below or above themselves.
+
+        If you want to place a formula over or under another, without delimiters, use the @math.attach[`attach`] function.
       ],
     ),
     (
