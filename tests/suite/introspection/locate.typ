@@ -105,10 +105,10 @@ A
 
 --- locate-html html empty ---
 #metadata(none)
-// This is not optimal, it should probably rather error.
+// Outside of a frame, there are no coordinates. See `html-frame-position`.
 #context test(
   locate(metadata).position(),
-  (page: 1, x: 0pt, y: 0pt),
+  (page: 1, x: none, y: none),
 )
 
 --- locate-bundle-top-level bundle ---

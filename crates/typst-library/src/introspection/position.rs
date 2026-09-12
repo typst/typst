@@ -93,6 +93,27 @@ impl From<PagedPosition> for Dict {
     }
 }
 
+impl From<DocumentPosition> for Dict {
+    fn from(pos: DocumentPosition) -> Self {
+        match pos {
+            DocumentPosition::Paged(pos) => pos.into(),
+            // HTML documents have no pages. Coordinates are only known inside
+            // frames, see `Location::position`.
+            DocumentPosition::Html(pos) => {
+                let point = match pos.details() {
+                    Some(&InnerHtmlPosition::Frame(point)) => Some(point),
+                    Some(InnerHtmlPosition::Character(_)) | None => None,
+                };
+                dict! {
+                    "page" => NonZeroUsize::ONE,
+                    "x" => point.map(|point| point.x),
+                    "y" => point.map(|point| point.y),
+                }
+            }
+        }
+    }
+}
+
 /// A position in an HTML tree.
 #[derive(Clone, Debug, Hash)]
 pub struct HtmlPosition {
