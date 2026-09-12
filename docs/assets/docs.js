@@ -765,12 +765,28 @@ async function setUpGlobalSearch() {
       }
       const li = document.createElement("li");
       const a = document.createElement("a");
-      const span = document.createElement("span");
       a.href = url;
-      a.textContent = item.title;
-      span.classList.add("type");
-      span.textContent = item.kind;
-      a.appendChild(span);
+
+      const title = document.createElement("span");
+      title.classList.add("result-title");
+      title.textContent = item.title;
+      a.appendChild(title);
+
+      const category = document.createElement("span");
+      category.classList.add("result-category");
+      category.textContent = item.category;
+      a.appendChild(category);
+
+      const path = document.createElement("code");
+      path.classList.add("result-path");
+      path.textContent = item.path;
+      a.appendChild(path);
+
+      const type = document.createElement("span");
+      type.classList.add("result-kind");
+      type.textContent = item.kind;
+      a.appendChild(type);
+
       li.appendChild(a);
       return li;
     });

@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Scripting",
   route: "/reference/scripting",
+  category: "Reference",
   description: "Automate your document with Typst's scripting capabilities.",
 )
 

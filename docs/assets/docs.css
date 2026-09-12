@@ -1085,16 +1085,44 @@ nav.folding .search-results::before {
   color: #565565;
 }
 
-nav.folding .search-results .type {
-  margin-inline-start: 8px;
+nav.folding .search-results li > a {
+  display: grid;
+  grid-template:
+    "t c"
+    "p p"
+    "k k"
+    / 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+}
+
+nav.folding .search-results .result-title {
+  grid-area: t;
+}
+
+nav.folding .search-results .result-category {
+  grid-area: c;
   text-transform: uppercase;
   font-weight: 600;
   font-size: 12px;
   color: #565565;
+  text-align: end;
+}
+
+nav.folding .search-results .result-path {
+  grid-area: p;
+  font-size: 14px;
+  padding-block: 2px;
+}
+
+nav.folding .search-results .result-kind {
+  grid-area: k;
+  font-size: 12px;
+  font-style: italic;
 }
 
 nav.folding .search-results a {
-  margin-block-end: 4px !important;
+  margin-block-end: 6px !important;
 }
 
 /* On this page navigation in right side bar */

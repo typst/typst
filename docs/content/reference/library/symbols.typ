@@ -313,7 +313,8 @@
 
 #let symbols-section(..args, mod: none, emoji: false, body) = docs-section(
   ..args,
-  kind: "Symbols",
+  category: "Symbols",
+  kind: "Symbol list",
   {
     prose-styling(body)
     context if target() == "html" {

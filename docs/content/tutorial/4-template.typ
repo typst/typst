@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Making a Template",
   route: "/tutorial/making-a-template",
+  category: "Tutorial",
   description: "Typst's tutorial.",
 )
 

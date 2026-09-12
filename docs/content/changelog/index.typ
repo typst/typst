@@ -48,6 +48,7 @@
 #docs-chapter(
   title: "Changelog",
   route: "/changelog",
+  category: "Category",
   description: "Learn what has changed in the latest Typst releases and move your documents forward.",
 )[
   Learn what has changed in the latest Typst releases and move your documents forward. This section documents all changes to Typst since its initial public release.
@@ -95,6 +96,7 @@
         (Unreleased)
       ]
     },
+    category: "Changelogs",
     description: "Changes in Typst " + base-version,
     class: "changelog",
     context {
@@ -118,6 +120,7 @@
   title: "Earlier",
   title-fmt: [Changes in early, unversioned Typst],
   route: "/changelog/earlier",
+  category: "Changelogs",
   description: "Changes in early, unversioned Typst",
   context {
     set heading(outlined: false, bookmarked: true) if target() == "paged"

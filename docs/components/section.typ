@@ -69,7 +69,9 @@
   def-target: none,
   class: none,
   nav-buttons: none,
+  category: none,
   kind: none,
+  path: none,
   keywords: none,
   description: none,
   body,
@@ -95,8 +97,10 @@
     // The index item is placed here so that all body text of this HTML document
     // is considered part of this index item.
     register-index-item(
+      category: category,
       kind: kind,
       title: title,
+      path: path,
       dest: route,
       keywords: keywords,
     )
@@ -180,8 +184,12 @@
   // The navigation buttons at the bottom of the HTML page.
   nav-buttons: nav-prev-next(),
 
+  // The category under which this section appears.
+  category: none,
   // The kind of section. This is displayed in the search result for the page.
   kind: none,
+  // The canonical path for this item in Typst's standard library.
+  path: none,
   // Keywords for the page. The page can be found in search with these.
   keywords: (),
   // The plain-text description of the HTML page.
@@ -196,6 +204,9 @@
   assert.ne(def-target, none, message: "definition target is required")
   assert.ne(description, none, message: "description is required")
   assert.eq(type(description), str, message: "description must be a string")
+  if route != "/" {
+    assert.ne(category, none, message: "category is required " + route)
+  }
   assert.ne(kind, none, message: "kind is required")
   assert.eq(type(keywords), array, message: "keywords must be an array")
   assert(route.starts-with("/"), message: "route must start with slash")
@@ -229,7 +240,9 @@
       def-target: def-target,
       class: class,
       nav-buttons: nav-buttons,
+      category: category,
       kind: kind,
+      path: path,
       keywords: keywords,
       description: description,
       body,
