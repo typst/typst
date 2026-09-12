@@ -176,7 +176,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
     /// Processes a single child.
     ///
     /// - Returns `Ok(())` if the child was successfully processed.
-    /// - Returns `Err(Stop::Finish)` if a region break should be triggered.
+    /// - Returns `Err(Stop::Finish(_))` if a region break should be triggered.
     /// - Returns `Err(Stop::Relayout(_))` if the region needs to be relayouted
     ///   due to an insertion (float/footnote).
     /// - Returns `Err(Stop::Error(_))` if there was a fatal error.

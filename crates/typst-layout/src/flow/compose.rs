@@ -141,9 +141,9 @@ impl<M> Migration<M> {
 /// columns/subregions.
 ///
 /// The composer is primarily concerned with layout of out-of-flow insertions
-/// (floats and footnotes).  It does this in per-page and per-column loops that
-/// rerun when a new float is added (since it affects the regions available to
-/// the distributor).
+/// (floats and footnotes). It does this in per-page and per-column loops that
+/// rerun when an insertion affects the regions available to the distributor,
+/// or when balancing columns.
 ///
 /// To lay out the in-flow contents of individual subregions, the composer
 /// invokes [distribution](distribute()).
@@ -198,7 +198,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
     /// Lay out a container/page region, including container/page insertions.
     fn page(mut self, locator: Locator, regions: Regions) -> SourceResult<Frame> {
         // This loop can restart region layout when requested to do so by a
-        // `RelayoutStop::Relayout`. This happens when there is a parent-scoped float.
+        // `RelayoutStop::Relayout(ParentScope)`. This happens when there is a
+        // parent-scoped float or when balancing columns.
         let checkpoint = self.work.clone();
         let output = loop {
             // Shrink the available space by the space used by page
@@ -332,7 +333,7 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
     /// Lay out a column, including column insertions.
     ///
-    /// Returns a `PageResult` containing a tuple of
+    /// On success, returns a tuple of
     /// - `0`: The laid out frame.
     /// - `1`: The height actually used by the inner contents (used for column
     ///   balancing logic).
@@ -351,7 +352,8 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
 
         // This loop can restart column layout when requested to do so by a
-        // `RelayoutStop`. This happens when there is a column-scoped float.
+        // `RelayoutStop::Relayout(PlacementScope::Column)`. This happens when a
+        // column-scoped float or footnote is added.
         let checkpoint = self.work.clone();
         let (inner, used_height) = loop {
             // Shrink the available space by the space used by column
