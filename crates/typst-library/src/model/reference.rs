@@ -79,6 +79,9 @@ use crate::text::TextElem;
 /// can be created by typing an `[@]` followed by the name of the label (e.g.
 /// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
+/// A slash-separated path like `[@chapter/result]` references `result` within
+/// content labelled `chapter`. Longer paths narrow the scope from left to right.
+///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
 ///

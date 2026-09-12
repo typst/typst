@@ -36,8 +36,8 @@ pub trait Introspector: Send + Sync {
     /// Queries for the first element that matches the selector.
     fn query_unique(&self, selector: &Selector) -> StrResult<Content>;
 
-    /// Queries for a unique element with the label.
-    fn query_label(&self, label: Label) -> StrResult<&Content>;
+    /// Queries for a unique element with the label or label path.
+    fn query_label(&self, label: Label) -> StrResult<Content>;
 
     /// Queries for all elements with a label.
     fn query_labelled(&self) -> EcoVec<Content>;
@@ -110,8 +110,8 @@ impl Introspector for EmptyIntrospector {
         bail!("selector does not match any element");
     }
 
-    fn query_label(&self, label: Label) -> StrResult<&Content> {
-        bail!("label `{}` does not exist in the document", label.repr());
+    fn query_label(&self, label: Label) -> StrResult<Content> {
+        unique_label_match(label, &[]).cloned()
     }
 
     fn query_labelled(&self) -> EcoVec<Content> {
@@ -361,7 +361,7 @@ impl<P> ElementIntrospector<P> {
                 .get_by_loc(location)
                 .cloned()
                 .ok_or_else(|| "element does not exist in the document".into()),
-            Selector::Label(label) => self.query_label(*label).cloned(),
+            Selector::Label(label) => self.query_label(*label),
             _ => {
                 let elems = self.query(selector);
                 if elems.len() > 1 {
@@ -375,13 +375,16 @@ impl<P> ElementIntrospector<P> {
         }
     }
 
-    /// Queries for a unique element with the label.
-    pub fn query_label(&self, label: Label) -> StrResult<&Content> {
-        match *self.labels.get(&label) {
-            [idx] => Ok(self.get_by_idx(idx)),
-            [] => bail!("label `{}` does not exist in the document", label.repr()),
-            _ => bail!("label `{}` occurs multiple times in the document", label.repr()),
+    /// Queries for a unique element with the label or label path.
+    pub fn query_label(&self, label: Label) -> StrResult<Content> {
+        let selector = Selector::label_path(label);
+        if let Selector::Label(label) = selector {
+            let idx = unique_label_match(label, self.labels.get(&label))?;
+            return Ok(self.get_by_idx(*idx).clone());
         }
+
+        let matches = self.query(&selector);
+        unique_label_match(label, &matches).cloned()
     }
 
     /// Queries for all elements with a label.
@@ -473,6 +476,15 @@ impl<P> ElementIntrospector<P> {
             .get(location)
             .cloned()
             .unwrap_or(usize::MAX..usize::MAX)
+    }
+}
+
+/// Retrieves the unique match for a label.
+pub(crate) fn unique_label_match<T>(label: Label, matches: &[T]) -> StrResult<&T> {
+    match matches {
+        [target] => Ok(target),
+        [] => bail!("label `{}` does not exist in the document", label.repr()),
+        _ => bail!("label `{}` occurs multiple times in the document", label.repr()),
     }
 }
 

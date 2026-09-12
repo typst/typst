@@ -104,6 +104,7 @@ aecca822229f41f10fdcfae3954413f1 link-html-frame-ref
 5ffe20ca590c5e8ce14f77537aae6b31 link-html-id-existing
 2a4bbc3c8c4f18c632909849abd6fc1d link-html-label-disambiguation
 128fcc9c404014198f9fa29210e1864d link-html-nested-empty
+1ce053adccf3d2726148d8183d22a2cd link-label-path
 bcefcf7a18422abf0da566507d6080fc list-par
 df1f8e682fe06efe28078e8beec14038 math-accent-align
 bbade493e498eab7cea3610d84eee723 math-accent-bottom
