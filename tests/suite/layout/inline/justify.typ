@@ -294,3 +294,12 @@ int main() {
 #space;Foo Bar Buzz
 
 #space;Foo Bar#sym.zws;Buzz
+
+--- issue-2348-justify-indented-cjk-punctuation paged ---
+// Test that CJK punctuation at the start of a paragraph is correctly adjusted when first-line-indent and justification are enabled.
+#set page(width: auto)
+#set text(lang: "ja", font: "Noto Serif CJK JP")
+#set par(justify: true, first-line-indent: (amount: 1em, all: true))
+
+『現代仮名遣い』では、助詞の\
+「へ」は「へ」と書くのがルールである。
