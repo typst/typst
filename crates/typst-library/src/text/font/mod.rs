@@ -6,6 +6,7 @@ mod book;
 mod exceptions;
 mod info;
 mod metrics;
+mod outline;
 mod tag;
 mod variant;
 mod variations;
