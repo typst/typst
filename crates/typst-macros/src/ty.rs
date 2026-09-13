@@ -68,7 +68,7 @@ impl Parse for Meta {
 
 /// Parse details about the type from its definition.
 fn parse(meta: Meta, ident: Ident, attrs: &[Attribute]) -> Result<Type> {
-    let docs = documentation(attrs);
+    let docs = documentation(attrs)?;
     let (name, title) =
         determine_name_and_title(meta.name.clone(), meta.title.clone(), &ident, None)?;
     let long = title.to_lowercase();

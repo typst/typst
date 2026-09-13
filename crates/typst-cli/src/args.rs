@@ -435,6 +435,7 @@ pub struct WorldArgs {
 
     /// Add a string key-value pair visible through `sys.inputs`.
     #[clap(
+        short = 'i',
         long = "input",
         value_name = "key=value",
         action = ArgAction::Append,

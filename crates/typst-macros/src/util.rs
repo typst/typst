@@ -3,8 +3,9 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use std::str::FromStr;
 use syn::parse::{Parse, ParseStream};
+use syn::spanned::Spanned;
 use syn::token::Token;
-use syn::{Attribute, Ident, Result, Token};
+use syn::{Attribute, Error, Ident, Result, Token};
 
 /// Return an error at the given item.
 macro_rules! bail {
@@ -22,8 +23,22 @@ macro_rules! bail {
     };
 }
 
+/// A basic reimplementation of the `stringify!` macro.
+///
+/// The `stringify!` macro does not expand eagerly so we have some very basic
+/// support for int and float expressions here. This is e.g. used for paper
+/// sizes.
+fn stringify(tokens: TokenStream) -> Option<String> {
+    let lit = syn::parse2::<syn::Lit>(tokens).ok()?;
+    match lit {
+        syn::Lit::Int(int) => Some(int.base10_digits().to_owned()),
+        syn::Lit::Float(float) => Some(float.base10_digits().to_owned()),
+        _ => None,
+    }
+}
+
 /// Extract documentation comments from an attribute list.
-pub fn documentation(attrs: &[syn::Attribute]) -> String {
+pub fn documentation(attrs: &[syn::Attribute]) -> Result<String> {
     let mut doc = String::new();
 
     // Parse doc comments.
@@ -39,23 +54,22 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
                 doc.push_str(line);
                 doc.push('\n');
             } else if let syn::Expr::Macro(expr) = &meta.value
-                // The `stringify!` macro does not expand eagerly so we have
-                // some very basic support for int and float expressions here.
-                // This is e.g. used for paper sizes.
                 && expr.mac.path.is_ident("stringify")
-                && let Ok(lit) = syn::parse2::<syn::Lit>(expr.mac.tokens.clone())
-                && let Some(value) = match &lit {
-                syn::Lit::Int(int) => Some(int.base10_digits()),
-                syn::Lit::Float(float) => Some(float.base10_digits()),
-                _ => None,
-            } {
-                doc.push_str(value);
+            {
+                let value = stringify(expr.mac.tokens.clone()).ok_or_else(|| {
+                    Error::new(
+                        expr.span(),
+                        "the `stringify!` macro is not fully supported in \
+                         the Typst documentation",
+                    )
+                })?;
+                doc.push_str(&value);
                 doc.push('\n');
             }
         }
     }
 
-    doc.trim().into()
+    Ok(doc.trim().into())
 }
 
 /// Whether an attribute list has a specified attribute.
