@@ -165,6 +165,11 @@ fn format_xmp_metadata(f: &mut Formatter, stream: Stream) -> StrResult<()> {
     let rdf = child(&xmpmeta, "RDF").ok_or("missing rdf:RDF")?;
     let description = child(&rdf, "Description").ok_or("missing rdf:Description")?;
 
+    if let Some(version_id) = child(&description, "VersionID") {
+        let version_id = version_id.text().ok_or("missing text")?;
+        writeln!(f, "version: {version_id:?}").ok();
+    }
+
     if let Some(dc_lang) = child(&description, "language") {
         let bag = child(&dc_lang, "Bag").ok_or("missing rdf:Bag")?;
         let item = bag.first_element_child().ok_or("missing rdf:li")?;
