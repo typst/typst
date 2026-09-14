@@ -100,37 +100,32 @@ pub(crate) static EQUATION_CSS_STYLES: LazyLock<EcoString> = LazyLock::new(|| {
     eco_format!(
         "\
 /* Alignment */
-mtable.{RIGHT_ALIGN_CLASS} mtd,
-mtable mtd.{RIGHT_ALIGN_CLASS},
-mtable.{LEFT_ALIGN_CLASS} mtd.{RIGHT_ALIGN_CLASS},
+mtable.{RIGHT_ALIGN_CLASS} > mtr > mtd,
+mtable > mtr > mtd.{RIGHT_ALIGN_CLASS},
+mtable.{LEFT_ALIGN_CLASS} > mtr > mtd.{RIGHT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} > mtr > mtd:nth-child(odd) {{
   justify-items: end;
   text-align: right;
 }}
-mtable.{CASES_CLASS} mtd,
-mtable.{LEFT_ALIGN_CLASS} mtd,
-mtable mtd.{LEFT_ALIGN_CLASS},
+mtable.{CASES_CLASS} > mtr > mtd,
+mtable.{LEFT_ALIGN_CLASS} > mtr > mtd,
+mtable > mtr > mtd.{LEFT_ALIGN_CLASS},
 mtable.{ALIGNED_CLASS} > mtr > mtd:nth-child(even),
-math:is(:not([display])) > mtable.{MULTILINE_EQUATION_CLASS} mtd {{
+math:is(:not([display])) > mtable.{MULTILINE_EQUATION_CLASS} > mtr > mtd {{
   justify-items: start;
   text-align: left;
 }}
-mtable.{CASES_CLASS} mtd,
-mtable.{ALIGNED_CLASS} mtd,
-mtable mtd.{FLUSHED_CLASS},
-mtable mtd.{LEFT_FLUSH_CLASS} {{
+mtable.{CASES_CLASS} > mtr > mtd,
+mtable.{ALIGNED_CLASS} > mtr > mtd,
+mtable > mtr > mtd.{FLUSHED_CLASS},
+mtable > mtr > mtd.{LEFT_FLUSH_CLASS} {{
   padding-left: 0;
 }}
-mtable.{CASES_CLASS} mtd,
-mtable.{ALIGNED_CLASS} mtd,
-mtable mtd.{FLUSHED_CLASS},
-mtable mtd.{RIGHT_FLUSH_CLASS} {{
+mtable.{CASES_CLASS} > mtr > mtd,
+mtable.{ALIGNED_CLASS} > mtr > mtd,
+mtable > mtr > mtd.{FLUSHED_CLASS},
+mtable > mtr > mtd.{RIGHT_FLUSH_CLASS} {{
   padding-right: 0;
-}}
-
-/* Matrices */
-mtable.{MATRIX_CLASS} > mtr > mtd {{
-  padding: 0.5ex;
 }}
 
 /* Tables */
@@ -144,7 +139,7 @@ mtd {{
 }}
 
 /* Equations */
-mtable.{MULTILINE_EQUATION_CLASS} mtd {{
+mtable.{MULTILINE_EQUATION_CLASS} > mtr > mtd {{
   math-depth: inherit;
   math-style: inherit;
   math-shift: inherit;
@@ -193,7 +188,6 @@ const CASES_CLASS: &str = "cases";
 const FLUSHED_CLASS: &str = "flushed";
 const LEFT_FLUSH_CLASS: &str = "left-flush";
 const RIGHT_FLUSH_CLASS: &str = "right-flush";
-const MATRIX_CLASS: &str = "matrix";
 
 // CSS values.
 const EQUATION_ROW_GAP: Em = Em::new(0.5);
@@ -959,16 +953,18 @@ fn handle_table(
         .collect::<SourceResult<Vec<Content>>>()?;
 
     let class = match (item.alternator, item.align) {
-        (LeftRightAlternator::None, _) if ncols == 1 => CASES_CLASS,
-        (LeftRightAlternator::Right, _) if ncols == 1 && has_sub_cols => ALIGNED_CLASS,
-        (_, FixedAlignment::Start) => &[MATRIX_CLASS, LEFT_ALIGN_CLASS].join(" "),
-        (_, FixedAlignment::End) => &[MATRIX_CLASS, RIGHT_ALIGN_CLASS].join(" "),
-        (_, FixedAlignment::Center) => MATRIX_CLASS,
+        (LeftRightAlternator::None, _) if ncols == 1 => Some(CASES_CLASS),
+        (LeftRightAlternator::Right, _) if ncols == 1 && has_sub_cols => {
+            Some(ALIGNED_CLASS)
+        }
+        (_, FixedAlignment::Start) => Some(LEFT_ALIGN_CLASS),
+        (_, FixedAlignment::End) => Some(RIGHT_ALIGN_CLASS),
+        (_, FixedAlignment::Center) => None,
     };
 
     Ok(HtmlElem::new(tag::mtable)
         .with_body(Some(Content::sequence(cells)))
-        .with_attr(crate::attr::class, class)
+        .with_optional_attr(crate::attr::class, class)
         .pack())
 }
 
