@@ -447,13 +447,13 @@ impl<'a> GridLayouter<'a> {
             match self.grid.rows[y] {
                 Sizing::Auto => self.layout_auto_row(engine, disambiguator, y)?,
                 Sizing::Rel(v) => {
-                    self.layout_relative_row(engine, disambiguator, v, y)?
+                    self.layout_relative_row(engine, disambiguator, v, y)?;
                 }
                 Sizing::Fr(v) => {
                     if !self.row_state.in_active_repeatable {
                         self.flush_orphans();
                     }
-                    self.current.lrows.push(Row::Fr(v, y, disambiguator))
+                    self.current.lrows.push(Row::Fr(v, y, disambiguator));
                 }
             }
         }
@@ -1620,11 +1620,10 @@ impl<'a> GridLayouter<'a> {
         if self
             .current
             .lrows
-            .last()
-            .is_some_and(|row| self.grid.is_gutter_track(row.index()))
+            .pop_if(|row| self.grid.is_gutter_track(row.index()))
+            .is_some()
         {
             // Remove the last row in the region if it is a gutter row.
-            self.current.lrows.pop().unwrap();
             self.current.repeated_header_rows =
                 self.current.repeated_header_rows.min(self.current.lrows.len());
         }

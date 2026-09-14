@@ -27,7 +27,11 @@ unscanny = { workspace = true }
 
 [dev-dependencies]
 typst-assets = { workspace = true, features = ["fonts"] }
+typst-bundle = { workspace = true }
 typst-dev-assets = { workspace = true }
+typst-pdf = { workspace = true }
+typst-render = { workspace = true }
+typst-svg = { workspace = true }
 once_cell = { workspace = true }
 
 [lints]

@@ -1,16 +1,19 @@
---- query-tags-duplicate-heading pdftags pdfstandard(ua-1) ---
+--- query-tags-duplicate-heading pdftags ---
+#set pdf(standard: "ua-1")
 // This will display the heading with the same location a second time
 #context query(heading).join()
 = Hi
 
---- query-tags-duplicate-labelled-element pdftags pdfstandard(ua-1) ---
+--- query-tags-duplicate-labelled-element pdftags ---
+#set pdf(standard: "ua-1")
 #figure(alt: "Text saying: hello there")[
   hello there
 ] <figure>
 
 #context query(<figure>).at(0)
 
---- query-tags-ambiguous-parent-place-error pdftags pdfstandard(ua-1) ---
+--- query-tags-ambiguous-parent-place-error pdftags ---
+#set pdf(standard: "ua-1")
 // Error: 2-43 PDF/UA-1 error: ambiguous logical parent
 // Hint: 2-43 please report this as a bug
 #place(float: true, top + left)[something] <placed>
@@ -22,7 +25,8 @@
 
 #context query(<placed>).join()
 
---- query-tags-ambiguous-parent-footnote-error pdftags pdfstandard(ua-1) ---
+--- query-tags-ambiguous-parent-footnote-error pdftags ---
+#set pdf(standard: "ua-1")
 // Error: 2-21 PDF/UA-1 error: ambiguous logical parent
 // Hint: 2-21 please report this as a bug
 #footnote[something] <note>

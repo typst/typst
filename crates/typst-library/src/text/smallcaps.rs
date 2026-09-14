@@ -40,7 +40,7 @@ use crate::foundations::{Content, elem};
 /// = Introduction
 /// #lorem(40)
 /// ```
-#[elem(title = "Small Capitals")]
+#[elem(title = "Small Capitals", since = "forever")]
 pub struct SmallcapsElem {
     /// Whether to turn uppercase letters into small capitals as well.
     ///

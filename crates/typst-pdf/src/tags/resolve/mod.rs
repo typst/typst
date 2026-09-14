@@ -5,6 +5,7 @@ use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
+use typst_library::format::Complete;
 use typst_library::text::Locale;
 use typst_syntax::Span;
 
@@ -33,7 +34,7 @@ pub enum TagNode {
 }
 
 struct Resolver<'a> {
-    options: &'a PdfOptions,
+    options: &'a PdfOptions<Complete>,
     ctx: &'a Ctx,
     groups: &'a IdVec<Group>,
     tags: &'a mut TagStorage,
@@ -43,7 +44,7 @@ struct Resolver<'a> {
     errors: EcoVec<SourceDiagnostic>,
 }
 
-impl<'a> Resolver<'a> {
+impl Resolver<'_> {
     fn with_flatten<T>(&mut self, flatten: bool, f: impl FnOnce(&mut Self) -> T) -> T {
         let prev = self.flatten;
         self.flatten |= flatten;
@@ -81,7 +82,7 @@ pub fn resolve(gc: &mut GlobalContext) -> SourceResult<(Option<Locale>, TagTree)
     let mut accum = Accumulator::root();
     accum.reserve(root.nodes().len());
 
-    for child in root.nodes().iter() {
+    for child in root.nodes() {
         resolve_node(&mut resolver, &mut doc_lang, &mut None, &mut accum, child);
     }
 
@@ -121,8 +122,8 @@ fn resolve_node(
 fn resolve_group_node(
     rs: &mut Resolver,
     parent_lang: &mut Option<Locale>,
-    mut parent_bbox: &mut Option<BBoxCtx>,
-    mut accum: &mut Accumulator,
+    parent_bbox: &mut Option<BBoxCtx>,
+    accum: &mut Accumulator,
     id: GroupId,
 ) {
     let group = rs.groups.get(id);
@@ -138,7 +139,7 @@ fn resolve_group_node(
         let nesting = element_kind(tag);
         nested_children.insert(accum.nest(nesting))
     } else {
-        &mut accum
+        &mut *accum
     };
 
     // If a tag has an alternative description specified, flatten the children
@@ -148,17 +149,17 @@ fn resolve_group_node(
     let flatten = tag.as_ref().is_some_and(|t| t.alt_text().is_some());
     rs.with_flatten(flatten, |rs| {
         let lang = lang.as_mut().unwrap_or(parent_lang);
-        let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
+        let bbox = if bbox.is_some() { &mut bbox } else { &mut *parent_bbox };
 
         // In PDF 1.7, don't include artifacts in the tag tree. In PDF 2.0
         // this might become an `Artifact` tag.
         if group.kind.is_artifact() {
-            for child in group.nodes().iter() {
+            for child in group.nodes() {
                 resolve_artifact_node(rs, bbox, child);
             }
         } else {
             children.reserve(group.nodes().len());
-            for child in group.nodes().iter() {
+            for child in group.nodes() {
                 resolve_node(rs, lang, bbox, children, child);
             }
         }
@@ -192,7 +193,7 @@ fn resolve_group_node(
         }
     }
 
-    if rs.options.accessibility_validator().is_some() {
+    if rs.options.validators().accessibility().is_some() {
         validate_children(rs, &tag, &nodes);
     }
 
@@ -249,7 +250,7 @@ fn resolve_text(
 /// Currently only done to resolve bounding boxes.
 fn resolve_artifact_node(
     rs: &mut Resolver,
-    mut parent_bbox: &mut Option<BBoxCtx>,
+    parent_bbox: &mut Option<BBoxCtx>,
     node: &TagNode,
 ) {
     match &node {
@@ -258,8 +259,8 @@ fn resolve_artifact_node(
             let mut bbox = rs.ctx.bbox(&group.kind).cloned();
 
             {
-                let bbox = if bbox.is_some() { &mut bbox } else { &mut parent_bbox };
-                for child in group.nodes().iter() {
+                let bbox = if bbox.is_some() { &mut bbox } else { &mut *parent_bbox };
+                for child in group.nodes() {
                     resolve_artifact_node(rs, bbox, child);
                 }
             }
@@ -326,7 +327,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     if let TagKind::Hn(tag) = &tag {
         let prev_level = rs.last_heading_level.map_or(0, |l| l.get());
         let next_level = tag.level();
-        if let Some(accessibility) = rs.options.accessibility_validator()
+        if let Some(accessibility) = rs.options.validators().accessibility()
             && next_level.get().saturating_sub(prev_level) > 1
         {
             let span = to_span(tag.as_any().location);
@@ -441,7 +442,7 @@ fn validate_children(rs: &mut Resolver, tag: &TagKind, children: &[Node]) {
         TagKind::THead(_) | TagKind::TBody(_) | TagKind::TFoot(_) => {
             validate_children_groups(rs, tag, children, |child| {
                 matches!(child, TagKind::TR(_))
-            })
+            });
         }
         TagKind::TR(_) => validate_children_groups(rs, tag, children, |child| {
             matches!(child, TagKind::TD(_) | TagKind::TH(_))
@@ -467,7 +468,7 @@ fn validate_children_groups(
         };
 
         if !is_valid(&child.tag) {
-            let validator = rs.options.standards.config.validators().to_comma_list();
+            let validator = rs.options.validators().to_comma_list();
             let span = to_span(child.tag.location()).or(parent_span);
             let parent = tag_name(parent);
             let child = tag_name(&child.tag);
@@ -483,7 +484,7 @@ fn validate_children_groups(
     }
 
     if caption_spans.len() > 1 {
-        let validator = rs.options.standards.config.validators().to_comma_list();
+        let validator = rs.options.validators().to_comma_list();
         let parent = tag_name(parent);
         let child = tag_name(&Tag::Caption.into());
 
@@ -503,7 +504,7 @@ fn validate_children_groups(
     }
 
     if contains_leaf_nodes {
-        let validator = rs.options.standards.config.validators().to_comma_list();
+        let validator = rs.options.validators().to_comma_list();
         let parent = tag_name(parent);
         rs.errors.push(error!(
             parent_span,

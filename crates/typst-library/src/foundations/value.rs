@@ -10,12 +10,12 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 
-use crate::diag::{HintedStrResult, HintedString, StrResult, WarningSink};
+use crate::diag::{HintedStrResult, HintedString};
 use crate::foundations::{
-    Args, Array, AutoValue, Bytes, CastInfo, Content, Datetime, Decimal, Dict, Duration,
-    Fold, FromValue, Func, IntoValue, Label, Module, NativeElement, NativeType,
-    NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol, SymbolElem, Type,
-    Version, fields, ops, repr,
+    Args, Array, AutoValue, BindingGuard, Bytes, CastInfo, Content, Datetime, Decimal,
+    Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
+    NativeType, NoneValue, Reflect, Repr, Resolve, Scope, Str, Styles, Symbol,
+    SymbolElem, Type, Version, fields, ops, repr,
 };
 use crate::layout::{Abs, Angle, Em, Fr, Length, Ratio, Rel};
 use crate::text::{RawContent, RawElem, TextElem};
@@ -154,20 +154,18 @@ impl Value {
     }
 
     /// Try to access a field on the value.
-    pub fn field(&self, field: &str, sink: impl WarningSink) -> StrResult<Value> {
-        match self {
-            Self::Symbol(symbol) => {
-                symbol.clone().modified(sink, field).map(Self::Symbol)
-            }
-            Self::Version(version) => version.component(field).map(Self::Int),
-            Self::Dict(dict) => dict.get(field).cloned(),
-            Self::Args(args) => args.field(field).cloned(),
-            Self::Content(content) => content.field_by_name(field),
-            Self::Type(ty) => ty.field(field, sink).cloned(),
-            Self::Func(func) => func.field(field, sink).cloned(),
-            Self::Module(module) => module.field(field, sink).cloned(),
-            _ => fields::field(self, field),
-        }
+    pub fn field(&self, field: &str, guard: impl BindingGuard) -> HintedStrResult<Value> {
+        Ok(match self {
+            Self::Symbol(symbol) => Self::Symbol(symbol.clone().modified(guard, field)?),
+            Self::Version(version) => Self::Int(version.component(field)?),
+            Self::Dict(dict) => dict.get(field)?.clone(),
+            Self::Args(args) => args.field(field)?.clone(),
+            Self::Content(content) => content.field_by_name(field)?,
+            Self::Type(ty) => ty.field(field, guard)?.clone(),
+            Self::Func(func) => func.field(field, guard)?.clone(),
+            Self::Module(module) => module.field(field, guard)?.clone(),
+            _ => fields::field(self, field)?,
+        })
     }
 
     /// The associated scope, if this is a function, type, or module.
@@ -732,7 +730,7 @@ mod tests {
         test(Value::None.ty(), "type(none)");
         test(Value::Auto.ty(), "type(auto)");
         test(false, "false");
-        test(12i64, "12");
+        test(12_i64, "12");
         test(3.24, "3.24");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");

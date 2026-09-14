@@ -90,6 +90,6 @@ fn check_show_par_set_block(vm: &mut Vm, recipe: &Recipe) {
             hint: "write `set par(spacing: ..)` instead";
             hint: "this is specific to paragraphs as they are not considered blocks \
                    anymore";
-        ))
+        ));
     }
 }

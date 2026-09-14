@@ -153,6 +153,43 @@
 
 #rect(fill: t(offset: (50%, -50%)), width: 100%, height: 100%, stroke: 1pt)
 
+--- tiling-angle paged ---
+// Test with 45deg
+#let t(..args) = tiling(size: (30pt, 30pt), ..args)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: 45deg), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-angle-with-offset paged ---
+#let t(..args) = tiling(
+  size: (30pt, 30pt),
+  offset: (7.5pt * calc.sqrt(2), 15pt * calc.sqrt(2)),
+  ..args,
+)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: 45deg), width: 100%, height: 100%, stroke: 1pt)
+
+--- tiling-angle-with-relative-offset-and-spacing paged ---
+#let t(..args) = tiling(
+  size: (30pt, 30pt),
+  spacing: (10pt, 5pt),
+  offset: (50%, -50%),
+  ..args,
+)[
+  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+]
+
+#set page(width: 100pt, height: 100pt)
+
+#rect(fill: t(angle: -45deg), width: 100%, height: 100%, stroke: 1pt)
+
 --- tiling-stroke paged ---
 // Test tiling on strokes
 #align(
@@ -214,6 +251,21 @@
   #set text(fill: t)
   #lorem(10)
 ]))
+
+--- tiling-text-offset-angle paged ---
+// The text should be filled so that it seems invisible on the page.
+#let t = tiling(
+  size: (30pt, 30pt),
+  offset: (7pt, 11pt),
+  angle: 40deg,
+  relative: "parent",
+  square(size: 30pt, fill: gradient.conic(..color.map.rainbow)),
+)
+
+#set page(width: 140pt, height: 80pt, margin: 0pt, fill: t)
+#set text(size: 28pt, fill: t)
+
+OFFSET OFFSET
 
 --- tiling-text-fill paged ---
 #let t = tiling(

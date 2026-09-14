@@ -33,6 +33,10 @@
   "⇒": ("implies",),
   "⟹": ("implies",),
   "⇔": ("iff",),
+  "⅋": ("par",),
+  "א": ("alef",),
+  "ב": ("bet",),
+  "ד": ("dalet",),
 )
 
 // Human-facing names of the math classes.
@@ -73,7 +77,7 @@
   html.template(id: "flyout-template", html.div(class: "symbol-flyout", {
     html.div(class: "info", {
       html.button(class: "main", html.span(class: "sym"))
-      html.div({
+      html.div(class: "props", {
         html.h3(html.span(class: "unic-name"))
         html.p(class: "sym-deprecation", {
           use-icon(16, "warn", "Warning")
@@ -90,11 +94,11 @@
           copy-button()
           html.span(class: "remark")
         })
-        html.p(class: "codepoint", {
+        html.p(class: "escape", {
           [Escape: ]
           html.code(
             class: "typ-escape",
-            "\\u{" + html.span(class: "value") + "}",
+            html.span(class: "value"),
           )
           copy-button()
         })
@@ -223,11 +227,14 @@
         .map(((variant, ..)) => complete(variant))
         .filter(v => v != full-name)
 
-      entries.push(symbol-entry(
-        full-name,
+      entries.push((
         value,
-        deprecation,
-        alternates,
+        symbol-entry(
+          full-name,
+          value,
+          deprecation,
+          alternates,
+        ),
       ))
     }
   }
@@ -252,7 +259,17 @@
 // A list / grid of symbols with their names.
 #let symbol-name-list(mod, emoji: false) = {
   let entries = symbol-list-entries(mod, none)
-  symbol-list(entries, emoji: emoji)
+  if emoji {
+    // Order entries in CLDR order.
+    entries = entries.sorted(
+      key: ((value, entry)) => value,
+      by: stdx.emoji-ordering,
+    )
+  }
+  symbol-list(
+    entries.map(((_, entry)) => entry),
+    emoji: emoji,
+  )
 }
 
 // A list / grid of symbols with their shorthands.

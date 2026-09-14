@@ -583,8 +583,8 @@ mod tests {
 
         roundtrip(0..0);
         roundtrip(177..233);
-        roundtrip(0..8388607);
-        roundtrip(8388606..8388607); // 2^23-2 .. 2^23-1
+        roundtrip(0..0x7F_FFFF);
+        roundtrip(0x7F_FFFE..0x7F_FFFF); // 2^23-2 .. 2^23-1
     }
 
     #[test]
@@ -601,11 +601,11 @@ mod tests {
 
         roundtrip(0..0);
         roundtrip(177..233);
-        roundtrip(0..8388607);
-        roundtrip(8388606..8388607); // 2^23-2 .. 2^23-1
-        roundtrip(8388608..8388609); // 2^23   .. 2^23+1
+        roundtrip(0..0x007F_FFFF);
+        roundtrip(0x7F_FFFE..0x7F_FFFF); // 2^23-2 .. 2^23-1
+        roundtrip(0x80_0000..0x80_0001); // 2^23   .. 2^23+1
         #[cfg(target_pointer_width = "64")]
-        roundtrip(70368744177662..70368744177663); // 2^46-2 .. 2^46-1
+        roundtrip(0x3FFF_FFFF_FFFE..0x3FFF_FFFF_FFFF); // 2^46-2 .. 2^46-1
     }
 
     #[test]

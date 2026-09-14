@@ -20,7 +20,7 @@ use crate::loading::{DataSource, Load, Readable};
 /// Raw bytes:
 /// #read("tiger.jpg", encoding: none)
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn read(
     engine: &mut Engine,
     /// Path to a file.

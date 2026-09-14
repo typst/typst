@@ -42,7 +42,11 @@ pub fn layout_cancel(
 
     // The origin of our line is the very middle of the element.
     let center = body_size.to_point() / 2.0;
-    body.push_frame(center, first_line);
+    if item.background {
+        body.prepend_frame(center, first_line);
+    } else {
+        body.push_frame(center, first_line);
+    }
 
     if item.cross {
         // Draw the second line.
@@ -57,7 +61,11 @@ pub fn layout_cancel(
             props.span,
         )?;
 
-        body.push_frame(center, second_line);
+        if item.background {
+            body.prepend_frame(center, second_line);
+        } else {
+            body.push_frame(center, second_line);
+        }
     }
 
     ctx.push(
@@ -70,7 +78,7 @@ pub fn layout_cancel(
 }
 
 /// Draws a cancel line.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn draw_cancel_line(
     engine: &mut Engine,
     length_scale: Rel<Abs>,

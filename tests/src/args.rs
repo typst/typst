@@ -38,7 +38,7 @@ pub struct CliArguments {
     ///
     /// Does not affect the comparison or the reference image.
     #[arg(short, long, default_value_t = 1.0)]
-    pub scale: f32,
+    pub scale: f64,
     /// Displays the syntax tree before running tests.
     ///
     /// Note: This is ignored if using '--syntax-compare'.
@@ -66,7 +66,7 @@ pub struct CliArguments {
     pub base_revision: Option<String>,
     /// Print errors in a format that github actions can pick up to generate
     /// annotations that will be displayed on PR files:
-    /// https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message
+    /// <https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-an-error-message>
     #[arg(long, env = "USE_GITHUB_ANNOTATIONS")]
     pub use_github_annotations: bool,
     /// Changes testing behavior for debugging the parser: With no argument,
@@ -107,7 +107,7 @@ impl CliArguments {
                     TestStages::all()
                 } else {
                     let mut stages = TestStages::empty();
-                    for &s in self.stages.iter() {
+                    for &s in &self.stages {
                         stages |= s.into();
                     }
                     stages
@@ -121,7 +121,7 @@ impl CliArguments {
         self.stages().with_implied()
     }
 
-    /// [Self::implied_stages] and the ones that are required.
+    /// [`Self::implied_stages`] and the ones that are required.
     pub fn required_stages(&self) -> TestStages {
         // Must be in this order, otherwise any paged output target
         // would enable all others.

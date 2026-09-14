@@ -46,11 +46,6 @@ pub enum Item<'a> {
 }
 
 impl<'a> Item<'a> {
-    /// Whether this is a tag item.
-    pub fn is_tag(&self) -> bool {
-        matches!(self, Self::Tag(_))
-    }
-
     /// If this a text item, return it.
     pub fn text(&self) -> Option<&ShapedText<'a>> {
         match self {
@@ -64,6 +59,17 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => Some(shaped),
             _ => None,
+        }
+    }
+
+    /// Whether this item can be skipped for the purposes of finding a leading
+    /// or trailing item.
+    pub fn is_skippable(&self) -> bool {
+        match self {
+            Self::Text(text) => text.glyphs.is_empty(),
+            Self::Tag(_) => true,
+            Self::Skip(_) => true,
+            _ => false,
         }
     }
 
@@ -241,7 +247,7 @@ pub fn collect<'a>(
                 "{} may not occur inside of a paragraph and was ignored",
                 child.func().name(),
             ));
-        };
+        }
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());

@@ -7,8 +7,9 @@ use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
 };
-use typst_library::model::{EnumElem, ListElem, Numbering, ParElem, ParbreakElem};
-use typst_library::pdf::PdfMarkerTag;
+use typst_library::model::{
+    EnumElem, ListElem, Numbering, ParElem, ParbreakElem, PdfMarkerTag,
+};
 use typst_library::text::TextElem;
 use typst_syntax::Span;
 
@@ -127,7 +128,7 @@ pub fn layout_enum(
                     parents.len(),
                     number,
                 )),
-                other => other
+                Numbering::Func(_) => numbering
                     .apply(engine, context.track(), item.span(), &[number])?
                     .display(),
             }
@@ -397,7 +398,7 @@ fn layout_item(
         layouter.baseline_align(&marker, &mut body, engine)?;
     } else {
         layouter.vertical_align(&mut marker, &body, engine)?;
-    };
+    }
 
     layouter.finish(marker, body)
 }
@@ -549,7 +550,7 @@ impl<'a> ItemLayouter<'a> {
             *body_fragment = self.layout_body(regions, engine)?;
 
             self.body_offset.y = -diff;
-        };
+        }
 
         Ok(())
     }
@@ -588,8 +589,13 @@ impl<'a> ItemLayouter<'a> {
         let mut frames = vec![];
         for (i, body_frame) in body_fragment.into_iter().enumerate() {
             let width = self.body_offset.x + body_frame.width();
-            let height = (marker.height() + self.marker_offset.y)
-                .max(body_frame.height() + self.body_offset.y);
+
+            let mut height = body_frame.height() + self.body_offset.y;
+            if i == self.first_frame {
+                // Also consider the marker height, but only for the frame into
+                // which it will be placed.
+                height.set_max(marker.height() + self.marker_offset.y);
+            }
 
             let mut frame = Frame::soft(Size::new(width, height));
 

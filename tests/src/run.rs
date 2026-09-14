@@ -122,7 +122,7 @@ impl UnexpectedEmpty {
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
-        let world = TestWorld::new(test.body.source.clone());
+        let world = TestWorld::new(test.body.source.clone(), test.attrs.features.clone());
         Self {
             hashes,
             test,
@@ -267,7 +267,7 @@ impl<'a> Runner<'a> {
         let mut inconsistent_stages = false;
         let mut consistent_set = TestStages::all();
 
-        for Note { status, seen, kind, range, message } in self.test.body.notes.iter() {
+        for Note { status, seen, kind, range, message } in &self.test.body.notes {
             // Set `needs_update` in one place for clarity.
             needs_update |= match &status {
                 NoteStatus::Annotated { .. } => seen.is_empty(),
@@ -393,7 +393,7 @@ impl<'a> Runner<'a> {
         }
 
         if let Err(errors) = output {
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, TestEval);
             }
         }
@@ -415,7 +415,7 @@ impl<'a> Runner<'a> {
         let target = TestTarget::from(D::target());
 
         let warnings = eval::deduplicate_with(warnings, &evaluated.warnings);
-        for warning in warnings.iter() {
+        for warning in &warnings {
             self.check_diagnostic(NoteKind::Warning, warning, target);
         }
 
@@ -427,7 +427,7 @@ impl<'a> Runner<'a> {
                     .unwrap_or(&[]);
                 let errors = eval::deduplicate_with(errors, eval_errors);
 
-                for error in errors.iter() {
+                for error in &errors {
                     self.check_diagnostic(NoteKind::Error, error, target);
                 }
 
@@ -447,7 +447,7 @@ impl<'a> Runner<'a> {
             let live_data = self.save_live::<T>(output);
             if self.test.should_check(T::OUTPUT) {
                 let output = output.and_then(|(doc, live)| Some((doc, live, live_data?)));
-                self.check_file_ref::<T>(output)
+                self.check_file_ref::<T>(output);
             }
         }
         live
@@ -473,19 +473,23 @@ impl<'a> Runner<'a> {
     /// Run test for a specific output format, and save the live output to disk.
     fn run_test<T: OutputType>(&mut self, doc: Option<&T::Doc>) -> Option<T::Live> {
         let doc = doc?;
-        let live = T::make_live(self.test, doc);
+        let Warned { output, warnings } = T::make_live(doc);
 
-        if let Err(errors) = &live {
+        if let Err(errors) = &output {
             if errors.is_empty() {
                 log!(self, "no document, but also no errors");
             }
 
-            for error in errors.iter() {
+            for error in errors {
                 self.check_diagnostic(NoteKind::Error, error, T::OUTPUT);
             }
         }
 
-        live.ok()
+        for warning in &warnings {
+            self.check_diagnostic(NoteKind::Warning, warning, T::OUTPUT);
+        }
+
+        output.ok()
     }
 
     fn save_live<'d, T: OutputType>(

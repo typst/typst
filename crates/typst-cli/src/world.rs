@@ -66,7 +66,16 @@ impl SystemWorld {
             let features =
                 process_args.features.iter().copied().map(Into::into).collect();
 
-            Library::builder().with_inputs(inputs).with_features(features).build()
+            Library::builder([
+                typst_html::FORMAT,
+                typst_pdf::FORMAT,
+                typst_svg::FORMAT,
+                typst_render::FORMAT,
+                typst_bundle::FORMAT,
+            ])
+            .with_inputs(inputs)
+            .with_features(features)
+            .build()
         };
 
         let now = match world_args.creation_timestamp {
@@ -250,7 +259,7 @@ impl SystemFiles {
             let path = world_args
                 .root
                 .as_deref()
-                .or_else(|| input_path.as_deref().and_then(|i| i.parent()))
+                .or_else(|| input_path.as_deref()?.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|err| match err.kind() {
                 io::ErrorKind::NotFound => {

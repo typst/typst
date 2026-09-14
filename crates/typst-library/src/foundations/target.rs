@@ -93,10 +93,10 @@ pub struct TargetElem {
 /// Returns the current export target.
 ///
 /// This function returns
-/// - `{"paged"}` in @pdf[PDF], @reference:png[PNG], and
-///   @reference:svg[SVG] export, or within an @html.frame[HTML frame]
+/// - `{"paged"}` in @pdf[PDF], @format.png[PNG], and
+///   @format.svg[SVG] export, or within an @html.frame[HTML frame]
 /// - `{"html"}` in @html[HTML] export
-/// - `{"bundle"}` in @reference:bundle[Bundle] export
+/// - `{"bundle"}` in @format.bundle[Bundle] export
 ///
 /// = When to use it <when-to-use-it>
 /// This function allows you to format your document properly across the paged,
@@ -131,7 +131,7 @@ pub struct TargetElem {
 ///
 /// Press #kbd("F1") for help.
 /// ```
-#[func(contextual)]
+#[func(contextual, since = "0.13.0")]
 pub fn target(context: Tracked<Context>) -> HintedStrResult<Target> {
     Ok(context.styles()?.get(TargetElem::target))
 }

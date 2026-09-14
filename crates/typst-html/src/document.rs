@@ -2,6 +2,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
 use typst_library::diag::{SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, QueryIntrospection,
@@ -10,7 +11,7 @@ use typst_library::math::EquationElem;
 use typst_library::model::{DocumentInfo, FootnoteContainer, FootnoteMarker};
 use typst_library::routines::{Arenas, RealizationKind};
 use typst_library::{Library, World};
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
@@ -41,7 +42,7 @@ pub fn html_document(
 
 /// The internal implementation of `html_document`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -96,7 +97,7 @@ pub fn html_document_for_bundle(
 
 /// The internal implementation of `html_document_for_bundle`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_for_bundle_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -124,7 +125,7 @@ fn html_document_for_bundle_impl(
 
 /// The shared, unmemoized implementation of `html_document` and
 /// `html_document_for_bundle`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn html_document_common(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -159,9 +160,11 @@ fn html_document_common(
     let mut info = DocumentInfo::default();
     info.populate(styles);
     info.populate_locale(styles);
+    let mut options = DocumentFormatOptions::new(&library.formats);
+    options.populate(Spanned::detached(styles));
 
     let children = (engine.library.routines.realize)(
-        RealizationKind::Document { info: &mut info },
+        RealizationKind::Document { info: &mut info, options: &mut options },
         &mut engine,
         &mut locator,
         &arenas,
@@ -214,7 +217,7 @@ fn html_document_common(
         );
     }
 
-    Ok(HtmlDocument::new(output, info))
+    Ok(HtmlDocument::new(output, info, options))
 }
 
 /// The introspectible output of HTML compilation.
@@ -340,13 +343,13 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
         );
     }
 
-    if !info.author.is_empty() {
+    for author in &info.author {
         children.push(
             HtmlElement::new(tag::meta)
-                .with_attr(attr::name, "authors")
-                .with_attr(attr::content, info.author.join(", "))
+                .with_attr(attr::name, "author")
+                .with_attr(attr::content, author)
                 .into(),
-        )
+        );
     }
 
     if !info.keywords.is_empty() {
@@ -355,7 +358,7 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
                 .with_attr(attr::name, "keywords")
                 .with_attr(attr::content, info.keywords.join(", "))
                 .into(),
-        )
+        );
     }
 
     HtmlElement::new(tag::head).with_children(children)

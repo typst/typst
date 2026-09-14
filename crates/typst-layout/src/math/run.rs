@@ -38,7 +38,7 @@ pub fn layout_multiline(
 
     let mut col_widths = vec![Abs::zero(); ncols];
     let mut rows: Vec<Vec<MathRun>> = Vec::with_capacity(nrows);
-    for row in item.rows.iter() {
+    for row in &item.rows {
         let cells = layout_aligned_row(row, ctx, styles)?;
         for (c, cell) in cells.iter().enumerate() {
             col_widths[c].set_max(cell.iter().map(|f| f.width()).sum());
@@ -266,7 +266,7 @@ impl MathRunFrameBuilder {
     /// Consumes the builder and returns a [`Frame`].
     fn build(self, mut set_baseline: bool) -> Frame {
         let mut frame = Frame::soft(self.size);
-        for (sub, pos) in self.frames.into_iter() {
+        for (sub, pos) in self.frames {
             if set_baseline && sub.has_baseline() {
                 frame.set_baseline(sub.baseline());
             }

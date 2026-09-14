@@ -10,6 +10,7 @@ cargo-fuzz = true
 [dependencies]
 typst = { workspace = true }
 typst-assets = { workspace = true, features = ["fonts"] }
+typst-bundle = { workspace = true }
 typst-pdf = { workspace = true }
 typst-svg = { workspace = true }
 typst-layout = { workspace = true }
@@ -18,6 +19,9 @@ typst-render = { workspace = true }
 typst-syntax = { workspace = true }
 comemo = { workspace = true }
 libfuzzer-sys = { workspace = true }
+
+[lints]
+workspace = true
 
 [[bin]]
 name = "parse"

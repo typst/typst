@@ -13,7 +13,7 @@ const BITS: usize = usize::BITS as usize;
 /// Unless you're managing small numbers yourself, you should likely prefer
 /// `SmallBitSet`, which has a bit larger memory size, but does not allocate
 /// for small numbers.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct BitSet(ThinVec<usize>);
 
 impl BitSet {
@@ -63,7 +63,7 @@ impl Debug for BitSet {
 /// Efficiently stores a set of numbers which are expected to be very small.
 /// Values `< 32/64` (depending on the architecture) are stored inline, while
 /// values larger than that will lead to an allocation.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct SmallBitSet {
     /// Used to store values < BITS.
     low: usize,

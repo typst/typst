@@ -131,7 +131,7 @@ use crate::foundations::{Repr, Str, cast, func, scope, ty};
 /// transferring paths across files in your project and packages. In the future,
 /// it may enable additional capabilities like checking for the existence of a
 /// file or enumerating files in a directory.
-#[ty(scope, name = "path")]
+#[ty(scope, name = "path", since = "0.14.2")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 type RootedPath;
 
@@ -148,7 +148,7 @@ impl RootedPath {
     /// // An absolute path with a leading slash.
     /// #path("/absolute/path/to/file.typ")
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "0.14.2")]
     pub fn construct(
         /// Converts a string or path to a path.
         ///

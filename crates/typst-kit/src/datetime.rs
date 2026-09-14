@@ -33,7 +33,7 @@ impl Time {
         let date = match datetime {
             Datetime::Date(d) => d,
             Datetime::Datetime(dt) => dt.date(),
-            _ => bail!("fixed datetime must specify a date"),
+            Datetime::Time(_) => bail!("fixed datetime must specify a date"),
         };
 
         Ok(Time(TimeInner::Fixed(DateTime::from_naive_utc_and_offset(

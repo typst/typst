@@ -12,15 +12,14 @@ use typst_library::layout::{
     Length, OuterVAlignment, PageElem, Paper, Region, Regions, Rel, Sides, Size,
     VAlignment,
 };
-use typst_library::model::Numbering;
-use typst_library::pdf::ArtifactKind;
+use typst_library::model::{ArtifactKind, Numbering};
 use typst_library::routines::Pair;
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Numeric, Protected};
 
-use crate::flow::{FlowMode, layout_flow};
+use crate::flow::{ColumnOptions, FlowMode, layout_flow};
 
 /// A mostly finished layout for one page. Needs only knowledge of its exact
 /// page number to be finalized into a `Page`. (Because the margins can depend
@@ -75,7 +74,7 @@ pub fn layout_page_run(
 
 /// The internal implementation of `layout_page_run`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_page_run_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -193,8 +192,12 @@ fn layout_page_run_impl(
         &mut locator,
         styles,
         Regions::repeat(area, area.map(Abs::is_finite)),
-        styles.get(PageElem::columns),
-        styles.get(ColumnsElem::gutter).resolve(styles),
+        ColumnOptions {
+            count: styles.get(PageElem::columns),
+            balanced: styles.get(ColumnsElem::balanced),
+            gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+            separator: styles.get_cloned(ColumnsElem::separator),
+        },
         FlowMode::Root,
     )?;
 

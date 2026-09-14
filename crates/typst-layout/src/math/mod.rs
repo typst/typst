@@ -294,7 +294,7 @@ fn add_equation_number(
     let x = match number_align.x {
         FixedAlignment::Start => Abs::zero(),
         FixedAlignment::End => equation.width() - number.width(),
-        _ => unreachable!(),
+        FixedAlignment::Center => unreachable!(),
     };
     let y = {
         let align_baselines = |(_, pos, baseline): (_, Point, Abs), number: &Frame| {
@@ -513,7 +513,7 @@ fn layout_realized(
         MathKind::Table(item) => layout_table(item, ctx, styles, props)?,
         MathKind::Fraction(item) => layout_fraction(item, ctx, styles, props)?,
         MathKind::SkewedFraction(item) => {
-            layout_skewed_fraction(item, ctx, styles, props)?
+            layout_skewed_fraction(item, ctx, styles, props)?;
         }
         MathKind::Text(item) => layout_text(item, ctx, styles, props)?,
         MathKind::Number(item) => layout_number(item, ctx, styles, props)?,
@@ -643,6 +643,6 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
             span,
             "current font is not designed for math";
             hint: "rendering may be poor";
-        ))
+        ));
     }
 }

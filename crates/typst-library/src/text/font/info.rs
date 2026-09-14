@@ -289,6 +289,11 @@ pub struct Coverage(Vec<u32>);
 impl Coverage {
     /// Encode a vector of codepoints.
     pub fn from_vec(mut codepoints: Vec<u32>) -> Self {
+        #[expect(
+            clippy::stable_sort_primitive,
+            reason = "`sort_unstable` hurts performance here. Compiling a 'Hello World!' \
+            PDF with `--ignore-system-fonts` goes from 7.8ms to 9.1ms or +16%."
+        )]
         codepoints.sort();
         codepoints.dedup();
 
@@ -388,7 +393,7 @@ mod tests {
             // {2, 3, 4, 9, 10, 11, 15, 18, 19}
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
-        )
+        );
     }
 
     #[test]

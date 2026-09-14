@@ -251,7 +251,7 @@ where
 pub trait MaybeReverseIter {
     type RevIfIter;
 
-    /// Reverse this iterator (apply .rev()) based on some condition.
+    /// Reverse this iterator (apply `.rev()`) based on some condition.
     fn rev_if(self, condition: bool) -> Self::RevIfIter
     where
         Self: Sized;
@@ -313,7 +313,7 @@ impl<T> PartialEq for Static<T> {
 
 impl<T> Hash for Static<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const _ as _);
+        state.write_usize(self.0 as *const T as usize);
     }
 }
 
@@ -433,7 +433,7 @@ pub fn defer<T, F: FnOnce(&mut T)>(
         deferred: Option<F>,
     }
 
-    impl<'a, T, F: FnOnce(&mut T)> Drop for DeferHandle<'a, T, F> {
+    impl<T, F: FnOnce(&mut T)> Drop for DeferHandle<'_, T, F> {
         fn drop(&mut self) {
             std::mem::take(&mut self.deferred).expect("deferred function")(self.thing);
         }

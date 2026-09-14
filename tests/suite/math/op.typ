@@ -24,6 +24,16 @@ $ lim_(n->infinity) 1/n = 0 $
 $ op("myop", limits: #false)_(x:=1) x \
   op("myop", limits: #true)_(x:=1) x $
 
+--- math-op-symbol-baseline paged html ---
+// Test baseline of a symbol wrapped in an op.
+#let expect = $op(EE)$
+$expect A$
+
+--- math-op-large-stretch paged html ---
+// Test that math.op's large class setting doesn't modify symbols.
+$\/ class("large", \/) op(\/) integral op(integral)$
+$ \/ class("large", \/) op(\/) integral op(integral) $
+
 --- math-op-styled paged html ---
 // Test styled operator.
 $ bold(op("bold", limits: #true))_x y $
@@ -48,3 +58,8 @@ $ colim_(x -> 0) inline(colim_(x -> 0)) $
 #test
 #show math.op: set text(font: "New Computer Modern")
 #test
+
+--- math-op-stretch-relative paged html ---
+// Test that math.op's large class setting doesn't affect relative stretch
+// resolution.
+$ op(stretch(|, size: #300%)) stretch(|, size: #300%) $

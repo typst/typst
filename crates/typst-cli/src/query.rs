@@ -32,11 +32,11 @@ pub fn query(command: &'static QueryCommand) -> HintedStrResult<()> {
 
     let Warned { output, mut warnings } = match command.target {
         Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
         Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
         Target::Bundle => typst::compile::<Bundle>(&world)
-            .map(|result| result.map(|output| Box::new(output) as Box<dyn Output>)),
+            .map(|output| Box::new(output) as Box<dyn Output>),
     };
 
     // Add deprecation warning.
@@ -137,7 +137,7 @@ fn deprecation_warning(command: &QueryCommand) -> SourceDiagnostic {
         match (command.one, &command.field) {
             (false, None) => {}
             (false, Some(field)) => {
-                write!(buf, ".map(it => it{})", access(field)).unwrap()
+                write!(buf, ".map(it => it{})", access(field)).unwrap();
             }
             (true, None) => write!(buf, ".first()").unwrap(),
             (true, Some(field)) => write!(buf, ".first(){}", access(field)).unwrap(),

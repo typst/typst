@@ -8,6 +8,7 @@ use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{Content, StyleChain};
 use typst_library::introspection::{
     Introspector, Locator, LocatorLink, ManualPageCounter, SplitLocator, TagElem,
@@ -16,6 +17,7 @@ use typst_library::layout::{FrameItem, Point};
 use typst_library::model::DocumentInfo;
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::{Library, World};
+use typst_syntax::Spanned;
 use typst_utils::{LazyHash, Protected};
 
 use self::collect::{Item, collect};
@@ -49,7 +51,7 @@ pub fn layout_document(
 
 /// The internal implementation of `layout_document`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -96,7 +98,7 @@ pub fn layout_document_for_bundle(
 
 /// The internal implementation of `layout_document_for_bundle`.
 #[comemo::memoize]
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_for_bundle_impl(
     world: Tracked<dyn World + '_>,
     library: &LazyHash<Library>,
@@ -124,7 +126,7 @@ fn layout_document_for_bundle_impl(
 
 /// The shared, unmemoized implementation of `layout_document` and
 /// `layout_document_for_bundle`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn layout_document_common(
     library: &LazyHash<Library>,
     world: Tracked<dyn World + '_>,
@@ -156,9 +158,11 @@ fn layout_document_common(
     let mut info = DocumentInfo::default();
     info.populate(styles);
     info.populate_locale(styles);
+    let mut options = DocumentFormatOptions::new(&library.formats);
+    options.populate(Spanned::detached(styles));
 
     let mut children = (engine.library.routines.realize)(
-        RealizationKind::Document { info: &mut info },
+        RealizationKind::Document { info: &mut info, options: &mut options },
         &mut engine,
         &mut locator,
         &arenas,
@@ -168,7 +172,7 @@ fn layout_document_common(
 
     let pages = layout_pages(&mut engine, &mut children, &mut locator, styles)?;
 
-    Ok(PagedDocument::new(pages, info))
+    Ok(PagedDocument::new(pages, info, options))
 }
 
 /// Layouts the document's pages.

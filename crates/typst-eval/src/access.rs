@@ -1,6 +1,6 @@
 use ecow::eco_format;
 use typst_library::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
-use typst_library::foundations::{Dict, Value};
+use typst_library::foundations::{Dict, Value, WorldBindingExt};
 use typst_syntax::ast::{self, AstNode};
 
 use crate::{Eval, Vm, call_method_access, is_accessor_method};
@@ -29,15 +29,15 @@ impl Access for ast::Expr<'_> {
 impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
+        let ident = self.as_str();
         if vm.inspected == Some(span)
-            && let Ok(binding) = vm.scopes.get(&self)
+            && let Ok(value) =
+                vm.scopes.get(ident, vm.engine.world.silent_binding_guard())
         {
-            vm.trace(binding.read().clone());
+            vm.trace(value.clone());
         }
-        vm.scopes
-            .get_mut(&self)
-            .and_then(|b| b.write().map_err(Into::into))
-            .at(span)
+
+        vm.scopes.get_mut(&self, vm.engine.binding_guard(span)).at(span)
     }
 }
 

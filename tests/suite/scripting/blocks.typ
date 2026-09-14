@@ -64,7 +64,7 @@
 // Block directly in markup also creates a scope.
 #{ let x = 1 }
 
-// Error: 7-8 unknown variable: x
+// Error: 7-8 unknown variable `x`
 #test(x, 1)
 
 --- code-block-scope-in-let eval ---
@@ -76,7 +76,7 @@
 
 #test(a, 1)
 
-// Error: 3-4 unknown variable: b
+// Error: 3-4 unknown variable `b`
 #{b}
 
 --- code-block-double-scope eval ---
@@ -86,7 +86,7 @@
   test(b, 1)
 }}
 
-// Error: 2-3 unknown variable: b
+// Error: 2-3 unknown variable `b`
 #b
 
 --- code-block-nested-scopes eval ---
@@ -179,5 +179,5 @@
 // Content blocks also create a scope.
 #[#let x = 1]
 
-// Error: 2-3 unknown variable: x
+// Error: 2-3 unknown variable `x`
 #x

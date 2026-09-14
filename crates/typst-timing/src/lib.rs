@@ -128,7 +128,7 @@ pub fn export_json<W: Write>(
         .serialize_seq(Some(events.len()))
         .map_err(|e| format!("failed to serialize events: {e}"))?;
 
-    for event in events.iter() {
+    for event in &events {
         seq.serialize_element(&Entry {
             name: event.name,
             cat: "typst",

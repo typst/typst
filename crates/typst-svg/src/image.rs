@@ -75,7 +75,7 @@ pub enum WebImageFormat {
 
 impl WebImageFormat {
     /// The mime type for this format.
-    pub fn mime(&self) -> &'static str {
+    pub fn mime(self) -> &'static str {
         match self {
             Self::Png => "image/png",
             Self::Jpg => "image/jpeg",
@@ -86,7 +86,7 @@ impl WebImageFormat {
     }
 
     /// The canonical extension used for this format.
-    pub fn extension(&self) -> &'static str {
+    pub fn extension(self) -> &'static str {
         match self {
             Self::Png => "png",
             Self::Jpg => "jpg",

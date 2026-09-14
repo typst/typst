@@ -138,8 +138,20 @@ impl SystemDownloader {
 
         self.cert_path.as_ref().map(|path| {
             self.cert.get_or_try_init(|| {
-                let pem = std::fs::read(path)?;
-                Certificate::from_pem(&pem).map_err(io::Error::other)
+                #[cfg(all(target_vendor = "apple", not(target_os = "macos")))]
+                {
+                    let _ = path;
+                    return Err(io::Error::new(
+                        io::ErrorKind::Unsupported,
+                        "custom PEM certificates are not supported by native-tls on this platform",
+                    ));
+                }
+
+                #[cfg(not(all(target_vendor = "apple", not(target_os = "macos"))))]
+                {
+                    let pem = std::fs::read(path)?;
+                    Certificate::from_pem(&pem).map_err(io::Error::other)
+                }
             })
         })
     }
@@ -386,7 +398,7 @@ const SAMPLES: usize = 25;
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
 /// over a websocket and reports its progress.
 struct ProgressReader<'p> {
-    /// The reader returned by the ureq::Response.
+    /// The reader returned by the [`ureq::Response`].
     reader: Box<dyn Read>,
     /// The download state, holding download metadata for progress reporting.
     state: Progress,

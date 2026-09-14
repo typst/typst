@@ -4,7 +4,9 @@
 //   element docs (as opposed to componentized non-prose content).
 
 #import "system.typ": colors, fonts, sizes
-#import "base.typ": labelled, small, title-state, with-short-versions
+#import "base.typ": (
+  dev-version-warning, labelled, small, title-state, with-short-versions,
+)
 #import "example.typ": example, preview, source
 #import "footnote.typ": footnote-rule, with-footnotes
 #import "linking.typ": def-label, def-metadata, register-def
@@ -68,11 +70,16 @@
   set page(
     numbering: "1",
     header: {
+      set align(right)
       counter(footnote).update(())
+      if stdx.is-dev-version {
+        dev-version-warning()
+      }
+      h(1fr)
       context {
         let title = title-state.get()
         if title != none {
-          align(right, small(title))
+          small(title)
         }
       }
     },

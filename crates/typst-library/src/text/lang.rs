@@ -646,7 +646,7 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
         return str;
     }
     let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
-    english_bundle.get(key).unwrap()
+    english_bundle[key]
 }
 
 /// Parses the translation file for a given language and region.
@@ -706,7 +706,7 @@ mod tests {
 
     #[test]
     fn test_region_option_eq() {
-        let region = Some(Region([b'U', b'S']));
+        let region = Some(Region(*b"US"));
         assert!(option_eq(region, "US"));
         assert!(!option_eq(region, "AB"));
     }

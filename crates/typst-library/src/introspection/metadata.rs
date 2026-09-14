@@ -20,7 +20,7 @@ use crate::foundations::{Value, elem};
 ///   query(<note>).first().value
 /// }
 /// ```
-#[elem(Locatable)]
+#[elem(since = "0.7.0", Locatable)]
 pub struct MetadataElem {
     /// The value to embed into the document.
     #[required]

@@ -112,7 +112,7 @@ fn test() {
 
     let selected = tests.len();
     if ARGS.list {
-        for test in tests.iter() {
+        for test in &tests {
             println!("{test}");
         }
         eprintln!("{selected} selected, {skipped} skipped");
@@ -188,7 +188,7 @@ fn undangle() {
         Ok(_) => eprintln!("no dangling reference output"),
         Err(errors) => {
             let mut dangling_hashes = FxHashMap::<&Path, Vec<&str>>::default();
-            for error in errors.iter() {
+            for error in &errors {
                 match &error.kind {
                     TestParseErrorKind::DanglingFile => {
                         std::fs::remove_file(&*error.pos.path).unwrap();
@@ -204,11 +204,11 @@ fn undangle() {
             }
 
             // Remove dangling hashes from file.
-            #[allow(clippy::iter_over_hash_type)]
+            #[expect(clippy::iter_over_hash_type)]
             for (path, names) in dangling_hashes {
                 let text = std::fs::read_to_string(path).unwrap();
                 let mut hashed_refs = HashedRefs::from_str(&text).unwrap();
-                for name in names.iter() {
+                for name in &names {
                     hashed_refs.remove(name);
                 }
                 std::fs::write(path, hashed_refs.to_string()).unwrap();

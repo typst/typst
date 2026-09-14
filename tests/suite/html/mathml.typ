@@ -159,3 +159,12 @@ $ a/sqrt(b) $
     Hello $x$
   ]
 })
+
+--- mathml-show-rule-accent html ---
+#show math.overline: it => {
+  html.elem("mover", attrs: (accent: "true"), {
+    html.elem("mrow", it.body)
+    $class("diacritic", stretch(\u{203E}))$
+  })
+}
+$ overline(A B C) $

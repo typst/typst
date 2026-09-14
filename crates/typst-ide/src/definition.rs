@@ -1,4 +1,4 @@
-use typst::foundations::{AsOutput, Label, Selector, Value};
+use typst::foundations::{AsOutput, Label, Selector, Value, WorldBindingExt};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
@@ -43,7 +43,7 @@ pub fn definition(
                 (*item.name() == name).then(|| Definition::Span(item.span()))
             }) {
                 return Some(src);
-            };
+            }
 
             if let Some((value, _)) = analyze_expr(world, &node).first() {
                 let span = match value {
@@ -56,8 +56,10 @@ pub fn definition(
                 }
             }
 
-            if let Some(binding) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(binding.read().clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name)
+                && let Ok(value) = binding.read(world.silent_binding_guard())
+            {
+                return Some(Definition::Std(value.clone()));
             }
         }
 
@@ -135,7 +137,7 @@ mod tests {
         fn must_be_value(&self, expected: impl IntoValue) -> &Self {
             match &self.1 {
                 Some(Definition::Std(value)) => {
-                    assert_eq!(*value, expected.into_value())
+                    assert_eq!(*value, expected.into_value());
                 }
                 _ => panic!("expected std definition"),
             }

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use ecow::{EcoString, EcoVec};
 use typst_library::diag::{HintedStrResult, SourceResult, StrResult, bail};
 use typst_library::engine::Engine;
+use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{
     Content, Dict, Fold, Output, Repr, Str, StyleChain, Target, cast,
 };
@@ -26,16 +27,26 @@ use crate::{HtmlIntrospector, charsets, css};
 pub struct HtmlDocument {
     output: HtmlOutput,
     info: DocumentInfo,
+    options: DocumentFormatOptions,
     introspector: Arc<HtmlIntrospector>,
 }
 
 impl HtmlDocument {
-    /// Creates a new paged document from its parts.
+    /// Creates a new HTML document from its parts.
     ///
     /// Internally builds the introspector.
-    pub fn new(output: HtmlOutput, info: DocumentInfo) -> Self {
+    pub fn new(
+        output: HtmlOutput,
+        info: DocumentInfo,
+        options: DocumentFormatOptions,
+    ) -> Self {
         let introspector = HtmlIntrospector::new(output.nodes());
-        Self { output, info, introspector: Arc::new(introspector) }
+        Self {
+            output,
+            info,
+            options,
+            introspector: Arc::new(introspector),
+        }
     }
 
     /// The document's root HTML element.
@@ -75,6 +86,10 @@ impl HtmlDocument {
 impl Document for HtmlDocument {
     fn info(&self) -> &DocumentInfo {
         &self.info
+    }
+
+    fn options(&self) -> &DocumentFormatOptions {
+        &self.options
     }
 }
 

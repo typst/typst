@@ -10,7 +10,7 @@ use typst_syntax::{FileId, Span};
 use typst_utils::{LazyHash, Protected};
 
 use crate::diag::{HintedStrResult, SourceDiagnostic, SourceResult, StrResult, bail};
-use crate::foundations::{Styles, Value};
+use crate::foundations::{NormalBindingGuard, Styles, Value};
 use crate::introspection::{Introspect, Introspection, Introspector};
 use crate::{Library, World};
 
@@ -35,7 +35,7 @@ pub struct Engine<'a> {
     pub route: Route<'a>,
 }
 
-impl Engine<'_> {
+impl<'a> Engine<'a> {
     /// Handles a result without immediately terminating execution. Instead, it
     /// produces a delayed error that is only promoted to a fatal one if it
     /// remains by the end of the introspection loop.
@@ -114,6 +114,11 @@ impl Engine<'_> {
         let output = introspection.introspect(self, introspector);
         self.sink.introspection(Introspection::new(introspection));
         output
+    }
+
+    /// Create a struct that implements [`crate::foundations::BindingGuard`].
+    pub fn binding_guard(&'_ mut self, span: Span) -> NormalBindingGuard<'_, 'a> {
+        NormalBindingGuard { engine: self, span }
     }
 }
 
@@ -394,7 +399,7 @@ impl Route<'_> {
 }
 
 #[comemo::track]
-#[allow(clippy::needless_lifetimes)]
+#[expect(clippy::elidable_lifetime_names, reason = "required for `comemo::track`")]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     pub fn contains(&self, id: FileId) -> bool {

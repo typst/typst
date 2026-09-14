@@ -119,7 +119,7 @@ impl<'a> Glyphs<'a> {
     }
 }
 
-impl<'a> Deref for Glyphs<'a> {
+impl Deref for Glyphs<'_> {
     type Target = [ShapedGlyph];
 
     /// Returns only the kept (untrimmed) glyphs.
@@ -382,7 +382,7 @@ impl<'a> ShapedText<'a> {
                             adjustability_right * justification_ratio;
                         if shaped.is_justifiable() {
                             justification_right +=
-                                Em::from_abs(extra_justification, glyph_size)
+                                Em::from_abs(extra_justification, glyph_size);
                         }
 
                         frame.size_mut().x += justification_left.at(glyph_size)
@@ -782,7 +782,6 @@ fn is_compatible(a: Script, b: Script) -> bool {
 }
 
 /// Shape text into [`ShapedText`].
-#[allow(clippy::too_many_arguments)]
 fn shape<'a>(
     engine: &Engine,
     base: usize,
@@ -982,7 +981,7 @@ fn shape_segment<'a>(
     if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
         rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
     }) {
-        buffer.set_script(script)
+        buffer.set_script(script);
     }
     buffer.set_direction(match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
@@ -1006,7 +1005,7 @@ fn shape_segment<'a>(
     let has_shift_feature = shift_feature.is_some();
     if let Some(feat) = shift_feature {
         // Temporarily push the feature.
-        ctx.features.push(feat)
+        ctx.features.push(feat);
     }
 
     // Prepare the shape plan. This plan depends on direction, script, language,
@@ -1184,7 +1183,7 @@ fn determine_shift(
                     let Some(i) = font.rusty().glyph_index(c) else { return false };
                     lookups
                         .into_iter()
-                        .flat_map(|i| gsub.lookups.get(i))
+                        .filter_map(|i| gsub.lookups.get(i))
                         .flat_map(|lookup| {
                             lookup.subtables.into_iter::<SubstitutionSubtable>()
                         })
@@ -1384,11 +1383,13 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 }
 
 // The CJK punctuation that can appear at the beginning or end of a line.
-pub const BEGIN_PUNCT_PAT: &[char] =
-    &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
+pub const BEGIN_PUNCT_PAT: &[char] = &[
+    '“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛', '｟', '〘',
+    '〝',
+];
 pub const END_PUNCT_PAT: &[char] = &[
     '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
-    '〗', '〕', '］', '｝', '？', '！',
+    '〗', '〕', '］', '｝', '｠', '〙', '〟', '？', '！',
 ];
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -1456,8 +1457,23 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '》' | '）' | '』' | '」' | '】' | '〗' | '〕' | '〉' | '］' | '｝')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.2 https://www.w3.org/TR/jlreq/?lang=ja#cl-02
+    matches!(
+        c,
+        '》' | '）'
+            | '』'
+            | '」'
+            | '】'
+            | '〗'
+            | '〕'
+            | '〉'
+            | '］'
+            | '｝'
+            | '｠'
+            | '〙'
+            | '〟'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -1471,8 +1487,23 @@ fn is_cjk_right_aligned_punctuation(
     if matches!(c, '“' | '‘') && x_advance + stretchability.0 == Em::one() {
         return true;
     }
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.1 https://www.w3.org/TR/jlreq/?lang=ja#cl-01
+    matches!(
+        c,
+        '《' | '（'
+            | '『'
+            | '「'
+            | '【'
+            | '〖'
+            | '〔'
+            | '〈'
+            | '［'
+            | '｛'
+            | '｟'
+            | '〘'
+            | '〝'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>

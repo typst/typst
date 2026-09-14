@@ -151,7 +151,7 @@ impl ValidatorsExt for Validators {
                 [a] => f.write_str(a),
                 [a, b] => write!(f, "{a} and {b}"),
                 [rest @ .., last] => {
-                    for v in rest.iter() {
+                    for v in rest {
                         write!(f, "{v}, ")?;
                     }
                     write!(f, "and {last}")

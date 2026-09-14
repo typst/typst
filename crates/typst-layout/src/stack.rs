@@ -64,7 +64,7 @@ where
 /// more deeply, such as for lists, which need a custom layout function that
 /// might borrow data from the environment for each list item (a stack child).
 /// Each child receives relevant layout data from the stack as well.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub fn layout_stack_internal<'a, F>(
     children: impl IntoIterator<Item = StackLayoutChild<'a, F>>,
     span: Span,

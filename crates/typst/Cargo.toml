@@ -27,5 +27,8 @@ comemo = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
 
-[lints]
-workspace = true
+[dev-dependencies]
+typst-bundle = { workspace = true }
+typst-pdf = { workspace = true }
+typst-render = { workspace = true }
+typst-svg = { workspace = true }

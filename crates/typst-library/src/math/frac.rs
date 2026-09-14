@@ -21,7 +21,7 @@ pub const FRAC_PADDING: Em = Em::new(0.1);
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parentheses. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
-#[elem(title = "Fraction", Mathy)]
+#[elem(title = "Fraction", since = "forever", Mathy)]
 pub struct FracElem {
     /// The fraction's numerator.
     #[required]
@@ -130,7 +130,7 @@ pub enum FracStyle {
 /// $ binom(n, k) $
 /// $ binom(n, k_1, k_2, k_3, ..., k_m) $
 /// ```
-#[elem(title = "Binomial", Mathy)]
+#[elem(title = "Binomial", since = "forever", Mathy)]
 pub struct BinomElem {
     /// The binomial's upper index.
     #[required]

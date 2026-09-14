@@ -142,7 +142,7 @@ pub trait Introspect: Debug + PartialEq + Hash + Send + Sync + Sized + 'static {
 /// A type-erased representation of an [introspection](Introspect) that was
 /// recorded during compilation.
 #[derive(Debug, Clone, Hash)]
-#[allow(clippy::derived_hash_with_manual_eq)]
+#[expect(clippy::derived_hash_with_manual_eq)]
 pub struct Introspection(Arc<dyn Bounds>);
 
 impl Introspection {
