@@ -65,6 +65,109 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
         .weight(700),
     "FandolSong-Bold" => Exception::new()
         .weight(700),
+    // IBM Plex
+    "IBMPlexMono-Medm" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexMono-MedmItalic" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexMono-SmBld" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexMono-SmBldItalic" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexMono-Text" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexMono-TextItalic" => Exception::new()
+        .family("IBM Plex Mono"),
+    "IBMPlexSans-Medm" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSans-MedmItalic" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSans-SmBld" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSans-SmBldItalic" => Exception::new()
+       .family("IBM Plex Sans"),
+    "IBMPlexSans-Text" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSans-TextItalic" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansArabic-Medium" => Exception::new()
+        .family("IBM Plex Sans Arabic"),
+    "IBMPlexSansArabic-SemiBold" => Exception::new()
+        .family("IBM Plex Sans Arabic"),
+    "IBMPlexSansArabic-Text" => Exception::new()
+        .family("IBM Plex Sans Arabic"),
+    "IBMPlexSansCond-Medm" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansCond-MedmItalic" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansCond-SmBld" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansCond-SmBldItalic" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansCond-Text" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansCond-TextItalic" => Exception::new()
+        .family("IBM Plex Sans"),
+    "IBMPlexSansDevanagari-Medm" => Exception::new()
+        .family("IBM Plex Sans Devanagari"),
+    "IBMPlexSansDevanagari-SmBld" => Exception::new()
+        .family("IBM Plex Sans Devanagari"),
+    "IBMPlexSansDevanagari-Text" => Exception::new()
+        .family("IBM Plex Sans Devanagari"),
+    "IBMPlexSansHebrew-Medm" => Exception::new()
+        .family("IBM Plex Sans Hebrew"),
+    "IBMPlexSansHebrew-SmBld" => Exception::new()
+        .family("IBM Plex Sans Hebrew"),
+    "IBMPlexSansHebrew-Text" => Exception::new()
+        .family("IBM Plex Sans Hebrew"),
+    "IBMPlexSansJP-Medm" => Exception::new()
+        .family("IBM Plex Sans JP"),
+    "IBMPlexSansJP-SmBld" => Exception::new()
+        .family("IBM Plex Sans JP"),
+    "IBMPlexSansJP-Text" => Exception::new()
+        .family("IBM Plex Sans JP"),
+    "IBMPlexSansKR-Medm" => Exception::new()
+        .family("IBM Plex Sans KR"),
+    "IBMPlexSansKR-SmBld" => Exception::new()
+        .family("IBM Plex Sans KR"),
+    "IBMPlexSansKR-Text" => Exception::new()
+        .family("IBM Plex Sans KR"),
+    "IBMPlexSansSC-Medm" => Exception::new()
+        .family("IBM Plex Sans SC"),
+    "IBMPlexSansSC-SmBld" => Exception::new()
+        .family("IBM Plex Sans SC"),
+    "IBMPlexSansSC-Text" => Exception::new()
+        .family("IBM Plex Sans SC"),
+    "IBMPlexSansTC-Medm" => Exception::new()
+        .family("IBM Plex Sans TC"),
+    "IBMPlexSansTC-SmBld" => Exception::new()
+        .family("IBM Plex Sans TC"),
+    "IBMPlexSansTC-Text" => Exception::new()
+        .family("IBM Plex Sans TC"),
+    "IBMPlexSansThai-Medm" => Exception::new()
+        .family("IBM Plex Sans Thai"),
+    "IBMPlexSansThai-SmBld" => Exception::new()
+        .family("IBM Plex Sans Thai"),
+    "IBMPlexSansThai-Text" => Exception::new()
+        .family("IBM Plex Sans Thai"),
+    "IBMPlexSansThaiLooped-Medm" => Exception::new()
+        .family("IBM Plex Sans Thai Looped"),
+    "IBMPlexSansThaiLooped-SmBld" => Exception::new()
+        .family("IBM Plex Sans Thai Looped"),
+    "IBMPlexSansThaiLooped-Text" => Exception::new()
+        .family("IBM Plex Sans Thai Looped"),
+    "IBMPlexSerif-Medium" => Exception::new()
+        .family("IBM Plex Serif"),
+    "IBMPlexSerif-MediumItalic" => Exception::new()
+        .family("IBM Plex Serif"),
+    "IBMPlexSerif-SemiBold" => Exception::new()
+        .family("IBM Plex Serif"),
+    "IBMPlexSerif-SemiBoldItalic" => Exception::new()
+        .family("IBM Plex Serif"),
+    "IBMPlexSerif-Text" => Exception::new()
+        .family("IBM Plex Serif"),
+    "IBMPlexSerif-TextItalic" => Exception::new()
+        .family("IBM Plex Serif"),
     // Noto fonts
     "NotoNaskhArabicUISemi-Bold" => Exception::new()
         .family("Noto Naskh Arabic UI")
