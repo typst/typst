@@ -267,7 +267,9 @@ pub fn collect<'a>(
             match &elem.tag {
                 Tag::Start(content, _) => {
                     collector.push_item(Item::Tag(&elem.tag));
-                    if let Some(link_marker) = content.to_packed::<LinkMarker>() {
+                    if let Some(link_marker) = content.to_packed::<LinkMarker>()
+                        && !FrameModifiers::get_in(styles).hidden
+                    {
                         let link = link_marker.dest.clone();
                         let location = elem.tag.location();
                         collector.push_event(Event::StartLink(link.clone()));
@@ -291,6 +293,7 @@ pub fn collect<'a>(
                     // end tag, so we check the previous link style.
                     } else if let Some((link, loc)) = prev_link
                         && loc == location
+                        && !FrameModifiers::get_in(styles).hidden
                     {
                         initial_events.push(Event::StartLink(link.clone()));
                         collector.push_event(Event::EndLink(link.clone()));
@@ -315,8 +318,10 @@ pub fn collect<'a>(
         collector.spans.push(len, child.span());
     }
 
-    // Apply flow-level link.
-    if let Some((link, _)) = shared_link {
+    // Render flow-level link, if the paragraph was not hidden.
+    if let Some((link, _)) = shared_link
+        && !config.hidden
+    {
         initial_events.push(Event::StartLink(link.clone()));
         collector.push_event(Event::EndLink(link.clone()));
     }

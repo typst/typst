@@ -22,7 +22,7 @@ pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
     /// Whether the contents of the frame should be hidden.
-    hidden: bool,
+    pub(crate) hidden: bool,
 }
 
 impl FrameModifiers {

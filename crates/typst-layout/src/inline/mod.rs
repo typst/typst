@@ -19,7 +19,7 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator,
 };
 use typst_library::layout::{
-    Abs, AlignElem, Dir, FixedAlignment, Fragment, Length, Size,
+    Abs, AlignElem, Dir, FixedAlignment, Fragment, HideElem, Length, Size,
 };
 use typst_library::model::{
     Destination, EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem,
@@ -192,6 +192,7 @@ fn configuration(
     let font_size = shared.resolve(TextElem::size);
     let dir = shared.resolve(TextElem::dir);
     let link = shared.get_cloned(LinkElem::current);
+    let hidden = shared.get(HideElem::hidden);
 
     Config {
         justify,
@@ -244,6 +245,7 @@ fn configuration(
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
         costs: shared.get(TextElem::costs),
         link,
+        hidden,
         leading: shared.get(ParElem::leading),
     }
 }
@@ -306,6 +308,11 @@ struct Config {
     costs: Costs,
     /// The link active throughout the whole paragraph.
     link: Option<(Destination, Location)>,
+    /// Whether `#hide` is active for the whole paragraph.
+    ///
+    /// This is needed to decide whether links should be rendered, regardless of
+    /// the paragraph's visual contents.
+    hidden: bool,
     /// Paragraph leading.
     leading: Length,
 }
