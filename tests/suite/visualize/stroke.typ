@@ -19,6 +19,19 @@
 // Error: 9-21 unexpected key "foo", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #stroke((foo: "bar"))
 
+--- stroke-repr eval ---
+// A stroke's repr must denote the stroke itself: evaluating it (casting back
+// where necessary) yields an equal stroke.
+#test(stroke(), eval(repr(stroke())))
+#test(2pt, eval(repr(2pt)))
+#test(red, eval(repr(red)))
+#test(2pt + red, eval(repr(2pt + red)))
+#test(stroke(cap: "round"), stroke(eval(repr(stroke(cap: "round")))))
+#test(
+  stroke(paint: blue, thickness: 2pt, dash: "dashed", miter-limit: 5.0),
+  stroke(eval(repr(stroke(paint: blue, thickness: 2pt, dash: "dashed", miter-limit: 5.0)))),
+)
+
 --- stroke-fields-simple eval ---
 // Test stroke fields for simple strokes.
 #test((1em + blue).paint, blue)
