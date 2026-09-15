@@ -670,6 +670,9 @@ pub fn commit<'l>(
         let width = end - link_info.start;
         let height = link_info.height;
 
+        // Can only fail if the link was pushed regardless of being empty.
+        debug_assert!(width >= Abs::zero());
+
         // TODO: pass relative leading directly to 'modify_text' instead of ad-hoc stylechain modifications?
         // - also consider per-text run font size.
         let mut styles = Styles::new();
@@ -752,12 +755,15 @@ pub fn commit<'l>(
                 // Any external links should have been handled before.
                 active_links.pop().unwrap();
 
-                // Place a link all the way to the end of the rightmost one.
-                // Ignore the offset of the end event itself as it might
-                // (visually) be at the start rather than the end of the link
-                // due to RTL reversal.
-                let (pos, frame) = prepare_link(dest, &link_info, link_info.last_end);
-                output.push_frame(pos, frame);
+                // Only render a link if there was at least one item within it...
+                if link_info.last_index.is_some() {
+                    // Place a link all the way to the end of the rightmost one.
+                    // Ignore the offset of the end event itself as it might
+                    // (visually) be at the start rather than the end of the link
+                    // due to RTL reversal.
+                    let (pos, frame) = prepare_link(dest, &link_info, link_info.last_end);
+                    output.push_frame(pos, frame);
+                }
             }
             _ => {}
         }
@@ -767,8 +773,12 @@ pub fn commit<'l>(
     for (dest, link_info) in link_stack {
         // Any unfinished links extend towards the very end of the last visible
         // item in the line.
-        let (pos, frame) = prepare_link(dest, &link_info, last_frame_end);
-        output.push_frame(pos, frame);
+
+        // Only render a link if there was at least one item within it...
+        if link_info.last_index.is_some() {
+            let (pos, frame) = prepare_link(dest, &link_info, last_frame_end);
+            output.push_frame(pos, frame);
+        }
     }
 
     Ok(output)
