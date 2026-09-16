@@ -21,7 +21,7 @@ use crate::visualize::{FillRule, Paint, Stroke};
 ///   (0%,  2cm),
 /// )
 /// ```
-#[elem(scope)]
+#[elem(scope, since = "0.1.0")]
 pub struct PolygonElem {
     /// How to fill the polygon.
     ///
@@ -60,7 +60,7 @@ impl PolygonElem {
     ///   vertices: 3,
     /// )
     /// ```
-    #[func(title = "Regular Polygon")]
+    #[func(title = "Regular Polygon", since = "0.8.0")]
     pub fn regular(
         span: Span,
 

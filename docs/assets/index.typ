@@ -27,6 +27,7 @@
   "16-hamburger-dark.svg",
   "16-link.svg",
   "16-search-gray.svg",
+  "16-toggle.svg",
   "16-warn.svg",
   "32-reference-c.svg",
   "32-tutorial-c.svg",

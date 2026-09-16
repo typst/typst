@@ -1,6 +1,7 @@
 // Test configuring paragraph properties.
 
---- par-basic paged pdftags pdfstandard(ua-1) ---
+--- par-basic paged pdftags ---
+#set pdf(standard: "ua-1")
 #set page(width: 250pt, height: 120pt)
 
 But, soft! what light through yonder window breaks? It is the east, and Juliet
@@ -431,7 +432,8 @@ Even the first.
 
 + D
 
---- par-first-line-indent-all-terms paged pdftags pdfstandard(ua-1) ---
+--- par-first-line-indent-all-terms paged pdftags ---
+#set pdf(standard: "ua-1")
 #show terms.where(tight: false): set terms(spacing: 1.2em)
 #set terms(hanging-indent: 10pt)
 #set par(

@@ -3,7 +3,8 @@
 --- enum-function-call paged ---
 #enum[Embrace][Extend][Extinguish]
 
---- enum-number-override-nested paged pdftags pdfstandard(ua-1) ---
+--- enum-number-override-nested paged pdftags ---
+#set pdf(standard: "ua-1")
 0. Before first!
 1. First.
    2. Indented
@@ -245,12 +246,6 @@ a + 0.
 
   + World // Paragraph because it's a wide enum
 ]
-
---- enum-array-deprecated paged ---
-// Warning: 7-19 implicit conversion from array to `enum.item` is deprecated
-// Hint: 7-19 use `enum.item(number)[body]` instead
-// Hint: 7-19 this conversion was never documented and is being phased out
-#enum((1, [First]))
 
 --- issue-2530-enum-item-panic paged ---
 // Enum item (pre-emptive)

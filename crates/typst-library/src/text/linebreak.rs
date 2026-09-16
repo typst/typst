@@ -19,7 +19,7 @@ use crate::foundations::{Content, NativeElement, elem};
 /// This function also has dedicated syntax: To insert a line break, simply
 /// write a backslash followed by whitespace. This always creates an unjustified
 /// break.
-#[elem(title = "Line Break")]
+#[elem(title = "Line Break", since = "forever")]
 pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///

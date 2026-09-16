@@ -17,7 +17,7 @@ use crate::foundations::{
 /// contextual behaviour. A good example is the @text.dir[text direction]
 /// parameter. Setting it to `{auto}` lets Typst automatically determine the
 /// direction from the @text.lang[text language].
-#[ty(cast, name = "auto")]
+#[ty(cast, name = "auto", since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AutoValue;
 

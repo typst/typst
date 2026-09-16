@@ -67,9 +67,55 @@ use crate::visualize::{
 /// and an offset. The offset is a @ratio[ratio] between `{0%}` and `{100%}` or
 /// an angle between `{0deg}` and `{360deg}`. The offset is a relative position
 /// that determines how far along the gradient the stop is located. The stop's
-/// color is the color of the gradient at that position. You can choose to omit
-/// the offsets when defining a gradient. In this case, Typst will space all
-/// stops evenly.
+/// color defines the color the gradient should have at that position.
+///
+/// Each stop is passed as a positional argument and can take one of two forms:
+/// - Just a color, like `{red}`, to let Typst place the stop automatically.
+/// - An array of a color and its offset, like `{(red, 30%)}`, to place the stop
+///   yourself.
+///
+/// You can choose to omit the offsets when defining a gradient. In this case,
+/// Typst will space all stops evenly. Otherwise, offsets must be provided for
+/// _every_ stop. They must not decrease from one stop to the next, the first
+/// must be `{0%}`, and the last must be `{100%}`.
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   fill: gradient.linear(
+///     (green, 0%),
+///     (red, 30%),
+///     (blue, 100%),
+///   ),
+/// )
+/// ```
+///
+/// Giving two stops the same offset creates a hard edge instead of a smooth
+/// transition:
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   fill: gradient.linear(
+///     (orange, 0%),
+///     (orange, 50%),
+///     (blue, 50%),
+///     (blue, 100%),
+///   ),
+/// )
+/// ```
+///
+/// Typst provides the @gradient.sharp[`sharp`] method on gradients to
+/// automatically turn a smooth gradient into one with hard edges. The
+/// example above can equivalently be written as:
+///
+/// ```example
+/// #rect(
+///   width: 100%,
+///   fill: gradient.linear(orange, blue)
+///     .sharp(2),
+/// )
+/// ```
 ///
 /// Typst predefines color maps that you can use as stops. See the
 /// @color:predefined-color-maps[`color`] documentation for more details.
@@ -186,7 +232,7 @@ use crate::visualize::{
 /// @color.linear-rgb color spaces. This avoids needing to encode these color
 /// spaces in your PDF file, but it does add extra stops to your gradient, which
 /// can increase the file size.
-#[ty(scope, cast)]
+#[ty(scope, cast, since = "0.9.0")]
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Gradient {
     Linear(Arc<LinearGradient>),
@@ -209,11 +255,21 @@ impl Gradient {
     ///   ),
     /// )
     /// ```
-    #[func(title = "Linear Gradient")]
+    #[func(title = "Linear Gradient", since = "0.9.0")]
     pub fn linear(
         args: &mut Args,
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
+        ///
+        /// Each stop is given as a separate positional argument. It can either
+        /// be a color, like `{red}`, or an array of a color and its offset,
+        /// like `{(red, 30%)}`. If offsets are given, they must be provided for
+        /// all stops, not decrease from one stop to the next, start at `{0%}`,
+        /// and end at `{100%}`.
+        ///
+        /// When using a predefined color map from the `color.map` module, the
+        /// @arguments:spreading[spreading operator] `..` is used to pass each
+        /// stop as a separate argument.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -299,10 +355,13 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func(title = "Radial Gradient")]
+    #[func(title = "Radial Gradient", since = "0.9.0")]
     fn radial(
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
+        ///
+        /// Also see the @gradient.linear.stops[linear gradient's documentation]
+        /// for more details.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The color space in which to interpolate the gradient.
@@ -416,10 +475,13 @@ impl Gradient {
     ///   )),
     /// )
     /// ```
-    #[func(title = "Conic Gradient")]
+    #[func(title = "Conic Gradient", since = "0.9.0")]
     pub fn conic(
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
+        ///
+        /// Also see the @gradient.linear.stops[linear gradient's documentation]
+        /// for more details.
         #[variadic]
         stops: Vec<Spanned<GradientStop>>,
         /// The angle of the gradient.
@@ -480,7 +542,7 @@ impl Gradient {
     /// #rect(fill: grad.sharp(5))
     /// #rect(fill: grad.sharp(5, smoothness: 20%))
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn sharp(
         &self,
         /// The number of stops in the gradient.
@@ -575,7 +637,7 @@ impl Gradient {
     ///     .repeat(4),
     /// )
     /// ```
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn repeat(
         &self,
         /// The number of times to repeat the gradient.
@@ -655,7 +717,7 @@ impl Gradient {
     }
 
     /// Returns the kind of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn kind(&self) -> Func {
         match self {
             Self::Linear(_) => Self::linear_data().into(),
@@ -665,7 +727,7 @@ impl Gradient {
     }
 
     /// Returns the stops of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn stops(&self) -> Vec<GradientStop> {
         match self {
             Self::Linear(linear) => linear
@@ -696,7 +758,7 @@ impl Gradient {
     }
 
     /// Returns the mixing space of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn space(&self) -> ColorSpace {
         match self {
             Self::Linear(linear) => linear.space.clone(),
@@ -706,7 +768,7 @@ impl Gradient {
     }
 
     /// Returns the relative placement of this gradient.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn relative(&self) -> Smart<RelativeTo> {
         match self {
             Self::Linear(linear) => linear.relative,
@@ -718,7 +780,7 @@ impl Gradient {
     /// Returns the angle of this gradient.
     ///
     /// Returns `{none}` if the gradient is neither linear nor conic.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn angle(&self) -> Option<Angle> {
         match self {
             Self::Linear(linear) => Some(linear.angle),
@@ -730,7 +792,7 @@ impl Gradient {
     /// Returns the center of this gradient.
     ///
     /// Returns `{none}` if the gradient is neither radial nor conic.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
@@ -742,7 +804,7 @@ impl Gradient {
     /// Returns the radius of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
@@ -754,7 +816,7 @@ impl Gradient {
     /// Returns the focal-center of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn focal_center(&self) -> Option<Axes<Ratio>> {
         match self {
             Self::Linear(_) => None,
@@ -766,7 +828,7 @@ impl Gradient {
     /// Returns the focal-radius of this gradient.
     ///
     /// Returns `{none}` if the gradient is not radial.
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn focal_radius(&self) -> Option<Ratio> {
         match self {
             Self::Linear(_) => None,
@@ -780,7 +842,7 @@ impl Gradient {
     /// The position is either a position along the gradient (a @ratio[ratio]
     /// between `{0%}` and `{100%}`) or an @angle[angle]. Any value outside of
     /// this range will be clamped.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn sample(
         &self,
         /// The position at which to sample the gradient.
@@ -801,7 +863,7 @@ impl Gradient {
 
     /// Samples the gradient at multiple positions at once and returns the
     /// results as an array.
-    #[func]
+    #[func(since = "0.9.0")]
     pub fn samples(
         &self,
         /// The positions at which to sample the gradient.

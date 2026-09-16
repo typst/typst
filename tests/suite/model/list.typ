@@ -28,7 +28,8 @@ _Shopping list_
   - Top-level indent
 - is fine.
 
---- list-indent-specifics paged pdftags pdfstandard(ua-1) ---
+--- list-indent-specifics paged pdftags ---
+#set pdf(standard: "ua-1")
  - A
      - B
    - C
@@ -623,3 +624,11 @@ d
 - #text(48pt)[E]
 - #block(inset: 10pt, stroke: red)[Hello world!]
 - #rect[Hello world!]
+
+--- issue-8648-enum-gap paged ---
+#set page(height: 150pt)
+#set enum(number-align: top)
+
++ #lines(3)
++ #lines(8)
++ #lines(2)

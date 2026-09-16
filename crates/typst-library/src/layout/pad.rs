@@ -14,7 +14,7 @@ use crate::layout::{Length, Rel};
 /// _Typing speeds can be
 ///  measured in words per minute._
 /// ```
-#[elem(title = "Padding")]
+#[elem(title = "Padding", since = "forever")]
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(

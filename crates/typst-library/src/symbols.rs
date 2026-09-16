@@ -23,7 +23,7 @@ fn extend_scope_from_codex_module(scope: &mut Scope, module: codex::Module) {
 
         let scope_binding = scope.define(name, value);
         if let Some(message) = binding.deprecation {
-            scope_binding.deprecated(Deprecation::new().with_message(message));
+            scope_binding.with_deprecation(Deprecation::new().with_message(message));
         }
     }
 }

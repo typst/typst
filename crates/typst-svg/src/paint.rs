@@ -87,22 +87,29 @@ impl SVGRenderer<'_> {
     pub(super) fn push_tiling(&mut self, tiling: &Tiling, ts: Transform) -> DedupId {
         let tiling_size = tiling.size() + tiling.spacing();
         let tiling_offset = tiling.offset();
+        let tiling_angle = tiling.angle();
         // Unfortunately due to a limitation of `xmlwriter`, we need to
         // render the frame twice: once to allocate all of the resources
         // that it needs and once to actually render it.
         let rendered = self.render_tiling_frame(&State::new(tiling_size), tiling.frame());
 
-        // Use the rendered SVG and the tiling's size and offset as a key, since the `Tiling`
-        // itself includes `Location`s which aren't stable.
-        let tiling_id = self
-            .tilings
-            .insert_with((tiling_size, tiling_offset, rendered), || tiling.clone());
+        // Use the rendered SVG and the tiling's properties as a key, since the
+        // `Tiling` itself includes `Location`s which aren't stable.
+        let tiling_id = self.tilings.insert_with(
+            (tiling_size, tiling_offset, tiling_angle, rendered.as_str()),
+            || tiling.clone(),
+        );
 
         if ts.is_identity() {
             return tiling_id;
         }
 
-        let tiling_ref = TilingRef { id: tiling_id, transform: ts };
+        // The tiling reference is written as a SVG `pattern` with a `href`
+        // attribute, which will overwrite the `patternTransform` of the
+        // referenced pattern. Thus any pre-existing `patternTransform` of the
+        // referenced pattern needs to be concatenated.
+        let transform = ts.pre_concat(tiling.transform());
+        let tiling_ref = TilingRef { id: tiling_id, transform };
         self.tiling_refs.insert_with(tiling_ref, || tiling_ref)
     }
 
@@ -341,13 +348,13 @@ impl SVGRenderer<'_> {
             self.tilings.iter().map(|(i, p)| (i, p.clone())).collect::<Vec<_>>()
         {
             let size = tiling.size() + tiling.spacing();
+
             defs.elem("pattern")
                 .attr("id", id)
                 .attr("width", size.x.to_pt())
                 .attr("height", size.y.to_pt())
-                .attr("x", tiling.offset().x.to_pt())
-                .attr("y", tiling.offset().y.to_pt())
                 .attr("patternUnits", "userSpaceOnUse")
+                .attr("patternTransform", SvgTransform(tiling.transform()))
                 .attr_with("viewBox", |attr| {
                     attr.push_nums([0.0, 0.0, size.x.to_pt(), size.y.to_pt()]);
                 })

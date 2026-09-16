@@ -3,15 +3,18 @@ use ecow::EcoString;
 use indexmap::IndexMap;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use rustc_hash::FxBuildHasher;
-use typst_html::{HtmlElement, HtmlOptions};
+use typst_html::{HtmlElement, HtmlFormat, HtmlOptions};
 use typst_layout::PagedDocument;
-use typst_library::diag::{At, ParallelCollectCombinedResult, SourceResult};
+use typst_library::diag::{
+    At, ParallelCollectCombinedWarnedResult, SourceResult, Warned,
+};
+use typst_library::format::Complete;
 use typst_library::foundations::Bytes;
 use typst_library::introspection::Location;
-use typst_library::model::{LateLinkResolver, PagedFormat};
+use typst_library::model::{Document, LateLinkResolver, PagedFormat};
 use typst_pdf::PdfOptions;
-use typst_render::RenderOptions;
-use typst_svg::SvgOptions;
+use typst_render::{PngFormat, RenderOptions};
+use typst_svg::{SvgFormat, SvgOptions};
 use typst_syntax::{Span, VirtualPath};
 
 use crate::{Bundle, BundleDocument, BundleFile};
@@ -21,7 +24,10 @@ pub type VirtualFs = IndexMap<VirtualPath, Bytes, FxBuildHasher>;
 
 /// Exports a bundle into a raw virtual file system.
 #[typst_macros::time(name = "export bundle")]
-pub fn export(bundle: &Bundle, options: &BundleOptions) -> SourceResult<VirtualFs> {
+pub fn export(
+    bundle: &Bundle,
+    options: &BundleOptions,
+) -> Warned<SourceResult<VirtualFs>> {
     bundle
         .files
         .par_iter()
@@ -32,11 +38,11 @@ pub fn export(bundle: &Bundle, options: &BundleOptions) -> SourceResult<VirtualF
                         LateLinkResolver::new(Some(path), bundle.introspector.as_ref());
                     export_document(doc, options, link_resolver.track())
                 }
-                BundleFile::Asset(bytes) => Ok(bytes.clone()),
+                BundleFile::Asset(bytes) => Ok(bytes.clone()).into(),
             };
             data.map(|data| (path.clone(), data))
         })
-        .collect_combined_result()
+        .collect_combined_warned_result()
 }
 
 /// Settings for bundle export.
@@ -57,19 +63,20 @@ fn export_document(
     doc: &BundleDocument,
     options: &BundleOptions,
     link_resolver: Tracked<LateLinkResolver>,
-) -> SourceResult<Bytes> {
+) -> Warned<SourceResult<Bytes>> {
     match doc {
-        BundleDocument::Paged(doc, extras) => match extras.format {
+        BundleDocument::Paged(doc, extras) => match &extras.format {
             PagedFormat::Pdf => {
                 export_pdf(doc, &options.pdf, &extras.anchors, link_resolver)
             }
-            PagedFormat::Png => export_png(doc, &options.png),
+            PagedFormat::Png => export_png(doc, &options.png).into(),
             PagedFormat::Svg => {
-                export_svg(doc, &options.svg, &extras.anchors, link_resolver)
+                export_svg(doc, &options.svg, &extras.anchors, link_resolver).into()
             }
         },
         BundleDocument::Html(doc) => {
-            export_html(doc.root(), &options.html, link_resolver)
+            let options = options.html.resolve(doc.options().get::<HtmlFormat>());
+            export_html(doc.root(), &options, link_resolver).into()
         }
     }
 }
@@ -82,7 +89,7 @@ fn export_pdf(
     options: &PdfOptions,
     anchors: &[(Location, EcoString)],
     link_resolver: Tracked<LateLinkResolver>,
-) -> SourceResult<Bytes> {
+) -> Warned<SourceResult<Bytes>> {
     typst_pdf::pdf_in_bundle(doc, options, anchors, link_resolver).map(Bytes::new)
 }
 
@@ -90,7 +97,8 @@ fn export_pdf(
 #[comemo::memoize]
 #[typst_macros::time(name = "export png")]
 fn export_png(doc: &PagedDocument, options: &RenderOptions) -> SourceResult<Bytes> {
-    typst_render::render(&doc.pages()[0], options)
+    let options = options.resolve(doc.options().get::<PngFormat>());
+    typst_render::render(&doc.pages()[0], &options)
         .encode_png()
         .map(Bytes::new)
         .map_err(|_| "failed to encode PNG")
@@ -116,9 +124,10 @@ fn export_svg(
             Some((point, name.clone()))
         })
         .collect::<Vec<_>>();
+    let options = options.resolve(doc.options().get::<SvgFormat>());
     Ok(Bytes::from_string(typst_svg::svg_in_bundle(
         &doc.pages()[0],
-        options,
+        &options,
         &anchors,
         link_resolver,
     )))
@@ -135,7 +144,7 @@ fn export_svg(
 #[typst_macros::time(name = "export html")]
 fn export_html(
     root: &HtmlElement,
-    options: &HtmlOptions,
+    options: &HtmlOptions<Complete>,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<Bytes> {
     typst_html::html_in_bundle(root, options, link_resolver).map(Bytes::from_string)

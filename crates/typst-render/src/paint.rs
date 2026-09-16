@@ -6,7 +6,7 @@ use typst_library::visualize::{
     Geometry, Gradient, Paint, ProcessColor, RelativeTo, Shape, Tiling,
 };
 
-use crate::{AbsExt, State};
+use crate::{AbsExt, State, to_sk_transform};
 
 /// Trait for sampling of a paint, used as a generic
 /// abstraction over solid colors and gradients.
@@ -102,11 +102,13 @@ impl<'a> TilingSampler<'a> {
             RelativeTo::Self_ => sk::Transform::identity(),
             RelativeTo::Parent => state.container_transform.invert().unwrap(),
         };
+        let pattern_transform = to_sk_transform(&tilings.transform());
 
         Self {
             pixmap,
             size: (tilings.size() + tilings.spacing()) * state.pixel_per_pt as f64,
-            transform_to_parent: fill_transform,
+            transform_to_parent: fill_transform
+                .post_concat(pattern_transform.invert().unwrap_or_default()),
             pixel_per_pt: state.pixel_per_pt,
         }
     }
@@ -270,10 +272,7 @@ pub fn to_sk_paint<'a>(
                 sk::FilterQuality::Nearest,
                 1.0,
                 fill_transform
-                    .pre_translate(
-                        tilings.offset().x.to_f32(),
-                        tilings.offset().y.to_f32(),
-                    )
+                    .pre_concat(to_sk_transform(&tilings.transform()))
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
                     .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
             );

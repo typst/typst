@@ -2,11 +2,15 @@
 //!
 //! Cooperates with `docs/components/reflect.typ`.
 
+use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
 use heck::ToTitleCase;
+use icu_collator::options::{CollatorOptions, Strength};
+use icu_collator::preferences::CollationType;
+use icu_collator::{Collator, CollatorPreferences};
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
@@ -14,6 +18,7 @@ use typst::foundations::{
     Type, Value, cast, dict, func,
 };
 use typst::syntax::{RootedPath, VirtualPath, VirtualRoot};
+use typst::text::RawElem;
 use typst_utils::DefSite;
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
@@ -21,12 +26,32 @@ use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;
 
+/// A value that can have a scope.
+pub enum ToScope {
+    Module(Module),
+    Type(Type),
+    Func(Func),
+}
+
+cast! {
+    ToScope,
+    m: Module => Self::Module(m),
+    t: Type => Self::Type(t),
+    f: Func => Self::Func(f),
+}
+
 /// Provides details about a binding in a module.
 #[func]
-pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
-    let binding = module.scope().get(&name)?;
+pub fn binding(scope: ToScope, name: EcoString) -> Option<Dict> {
+    let scope = match &scope {
+        ToScope::Module(module) => module.scope(),
+        ToScope::Type(ty) => ty.scope(),
+        ToScope::Func(func) => func.scope()?,
+    };
+    let binding = scope.get(&name)?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
+        "feature" => binding.feature().map(|f| f.to_string()),
         "deprecation" => binding.deprecation().map(|d| dict! {
             "message" => d.message(),
             "until" => d.until(),
@@ -50,6 +75,7 @@ fn describe_func(func: &Func) -> Dict {
     dict! {
         "name" => func.name(),
         "title" => func.title(),
+        "since" => func.since(),
         "docs" => func.docs(),
         "def-site" => func.def_site().map(describe_def_site),
         "element" => func.to_element().is_some(),
@@ -94,6 +120,7 @@ fn describe_ty(ty: Type) -> Dict {
         "short-name" => ty.short_name(),
         "long-name" => ty.long_name(),
         "title" => ty.title(),
+        "since" => ty.since(),
         "docs" => ty.docs(),
         "def-site" => describe_def_site(ty.def_site()),
         "keywords" => ty.keywords(),
@@ -158,11 +185,11 @@ fn describe_cast_info(info: &CastInfo) -> Dict {
 
 /// Returns the math class of a character.
 ///
-/// Returns `None` if the provided string has more than one char or if it does
-/// not have a math class.
+/// Returns `None` if the provided string has more than one cluster or if it
+/// does not have a math class.
 #[func]
 pub fn math_class(c: Cluster) -> Option<MathClass> {
-    typst_utils::default_math_class(c.primary)
+    typst_utils::default_math_class(c.primary())
 }
 
 /// Returns whether the given string can be used as an accent with the
@@ -172,10 +199,50 @@ pub fn is_accent(s: Str) -> bool {
     typst::math::Accent::combining(&s).is_some()
 }
 
-/// Returns the full title-cased name of the given character in Unicode.
+/// Returns the name of a symbol in Unicode.
+///
+/// For a single codepoint, that is the full title-cased Unicode name.
+///
+/// For sequences, this is the CLDR short name if it is listed in
+/// [emoji-zwj-sequences.txt](https://www.unicode.org/Public/17.0.0/emoji/emoji-zwj-sequences.txt),
+/// or the Unicode name of the first codepoint otherwise.
 #[func]
-pub fn unicode_name(c: Cluster) -> Option<String> {
-    unicode_names2::name(c.primary).map(|n| n.to_string().to_title_case())
+pub fn unicode_name(c: Cluster) -> Option<EcoString> {
+    static MAP: LazyLock<FxHashMap<EcoString, EcoString>> = LazyLock::new(|| {
+        let data = str::from_utf8(
+            typst_dev_assets::get_by_name("emoji-zwj-sequences.txt").unwrap(),
+        )
+        .unwrap();
+        let mut map = FxHashMap::default();
+        for line in data.lines() {
+            let line = line.split_once('#').map(|(l, _)| l).unwrap_or(line);
+            if line.trim().is_empty() {
+                continue;
+            }
+            let parts = line.split(';').collect::<Vec<_>>();
+            let [code, _, name] = parts[..] else { panic!("malformed data file") };
+            let value = code
+                .split_whitespace()
+                .map(|cp| char::from_u32(u32::from_str_radix(cp, 16).unwrap()).unwrap())
+                .collect();
+            map.insert(value, name.to_title_case().into());
+        }
+        map
+    });
+    MAP.get(&c.value).cloned().or_else(|| {
+        Some(unicode_names2::name(c.primary())?.to_string().to_title_case().into())
+    })
+}
+
+/// Returns `{true}` if two emoji are in order.
+#[func]
+pub fn emoji_ordering(left: EcoString, right: EcoString) -> bool {
+    let mut preferences = CollatorPreferences::default();
+    preferences.collation_type = Some(CollationType::Emoji);
+    let mut options = CollatorOptions::default();
+    options.strength = Some(Strength::Quaternary);
+    let collator = Collator::try_new(preferences, options).unwrap();
+    collator.compare(&left, &right) != Ordering::Greater
 }
 
 /// Returns the name of a character in LaTeX.
@@ -198,12 +265,22 @@ pub fn latex_name(c: Cluster) -> Option<Str> {
         }
         map
     });
-    NAMES.get(&(c.primary as u32)).copied().map(Into::into)
+    NAMES.get(&(c.primary() as u32)).copied().map(Into::into)
 }
 
 /// A grapheme cluster with an extracted primary char.
 pub struct Cluster {
-    primary: char,
+    value: EcoString,
+}
+
+impl Cluster {
+    /// Returns the primary character for this cluster.
+    fn primary(&self) -> char {
+        // Not every kind of cluster has a well-defined "base", but for our
+        // purposes (getting the math class etc. in presence of a variation
+        // selection) this is good enough.
+        self.value.chars().next().unwrap()
+    }
 }
 
 cast! {
@@ -212,10 +289,7 @@ cast! {
         if s.graphemes(true).count() != 1 {
             bail!("expected exactly one grapheme: `{}`", s.repr());
         }
-        // Not every kind of cluster has a well-defined "base", but for our
-        // purposes (getting the Unicode Name etc. in presence of a variation
-        // selection) this is good enough.
-        Self { primary: s.chars().next().unwrap() }
+        Self { value: s.into() }
     }
 }
 
@@ -239,4 +313,18 @@ pub fn is_global_html_attr(name: EcoString) -> bool {
     data::ATTRS[..data::ATTRS_GLOBAL]
         .iter()
         .any(|global| global.name == name)
+}
+
+/// Returns the list of raw languages available.
+pub fn raw_langs() -> Array {
+    RawElem::languages()
+        .into_iter()
+        .map(|(name, tokens)| {
+            dict! {
+                "name" => name,
+                "tokens" => tokens,
+            }
+            .into_value()
+        })
+        .collect()
 }

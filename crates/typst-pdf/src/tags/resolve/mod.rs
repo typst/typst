@@ -5,6 +5,7 @@ use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
+use typst_library::format::Complete;
 use typst_library::text::Locale;
 use typst_syntax::Span;
 
@@ -33,7 +34,7 @@ pub enum TagNode {
 }
 
 struct Resolver<'a> {
-    options: &'a PdfOptions,
+    options: &'a PdfOptions<Complete>,
     ctx: &'a Ctx,
     groups: &'a IdVec<Group>,
     tags: &'a mut TagStorage,
@@ -192,7 +193,7 @@ fn resolve_group_node(
         }
     }
 
-    if rs.options.accessibility_validator().is_some() {
+    if rs.options.validators().accessibility().is_some() {
         validate_children(rs, &tag, &nodes);
     }
 
@@ -326,7 +327,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
     if let TagKind::Hn(tag) = &tag {
         let prev_level = rs.last_heading_level.map_or(0, |l| l.get());
         let next_level = tag.level();
-        if let Some(accessibility) = rs.options.accessibility_validator()
+        if let Some(accessibility) = rs.options.validators().accessibility()
             && next_level.get().saturating_sub(prev_level) > 1
         {
             let span = to_span(tag.as_any().location);
@@ -467,7 +468,7 @@ fn validate_children_groups(
         };
 
         if !is_valid(&child.tag) {
-            let validator = rs.options.standards.config.validators().to_comma_list();
+            let validator = rs.options.validators().to_comma_list();
             let span = to_span(child.tag.location()).or(parent_span);
             let parent = tag_name(parent);
             let child = tag_name(&child.tag);
@@ -483,7 +484,7 @@ fn validate_children_groups(
     }
 
     if caption_spans.len() > 1 {
-        let validator = rs.options.standards.config.validators().to_comma_list();
+        let validator = rs.options.validators().to_comma_list();
         let parent = tag_name(parent);
         let child = tag_name(&Tag::Caption.into());
 
@@ -503,7 +504,7 @@ fn validate_children_groups(
     }
 
     if contains_leaf_nodes {
-        let validator = rs.options.standards.config.validators().to_comma_list();
+        let validator = rs.options.validators().to_comma_list();
         let parent = tag_name(parent);
         rs.errors.push(error!(
             parent_span,

@@ -11,7 +11,7 @@ use typst_utils::{DefSite, Static};
 use crate::diag::SourceResult;
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Content, ContentVtable, Func, NativeParamInfo, Repr, Scope, Selector,
+    Args, Content, ContentVtable, Func, NativeParamInfo, Repr, Scope, Selector, Since,
     StyleChain, Styles, Value, cast,
 };
 use crate::text::{Lang, Region};
@@ -40,6 +40,11 @@ impl Element {
     /// (e.g. `Numbered List`).
     pub fn title(self) -> &'static str {
         self.vtable().title
+    }
+
+    /// The version of Typst the element was introduced in.
+    pub fn since(&self) -> Option<Since> {
+        self.vtable().since.clone()
     }
 
     /// Documentation for the element (as Markdown).

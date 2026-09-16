@@ -186,7 +186,7 @@ use crate::{Library, World};
 /// values or functions that compute the new value from the previous value.
 /// Sometimes, it cannot be helped, but in those cases it is up to you to ensure
 /// that the result converges.
-#[ty(scope)]
+#[ty(scope, since = "forever")]
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct State {
     /// The key that identifies the state.
@@ -215,7 +215,7 @@ impl State {
 #[scope]
 impl State {
     /// Create a new state identified by a key.
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The key that identifies this state.
         ///
@@ -253,7 +253,7 @@ impl State {
     ///
     /// This is equivalent to `{state.at(here())}`.
     #[typst_macros::time(name = "state.get", span = span)]
-    #[func(contextual)]
+    #[func(contextual, since = "0.11.0")]
     pub fn get(
         &self,
         engine: &mut Engine,
@@ -270,7 +270,7 @@ impl State {
     /// useful kinds of selectors for this are @label[labels] and
     /// @location[locations].
     #[typst_macros::time(name = "state.at", span = span)]
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn at(
         &self,
         engine: &mut Engine,
@@ -284,7 +284,7 @@ impl State {
     }
 
     /// Retrieves the value of the state at the end of the document.
-    #[func(contextual)]
+    #[func(contextual, since = "forever")]
     pub fn final_(
         &self,
         engine: &mut Engine,
@@ -326,7 +326,7 @@ impl State {
     /// @reference:context[context]. This is because, to create the state
     /// update, we do not need to know where in the document we are. We only
     /// need this information to resolve the state's value.
-    #[func]
+    #[func(since = "forever")]
     pub fn update(
         self,
         span: Span,

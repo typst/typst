@@ -145,7 +145,7 @@ use crate::loading::{DataSource, Load};
 ///   examples
 /// - Wrappers to help you write your plugin in Rust
 /// - A stubber for WASI
-#[func(scope)]
+#[func(scope, since = "0.8.0")]
 pub fn plugin(
     engine: &mut Engine,
     /// A path to a WebAssembly file or raw WebAssembly bytes.
@@ -189,7 +189,7 @@ impl plugin {
     /// #assert.eq(base.get(), "[]")
     /// #assert.eq(mutated.get(), "[hello]")
     /// ```
-    #[func]
+    #[func(since = "0.13.0")]
     pub fn transition(
         /// The plugin function to call.
         func: PluginFunc,

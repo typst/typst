@@ -41,6 +41,14 @@ Hello
 // Error: 11-15 path `".."` would escape the bundle root
 #document("..", format: "pdf")[Root?]
 
+--- document-multiple-authors-html html ---
+// Should emit multiple `<meta>` tags.
+#set document(author: ("John Doe", "Jane Doe"))
+
+--- document-multiple-keywords-html html ---
+// Should emit a single `<meta>` tag.
+#set document(keywords: ("foo", "bar"))
+
 --- document-weird-extension bundle ---
 // The hashes of both files should match.
 #document("normal.pdf")[A PDF]
@@ -299,3 +307,11 @@ world
 
 #counted-document[A]
 #counted-document[B]
+
+--- issue-8616-document-delayed-pages bundle ---
+// Test that bundle documents which are expected to have exactly one page
+// perform this assertion only on the final iteration.
+#import "../introspection/switch.typ": switch
+#for ext in ("png", "svg") {
+  document("doc." + ext, switch(n => if n == 1 { pagebreak() }))
+}

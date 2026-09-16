@@ -15,7 +15,7 @@ use crate::visualize::Stroke;
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-#[elem]
+#[elem(since = "forever")]
 pub struct LineElem {
     /// The start point of the line.
     ///

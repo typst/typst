@@ -33,6 +33,7 @@ fontdb = { workspace = true }
 glidesort = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
+icu_collator = { workspace = true }
 icu_properties = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }

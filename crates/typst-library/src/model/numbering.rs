@@ -51,7 +51,7 @@ use crate::foundations::{Context, Func, Str, Value, cast, func};
 /// = Second heading
 /// = Third heading
 /// ```
-#[func]
+#[func(since = "forever")]
 pub fn numbering(
     engine: &mut Engine,
     context: Tracked<Context>,

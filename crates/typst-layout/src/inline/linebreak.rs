@@ -706,11 +706,23 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
 
     let mut last = 0;
     let mut iter = segmenter.segment_str(text).peekable();
+    let mut next_url_scheme = find_url_scheme(text, 0);
 
     loop {
         // Special case for links. UAX #14 doesn't handle them well.
         let (head, tail) = text.split_at(last);
-        if head.ends_with("://") || tail.starts_with("www.") {
+        if next_url_scheme.as_ref().is_some_and(|next| next.end < last) {
+            next_url_scheme = find_url_scheme(text, last);
+        }
+
+        // For URLs with domains as host, UAX #14 typically places a breakpoint
+        // after the `://`. However, it does not do so if a digit follows. For
+        // this reason, we also heuristically detect URL schemes and check
+        // whether we are within (or typically _at_) a scheme.
+        if head.ends_with("://")
+            || tail.starts_with("www.")
+            || next_url_scheme.as_ref().is_some_and(|it| it.contains(&last))
+        {
             let (link, _) = link_prefix(tail);
             linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
             last += link.len();
@@ -778,6 +790,26 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         f(point, breakpoint);
         last = point;
     }
+}
+
+/// Heuristically attempts to find the next URL scheme in the given text.
+///
+/// Anything matching this grammar rule that is also followed by '://', is
+/// treated as a potential URL scheme.
+fn find_url_scheme(full_text: &str, base: usize) -> Option<Range> {
+    let text = &full_text[base..];
+    let end = text.find("://")?;
+    let start = text[..end].trim_end_matches(is_valid_in_url_scheme).len();
+    Some(base + start..base + end)
+}
+
+/// Whether the given character is valid in a URL scheme.
+///
+/// This method uses the scheme grammar from
+/// <https://www.rfc-editor.org/info/rfc3986/#section-3.1>.
+fn is_valid_in_url_scheme(c: char) -> bool {
+    // scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+    matches!(c, '+' | '-' | '.') || c.is_ascii_alphanumeric()
 }
 
 /// Generate breakpoints for hyphenations within a word.

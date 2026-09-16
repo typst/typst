@@ -14,20 +14,22 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, Angle, ColumnsElem, Dir, Em, Fragment, Frame, HAlignment, PageElem, Region,
+    Regions, Rel, Size, VAlignment,
 };
-use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
-use typst_library::pdf::ArtifactKind;
+use typst_library::model::{
+    ArtifactKind, FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine,
+};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
+use typst_library::visualize::LineElem;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
@@ -35,8 +37,7 @@ use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
     Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, collect,
 };
-use self::compose::{Composer, compose};
-use self::distribute::distribute;
+use self::compose::compose;
 
 /// Lays out content into a single region, producing a single frame.
 pub fn layout_frame(
@@ -71,8 +72,12 @@ pub fn layout_fragment(
         locator.track(),
         styles,
         regions,
-        NonZeroUsize::ONE,
-        Rel::zero(),
+        ColumnOptions {
+            count: NonZeroUsize::ONE,
+            balanced: false,
+            gutter: Rel::zero(),
+            separator: None,
+        },
     )
 }
 
@@ -99,8 +104,12 @@ pub fn layout_columns(
         locator.track(),
         styles,
         regions,
-        elem.count.get(styles),
-        elem.gutter.resolve(styles),
+        ColumnOptions {
+            count: elem.count.get(styles),
+            balanced: elem.balanced.get(styles),
+            gutter: elem.gutter.resolve(styles),
+            separator: elem.separator.get_cloned(styles),
+        },
     )
 }
 
@@ -118,8 +127,7 @@ fn layout_fragment_impl(
     locator: Tracked<Locator>,
     styles: StyleChain,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
 ) -> SourceResult<Fragment> {
     if !regions.size.x.is_finite() && regions.expand.x {
         bail!(content.span(), "cannot expand into infinite width");
@@ -159,8 +167,7 @@ fn layout_fragment_impl(
         &mut locator,
         styles,
         regions,
-        columns,
-        column_gutter,
+        column,
         kind.into(),
     )
 }
@@ -187,19 +194,17 @@ impl From<FragmentKind> for FlowMode {
 }
 
 /// Lays out realized content into regions, potentially with columns.
-#[expect(clippy::too_many_arguments)]
 pub fn layout_flow<'a>(
     engine: &mut Engine,
     children: &[Pair<'a>],
     locator: &mut SplitLocator<'a>,
     shared: StyleChain<'a>,
     mut regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> SourceResult<Fragment> {
     // Prepare configuration that is shared across the whole flow.
-    let config = configuration(shared, regions, columns, column_gutter, mode);
+    let config = configuration(shared, regions, column, mode);
 
     // Collect the elements into pre-processed children. These are much easier
     // to handle than the raw elements.
@@ -238,23 +243,34 @@ pub fn layout_flow<'a>(
 fn configuration<'x>(
     shared: StyleChain<'x>,
     regions: Regions,
-    columns: NonZeroUsize,
-    column_gutter: Rel<Abs>,
+    column: ColumnOptions,
     mode: FlowMode,
 ) -> Config<'x> {
     Config {
         mode,
         shared,
         columns: {
-            let mut count = columns.get();
+            let mut count = column.count.get();
             if !regions.size.x.is_finite() {
                 count = 1;
             }
 
-            let gutter = column_gutter.relative_to(regions.base().x);
+            let gutter = column.gutter.relative_to(regions.base().x);
             let width = (regions.size.x - gutter * (count - 1) as f64) / count as f64;
             let dir = shared.resolve(TextElem::dir);
-            ColumnConfig { count, width, gutter, dir }
+            ColumnConfig {
+                count,
+                width,
+                gutter,
+                dir,
+                balanced: column.balanced,
+                separator: column.separator.map(|separator| {
+                    separator
+                        .set(LineElem::length, Rel::one())
+                        .set(LineElem::angle, Angle::deg(90.0))
+                        .aligned(HAlignment::Center + VAlignment::Horizon)
+                }),
+            }
         },
         footnote: FootnoteConfig {
             separator: shared
@@ -352,6 +368,19 @@ impl<'a, 'b> Work<'a, 'b> {
     }
 }
 
+/// Options defining the column layout.
+#[derive(Hash)]
+pub struct ColumnOptions {
+    /// The number of columns.
+    pub count: NonZeroUsize,
+    /// Whether column heights are to be equalized.
+    pub balanced: bool,
+    /// The spacing between columns.
+    pub gutter: Rel<Abs>,
+    /// The separator between columns.
+    pub separator: Option<Content>,
+}
+
 /// Shared configuration for the whole flow.
 struct Config<'x> {
     /// Whether this is the root flow, which can host footnotes and line
@@ -391,6 +420,10 @@ struct ColumnConfig {
     /// The horizontal direction in which columns progress. Defined by
     /// `text.dir`.
     dir: Dir,
+    /// Whether to equalize the height of columns by breaking columns early.
+    balanced: bool,
+    /// The separator between columns.
+    separator: Option<Content>,
 }
 
 /// Configuration of line numbers.
@@ -409,27 +442,4 @@ struct LineNumberConfig {
     /// value is a percentage of the page width clamped between `0.75em` and
     /// `2.5em`.
     default_clearance: Abs,
-}
-
-/// The result type for flow layout.
-///
-/// The `Err(_)` variant incorporate control flow events for finishing and
-/// relayouting regions.
-type FlowResult<T> = Result<T, Stop>;
-
-/// A control flow event during flow layout.
-enum Stop {
-    /// Indicates that the current subregion should be finished. Can be caused
-    /// by a lack of space (`false`) or an explicit column break (`true`).
-    Finish(bool),
-    /// Indicates that the given scope should be relayouted.
-    Relayout(PlacementScope),
-    /// A fatal error.
-    Error(EcoVec<SourceDiagnostic>),
-}
-
-impl From<EcoVec<SourceDiagnostic>> for Stop {
-    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
-        Stop::Error(error)
-    }
 }

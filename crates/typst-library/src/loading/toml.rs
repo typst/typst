@@ -89,7 +89,7 @@ use crate::loading::{DataSource, Load};
 ///
 /// - The `repr` function is @repr:debugging-only[for debugging purposes only],
 ///   and its output is not guaranteed to be stable across Typst versions.
-#[func(scope, title = "TOML")]
+#[func(scope, title = "TOML", since = "0.3.0")]
 pub fn toml(
     engine: &mut Engine,
     /// A path to a TOML file or raw TOML bytes.
@@ -103,7 +103,7 @@ pub fn toml(
 #[scope]
 impl toml {
     /// Encodes structured data into a TOML string.
-    #[func(title = "Encode TOML")]
+    #[func(title = "Encode TOML", since = "0.8.0")]
     pub fn encode(
         /// Value to be encoded.
         ///

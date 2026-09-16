@@ -12,3 +12,19 @@
   h(1em)
   place(left, rect(width: 80pt, stroke: blue))
 })
+
+--- issue-6822-layout-expand paged ---
+// Ensure that the body of `layout` can expand and respects alignment.
+#rect(width: 100%, height: 50pt, layout(_ => {
+  place(top + left)[1]
+  place(center + horizon)[2]
+  place(bottom + right)[3]
+}))
+
+--- issue-6822-layout-multiple paged ---
+// But if there are multiple children (the `layout` is not the lone child), it
+// cannot expand vertically anymore, just like `pad`.
+#rect(width: 100%, height: 50pt, {
+  pad(y: 1pt, align(center + horizon)[1])
+  layout(_ =>  place(center + horizon)[2])
+})

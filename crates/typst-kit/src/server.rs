@@ -13,7 +13,7 @@ use tiny_http::{Header, Request, Response, StatusCode};
 use typst_library::diag::{StrResult, bail};
 use typst_library::foundations::Bytes;
 
-type Router = Box<dyn Fn(&str) -> Option<HttpBody> + Send + Sync>;
+type Router = Box<dyn Fn(&str) -> Result<HttpBody, RoutingError> + Send + Sync>;
 type RouterBucket = Bucket<Router>;
 
 /// Serves HTML with live reload.
@@ -55,32 +55,44 @@ impl HttpServer {
     #[cfg(feature = "bundle")]
     pub fn set_bundle(&self, bundle: typst_bundle::Bundle, fs: typst_bundle::VirtualFs) {
         self.set_router(move |route| {
-            let path = typst_syntax::VirtualPath::new(route).ok()?;
-            let with_index = path.join("index.html").unwrap();
-            for path in [path, with_index] {
-                let Some(data) = fs.get(&path) else { continue };
-                let body = if matches!(
-                    bundle.files.get(&path),
+            let read = |path| {
+                let data = fs.get(path)?;
+                if matches!(
+                    bundle.files.get(path),
                     Some(typst_bundle::BundleFile::Document(
                         typst_bundle::BundleDocument::Html(_)
                     ))
                 ) && let Ok(string) = data.as_str()
                 {
-                    HttpBody::Html(string.to_owned())
+                    Some(HttpBody::Html(string.to_owned()))
                 } else {
-                    HttpBody::Raw(data.clone())
-                };
-                return Some(body);
+                    Some(HttpBody::Raw(data.clone()))
+                }
+            };
+
+            let path = typst_syntax::VirtualPath::new(route)
+                .map_err(|_| RoutingError::NotFound)?;
+
+            if let Some(body) = read(&path) {
+                return Ok(body);
             }
 
-            None
+            let with_index = path.join("index.html").unwrap();
+            if let Some(body) = read(&with_index) {
+                if !route.ends_with('/') {
+                    return Err(RoutingError::Moved(route.to_string() + "/"));
+                }
+                return Ok(body);
+            }
+
+            Err(RoutingError::NotFound)
         });
     }
 
     /// Updates the content handler, triggering a reload in all connected browsers.
     pub fn set_router<R>(&self, router: R)
     where
-        R: Fn(&str) -> Option<HttpBody> + Send + Sync + 'static,
+        R: Fn(&str) -> Result<HttpBody, RoutingError> + Send + Sync + 'static,
     {
         self.bucket.put(Box::new(router));
     }
@@ -88,10 +100,17 @@ impl HttpServer {
 
 /// Creates a handler that serves just one HTML page at `/`.
 fn html_single_fs(html: String) -> Router {
-    Box::new(move |route| (route == "/").then(|| HttpBody::Html(html.clone())))
+    Box::new(move |route| {
+        if route == "/" {
+            Ok(HttpBody::Html(html.clone()))
+        } else {
+            Err(RoutingError::NotFound)
+        }
+    })
 }
 
-/// Something that can be served by the [`HttpServer`].
+/// Something that can be yielded by a [router](HttpServer::set_router).
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum HttpBody {
     /// An HTML page.
     ///
@@ -100,6 +119,16 @@ pub enum HttpBody {
     Html(String),
     /// A raw body that does not support live reload.
     Raw(Bytes),
+}
+
+/// An error response that can be returned by a [router](HttpServer::set_router).
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum RoutingError {
+    /// The requested route was not found.
+    NotFound,
+    /// The requested route was moved to the provided one. That route should be
+    /// requested instead.
+    Moved(String),
 }
 
 /// Starts a local HTTP server.
@@ -157,11 +186,14 @@ fn handle(req: Request, reload: bool, bucket: &Arc<RouterBucket>) -> io::Result<
     }
 
     let fs = bucket.get();
-    let Some(body) = fs(path.as_ref()) else {
-        return req.respond(Response::empty(StatusCode(404)));
-    };
-
-    handle_body(req, reload, body)
+    match fs(path.as_ref()) {
+        Ok(body) => handle_body(req, reload, body),
+        Err(RoutingError::Moved(to)) => req.respond(
+            Response::empty(StatusCode(301))
+                .with_header(Header::from_bytes("Location", to).unwrap()),
+        ),
+        Err(RoutingError::NotFound) => req.respond(Response::empty(StatusCode(404))),
+    }
 }
 
 /// Handles for the `/` route. Serves the compiled HTML.
@@ -225,17 +257,88 @@ fn inject_live_reload_script(html: &mut String) {
     html.insert_str(pos, LIVE_RELOAD_SCRIPT);
 }
 
-/// Selects a MIME type for a request based on path and data.
+/// Selects a MIME type for a request based on file extension and/or data.
+///
+/// First, tries to find a match for the file extension and if that yields
+/// nothing, inspects the data itself.
 fn select_mime_type(path: &str, buf: &[u8]) -> Option<&'static str> {
-    match path.rsplit_once('.').map(|(_, r)| r) {
-        Some("html") => Some("text/html"),
-        Some("pdf") => Some("application/pdf"),
-        Some("png") => Some("image/png"),
-        Some("svg") => Some("image/svg+xml"),
-        Some("css") => Some("text/css"),
-        Some("js") => Some("text/javascript"),
-        _ => infer::get(buf).map(|ty| ty.mime_type()),
-    }
+    path.rsplit_once('.')
+        .and_then(|(_, r)| select_mime_type_by_extension(r))
+        .or_else(|| infer::get(buf).map(|ty| ty.mime_type()))
+}
+
+/// Selects a MIME type for a request based on the file extension.
+///
+/// See <https://www.iana.org/assignments/media-types/media-types.xhtml> for the
+/// full list of standardized MIME types. This function only handles a subset of
+/// this list.
+///
+/// Additionally, it handles a few very commonly used unstandardized types.
+fn select_mime_type_by_extension(ext: &str) -> Option<&'static str> {
+    Some(match ext.to_lowercase().as_str() {
+        // Web.
+        "html" | "htm" => "text/html",
+        "xhtml" => "application/xhtml+xml",
+        "css" => "text/css",
+        "js" | "mjs" => "text/javascript",
+        "wasm" => "application/wasm",
+
+        // Document.
+        "typ" => "text/vnd.typst",
+        "txt" => "text/plain",
+        "pdf" => "application/pdf",
+        "md" => "text/markdown",
+
+        // Font.
+        "ttc" | "otc" => "font/collection",
+        "ttf" => "font/ttf",
+        "otf" => "font/otf",
+        "woff" => "font/woff",
+        "woff2" => "font/woff2",
+
+        // Container.
+        "zip" => "application/zip",
+        // Not standardized by IANA.
+        "tar" => "application/x-tar",
+
+        // Data.
+        // This file extension is not specified, but commonly used.
+        "bin" => "application/octet-stream",
+        "csv" => "text/csv",
+        // RFC 7303, § 4.1 recommends `application/` over `text/`.
+        "xml" => "application/xml",
+        "json" => "application/json",
+        "yaml" | "yml" => "application/yaml",
+
+        // Image.
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "gif" => "image/gif",
+        "ico" => "image/vnd.microsoft.icon",
+        "jpg" | "jpeg" => "image/jpeg",
+        "jxl" => "image/jxl",
+        "png" => "image/png",
+        "svg" => "image/svg+xml",
+        "tif" | "tiff" => "image/tiff",
+        "webp" => "image/webp",
+
+        // Audio.
+        "mp3" => "audio/mpeg",
+        "ogg" | "oga" | "spx" | "opus" => "audio/ogg",
+        // Not standardized by IANA and there are other common variations (e.g.
+        // `audio/x-wav` and `audio/vnd.wave`), but this one seems most commonly
+        // in use.
+        "wav" => "audio/wav",
+
+        // Video.
+        "mp4" => "video/mp4",
+        "mpeg" => "video/mpeg",
+        "ogv" => "video/ogg",
+        // Not standardized by IANA, but this type is practically in use.
+        "webm" => "video/webm",
+
+        _ => return None,
+    })
 }
 
 /// Holds data and notifies consumers when it's updated.

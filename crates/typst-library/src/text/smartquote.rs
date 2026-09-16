@@ -29,7 +29,7 @@ use crate::text::{Lang, Region, TextElem};
 /// = Syntax <syntax>
 /// This function also has dedicated syntax: The normal quote characters (`'`
 /// and `"`). Typst automatically makes your quotes smart.
-#[elem(name = "smartquote", PlainText)]
+#[elem(name = "smartquote", since = "forever", PlainText)]
 pub struct SmartQuoteElem {
     /// Whether this should be a double quote.
     #[default(true)]

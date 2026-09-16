@@ -160,12 +160,7 @@ impl Eval for ast::Ident<'_> {
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.span();
-        Ok(vm
-            .scopes
-            .get(&self)
-            .at(span)?
-            .read_checked((&mut vm.engine, span))
-            .clone())
+        vm.scopes.get(&self, vm.engine.binding_guard(span)).at(span).cloned()
     }
 }
 
@@ -366,7 +361,10 @@ pub(crate) fn access_field(
     field: &str,
     field_span: Span,
 ) -> SourceResult<Value> {
-    let err = match target.field(field, (&mut vm.engine, field_span)).at(field_span) {
+    let err = match target
+        .field(field, vm.engine.binding_guard(field_span))
+        .at(field_span)
+    {
         Ok(value) => return Ok(value),
         Err(err) => err,
     };

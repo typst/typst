@@ -132,7 +132,7 @@ pub(super) fn define(global: &mut Scope, inputs: Dict) {
 /// ```typ
 /// #panic("this is wrong")
 /// ```
-#[func(keywords = ["error"])]
+#[func(since = "forever", keywords = ["error"])]
 pub fn panic(
     /// The values to panic with and display to the user.
     #[variadic]
@@ -166,7 +166,7 @@ pub fn panic(
 /// ```typ
 /// #assert(1 < 2, message: "math broke")
 /// ```
-#[func(scope)]
+#[func(scope, since = "forever")]
 pub fn assert(
     /// The condition that must be true for the assertion to pass.
     condition: bool,
@@ -194,7 +194,7 @@ impl assert {
     /// ```typ
     /// #assert.eq(10, 10)
     /// ```
-    #[func(title = "Assert Equal")]
+    #[func(title = "Assert Equal", since = "0.4.0")]
     pub fn eq(
         /// The first value to compare.
         left: Value,
@@ -227,7 +227,7 @@ impl assert {
     /// ```typ
     /// #assert.ne(3, 4)
     /// ```
-    #[func(title = "Assert Not Equal")]
+    #[func(title = "Assert Not Equal", since = "0.4.0")]
     pub fn ne(
         /// The first value to compare.
         left: Value,
@@ -263,7 +263,7 @@ impl assert {
 /// #eval("(1, 2, 3, 4)").len() \
 /// #eval("*Markup!*", mode: "markup") \
 /// ```
-#[func(title = "Evaluate")]
+#[func(title = "Evaluate", since = "forever")]
 pub fn eval(
     engine: &mut Engine,
     /// A string of Typst code to evaluate.

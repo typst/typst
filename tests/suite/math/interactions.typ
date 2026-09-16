@@ -2,7 +2,7 @@
 // Hint: They are bad ...
 
 --- math-unknown-var-hint eval ---
-// Error: 4-6 unknown variable: ab
+// Error: 4-6 unknown variable `ab`
 // Hint: 4-6 if you meant to display multiple letters as is, try adding spaces between each letter: `a b`
 // Hint: 4-6 or if you meant to display this as text, try placing it in quotes: `"ab"`
 $ 5ab $

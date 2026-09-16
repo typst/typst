@@ -90,10 +90,12 @@ impl Drop for LazySvgElem<'_, '_> {
 }
 
 pub trait SvgWrite: Sized {
-    /// Write a string, escaping is handled by [`xmlwriter`].
+    /// Write a string. When writing to an attribute value, XML metacharacters
+    /// are escaped.
     fn push_str(&mut self, value: &str);
 
-    /// Write a character, escaping is handled by [`xmlwriter`].
+    /// Write a character. When writing to an attribute value, XML
+    /// metacharacters are escaped.
     fn push_char(&mut self, value: char) {
         self.push_str(value.encode_utf8(&mut [0; 4]));
     }
@@ -151,13 +153,60 @@ impl<'a, T> SvgFormatter<'a, T> {
 
 impl SvgWrite for SvgFormatter<'_, Vec<u8>> {
     fn push_str(&mut self, value: &str) {
-        self.buf.extend_from_slice(value.as_bytes());
+        escape_str(value, |str| self.buf.extend_from_slice(str.as_bytes()));
     }
 }
 
 impl SvgWrite for SvgFormatter<'_, EcoString> {
     fn push_str(&mut self, value: &str) {
-        self.buf.push_str(value);
+        escape_str(value, |str| self.buf.push_str(str));
+    }
+}
+
+/// Append `value` to a buffer, escaping the XML metacharacters that
+/// `xmlwriter`'s raw attribute writer leaves untouched (it only escapes the
+/// quotation mark). Otherwise a value such as a link URL containing `&` or `<`
+/// yields malformed SVG. Runs of non-escaped characters are appended in one go.
+fn escape_str(mut value: &str, mut append: impl FnMut(&str)) {
+    while let Some((i, c)) = value
+        .bytes()
+        .enumerate()
+        .find_map(|(i, b)| EscapedChar::from_byte(b).map(|c| (i, c)))
+    {
+        append(&value[..i]);
+        append(c.escape_sequence());
+
+        // Escaped characters are always one byte.
+        value = &value[i + 1..];
+    }
+    if !value.is_empty() {
+        append(value);
+    }
+}
+
+/// A character that should be escaped in XML attribute values.
+#[derive(Copy, Clone)]
+enum EscapedChar {
+    /// `&`
+    Amp,
+    /// `<`
+    Lt,
+}
+
+impl EscapedChar {
+    const fn from_byte(byte: u8) -> Option<Self> {
+        match byte {
+            b'&' => Some(Self::Amp),
+            b'<' => Some(Self::Lt),
+            _ => None,
+        }
+    }
+
+    const fn escape_sequence(self) -> &'static str {
+        match self {
+            Self::Amp => "&amp;",
+            Self::Lt => "&lt;",
+        }
     }
 }
 

@@ -38,11 +38,11 @@ pub fn create_link_anchors(
                     )
                     .into_iter(),
                 ),
-                BundleDocument::Paged(doc, options) => {
+                BundleDocument::Paged(doc, extras) => {
                     // Mutates the export options so that named destinations
                     // are generated (if supported by the format).
-                    options.anchors = create_paged_link_anchors(doc, targets);
-                    Either::Right(options.anchors.iter().cloned())
+                    extras.anchors = create_paged_link_anchors(doc, targets);
+                    Either::Right(extras.anchors.iter().cloned())
                 }
             }
         })

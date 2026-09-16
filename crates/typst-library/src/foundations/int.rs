@@ -65,7 +65,7 @@ use crate::foundations::{
 ///
 /// This also means that if you want to embed a negative integer in markup, you
 /// will need to use parentheses to group the negation operator: `[#(-6)]`.
-#[ty(scope, cast, name = "int", title = "Integer")]
+#[ty(scope, cast, name = "int", title = "Integer", since = "forever")]
 type i64;
 
 #[scope(ext)]
@@ -95,7 +95,7 @@ impl i64 {
     /// #(int("27") + int("4")) \
     /// #int("beef", base: 16)
     /// ```
-    #[func(constructor)]
+    #[func(constructor, since = "forever")]
     pub fn construct(
         /// The value that should be converted to an integer.
         value: Spanned<ToInt>,
@@ -156,7 +156,7 @@ impl i64 {
     /// #(-5).signum() \
     /// #(0).signum()
     /// ```
-    #[func]
+    #[func(since = "0.11.0")]
     pub fn signum(self) -> i64 {
         i64::signum(self)
     }
@@ -170,7 +170,7 @@ impl i64 {
     /// #4.bit-not() \
     /// #(-1).bit-not()
     /// ```
-    #[func(title = "Bitwise NOT")]
+    #[func(title = "Bitwise NOT", since = "0.11.0")]
     pub fn bit_not(self) -> i64 {
         !self
     }
@@ -183,7 +183,7 @@ impl i64 {
     /// ```example
     /// #128.bit-and(192)
     /// ```
-    #[func(title = "Bitwise AND")]
+    #[func(title = "Bitwise AND", since = "0.11.0")]
     pub fn bit_and(
         self,
         /// The right-hand operand of the bitwise AND.
@@ -200,7 +200,7 @@ impl i64 {
     /// ```example
     /// #64.bit-or(32)
     /// ```
-    #[func(title = "Bitwise OR")]
+    #[func(title = "Bitwise OR", since = "0.11.0")]
     pub fn bit_or(
         self,
         /// The right-hand operand of the bitwise OR.
@@ -217,7 +217,7 @@ impl i64 {
     /// ```example
     /// #64.bit-xor(96)
     /// ```
-    #[func(title = "Bitwise XOR")]
+    #[func(title = "Bitwise XOR", since = "0.11.0")]
     pub fn bit_xor(
         self,
         /// The right-hand operand of the bitwise XOR.
@@ -236,7 +236,7 @@ impl i64 {
     /// #33.bit-lshift(2) \
     /// #(-1).bit-lshift(3)
     /// ```
-    #[func(title = "Bitwise Left Shift")]
+    #[func(title = "Bitwise Left Shift", since = "0.11.0")]
     pub fn bit_lshift(
         self,
         /// The amount of bits to shift. Must not be negative.
@@ -258,7 +258,7 @@ impl i64 {
     /// #(-8).bit-rshift(2) \
     /// #(-8).bit-rshift(2, logical: true)
     /// ```
-    #[func(title = "Bitwise Right Shift")]
+    #[func(title = "Bitwise Right Shift", since = "0.11.0")]
     pub fn bit_rshift(
         self,
         /// The amount of bits to shift. Must not be negative.
@@ -312,7 +312,7 @@ impl i64 {
     /// #int.from-bytes(bytes((0, 0, 0, 0, 0, 0, 0, 1))) \
     /// #int.from-bytes(bytes((1, 0, 0, 0, 0, 0, 0, 0)), endian: "big")
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn from_bytes(
         /// The bytes that should be converted to an integer.
         ///
@@ -378,7 +378,7 @@ impl i64 {
     /// #array(10000.to-bytes(endian: "big")) \
     /// #array(10000.to-bytes(size: 4))
     /// ```
-    #[func]
+    #[func(since = "0.12.0")]
     pub fn to_bytes(
         self,
         /// The endianness of the conversion.
