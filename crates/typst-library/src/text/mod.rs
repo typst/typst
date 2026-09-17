@@ -853,8 +853,8 @@ pub struct TextElem {
     ///
     /// This parameter is only available on the `text` constructor (and not on
     /// existing `text` elements) because the `text` constructor does not
-    /// necessarily construct a single `text` element, but instead applies style
-    /// to all the text elements within the passed body.
+    /// necessarily construct a single `text` element. Instead, it applies
+    /// styles to all the text elements within the passed body.
     ///
     /// ```example
     /// #text(red)[
