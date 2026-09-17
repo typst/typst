@@ -875,6 +875,14 @@ pub struct TextElem {
     /// ```example
     /// #repr([This is just text].text)
     /// ```
+    ///
+    /// #example(
+    ///   title: [With text show rule],
+    ///   ```
+    ///   #show "world": it => it.text.len()
+    ///   Hello world
+    ///   ```
+    /// )
     #[required]
     pub text: EcoString,
 
