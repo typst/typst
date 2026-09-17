@@ -409,6 +409,14 @@ impl<T, S: Copy + SpanDetached> Spanned<T, S> {
     }
 }
 
+#[expect(private_bounds)]
+impl<T, S: Copy + SpanDetached> Spanned<Option<T>, S> {
+    /// Transposes an `Spanned<Option<T>>` into `Option<Spanned<T>>`
+    pub fn transpose(self) -> Option<Spanned<T, S>> {
+        Some(Spanned { v: self.v?, span: self.span })
+    }
+}
+
 impl<T: Debug, S: Copy + SpanDetached> Debug for Spanned<T, S> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)

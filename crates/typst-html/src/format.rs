@@ -4,8 +4,8 @@ use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
 use typst_library::foundations::{
-    Args, Cast, Construct, Content, Dict, Scope, StyleChain, Value, cast, dict, elem,
-    scope,
+    Args, BundlePath, Cast, Construct, Content, Dict, Scope, StyleChain, Value, cast,
+    dict, elem, scope,
 };
 use typst_library::introspection::Location;
 use typst_syntax::Spanned;
@@ -186,13 +186,13 @@ impl HtmlFormatOptions<Partial> {
     pub fn resolve(&self, default: &HtmlFormatOptions) -> HtmlFormatOptions {
         HtmlFormatOptions {
             pretty: Partial::resolve(self.pretty, default.pretty),
-            styles: Partial::resolve(self.styles, default.styles),
+            styles: Partial::resolve_cloned(&self.styles, &default.styles),
         }
     }
 }
 
 /// Configuration options for HTML style generation.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlStyles {
     /// Configure which styles to include.
     pub profile: HtmlStyleProfile,
@@ -234,7 +234,7 @@ pub enum HtmlStyleProfile {
 
 /// Where to store styles:
 ///   (only supported in the bundle target)
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub enum HtmlStyleLocation {
     /// Styles are stored inline directly on elements.
     Inline,
@@ -243,8 +243,28 @@ pub enum HtmlStyleLocation {
     #[default]
     Embedded,
     /// An external style sheet will generated and created.
-    // TODO: Configure the file.
-    External,
+    External(BundlePath),
+}
+
+cast! {
+    HtmlStyleLocation,
+    self => {
+        match self {
+            Self::Inline => Value::Str("inline".into()),
+            Self::Embedded => Value::Str("embedded".into()),
+            Self::External(path) => {
+                Value::Dict(dict! { "path" => path })
+            }
+        }
+    },
+    "inline" => Self::Inline,
+    "embedded" => Self::Embedded,
+    mut dict: Dict => {
+        let path = dict.take("path")?.cast()?;
+        dict.finish(&["path"])?;
+        Self::External(path)
+    }
+
 }
 
 /// An HTML element that can contain Typst content.

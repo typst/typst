@@ -15,7 +15,7 @@ use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
-use crate::css::StylesheetData;
+use crate::css::ExternalCss;
 use crate::document::HtmlOutput;
 use crate::{HtmlIntrospector, charsets, css};
 
@@ -27,7 +27,7 @@ use crate::{HtmlIntrospector, charsets, css};
 #[derive(Debug, Clone)]
 pub struct HtmlDocument {
     output: HtmlOutput,
-    external_css: Option<StylesheetData>,
+    external_css: Option<ExternalCss>,
     info: DocumentInfo,
     options: DocumentFormatOptions,
     introspector: Arc<HtmlIntrospector>,
@@ -39,7 +39,7 @@ impl HtmlDocument {
     /// Internally builds the introspector.
     pub fn new(
         output: HtmlOutput,
-        external_css: Option<StylesheetData>,
+        external_css: Option<ExternalCss>,
         info: DocumentInfo,
         options: DocumentFormatOptions,
     ) -> Self {
@@ -71,7 +71,7 @@ impl HtmlDocument {
         self.output.root_node()
     }
 
-    pub fn external_css(&self) -> Option<&StylesheetData> {
+    pub fn external_css(&self) -> Option<&ExternalCss> {
         self.external_css.as_ref()
     }
 

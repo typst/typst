@@ -69,6 +69,7 @@ dbe6c87ce3f9f79373ddff2a67f20c23 html-space-protection-br
 9aefaa50d4f4f7a8e2c20feec6b8e7db html-space-protection-replaced
 c3be983a199a95106caffe0572463a58 html-style
 568cbc99dba4312ba440431d779ec70a html-style-str
+69c202677698a95a2f49f41befed1439 html-styles-none
 f9671e4e56820cd2f5fbd767d04eabc0 html-textarea-starting-with-newline
 9a0437e6bfcead63fe7f55125d1df400 html-typed
 58895c458693621c61d4d498ab0f8b64 html-untyped-style-content
