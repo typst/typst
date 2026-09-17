@@ -16,7 +16,7 @@ use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::tree::Tree;
 
 pub use crate::tags::context::{AnnotationId, Tags};
-pub use crate::tags::groups::GroupId;
+pub use crate::tags::groups::{Group, GroupId};
 pub use crate::tags::resolve::resolve;
 
 mod context;
