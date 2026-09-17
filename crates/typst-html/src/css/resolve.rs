@@ -12,7 +12,8 @@ use bumpalo::Bump;
 use bumpalo::collections::{CollectIn, Vec as BumpVec};
 use ecow::{EcoString, eco_format, eco_vec};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_syntax::{Span, VirtualPath};
+use typst_library::foundations::BundlePath;
+use typst_syntax::{Span, Spanned, VirtualPath};
 
 use crate::css::{FilteredProperties, Property};
 use crate::{HtmlElement, HtmlNode, HtmlTag, attr};
@@ -59,6 +60,22 @@ pub fn find_selector_candidates(root: &HtmlElement) -> SelectorCandidates {
     ctx
 }
 
+#[derive(Debug, Clone)]
+pub struct ExternalCss {
+    /// The location of the external stylesheet.
+    pub path: Spanned<BundlePath>,
+    /// Data used to generate the external stylesheet.
+    pub data: StylesheetData,
+}
+
+impl ExternalCss {
+    /// Create new external stylesheet data.
+    pub fn new(path: Spanned<BundlePath>, data: StylesheetData) -> Self {
+        Self { path, data }
+    }
+}
+
+/// Data used to generate a stylesheet.
 #[derive(Debug, Default, Clone)]
 pub struct StylesheetData {
     /// A list of selector candidates that can be used to target CSS property
@@ -72,6 +89,7 @@ pub struct StylesheetData {
 }
 
 impl StylesheetData {
+    /// Create new stylesheet data.
     pub fn new(candidates: SelectorCandidates, has_math: bool) -> Self {
         Self { candidates, has_math }
     }

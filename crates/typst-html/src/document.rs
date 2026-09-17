@@ -15,8 +15,8 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::css::StylesheetData;
-use crate::format::{HtmlStyleLocation, HtmlStyles};
+use crate::css::{ExternalCss, StylesheetData};
+use crate::format::HtmlStyleLocation;
 use crate::{
     HtmlDocument, HtmlElement, HtmlFormat, HtmlNode, HtmlStyleProfile, attr, css, tag,
 };
@@ -186,8 +186,8 @@ fn html_document_common(
 
     // Generate styles after `finalize_dom`, since it might have inserted more
     // DOM nodes that have styles.
-    let html_options = options.get::<HtmlFormat>();
-    let profile = html_options.styles.v.map(|styles| styles.profile);
+    let html_options = options.get::<HtmlFormat>().clone();
+    let profile = html_options.styles.v.as_ref().map(|styles| styles.profile);
 
     let nodes = crate::convert::convert_to_nodes(
         &mut engine,
@@ -207,14 +207,18 @@ fn html_document_common(
         profile,
     )?;
 
-    let css = (html_options.styles.v).and_then(|styles| {
-        let has_math = !engine
-            .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
-            .is_empty();
-        handle_styles(output.root_mut(), styles, has_math)
-    });
+    let external_stylesheet =
+        Spanned::from(html_options.styles).transpose().and_then(|styles| {
+            let has_math = !engine
+                .introspect(QueryIntrospection(
+                    EquationElem::ELEM.select(),
+                    Span::detached(),
+                ))
+                .is_empty();
+            handle_styles(output.root_mut(), styles.map(|s| s.location), has_math)
+        });
 
-    Ok(HtmlDocument::new(output, css, info, options))
+    Ok(HtmlDocument::new(output, external_stylesheet, info, options))
 }
 
 /// The introspectible output of HTML compilation.
@@ -365,27 +369,28 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
 
 fn handle_styles(
     root: &mut HtmlElement,
-    styles: HtmlStyles,
+    location: Spanned<HtmlStyleLocation>,
     has_math: bool,
-) -> Option<StylesheetData> {
-    match styles.location {
+) -> Option<ExternalCss> {
+    match location.v {
         HtmlStyleLocation::Inline => {
             css::write_inline_styles(root);
             None
         }
-        HtmlStyleLocation::Embedded | HtmlStyleLocation::External => {
+        HtmlStyleLocation::Embedded => {
             let candidates = css::find_selector_candidates(root);
             let data = StylesheetData::new(candidates, has_math);
-
-            if styles.location == HtmlStyleLocation::Embedded {
-                let stylesheet = css::resolve_stylesheet(&mut [root], &data);
-                if !stylesheet.is_empty() {
-                    css::insert_embedded_stylesheet(root, stylesheet);
-                }
-                None
-            } else {
-                Some(data)
+            let stylesheet = css::resolve_stylesheet(&mut [root], &data);
+            if !stylesheet.is_empty() {
+                css::insert_embedded_stylesheet(root, stylesheet);
             }
+            None
+        }
+        HtmlStyleLocation::External(path) => {
+            let candidates = css::find_selector_candidates(root);
+            let data = StylesheetData::new(candidates, has_math);
+            let path = Spanned::new(path, location.span);
+            Some(ExternalCss::new(path, data))
         }
     }
 }

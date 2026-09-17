@@ -385,6 +385,15 @@ where
     }
 }
 
+impl<E, const I: u8> From<SpannedValue<E, I>> for Spanned<E::Type>
+where
+    E: SettableProperty<I>,
+{
+    fn from(value: SpannedValue<E, I>) -> Self {
+        Self::new(value.v, value.span)
+    }
+}
+
 /// Marker for types with optional/partial fields.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Partial;

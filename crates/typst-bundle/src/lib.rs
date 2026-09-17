@@ -15,15 +15,16 @@ use std::sync::Arc;
 use comemo::{Tracked, TrackedMut};
 use ecow::{EcoString, EcoVec};
 use indexmap::IndexMap;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rustc_hash::{FxBuildHasher, FxHashMap};
 use typst_html::css::StylesheetData;
-use typst_html::{HtmlDocument, css};
+use typst_html::{HtmlDocument, HtmlElement, css};
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{
-    Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
+    BundlePath, Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
 };
 use typst_library::introspection::{
     Introspector, Location, Locator, SplitLocator, Tag, TagElem,
@@ -242,7 +243,7 @@ fn bundle_impl(
     }
 
     // Resolve an external stylesheet.
-    resolve_external_stylesheet(&mut files);
+    resolve_external_stylesheet(&mut engine, &mut files)?;
 
     Ok(Bundle {
         files: Arc::new(files),
@@ -253,36 +254,61 @@ fn bundle_impl(
 /// Resolve an external stylesheet for HTML documents that have set
 /// [`typst_html::HtmlStyleLocation::External`].
 fn resolve_external_stylesheet(
+    engine: &mut Engine,
     files: &mut IndexMap<VirtualPath, BundleFile, FxBuildHasher>,
-) {
-    let mut root_elems = Vec::new();
+) -> SourceResult<()> {
+    let mut groups: IndexMap<_, (StylesheetData, Vec<&mut HtmlElement>), FxBuildHasher> =
+        IndexMap::default();
 
-    // Merge stylesheet data from all documents that should get an external
-    // stylesheet.
-    // TODO: Here we could also have user configured groups of files that get a
-    // specific external stylesheet.
-    let mut external_css = StylesheetData::default();
+    // Filter documents that use an external stylesheet, group them by the
+    // stylesheet location, and merge stylesheet data per group.
     let html_docs = files
         .values_mut()
         .filter_map(|file| file.as_document_mut()?.as_html_mut());
     for doc in html_docs {
         if let Some(css) = doc.external_css() {
-            external_css.merge(css);
+            let (_, root_elems) = groups
+                .entry(css.path.clone())
+                .and_modify(|(data, _)| data.merge(&css.data))
+                .or_insert((css.data.clone(), Vec::new()));
             root_elems.push(doc.root_mut());
         }
     }
 
     // Resolve the external stylesheet.
-    let stylesheet = css::resolve_stylesheet(&mut root_elems, &external_css);
+    let stylesheets = groups
+        .into_par_iter()
+        .filter_map(|(path, (data, ref mut root_elems))| {
+            let stylesheet = css::resolve_stylesheet(root_elems, &data);
+            if stylesheet.is_empty() {
+                return None;
+            }
 
-    // Insert links to the stylesheet and emit the stylesheet asset.
-    if !stylesheet.is_empty() {
-        let path = VirtualPath::new("styles.css").unwrap();
-        for root in root_elems {
-            css::insert_external_stylesheet_link(root, &path);
+            // Insert links to the external stylesheet.
+            let path = path.map(BundlePath::into_inner);
+            for root in root_elems {
+                css::insert_external_stylesheet_link(root, &path.v);
+            }
+
+            Some((path, stylesheet))
+        })
+        .collect::<Vec<_>>();
+
+    // Insert into the bundle.
+    for (path, stylesheet) in stylesheets {
+        if files.contains_key(&path.v) {
+            engine.sink.delayed_error(error!(
+                path.span,
+                "cannot emit external stylesheet \
+             because the path `{}` already exists in the bundle",
+                path.v.get_without_slash(),
+            ));
+        } else {
+            files.insert(path.v, BundleFile::Asset(Bytes::from_string(stylesheet)));
         }
-        files.insert(path, BundleFile::Asset(Bytes::from_string(stylesheet)));
     }
+
+    Ok(())
 }
 
 /// Something that can result from bundle realization.
