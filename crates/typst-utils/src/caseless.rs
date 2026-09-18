@@ -4,13 +4,9 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 
 use bytemuck::TransparentWrapper;
+use icu_casemap::{CaseMapper, CaseMapperBorrowed};
 
 /// Wraps a string and makes equality and hashing case-insensitive.
-///
-/// Disclaimer: Currently, this internally uses [`char::to_lowercase`]. We
-/// should use `char::to_casefold_unnormalized` once it is stable. But for
-/// now, this is good enough. Currently, this is just used for font family
-/// comparisons and those previously used `str::to_lowercase`.
 #[derive(Debug, Copy, Clone, TransparentWrapper)]
 #[repr(transparent)]
 pub struct Caseless<S: ?Sized>(pub S);
@@ -25,7 +21,8 @@ impl<S: ?Sized> Caseless<S> {
 impl<S: ?Sized + Borrow<str>> Caseless<S> {
     /// Returns the case-folded chars that make up the string.
     fn folded(&self) -> impl Iterator<Item = char> {
-        self.0.borrow().chars().flat_map(char::to_lowercase)
+        static CASEMAP: CaseMapperBorrowed<'static> = CaseMapper::new();
+        self.0.borrow().chars().map(move |c| CASEMAP.simple_fold(c))
     }
 }
 

@@ -19,6 +19,7 @@ semver = { workspace = true }
 siphasher = { workspace = true }
 unicode-math-class = { workspace = true }
 bytemuck = { workspace = true, optional = true }
+icu_casemap = { workspace = true, optional = true }
 libm = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
@@ -37,6 +38,7 @@ default = ["full"]
 # reasonably lean.
 full = [
     "dep:bytemuck",
+    "dep:icu_casemap",
     "dep:libm",
     "dep:once_cell",
     "dep:rayon",
