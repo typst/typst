@@ -1898,6 +1898,7 @@ aab22e45d270d7ba289dcc48aa17aee9 text-kerning
 d1ee99aadbb6d56cfc21eb214ca255f9 text-ligatures
 944dab6546c8d80f642b329dac4ff1e1 text-number-type
 93857737f68782c8057a14938f395e78 text-number-width
+6ded13491733a02deba9bb1e2d03b889 text-outlines-render-and-modify
 fef56f32308c7d98ed3289787aaa91f2 text-size-em
 6d747e40cab5d3aa994bad7284a8ecf6 text-size-em-nesting
 492f2a981e9b4c0471bf603865de8d26 text-slashed-zero-and-fractions

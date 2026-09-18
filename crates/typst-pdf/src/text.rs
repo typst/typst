@@ -115,7 +115,7 @@ impl krilla::text::Glyph for PdfGlyph {
 
     #[inline(always)]
     fn text_range(&self) -> Range<usize> {
-        self.0.range.start as usize..self.0.range.end as usize
+        self.0.range()
     }
 
     #[inline(always)]

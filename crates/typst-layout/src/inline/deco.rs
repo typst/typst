@@ -85,18 +85,15 @@ pub fn decorate(
         kurbo::Point::new((pos.x + width).to_raw(), offset.to_raw()),
     );
 
-    let mut x = pos.x;
     let mut intersections = vec![];
 
-    for glyph in &text.glyphs {
-        let dx = glyph.x_offset.at(text.size) + x;
+    for (glyph_pos, glyph) in text.positioned_glyphs() {
+        let dx = pos.x + glyph_pos.x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
-
-        x += glyph.x_advance.at(text.size);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.

@@ -7,7 +7,7 @@ use crate::foundations::{
     Content, Context, Dict, Resolve, Smart, Target, TargetElem, dict, func,
 };
 use crate::introspection::{Locator, LocatorLink};
-use crate::layout::{Abs, Axes, Length, Region, Size};
+use crate::layout::{Abs, Axes, Frame, Length, Region, Size};
 
 /// Measures the layouted size of content.
 ///
@@ -74,6 +74,20 @@ pub fn measure(
     /// The content whose size to measure.
     content: Content,
 ) -> SourceResult<Dict> {
+    let frame = measure_frame(engine, context, span, width, height, &content)?;
+    let Size { x, y } = frame.size();
+    Ok(dict! { "width" => x, "height" => y })
+}
+
+/// Lays out content without consuming locations.
+pub(crate) fn measure_frame(
+    engine: &mut Engine,
+    context: Tracked<Context>,
+    span: Span,
+    width: Smart<Length>,
+    height: Smart<Length>,
+    content: &Content,
+) -> SourceResult<Frame> {
     // Create a pod region with the available space.
     let styles = context.styles().at(span)?;
     let pod = Region::new(
@@ -93,13 +107,11 @@ pub fn measure(
     let locator = Locator::link(&link);
     let style = TargetElem::target.set(Target::Paged).wrap();
 
-    let frame = (engine.library.routines.layout_frame)(
+    (engine.library.routines.layout_frame)(
         engine,
-        &content,
+        content,
         locator,
         styles.chain(&style),
         pod,
-    )?;
-    let Size { x, y } = frame.size();
-    Ok(dict! { "width" => x, "height" => y })
+    )
 }

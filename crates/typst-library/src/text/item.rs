@@ -6,7 +6,7 @@ use typst_syntax::Span;
 
 use crate::layout::{Abs, Em, Point, Rect};
 use crate::text::{FontInstance, Lang, Region, is_default_ignorable};
-use crate::visualize::{FixedStroke, Paint};
+use crate::visualize::{Curve, FixedStroke, Paint};
 
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -46,17 +46,10 @@ impl TextItem {
     pub fn bbox(&self) -> Rect {
         let mut min = Point::splat(Abs::inf());
         let mut max = Point::splat(-Abs::inf());
-        let mut cursor = Point::zero();
-
-        for glyph in &self.glyphs {
-            let advance =
-                Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
-            let offset =
-                Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
+        for (pos, glyph) in self.positioned_glyphs() {
             if let Some(rect) =
                 self.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(glyph.id))
             {
-                let pos = cursor + offset;
                 let a = pos
                     + Point::new(
                         self.font.to_em(rect.x_min).at(self.size),
@@ -70,7 +63,6 @@ impl TextItem {
                 min = min.min(a).min(b);
                 max = max.max(a).max(b);
             }
-            cursor += advance;
         }
 
         // Text runs use a y-up coordinate system, in contrast to the default
@@ -78,6 +70,30 @@ impl TextItem {
         min.y *= -1.0;
         max.y *= -1.0;
         Rect::new(min, max)
+    }
+
+    /// Returns available glyph outlines in run order.
+    ///
+    /// Curves are scaled to this item's font size and translated to each glyph's
+    /// position. Positions and curves use OpenType's upward Y axis; negate Y
+    /// before placing them in a frame.
+    pub fn outlines(&self) -> impl Iterator<Item = OutlinedGlyph<'_>> {
+        self.positioned_glyphs().filter_map(|(pos, glyph)| {
+            self.font.outline_glyph(glyph.id, self.size).map(|mut curve| {
+                curve.translate(pos);
+                OutlinedGlyph { glyph, pos, curve }
+            })
+        })
+    }
+
+    /// Returns glyph positions in the run's upward-Y coordinate system.
+    pub fn positioned_glyphs(&self) -> impl Iterator<Item = (Point, &Glyph)> {
+        let mut cursor = Point::zero();
+        self.glyphs.iter().map(move |glyph| {
+            let pos = cursor + glyph.offset_at(self.size);
+            cursor += glyph.advance_at(self.size);
+            (pos, glyph)
+        })
     }
 }
 
@@ -87,6 +103,17 @@ impl Debug for TextItem {
         self.text.fmt(f)?;
         f.write_str(")")
     }
+}
+
+/// A shaped glyph and its outline in a [`TextItem`].
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct OutlinedGlyph<'a> {
+    /// The shaped glyph, including its text range and metrics.
+    pub glyph: &'a Glyph,
+    /// The glyph origin relative to the start of the run.
+    pub pos: Point,
+    /// The outline translated to the glyph origin.
+    pub curve: Curve,
 }
 
 /// A glyph in a run of shaped text.
@@ -104,7 +131,7 @@ pub struct Glyph {
     pub y_offset: Em,
     /// The range of the glyph in its item's text. The range's length may
     /// be more than one due to multi-byte UTF-8 encoding or ligatures.
-    pub range: Range<u16>,
+    pub range: Range<usize>,
     /// The source code location of the text.
     pub span: (Span, u16),
 }
@@ -112,7 +139,17 @@ pub struct Glyph {
 impl Glyph {
     /// The range of the glyph in its item's text.
     pub fn range(&self) -> Range<usize> {
-        usize::from(self.range.start)..usize::from(self.range.end)
+        self.range.clone()
+    }
+
+    /// Returns the glyph's advance at a font size.
+    pub fn advance_at(&self, size: Abs) -> Point {
+        Point::new(self.x_advance.at(size), self.y_advance.at(size))
+    }
+
+    /// Returns the glyph's shaping offset at a font size.
+    pub fn offset_at(&self, size: Abs) -> Point {
+        Point::new(self.x_offset.at(size), self.y_offset.at(size))
     }
 }
 

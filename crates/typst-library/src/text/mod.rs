@@ -8,6 +8,7 @@ mod lang;
 mod linebreak;
 #[path = "lorem.rs"]
 mod lorem_;
+mod outlines;
 mod raw;
 mod shift;
 #[path = "smallcaps.rs"]
@@ -87,7 +88,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-#[elem(since = "forever", Debug, Construct, PlainText, Repr)]
+#[elem(scope, since = "forever", Debug, Construct, PlainText, Repr)]
 pub struct TextElem {
     /// A font family descriptor or priority list of font family descriptors.
     ///

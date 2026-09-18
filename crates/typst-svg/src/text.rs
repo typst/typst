@@ -38,17 +38,9 @@ impl SVGRenderer<'_> {
         let state = state.pre_concat(Transform::scale(Ratio::one(), -Ratio::one()));
         svg.attr("transform", SvgTransform(state.transform));
 
-        let mut x = Abs::pt(0.0);
-        let mut y = Abs::pt(0.0);
-        for glyph in &text.glyphs {
+        for (pos, glyph) in text.positioned_glyphs() {
             let id = GlyphId(glyph.id);
-            let x_offset = x + glyph.x_offset.at(text.size);
-            let y_offset = y + glyph.y_offset.at(text.size);
-
-            self.render_glyph(svg, &state, text, id, x_offset, y_offset);
-
-            x += glyph.x_advance.at(text.size);
-            y += glyph.y_advance.at(text.size);
+            self.render_glyph(svg, &state, text, id, pos.x, pos.y);
         }
     }
 

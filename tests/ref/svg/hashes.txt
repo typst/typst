@@ -1892,6 +1892,7 @@ e6b4d26566439ccc60fad71ea85ff3e3 text-language-fallback-english
 c3f974c8b041a1adb86dc28a1130dcc4 text-ligatures
 a0d2d29a3b887c222d4ac4ea26c02aa1 text-number-type
 498d7bb59eb46e04c8603d50447b906a text-number-width
+fae764686e51d45568aa38ff51d5249c text-outlines-render-and-modify
 b8d55737dc738809294e09c0e7b21a30 text-size-em
 23f5716d80049e511c776493098cd68d text-size-em-nesting
 ddf8a0f4ecbc3290eb9a8faa50c7da5e text-slashed-zero-and-fractions

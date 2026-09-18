@@ -3,7 +3,7 @@ use std::sync::Arc;
 use pixglyph::Bitmap;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use typst_library::layout::{Abs, Axes, Point, Size};
+use typst_library::layout::{Axes, Point, Size};
 use typst_library::text::color::{glyph_frame, should_outline};
 use typst_library::text::{FontInstance, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
@@ -13,30 +13,23 @@ use crate::{AbsExt, State, shape};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
-    let mut x = Abs::zero();
-    let mut y = Abs::zero();
-    for glyph in &text.glyphs {
+    for (pos, glyph) in text.positioned_glyphs() {
         let id = GlyphId(glyph.id);
-        let x_offset = x + glyph.x_offset.at(text.size);
-        let y_offset = y + glyph.y_offset.at(text.size);
 
         if should_outline(&text.font, id) {
-            let state = state.pre_translate(Point::new(x_offset, -y_offset));
+            let state = state.pre_translate(Point::new(pos.x, -pos.y));
             render_outline_glyph(canvas, state, text, id);
         } else {
             let upem = text.font.units_per_em();
             let text_scale = text.size / upem;
             let state = state
-                .pre_translate(Point::new(x_offset, -y_offset))
+                .pre_translate(Point::new(pos.x, -pos.y))
                 .pre_scale(Axes::new(text_scale, text_scale));
 
             if let Some(frame) = glyph_frame(&text.font, glyph.id) {
                 crate::render_frame(canvas, state, &frame.into());
             }
         }
-
-        x += glyph.x_advance.at(text.size);
-        y += glyph.y_advance.at(text.size);
     }
 }
 
