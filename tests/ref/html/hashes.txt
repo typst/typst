@@ -405,6 +405,7 @@ f50a7ee8a6cfab0cd1552a223c1abe2f mathml-ignored-math-content
 d8747e9078450efe3426a70564088276 mathml-lr-size
 cfbd7ccc551d3e44233d43b6e7edcfd7 mathml-multiline-alignment-2
 0edcba6e6d812db3164e196688048e0c mathml-multiline-alignment-3
+e950201085ec2160011717b4280260d9 mathml-multiline-matrix-spacing
 f6c1ba45bfb8cc68ef1addcded52c267 mathml-nested-elem-show-rule
 46c0a9deeb72875e70d957f256eade0e mathml-non-math-in-math
 2172a8961f2dc0a0d0f8f0a74e2ab269 mathml-primes
