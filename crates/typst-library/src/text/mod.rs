@@ -38,6 +38,7 @@ use icu_properties::props::DefaultIgnorableCodePoint;
 use rustybuzz::Feature;
 use smallvec::SmallVec;
 use typst_syntax::Spanned;
+use typst_utils::Caseless;
 use typst_utils::singleton;
 
 use crate::World;
@@ -941,24 +942,24 @@ impl PlainText for Packed<TextElem> {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct FontFamily {
     // The name of the font family
-    name: EcoString,
+    name: Caseless<EcoString>,
     // A regex that defines the Unicode codepoints supported by the font.
     covers: Option<Covers>,
 }
 
 impl FontFamily {
     /// Create a named font family variant.
-    pub fn new(string: &str) -> Self {
+    pub fn new(string: impl Into<EcoString>) -> Self {
         Self::with_coverage(string, None)
     }
 
     /// Create a font family by name and optional Unicode coverage.
-    pub fn with_coverage(string: &str, covers: Option<Covers>) -> Self {
-        Self { name: string.to_lowercase().into(), covers }
+    pub fn with_coverage(string: impl Into<EcoString>, covers: Option<Covers>) -> Self {
+        Self { name: Caseless(string.into()), covers }
     }
 
-    /// The lowercased family name.
-    pub fn as_str(&self) -> &str {
+    /// The family name.
+    pub fn name(&self) -> &Caseless<str> {
         &self.name
     }
 
@@ -972,10 +973,10 @@ cast! {
     FontFamily,
     self => match self.covers {
         Some(covers) => dict![
-            "name" => self.name,
+            "name" => self.name.0,
             "covers" => covers
         ].into_value(),
-        None => self.name.into_value()
+        None => self.name.0.into_value()
     },
     string: EcoString => Self::new(&string),
     mut v: Dict => {
@@ -1577,11 +1578,11 @@ pub fn is_default_ignorable(c: char) -> bool {
 fn check_font_list(engine: &mut Engine, list: &Spanned<FontList>) {
     let book = engine.world.book();
     for family in &list.v {
-        if book.select_family(family.as_str()).next().is_none() {
+        if book.select_family(family.name()).next().is_none() {
             engine.sink.warn(warning!(
                 list.span,
                 "unknown font family: {}",
-                family.as_str(),
+                &family.name().0,
             ));
         }
     }

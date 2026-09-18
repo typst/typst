@@ -18,6 +18,7 @@ rustc-hash = { workspace = true }
 semver = { workspace = true }
 siphasher = { workspace = true }
 unicode-math-class = { workspace = true }
+bytemuck = { workspace = true, optional = true }
 libm = { workspace = true, optional = true }
 once_cell = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
@@ -35,6 +36,7 @@ default = ["full"]
 # can be useful independently from the remaining compiler, so we want to keep it
 # reasonably lean.
 full = [
+    "dep:bytemuck",
     "dep:libm",
     "dep:once_cell",
     "dep:rayon",
