@@ -1037,8 +1037,50 @@ function buildSymbolScoringFunction(query) {
   const queryParts = lowerQuery
     .split(/\s*[.\s]\s*/)
     .filter((part) => part.length > 0);
+  const isFilter = (part) => /-?\w+:\w+/.test(part);
+  const queryFilters = queryParts.filter(isFilter);
+  const queryTerms = queryParts.filter((part) => !isFilter(part));
+
+  const filters = {
+    "class": (value, result) => {
+      if (!("mathClass" in result.dataset)) {
+        return value === "none";
+      }
+      const classes = {
+        "Normal": ["n", "normal"],
+        "Alphabetic": ["a", "alphabetic"],
+        "Binary": ["b", "binary"],
+        "Closing": ["c", "closing"],
+        "Diacritic": ["d", "diacritic"],
+        "Fence": ["f", "fence"],
+        // The Unicode name is "Glyph_Part", but Typst uses "glyphpart".
+        "Glyph_Part": ["g", "glyph_part", "glyph-part"],
+        "Opening": ["o", "opening"],
+        "Large": ["l", "large"],
+        "Punctuation": ["p", "punctuation"],
+        "Relation": ["r", "relation"],
+        "Space": ["s", "space"],
+        "Unary": ["u", "unary"],
+        "Vary": ["v", "vary"],
+        "Special": ["x", "special"],
+      };
+      return classes[result.dataset.mathClass].includes(value);
+    },
+  };
 
   return (result) => {
+    // First, ensure all filters pass.
+    for (const filter of queryFilters) {
+      const isNegative = filter.startsWith("-");
+      const i = filter.indexOf(":");
+      const filterKind = filter.slice(isNegative ? 1 : 0, i);
+      const filterValue = filter.slice(i + ":".length);
+      // If the filter does not pass, the result should be hidden immediately.
+      if (!(filterKind in filters) || filters[filterKind](filterValue, result) === isNegative) {
+        return 0.0;
+      }
+    }
+
     // We try multiple ways to match the search result with the query and keep
     // the best score.
     let score = 0.0;
@@ -1076,11 +1118,11 @@ function buildSymbolScoringFunction(query) {
     }
 
     // Match Codex name.
-    if (result.dataset.codexName !== undefined && queryParts.length > 0) {
+    if (result.dataset.codexName !== undefined && queryTerms.length > 0) {
       const codexParts = result.dataset.codexName.split(".");
       let thisScore = 1.0;
       let bad = false;
-      for (const queryPart of queryParts) {
+      for (const term of queryTerms) {
         const partScore = Math.max(
           ...codexParts.entries().map(([i, codexPart]) => {
             // The edit distance is not symmetric: deletions are more costly than
@@ -1089,7 +1131,7 @@ function buildSymbolScoringFunction(query) {
             // results like "arrow.l" when the query is "long" (the user typed all
             // those letters for a reason).
             const s =
-              1.0 - normalizedEditDistance(queryPart, codexPart.toLowerCase());
+              1.0 - normalizedEditDistance(term, codexPart.toLowerCase());
             if (i === 0) {
               return s;
             } else {
@@ -1134,13 +1176,13 @@ function buildSymbolScoringFunction(query) {
       // for, e.g., "hebrew" to find all Hebrew letters.
       let thisScore = 1.0;
       let bad = false;
-      for (const queryPart of queryParts) {
+      for (const term of queryTerms) {
         const nameParts = result.dataset.unicName
           .split(/\s+/)
           .filter((p) => p.length > 0);
         const distance = Math.min(
           ...nameParts.map((namePart) => {
-            return normalizedEditDistance(queryPart, namePart.toLowerCase());
+            return normalizedEditDistance(term, namePart.toLowerCase());
           }),
         );
         // We are very strict about the user typing a word that appears in the
