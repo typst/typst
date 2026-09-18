@@ -1,3 +1,4 @@
+use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashSet;
 use typst_macros::{Cast, cast};
@@ -6,13 +7,15 @@ use typst_syntax::Span;
 use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Content, Dict, FromValue, IntoValue, Label, NativeElement, OneOrMultiple,
-    Packed, Repr, Selector, ShowSet, Smart, StyleChain, Styles, Value, elem, scope,
+    Args, Array, Construct, Content, Context, Dict, FromValue, IntoValue, Label,
+    NativeElement, OneOrMultiple, Packed, Repr, Selector, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, Value, elem, scope,
 };
 use crate::introspection::{
-    Introspector, Location, QueryIntrospection, QueryLabelIntrospection,
+    Counter, CounterKey, Introspector, Location, QueryIntrospection,
+    QueryLabelIntrospection,
 };
-use crate::layout::{Length, Rel, Sizing};
+use crate::layout::{Frame, Length, Rel, Size, Sizing};
 use crate::text::LocalName;
 
 #[elem(scope, since = "unreleased", LocalName, Locatable, ShowSet)]
@@ -59,6 +62,10 @@ impl FormElem {
     type FormChoice;
     #[elem]
     type FormLabel;
+    #[elem]
+    type FormWidget;
+    #[elem]
+    type FormCursor;
 }
 
 /// Where and how to submit a filled out form.
@@ -137,7 +144,7 @@ impl LocalName for Packed<FormElem> {
     const KEY: &'static str = "form";
 }
 
-#[elem(name = "button", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "button", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormButton {
     /// The label of this button.
     #[required]
@@ -157,6 +164,18 @@ pub struct FormButton {
     pub height: Smart<Rel<Length>>,
 }
 
+impl ShowSet for Packed<FormButton> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+        out
+    }
+}
+
 /// Supported actions when clicking a button.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ButtonAction {
@@ -168,7 +187,7 @@ pub enum ButtonAction {
     Reset,
 }
 
-#[elem(name = "checkbox", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "checkbox", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormCheckbox {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -188,6 +207,16 @@ pub struct FormCheckbox {
 
     /// The checkbox's height.
     pub height: Smart<Rel<Length>>,
+}
+
+impl ShowSet for Packed<FormCheckbox> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        out.set(FormWidget::parent, Some(self.clone().pack()));
+        out
+    }
 }
 
 #[elem(name = "radio-group", since = "unreleased", Locatable, ShowSet)]
@@ -224,6 +253,21 @@ impl Packed<FormRadioGroup> {
             Selector::Label(selected).within(location.into()),
             span,
         ));
+        Self::try_into_radio_button(selected, &matches, span)
+    }
+
+    /// Resolves the selected radio button without an engine.
+    pub fn resolve_selected_late(
+        &self,
+        introspector: &dyn Introspector,
+    ) -> SourceResult<Option<Packed<FormRadioButton>>> {
+        let Some(selected) = self.selected.get_cloned(StyleChain::default()) else {
+            return Ok(None);
+        };
+        let location = self.location().unwrap();
+        let span = self.span();
+        let matches =
+            introspector.query(&Selector::Label(selected).within(location.into()));
         Self::try_into_radio_button(selected, &matches, span)
     }
 
@@ -271,7 +315,7 @@ impl ShowSet for Packed<FormRadioGroup> {
     }
 }
 
-#[elem(name = "radio", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "radio", since = "unreleased", Locatable, Tagged, Synthesize, ShowSet)]
 pub struct FormRadioButton {
     /// The value of the radio group when this option is selected.
     /// If `auto`, it is automatically generated on PDF export as `option-<n>`.
@@ -288,9 +332,58 @@ pub struct FormRadioButton {
     #[ghost]
     #[internal]
     pub parent: Option<Packed<FormRadioGroup>>,
+
+    #[internal]
+    #[synthesized]
+    pub resolved_value: EcoString,
 }
 
-#[elem(name = "textbox", since = "unreleased", Locatable, Tagged)]
+impl Synthesize for Packed<FormRadioButton> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        if let Smart::Custom(value) = self.value.get_ref(styles) {
+            self.resolved_value = Some(value.clone());
+            return Ok(());
+        }
+
+        if self.location().is_none() {
+            return Ok(());
+        }
+
+        let span = self.span();
+
+        let Some(group) = styles.get_ref(FormRadioButton::parent) else {
+            bail!(
+                span, "a radio button must appear inside a radio group";
+                hint: "try surrounding this button with #form.radio-group[...]";
+            )
+        };
+
+        let selector = FormRadioButton::ELEM
+            .select()
+            .within(group.location().unwrap().into());
+        let counter = Counter::new(CounterKey::Selector(selector));
+        let context = Context::new(self.location(), Some(styles));
+        let counter_state = counter.get(engine, context.track(), span)?;
+        self.resolved_value = Some(eco_format!("option-{}", counter_state.first()));
+        Ok(())
+    }
+}
+
+impl ShowSet for Packed<FormRadioButton> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        out.set(FormWidget::parent, Some(self.clone().pack()));
+        out
+    }
+}
+
+#[elem(name = "textbox", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormTextbox {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -331,7 +424,19 @@ pub struct FormTextbox {
     pub height: Smart<Rel<Length>>,
 }
 
-#[elem(name = "choice", since = "unreleased", Locatable, Tagged)]
+impl ShowSet for Packed<FormTextbox> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+        out
+    }
+}
+
+#[elem(name = "choice", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormChoice {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -394,6 +499,18 @@ pub struct FormChoice {
 
     /// The field's height.
     pub height: Smart<Rel<Length>>,
+}
+
+impl ShowSet for Packed<FormChoice> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+        out
+    }
 }
 
 impl FormChoice {
@@ -529,6 +646,114 @@ impl FormLabel {
     }
 }
 
+#[derive(Debug, Clone, Hash)]
+pub struct FieldWidget {
+    pub span: Span,
+    pub field_location: Location,
+    pub size: Size,
+    /// The action to perform when clicking this widget, if any.
+    pub action: Option<WidgetAction>,
+    /// The value this widget represents, if any. Used for radio buttons.
+    pub value: Option<EcoString>,
+    /// The appearance of this widget.
+    pub appearance: FieldAppearanceKind<Frame>,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub enum FieldAppearanceKind<T> {
+    /// A static appearance (e.g., button).
+    Single { variable_text: bool, body: FieldAppearanceBody<T> },
+    /// A dual state appearance (e.g., checkbox).
+    Dual {
+        active: bool,
+        body_off: FieldAppearanceBody<T>,
+        body_on: FieldAppearanceBody<T>,
+    },
+}
+
+impl<T> FieldAppearanceKind<T> {
+    /// Get the active body of this appearance.
+    pub fn active_body(&self) -> &FieldAppearanceBody<T> {
+        match self {
+            Self::Single { body, .. } => body,
+            Self::Dual { active, body_on, .. } if *active => body_on,
+            Self::Dual { body_off, .. } => body_off,
+        }
+    }
+
+    /// Whether this appearance is of type 'variable text'.
+    pub fn is_variable_text(&self) -> bool {
+        match self {
+            Self::Single { variable_text, .. } => *variable_text,
+            Self::Dual { .. } => false,
+        }
+    }
+
+    /// Convert this [`FieldAppearanceKind`] to another body type by applying a conversion
+    /// function to its body/bodies.
+    pub fn convert<N, E>(
+        &self,
+        mut convert_fn: impl FnMut(&T) -> Result<N, E>,
+    ) -> Result<FieldAppearanceKind<N>, E> {
+        match self {
+            Self::Single { variable_text, body } => Ok(FieldAppearanceKind::Single {
+                variable_text: *variable_text,
+                body: body.convert(&mut convert_fn)?,
+            }),
+            Self::Dual { active, body_off, body_on } => Ok(FieldAppearanceKind::Dual {
+                active: *active,
+                body_off: body_off.convert(&mut convert_fn)?,
+                body_on: body_on.convert(&mut convert_fn)?,
+            }),
+        }
+    }
+
+    /// If this is of variant [`Self::Single`], convert to [`Option<T>`].
+    pub fn single(self) -> Option<FieldAppearanceBody<T>> {
+        match self {
+            Self::Single { body, .. } => Some(body),
+            Self::Dual { .. } => None,
+        }
+    }
+
+    /// If this is of variant [`Self::Dual`], convert to [`Option<(T, T)>`],
+    /// that is an [`Option`] of `(body_off, body_on)`.
+    pub fn dual(self) -> Option<(FieldAppearanceBody<T>, FieldAppearanceBody<T>)> {
+        match self {
+            Self::Single { .. } => None,
+            Self::Dual { body_off, body_on, .. } => Some((body_off, body_on)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct FieldAppearanceBody<T> {
+    pub normal: T,
+    pub hover: Option<T>,
+}
+
+impl<T> FieldAppearanceBody<T> {
+    /// Convert this [`FieldAppearanceBody`] to another body type by applying a conversion
+    /// function to its states.
+    fn convert<N, E>(
+        &self,
+        convert_fn: &mut impl FnMut(&T) -> Result<N, E>,
+    ) -> Result<FieldAppearanceBody<N>, E> {
+        Ok(FieldAppearanceBody {
+            normal: convert_fn(&self.normal)?,
+            hover: self.hover.as_ref().map(convert_fn).transpose()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum WidgetAction {
+    /// Submit all fields in a form to a given URL.
+    Submit { form: Location, target: FormTarget },
+    /// Reset all fields in the form to their default value.
+    Reset { form: Location },
+}
+
 /// Get a selector that targets all form field types.
 pub fn form_fields_selector() -> Selector {
     Selector::Or(eco_vec![
@@ -539,3 +764,30 @@ pub fn form_fields_selector() -> Selector {
         FormChoice::ELEM.select(),
     ])
 }
+
+/// Fragment element to allow styling of form fields in a specific state.
+#[elem(name = "widget", since = "unreleased", Construct)]
+pub struct FormWidget {
+    /// Whether the form field is checked.
+    /// This is [`None`] if the form field does not have a checked state.
+    pub checked: Option<bool>,
+    /// Whether the form field is hovered.
+    /// This is [`None`] if the form field does not have a hovered state.
+    pub hovered: Option<bool>,
+
+    /// The form field this widget belongs to.
+    /// This is a bit of a hack and should be superseded by a proper ancestry mechanism.
+    #[ghost]
+    #[internal]
+    pub parent: Option<Content>,
+}
+
+impl Construct for FormWidget {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually")
+    }
+}
+
+/// The visual representation of a textbox's value.
+#[elem(name = "cursor", since = "unreleased")]
+pub struct FormCursor {}
