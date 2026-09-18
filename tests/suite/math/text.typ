@@ -23,7 +23,7 @@ $bird "or" 🐦‍⬛$
 #set text(font: "Noto Color Emoji")
 #show math.equation: set text(font: "Noto Color Emoji")
 #bird or 🐦‍⬛
-// Warning: 1-16 current font is not designed for math
+// Warning: 1-16 font family is not designed for math: Noto Color Emoji
 // Hint: 1-16 rendering may be poor
 $bird "or" 🐦‍⬛$
 
@@ -52,7 +52,7 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
   font: (
     // Ignore that this regex actually misses some of the script glyphs...
     (name: "XITS Math", covers: regex("[\u{1D49C}-\u{1D503}]")),
-    "New Computer Modern Math"
+    "New Computer Modern Math",
   ),
   stylistic-set: 1,
 )
@@ -60,7 +60,7 @@ $ cal(P)_i (X) * cal(C)_1 $
 
 --- math-font-warning paged ---
 #show math.equation: set text(font: "Libertinus Serif")
-// Warning: 1-14 current font is not designed for math
+// Warning: 1-14 font family is not designed for math: Libertinus Serif
 // Hint: 1-14 rendering may be poor
 $ x + y = z $
 
@@ -79,8 +79,8 @@ $ lr(brace.stroked.l -1 brace.stroked.r) $
 --- math-optical-size-nested-scripts paged html ---
 // Test transition from script to scriptscript.
 #[
-#set text(size:20pt)
-$  e^(e^(e^(e))) $
+  #set text(size: 20pt)
+  $ e^(e^(e^(e))) $
 ]
 A large number: $e^(e^(e^(e)))$.
 
@@ -101,7 +101,7 @@ $sum_(k in NN)^prime 1/k^2$
 --- math-optical-size-frac-script-script paged html ---
 // Test script-script in a fraction.
 $ 1/(x^A) $
-#[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
+#[#set text(size: 18pt); $1/(x^A)$] vs. #[#set text(size: 14pt); $x^A$]
 
 --- math-par paged ---
 // Ensure that math does not produce paragraphs.
@@ -109,22 +109,30 @@ $ 1/(x^A) $
 $ a + "bc" + #[c] + #box[d] + #block[e] $
 
 --- issue-6090-math-overhang paged html ---
-$ f(t) = cases(
+$
+  f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise"
-) $
-$ f(t) = cases(
+  )
+$
+$
+  f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise.",
-) $
-$ f(t) = cases(
+  )
+$
+$
+  f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise,",
-) $
-$ f(t) = cases(
+  )
+$
+$
+  f(t) = cases(
     1 quad & "if" 0 < t < 1\,,
     0 quad & "otherwise!",
-) $
+  )
+$
 
 --- issue-8261-string-as-empty paged html ---
 // Testing that empty strings produce no element in MathML
