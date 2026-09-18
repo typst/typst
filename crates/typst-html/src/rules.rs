@@ -753,12 +753,14 @@ const FORM_BUTTON_RULE: ShowFn<FormButton> = |elem, engine, styles| {
     let mut css = css::Properties::build(engine.binding_guard(span));
     set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
-    Ok(HtmlElem::new(tag::button)
-        .with_attrs(attributes)
-        .with_css(css.finish())
-        .with_body(Some(elem.body.clone()))
-        .pack()
-        .spanned(span))
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::button)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .with_body(Some(elem.body.clone()))
+            .pack()
+            .spanned(span),
+    ))
 };
 
 const FORM_CHECKBOX_RULE: ShowFn<FormCheckbox> = |elem, engine, styles| {
@@ -782,11 +784,13 @@ const FORM_CHECKBOX_RULE: ShowFn<FormCheckbox> = |elem, engine, styles| {
     let mut css = css::Properties::build(engine.binding_guard(span));
     set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
-    Ok(HtmlElem::new(tag::input)
-        .with_attrs(attributes)
-        .with_css(css.finish())
-        .pack()
-        .spanned(span))
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::input)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .pack()
+            .spanned(span),
+    ))
 };
 
 const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroup> = |elem, engine, styles| {
@@ -850,11 +854,13 @@ const FORM_RADIO_RULE: ShowFn<FormRadioButton> = |elem, engine, styles| {
     let mut css = css::Properties::build(engine.binding_guard(elem.span()));
     set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
-    Ok(HtmlElem::new(tag::input)
-        .with_attrs(attributes)
-        .with_css(css.finish())
-        .pack()
-        .spanned(span))
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::input)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .pack()
+            .spanned(span),
+    ))
 };
 
 const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
@@ -898,19 +904,19 @@ const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
     set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
     let is_textarea = elem.multiline.get(styles);
-    if is_textarea {
+    let body = if is_textarea {
         let body = elem
             .value
             .get_ref(styles)
             .as_ref()
             .map(|value| TextElem::new(value.into()).pack());
 
-        Ok(HtmlElem::new(tag::textarea)
+        HtmlElem::new(tag::textarea)
             .with_attrs(attributes)
             .with_css(css.finish())
             .with_body(body)
             .pack()
-            .spanned(span))
+            .spanned(span)
     } else {
         attributes.push(attr::r#type, "text");
 
@@ -918,12 +924,13 @@ const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
             attributes.push(attr::value, value);
         }
 
-        Ok(HtmlElem::new(tag::input)
+        HtmlElem::new(tag::input)
             .with_attrs(attributes)
             .with_css(css.finish())
             .pack()
-            .spanned(span))
-    }
+            .spanned(span)
+    };
+    Ok(BlockElem::packed(body))
 };
 
 const FORM_CHOICE_RULE: ShowFn<FormChoice> = |elem, engine, styles| {
@@ -978,12 +985,14 @@ const FORM_CHOICE_RULE: ShowFn<FormChoice> = |elem, engine, styles| {
     let mut css = css::Properties::build(engine.binding_guard(span));
     set_css_width_height(&mut css, elem.width.get(styles), elem.height.get(styles));
 
-    Ok(HtmlElem::new(tag::select)
-        .with_attrs(attributes)
-        .with_css(css.finish())
-        .with_body(Some(SequenceElem::new(body).pack()))
-        .pack()
-        .spanned(span))
+    Ok(BlockElem::packed(
+        HtmlElem::new(tag::select)
+            .with_attrs(attributes)
+            .with_css(css.finish())
+            .with_body(Some(SequenceElem::new(body).pack()))
+            .pack()
+            .spanned(span),
+    ))
 };
 
 const FORM_LABEL_RULE: ShowFn<FormLabel> = |elem, engine, _| {

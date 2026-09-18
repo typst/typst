@@ -1,18 +1,21 @@
+use ecow::EcoVec;
 use krilla::configure::{Accessibility, PdfVersion};
 use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{Artifact, ArtifactType, ContentTag, SpanTag};
 use typst_layout::PagedDocument;
-use typst_library::diag::SourceResult;
+use typst_library::diag::{At, ExpectInternal, SourceDiagnostic, SourceResult};
 use typst_library::format::Complete;
 use typst_library::foundations::Smart;
 use typst_library::layout::{FrameParent, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
+use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
+use crate::form::WidgetAnnotation;
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::tree::Tree;
 
@@ -146,7 +149,7 @@ pub fn disabled(gc: &GlobalContext) -> bool {
     !gc.options.tagged() || gc.tags.in_tiling
 }
 
-/// Add all annotations that were found in the page frame.
+/// Add all link annotations that were found in the page frame.
 pub fn add_link_annotations(
     gc: &mut GlobalContext,
     page: &mut Page,
@@ -170,6 +173,29 @@ pub fn add_link_annotations(
             page.add_annotation(annotation);
         }
     }
+}
+
+/// Add all widget annotations that were found in the page frame.
+pub fn add_widget_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: impl Iterator<Item = WidgetAnnotation>,
+    warnings: &mut EcoVec<SourceDiagnostic>,
+) -> SourceResult<()> {
+    for annot in annotations {
+        let annot_id = annot.annotation_id;
+        let action = annot.get_krilla_action(gc, warnings)?;
+        let identifier = gc
+            .acro_form
+            .get_field_mut(annot.field_location)
+            .expect_internal("could not find field for location")
+            .at(Span::detached())?
+            .insert_annotation(page, annot, action)?;
+        if let Some(annot_id) = annot_id {
+            gc.tags.annotations.init(annot_id, identifier);
+        }
+    }
+    Ok(())
 }
 
 /// Automatically calls [`Surface::end_tagged`] when dropped.
