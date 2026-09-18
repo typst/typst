@@ -25,6 +25,8 @@ cb9571403237411f8d62aa142f1f5c80 figure-tags-additional-caption-inside-body
 33b17e86c8121a1a5694dbaf9c68927a figure-tags-alt-with-different-lang
 4563e5065ddaf5f37eb5eed4c99e01ed figure-tags-bbox-of-square-with-stroke
 bc6a83eb915ca43700b5baedd0fb16f0 figure-tags-block-equation-with-caption
+71eba92087c229b2a7ef243f686dffe5 figure-tags-equation-only-marked-content-with-alt
+f0535b57b8d5260c2f6e08f0fdaa5bca figure-tags-equation-only-marked-content-with-alt-ua-1
 04921fc62f0fdc8f19495c62366e5efd figure-tags-image-basic
 c08fe735930451017157dcb2ab74552b figure-tags-image-figure-with-caption
 0ad824bab5fac9f1c62c45622cdf6c93 figure-tags-inline-equation-with-caption

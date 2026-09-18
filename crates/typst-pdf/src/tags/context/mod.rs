@@ -61,6 +61,11 @@ impl Tags {
         let group = self.tree.groups.get_mut(self.tree.current());
         group.push_text(new_attrs, text_id);
     }
+
+    pub fn push_graphic_shape(&mut self, alt: EcoString, id: Identifier) {
+        let group = self.tree.groups.get_mut(self.tree.current());
+        group.push_graphic_shape(alt, id);
+    }
 }
 
 pub struct Ctx {

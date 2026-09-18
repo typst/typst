@@ -20,7 +20,7 @@ use typst_library::diag::{
     At, ExpectInternal, SourceDiagnostic, SourceResult, bail, error,
 };
 use typst_library::format::Complete;
-use typst_library::foundations::{NativeElement, Repr};
+use typst_library::foundations::{NativeElement, Repr, Smart};
 use typst_library::introspection::{Introspector, Location, PagedPosition, Tag};
 use typst_library::layout::{Abs, Frame, FrameItem, GroupItem, Sides, Size, Transform};
 use typst_library::model::{Document as _, HeadingElem, LateLinkResolver};
@@ -350,7 +350,7 @@ pub(crate) fn handle_frame(
             surface,
             gc,
             Span::detached(),
-            Some(ArtifactType::Background),
+            Smart::Custom(ArtifactType::Background),
         )?;
     }
 
@@ -366,7 +366,7 @@ pub(crate) fn handle_frame(
             FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
             FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
             FrameItem::Shape(s, span) => {
-                handle_shape(fc, s, surface, gc, *span, None)?;
+                handle_shape(fc, s, surface, gc, *span, Smart::Auto)?;
             }
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?;

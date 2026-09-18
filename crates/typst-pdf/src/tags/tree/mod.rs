@@ -5,7 +5,7 @@ use crate::tags::context::{BBoxCtx, BBoxId, Ctx};
 use crate::tags::groups::{Group, GroupKind, Groups};
 use crate::tags::tree::build::TreeBuilder;
 use crate::tags::tree::text::TextAttrs;
-use ecow::EcoVec;
+use ecow::{EcoString, EcoVec};
 use krilla::surface::Surface;
 use krilla::tagging::{Artifact, ContentTag, Tag};
 use rustc_hash::FxHashMap;
@@ -78,8 +78,8 @@ impl Tree {
     }
 
     /// Whether an ancestor has an alternative description.
-    pub fn parent_has_alt(&self) -> bool {
-        self.state.current_alt.is_some()
+    pub fn parent_alt(&self) -> Option<(GroupId, EcoString)> {
+        self.state.current_alt.clone()
     }
 
     pub fn assert_finished_traversal(&self) -> HintedStrResult<()> {
@@ -142,7 +142,7 @@ struct TraversalState {
     /// The highest artifact ancestor in the tree.
     current_artifact: Option<(GroupId, Artifact)>,
     /// The highest ancestor that has an alternative description.
-    current_alt: Option<GroupId>,
+    current_alt: Option<(GroupId, EcoString)>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
     bbox_stack: Vec<BBoxId>,
     /// The stack of text attributes.
@@ -164,7 +164,7 @@ impl TraversalState {
         if self.current_artifact.take_if(|(i, _)| *i == id).is_some() {
             surface.end_tagged();
         }
-        self.current_alt.take_if(|i| *i == id);
+        self.current_alt.take_if(|(i, _)| *i == id);
         if let Some(id) = group.kind.bbox() {
             self.bbox_stack.pop_if(|i| *i == id);
         }
@@ -367,8 +367,10 @@ fn open_group(
         state.current_artifact = Some((id, ty));
         surface.start_tagged(ContentTag::Artifact(ty));
     }
-    if state.current_alt.is_none() && ctx.alt(&group.kind).is_some() {
-        state.current_alt = Some(id);
+    if state.current_alt.is_none()
+        && let Some(alt) = ctx.alt(&group.kind)
+    {
+        state.current_alt = Some((id, alt.clone()));
     }
     if let Some(bbox) = &group.kind.bbox() {
         state.bbox_stack.push(*bbox);
@@ -397,8 +399,8 @@ fn open_multiple_groups<'a>(
         if let Some(ty) = group.kind.to_artifact(options, fc.page_size()) {
             new_artifact = Some((id, ty));
         }
-        if ctx.alt(&group.kind).is_some() {
-            new_alt = Some(id);
+        if let Some(alt) = ctx.alt(&group.kind) {
+            new_alt = Some((id, alt.clone()));
         }
         if let Some(bbox) = group.kind.bbox() {
             state.bbox_stack.insert(bbox_start, bbox);

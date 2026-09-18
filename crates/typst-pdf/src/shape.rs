@@ -2,6 +2,7 @@ use krilla::geom::{Path, PathBuilder, Rect};
 use krilla::surface::Surface;
 use krilla::tagging::ArtifactType;
 use typst_library::diag::SourceResult;
+use typst_library::foundations::Smart;
 use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 use typst_utils::defer;
@@ -17,7 +18,7 @@ pub(crate) fn handle_shape(
     surface: &mut Surface,
     gc: &mut GlobalContext,
     span: Span,
-    artifact_type: Option<ArtifactType>,
+    artifact_type: Smart<ArtifactType>,
 ) -> SourceResult<()> {
     let mut handle = tags::shape(gc, fc, surface, shape, artifact_type);
     let surface = handle.surface();

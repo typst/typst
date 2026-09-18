@@ -1,6 +1,6 @@
 use std::num::NonZeroU16;
 
-use ecow::EcoVec;
+use ecow::{EcoString, EcoVec};
 use krilla::tagging::{self as kt, Node, Tag, TagKind};
 use krilla::tagging::{Identifier, TagTree};
 use smallvec::SmallVec;
@@ -31,6 +31,7 @@ pub enum TagNode {
     /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
     /// otherwise the items are inserted directly.
     Text(ResolvedTextAttrs, Vec<Identifier>),
+    GraphicShape(EcoString, Vec<Identifier>),
 }
 
 struct Resolver<'a> {
@@ -115,6 +116,11 @@ fn resolve_node(
         }
         TagNode::Text(attrs, ids) => {
             resolve_text(accum, attrs, ids);
+        }
+        TagNode::GraphicShape(alt, ids) => {
+            let tag = Tag::Figure(Some(alt.to_string()));
+            let children = ids.iter().copied().map(Node::Leaf).collect();
+            accum.push(kt::TagGroup::with_children(tag, children).into());
         }
     }
 }
@@ -273,6 +279,7 @@ fn resolve_artifact_node(
         TagNode::Leaf(..) => (),
         TagNode::Annotation(..) => (),
         TagNode::Text(..) => (),
+        TagNode::GraphicShape(..) => (),
     }
 }
 
