@@ -24,8 +24,8 @@ use typst_library::model::{
     FormElem, FormLabel, FormRadioButton, FormRadioGroup, FormTextbox, HeadingElem,
     HttpMethod, LinkElem, LinkTarget, ListElem, OutlineElem, OutlineEntry, OutlineNode,
     ParElem, ParbreakElem, QuoteElem, RefElem, ResolvedLink, StrongElem, TableCell,
-    TableElem, TermsElem, TextboxKind, TitleElem, Works, form_fields_selector,
-    gen_field_name,
+    TableElem, TermsElem, TextboxKind, TitleElem, Works, assert_not_inside_form_field,
+    form_fields_selector, gen_field_name,
 };
 use typst_library::routines::Arenas;
 use typst_library::text::{
@@ -745,6 +745,7 @@ const FORM_RULE: ShowFn<FormElem> = |elem, _, styles| {
 const FORM_BUTTON_RULE: ShowFn<FormButton> = |elem, engine, styles| {
     let span = elem.span();
     FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
 
     let mut attributes = HtmlAttrs::new();
     let action = match elem.action.get(styles) {
@@ -778,6 +779,7 @@ const FORM_BUTTON_RULE: ShowFn<FormButton> = |elem, engine, styles| {
 const FORM_CHECKBOX_RULE: ShowFn<FormCheckbox> = |elem, engine, styles| {
     let span = elem.span();
     FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
 
     let mut attributes = HtmlAttrs::new();
     attributes.push(attr::r#type, "checkbox");
@@ -838,6 +840,7 @@ const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroup> = |elem, engine, styles| {
 
 const FORM_RADIO_RULE: ShowFn<FormRadioButton> = |elem, engine, styles| {
     let span = elem.span();
+    assert_not_inside_form_field(elem, styles)?;
     let group = FormRadioGroup::try_from_styles(elem, &styles)?;
     let mut attributes = HtmlAttrs::new();
     attributes.push(attr::r#type, "radio");
@@ -882,6 +885,7 @@ const FORM_RADIO_RULE: ShowFn<FormRadioButton> = |elem, engine, styles| {
 const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
     let span = elem.span();
     FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
 
     let mut attributes = HtmlAttrs::new();
     if let Smart::Custom(name) = elem.name.get_ref(styles) {
@@ -953,6 +957,7 @@ const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
 const FORM_CHOICE_RULE: ShowFn<FormChoice> = |elem, engine, styles| {
     let span = elem.span();
     FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
 
     let mut attributes = HtmlAttrs::new();
     if let Smart::Custom(name) = elem.name.get_ref(styles) {

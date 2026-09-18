@@ -58,6 +58,7 @@ disallowed-methods = [
 
 # Exceptions for proper nouns that look like identifiers.
 doc-valid-idents = [
+    "AcroForm", # <https://en.wikipedia.org/wiki/PDF#Forms>
     "BiDi", # <https://en.wikipedia.org/wiki/Bidirectional_text#Bidirectional_script_support>
     "LastResort", # <https://en.wikipedia.org/wiki/Fallback_font#Unicode_Last_Resort_font>
     "LCh", # <https://en.wikipedia.org/wiki/HCL_color_space>

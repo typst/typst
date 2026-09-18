@@ -74,6 +74,14 @@ impl Stroke {
             ..Default::default()
         }
     }
+
+    /// Create a stroke from a thickness.
+    pub fn from_thickness(thickness: impl Into<Length>) -> Self {
+        Self {
+            thickness: Smart::Custom(thickness.into()),
+            ..Default::default()
+        }
+    }
 }
 
 #[scope]

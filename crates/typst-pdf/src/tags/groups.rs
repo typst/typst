@@ -137,6 +137,7 @@ impl Groups {
             GroupKind::Image(..) => Never,
             GroupKind::Formula(..) => Never,
             GroupKind::Link(..) => NoPdfUa(BreakPriority::Span),
+            GroupKind::FormField(..) => Never,
             GroupKind::CodeBlock(..) => Never,
             GroupKind::CodeBlockLine(..) => Never,
             GroupKind::Par(..) => NoPdfUa(BreakPriority::Par),
@@ -226,6 +227,7 @@ impl Groups {
             | GroupKind::FigureCaption(..)
             | GroupKind::Image(..)
             | GroupKind::Formula(..)
+            | GroupKind::FormField(..)
             | GroupKind::CodeBlock(..)
             | GroupKind::CodeBlockLine(..)
             | GroupKind::Transparent => unreachable!(),
@@ -478,6 +480,7 @@ pub enum GroupKind {
     Image(Packed<ImageElem>, BBoxId, Option<Locale>),
     Formula(Packed<EquationElem>, BBoxId, Option<Locale>),
     Link(Packed<LinkMarker>, Option<Locale>),
+    FormField(Option<Locale>),
     CodeBlock(Option<Locale>),
     CodeBlockLine(Option<Locale>),
     /// Whether this paragraph is a `weak` pragraph that is omitted when it
@@ -513,6 +516,7 @@ impl std::fmt::Debug for GroupKind {
             Self::Image(..) => "Image",
             Self::Formula(..) => "Formula",
             Self::Link(..) => "Link",
+            Self::FormField(..) => "FormField",
             Self::CodeBlock(..) => "CodeBlock",
             Self::CodeBlockLine(..) => "CodeBlockLine",
             Self::Par(..) => "Par",
@@ -530,6 +534,10 @@ impl GroupKind {
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
+    }
+
+    pub fn is_form_field(&self) -> bool {
+        matches!(self, Self::FormField(..))
     }
 
     pub fn is_figure(&self) -> bool {
@@ -620,6 +628,7 @@ impl GroupKind {
             GroupKind::Image(_, _, lang) => lang,
             GroupKind::Formula(_, _, lang) => lang,
             GroupKind::Link(_, lang) => lang,
+            GroupKind::FormField(lang) => lang,
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,
@@ -652,6 +661,7 @@ impl GroupKind {
             GroupKind::Image(_, _, lang) => lang,
             GroupKind::Formula(_, _, lang) => lang,
             GroupKind::Link(_, lang) => lang,
+            GroupKind::FormField(lang) => lang,
             GroupKind::CodeBlock(lang) => lang,
             GroupKind::CodeBlockLine(lang) => lang,
             GroupKind::Par(lang) => lang,

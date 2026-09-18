@@ -4,6 +4,7 @@ use ecow::EcoString;
 use krilla::geom as kg;
 use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
+use typst_syntax::Span;
 
 use crate::convert::FrameContext;
 use crate::tags::context::figure::build_figure;
@@ -32,6 +33,7 @@ pub type TagId = Id<TagKind>;
 pub type AnnotationId = Id<krilla::annotation::Annotation>;
 
 pub struct Tags {
+    pub in_widget: Option<Span>,
     pub in_tiling: bool,
     pub tree: Tree,
     /// A list of placeholders for annotations in the tag tree.
@@ -41,6 +43,7 @@ pub struct Tags {
 impl Tags {
     pub fn new(tree: Tree) -> Self {
         Self {
+            in_widget: None,
             in_tiling: false,
             tree,
             annotations: Annotations::new(),

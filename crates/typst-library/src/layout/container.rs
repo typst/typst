@@ -494,6 +494,14 @@ impl Sizing {
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }
+
+    /// Keeps `self` if it is not [`Self::Auto`], otherwise returns `other`.
+    pub fn or(self, other: Self) -> Self {
+        match self {
+            Self::Rel(_) | Self::Fr(_) => self,
+            Self::Auto => other,
+        }
+    }
 }
 
 impl From<Smart<Rel>> for Sizing {

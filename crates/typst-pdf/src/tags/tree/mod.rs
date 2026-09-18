@@ -17,6 +17,7 @@ use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
 use typst_library::layout::Inherit;
 use typst_library::model::LinkMarker;
+use typst_syntax::Span;
 
 pub use build::build;
 pub use text::{ResolvedTextAttrs, TextAttr, resolve_text_attrs};
@@ -69,6 +70,13 @@ impl Tree {
         }
 
         None
+    }
+
+    /// Find the form field ancestor in the tree (must be the current group).
+    pub fn parent_form_field(&self) -> Option<(GroupId, Span)> {
+        let current = self.current();
+        let group = self.groups.get(current);
+        group.kind.is_form_field().then_some((current, group.span))
     }
 
     /// Find the highest artifact ancestor in the tree.
@@ -600,6 +608,9 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 parent = tree.groups.push_tag(parent, Tag::Reference);
             }
             tree.groups.push_group(parent, id);
+        }
+        GroupKind::FormField(..) => {
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::CodeBlock(..) => {
             tree.groups.push_group(direct_parent, id);
