@@ -2,6 +2,7 @@
 
 mod attach;
 mod convert;
+mod form;
 mod format;
 mod image;
 mod link;

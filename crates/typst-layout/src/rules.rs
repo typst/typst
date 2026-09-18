@@ -1,7 +1,7 @@
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
+use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail, warning};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
     StyleChain, Synthesize, Target, Value, dict,
@@ -15,7 +15,11 @@ use typst_library::layout::{
     Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
-use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
+use typst_library::model::{
+    ArtifactElem, ArtifactKind, Form, FormButtonElem, FormCheckboxElem, FormChoiceElem,
+    FormElem, FormLabelElem, FormRadioElem, FormRadioGroupElem, FormTextboxElem,
+    PdfMarkerTag, RadioGroup,
+};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
@@ -65,6 +69,14 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
+    rules.register(Paged, FORM_RULE);
+    rules.register(Paged, FORM_BUTTON_RULE);
+    rules.register(Paged, FORM_CHECKBOX_RULE);
+    rules.register(Paged, FORM_RADIO_GROUP_RULE);
+    rules.register(Paged, FORM_RADIO_RULE);
+    rules.register(Paged, FORM_TEXTBOX_RULE);
+    rules.register(Paged, FORM_CHOICE_RULE);
+    rules.register(Paged, FORM_LABEL_RULE);
 
     // Text.
     rules.register(Paged, SUB_RULE);
@@ -541,6 +553,142 @@ const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
 const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, styles| {
     show_cell(elem.body.clone(), elem.inset.get(styles), elem.align.get(styles))
 };
+
+const FORM_RULE: ShowFn<FormElem> = |elem, _, styles| {
+    Ok(elem.body.clone().set(
+        FormElem::form,
+        Some(Form {
+            location: elem.location().unwrap(),
+            target: elem.target.get_cloned(styles),
+        }),
+    ))
+};
+
+const FORM_BUTTON_RULE: ShowFn<FormButtonElem> = |elem, _, styles| {
+    let span = elem.span();
+    if styles.get_ref(FormElem::form).is_none() {
+        bail!(span, "button must be placed inside a `#form[...]` element");
+    }
+
+    // FIXME: autosize?
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::new(10.0).into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    // TODO: maybe get rid of the BoxElem and just use elem.body?
+    // however, what do we do with elem.width/elem.height then?
+    // FIXME: we have clipping issues, as box does not expand to accommodate the correct text height
+    Ok(crate::form::single_layouter(elem.clone(), crate::form::layout_button)
+        .with_width(width)
+        .with_height(height)
+        .pack()
+        .spanned(span))
+};
+
+const FORM_CHECKBOX_RULE: ShowFn<FormCheckboxElem> = |elem, _, styles| {
+    let span = elem.span();
+    if styles.get_ref(FormElem::form).is_none() {
+        bail!(span, "checkbox must be placed inside a `#form[...]` element");
+    }
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::one().into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    Ok(crate::form::single_layouter(elem.clone(), crate::form::layout_checkbox)
+        .with_width(width)
+        .with_height(height)
+        .pack()
+        .spanned(span))
+};
+
+const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroupElem> = |elem, _, styles| {
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    if styles.get_ref(FormElem::form).is_none() {
+        bail!(span, "radio group must be placed inside a `#form[...]` element");
+    }
+    let selected = elem.selected.get_cloned(styles);
+    let required = elem.required.get(styles);
+
+    Ok(elem.body.clone().set(
+        FormRadioGroupElem::radio_group,
+        Some(RadioGroup {
+            location,
+            name: Smart::Auto, // FIXME: this is not used in paged export
+            selected,
+            required,
+        }),
+    ))
+};
+
+const FORM_RADIO_RULE: ShowFn<FormRadioElem> = |elem, _, styles| {
+    let span = elem.span();
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::one().into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    Ok(crate::form::single_layouter(elem.clone(), crate::form::layout_radio_button)
+        .with_width(width)
+        .with_height(height)
+        .pack()
+        .spanned(span))
+};
+
+const FORM_TEXTBOX_RULE: ShowFn<FormTextboxElem> = |elem, engine, styles| {
+    let span = elem.span();
+    if styles.get_ref(FormElem::form).is_none() {
+        bail!(span, "textbox must be placed inside a `#form[...]` element");
+    }
+
+    if elem.placeholder.get_ref(styles).is_some() {
+        engine.sink.warn(warning!(
+            span, "ignored `placeholder` property when exporting";
+            hint: "property not supported in this export format";
+        ));
+    }
+
+    let max_length = elem.max_length.get(styles);
+    let fixed_width = elem.fixed_width.get(styles);
+    if fixed_width && max_length.is_none() {
+        bail!(span, "`max-length` must be set when `fixed-width: true`");
+    }
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::new(10.0).into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    Ok(crate::form::single_layouter(elem.clone(), crate::form::layout_textbox)
+        .with_width(width)
+        .with_height(height)
+        .pack()
+        .spanned(span))
+};
+
+const FORM_CHOICE_RULE: ShowFn<FormChoiceElem> = |elem, _, styles| {
+    let span = elem.span();
+    if styles.get_ref(FormElem::form).is_none() {
+        bail!(span, "choice field must be placed inside a `#form[...]` element");
+    }
+
+    let multiple = elem.multiple.get(styles);
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::new(10.0).into()) } else { width };
+    let height = elem
+        .height
+        .get(styles)
+        .or(Smart::Custom(Em::new(if multiple { 5.0 } else { 1.0 }).into()));
+
+    Ok(crate::form::single_layouter(elem.clone(), crate::form::layout_choice)
+        .with_width(width)
+        .with_height(height)
+        .pack()
+        .spanned(span))
+};
+
+const FORM_LABEL_RULE: ShowFn<FormLabelElem> = |elem, _, _| Ok(elem.body.clone());
 
 const SUB_RULE: ShowFn<SubElem> = |elem, _, styles| {
     show_script(

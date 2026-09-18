@@ -34,8 +34,9 @@ use typst_library::layout::{
 use typst_library::math::EquationElem;
 use typst_library::model::{
     ArtifactElem, Document, EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem,
-    FootnoteEntry, HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry, ParElem,
-    PdfMarkerTag, PdfMarkerTagKind, QuoteElem, StrongElem, TableCell, TableElem,
+    FootnoteEntry, FormButtonElem, FormCheckboxElem, FormChoiceElem, FormRadioElem,
+    FormTextboxElem, HeadingElem, LinkMarker, ListElem, Outlinable, OutlineEntry,
+    ParElem, PdfMarkerTag, PdfMarkerTagKind, QuoteElem, StrongElem, TableCell, TableElem,
     TermsElem, TitleElem,
 };
 use typst_library::text::{
@@ -260,6 +261,7 @@ fn visit_frame(tree: &mut TreeBuilder, frame: &Frame) -> SourceResult<()> {
             FrameItem::Shape(..) => (),
             FrameItem::Image(..) => (),
             FrameItem::Link(..) => (),
+            FrameItem::FieldAppearance(..) => (),
         }
     }
     Ok(())
@@ -381,6 +383,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         }
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
         push_group(tree, elem, GroupKind::Link(link.clone(), None))
+    } else if elem.is::<FormButtonElem>()
+        || elem.is::<FormCheckboxElem>()
+        || elem.is::<FormRadioElem>()
+        || elem.is::<FormTextboxElem>()
+        || elem.is::<FormChoiceElem>()
+    {
+        push_group(tree, elem, GroupKind::FormField(elem.span(), None))
     } else if let Some(_) = elem.to_packed::<TitleElem>() {
         push_tag(tree, elem, Tag::Title)
     } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {

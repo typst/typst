@@ -1,4 +1,4 @@
-use ecow::{EcoString, eco_format};
+use ecow::{EcoString, EcoVec, eco_format};
 use rustc_hash::FxHashSet;
 use typst_macros::{Cast, cast};
 use typst_syntax::Span;
@@ -10,10 +10,10 @@ use crate::foundations::{
     Packed, Repr, Smart, Value, elem, scope,
 };
 use crate::introspection::{Introspector, Location, QueryLabelIntrospection};
-use crate::layout::{Length, Rel, Sizing};
+use crate::layout::{Frame, Length, Rel, Size, Sizing};
 use crate::text::LocalName;
 
-#[elem(scope, since = "unreleased", LocalName)]
+#[elem(scope, since = "unreleased", LocalName, Locatable)]
 pub struct FormElem {
     /// The fields belonging to this form, along with any surrounding content.
     #[required]
@@ -22,6 +22,12 @@ pub struct FormElem {
     /// Where to submit this form when a @form.button with a @form.button.action[submit action]
     /// is pressed.
     pub target: Option<FormTarget>,
+
+    // FIXME?
+    /// This form, to be inherited by field elements.
+    #[internal]
+    #[ghost]
+    pub form: Option<Form>,
 }
 
 #[scope]
@@ -118,7 +124,7 @@ impl LocalName for Packed<FormElem> {
     const KEY: &'static str = "form";
 }
 
-#[elem(name = "button", since = "unreleased", Locatable)]
+#[elem(name = "button", since = "unreleased", Tagged, Locatable)]
 pub struct FormButtonElem {
     /// The label of this button.
     #[required]
@@ -150,7 +156,7 @@ pub enum ButtonAction {
     Reset,
 }
 
-#[elem(name = "checkbox", since = "unreleased", Locatable)]
+#[elem(name = "checkbox", since = "unreleased", Tagged, Locatable)]
 pub struct FormCheckboxElem {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -207,7 +213,7 @@ pub struct RadioGroup {
     pub required: bool,
 }
 
-#[elem(name = "radio", since = "unreleased", Locatable)]
+#[elem(name = "radio", since = "unreleased", Tagged, Locatable)]
 pub struct FormRadioElem {
     // TODO: do we want this here instead of in the group?
     /// Whether this radio button should be selected/checked.
@@ -229,7 +235,7 @@ pub struct FormRadioElem {
     pub height: Smart<Rel<Length>>,
 }
 
-#[elem(name = "textbox", since = "unreleased", Locatable)]
+#[elem(name = "textbox", since = "unreleased", Tagged, Locatable)]
 pub struct FormTextboxElem {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -270,7 +276,7 @@ pub struct FormTextboxElem {
     pub height: Smart<Rel<Length>>,
 }
 
-#[elem(name = "choice", since = "unreleased", Locatable)]
+#[elem(name = "choice", since = "unreleased", Tagged, Locatable)]
 pub struct FormChoiceElem {
     /// The name of this field.
     /// If `auto`, will be automatically generated as `typst.field-<n>` when exporting to PDF.
@@ -294,7 +300,7 @@ pub struct FormChoiceElem {
     ///
     /// - If given a dictionary, the keys correspond to the value of each option,
     ///   while the values correspond to the user-facing display name
-    ///   (or `none` to use the value as the display name).
+    ///   (or `auto` to use the value as the display name).
     /// - If given an array, its elements are treated as both the value of the option and its
     ///   display name.
     ///
@@ -373,7 +379,7 @@ impl FormChoiceElem {
 
 /// Available options in a choice form field.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct ChoiceOptions(pub Vec<ChoiceOption>);
+pub struct ChoiceOptions(pub EcoVec<ChoiceOption>);
 
 cast! {
     ChoiceOptions,
@@ -389,7 +395,7 @@ cast! {
         .enumerate()
         .map(|(i, v)| Ok(ChoiceOption::new(
             v.clone().cast::<EcoString>().hint(str_hint_helper(i, &v))?,
-            None,
+            Smart::Auto,
         )))
         .collect::<HintedStrResult<_>>()?),
     values: Dict => Self(values
@@ -397,7 +403,7 @@ cast! {
         .enumerate()
         .map(|(i, (k, v))| Ok(ChoiceOption::new(
             k.clone().into_value().cast::<EcoString>().hint(str_hint_helper(i, &k))?,
-            v.cast::<Option<EcoString>>().hint(str_hint_helper(i, &k))?,
+            v.cast::<Smart<EcoString>>().hint(str_hint_helper(i, &k))?,
         )))
         .collect::<HintedStrResult<_>>()?),
 }
@@ -411,12 +417,12 @@ fn str_hint_helper(index: usize, key: &impl Repr) -> EcoString {
 pub struct ChoiceOption {
     /// The name that uniquely identifies this option.
     pub mapping_name: EcoString,
-    /// The user-facing name of this option. If [`None`], [`Self::mapping_name`] is used instead.
-    pub display_name: Option<EcoString>,
+    /// The user-facing name of this option. If [`Smart::Auto`], [`Self::mapping_name`] is used instead.
+    pub display_name: Smart<EcoString>,
 }
 
 impl ChoiceOption {
-    pub fn new(mapping_name: EcoString, display_name: Option<EcoString>) -> Self {
+    pub fn new(mapping_name: EcoString, display_name: Smart<EcoString>) -> Self {
         Self { mapping_name, display_name }
     }
 
@@ -466,4 +472,94 @@ impl FormLabelElem {
             .map(|elem| elem.into_packed::<Self>().unwrap())
             .filter_map(|elem| elem.resolve_late(introspector).ok())
     }
+}
+
+/// An interactive form.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Form {
+    pub location: Location,
+    pub target: Option<FormTarget>,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct FieldWidget {
+    pub field_location: Location,
+    pub size: Size,
+    /// The action to perform when clicking this widget, if any.
+    pub action: Option<WidgetAction>,
+    /// The value this widget represents, if any. Used for radio buttons.
+    pub value: Option<EcoString>,
+    /// The appearance of this widget.
+    pub appearance: FieldAppearanceKind<Frame>,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub enum FieldAppearanceKind<T> {
+    /// A static appearance (e.g., button).
+    Single { variable_text: bool, body: T },
+    /// A dual state appearance (e.g., checkbox).
+    Dual { active: bool, body_off: T, body_on: T },
+}
+
+impl<T> FieldAppearanceKind<T> {
+    /// Get the active body of this appearance.
+    pub fn active_body(&self) -> &T {
+        match self {
+            Self::Single { body, .. } => body,
+            Self::Dual { active, body_on, .. } if *active => body_on,
+            Self::Dual { body_off, .. } => body_off,
+        }
+    }
+
+    /// Whether this appearance is of type 'variable text'.
+    pub fn is_variable_text(&self) -> bool {
+        match self {
+            Self::Single { variable_text, .. } => *variable_text,
+            Self::Dual { .. } => false,
+        }
+    }
+
+    /// Convert this [`FieldAppearanceKind`] from to another body type by applying a conversion
+    /// function to its body/bodies.
+    pub fn convert<N, E>(
+        &self,
+        mut convert_fn: impl FnMut(&T) -> Result<N, E>,
+    ) -> Result<FieldAppearanceKind<N>, E> {
+        match self {
+            Self::Single { variable_text, body } => Ok(FieldAppearanceKind::Single {
+                variable_text: *variable_text,
+                body: convert_fn(body)?,
+            }),
+            Self::Dual { active, body_off, body_on } => Ok(FieldAppearanceKind::Dual {
+                active: *active,
+                body_off: convert_fn(body_off)?,
+                body_on: convert_fn(body_on)?,
+            }),
+        }
+    }
+
+    /// If this is of variant [`Self::Single`], convert to [`Option<T>`].
+    pub fn single(self) -> Option<T> {
+        match self {
+            Self::Single { body, .. } => Some(body),
+            Self::Dual { .. } => None,
+        }
+    }
+
+    /// If this is of variant [`Self::Dual`], convert to [`Option<(T, T)>`],
+    /// that is an [`Option`] of `(body_off, body_on)`.
+    pub fn dual(self) -> Option<(T, T)> {
+        match self {
+            Self::Single { .. } => None,
+            Self::Dual { body_off, body_on, .. } => Some((body_off, body_on)),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum WidgetAction {
+    /// Submit all fields in a form to a given URL.
+    Submit { form: Location, target: FormTarget },
+    /// Reset all fields in the form to their default value.
+    Reset { form: Location },
 }
