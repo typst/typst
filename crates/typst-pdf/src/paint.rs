@@ -111,7 +111,7 @@ fn convert_paint(
     }
 }
 
-fn convert_solid(color: &Color) -> (color::Color, u8) {
+pub(crate) fn convert_solid(color: &Color) -> (color::Color, u8) {
     match color {
         Color::Process(color) => {
             let (color, alpha) = convert_process_solid(*color);

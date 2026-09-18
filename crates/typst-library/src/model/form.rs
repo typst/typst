@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use comemo::Track;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use rustc_hash::FxHashMap;
 use typst_macros::{Cast, cast};
@@ -10,14 +13,16 @@ use crate::diag::{
 };
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Content, Dict, FromValue, IntoValue, Label, NativeElement, OneOrMultiple,
-    Packed, Repr, Selector, ShowSet, Smart, StyleChain, Styles, Synthesize, Value, dict,
-    elem, scope,
+    Args, Array, Construct, Content, Context, Dict, FromValue, IntoValue, Label,
+    NativeElement, OneOrMultiple, Packed, Repr, Selector, ShowSet, Smart, StyleChain,
+    Styles, Synthesize, Value, dict, elem, scope,
 };
 use crate::introspection::{
-    Introspector, Location, QueryIntrospection, QueryLabelIntrospection,
+    Counter, CounterKey, Introspector, Location, QueryIntrospection,
+    QueryLabelIntrospection,
 };
-use crate::layout::{Length, Rel, Sizing};
+use crate::layout::{Abs, Frame, Length, Rel, Sides, Size, Sizing};
+use crate::visualize::{CircleElem, Paint, RectElem};
 
 /// TODO: docs
 #[elem(scope, since = "unreleased", Locatable, ShowSet)]
@@ -64,6 +69,10 @@ impl FormElem {
     type FormChoice;
     #[elem]
     type FormLabel;
+    #[elem]
+    type FormWidget;
+    #[elem]
+    type FormCursor;
 }
 
 impl FormElem {
@@ -174,7 +183,7 @@ pub enum HttpMethod {
 }
 
 /// TODO: docs
-#[elem(name = "button", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "button", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormButton {
     /// The label of this button.
     #[required]
@@ -199,6 +208,25 @@ pub struct FormButton {
     pub height: Sizing,
 }
 
+impl ShowSet for Packed<FormButton> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+
+        let disabled = self.disabled.get(styles);
+        styles::set_rect_stroke(&mut out, disabled);
+        if disabled {
+            styles::set_disabled_styles(&mut out);
+        }
+        out.set(RectElem::inset, Sides::splat(Some(Abs::pt(5.0).into())));
+        out
+    }
+}
+
 /// Supported actions when clicking a button.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum ButtonAction {
@@ -209,7 +237,7 @@ pub enum ButtonAction {
 }
 
 /// TODO: docs
-#[elem(name = "checkbox", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "checkbox", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormCheckbox {
     /// The name of this field.
     ///
@@ -231,6 +259,23 @@ pub struct FormCheckbox {
 
     /// The checkbox's height.
     pub height: Sizing,
+}
+
+impl ShowSet for Packed<FormCheckbox> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        // No need to materialize since the widget show-rule does not access any property.
+        out.set(FormWidget::parent, Some(self.clone().pack()));
+
+        let disabled = self.disabled.get(styles);
+        styles::set_rect_stroke(&mut out, disabled);
+        if disabled {
+            styles::set_disabled_styles(&mut out);
+        }
+        out
+    }
 }
 
 /// TODO: docs
@@ -276,6 +321,21 @@ impl Packed<FormRadioGroup> {
             Selector::Label(selected).within(location.into()),
             span,
         ));
+        Self::try_into_radio_button(selected, &matches, span).map(Some)
+    }
+
+    /// Resolves the selected radio button without an engine.
+    pub fn resolve_selected_late(
+        &self,
+        introspector: &dyn Introspector,
+    ) -> SourceResult<Option<Packed<FormRadioButton>>> {
+        let Some(selected) = self.selected.get_cloned(StyleChain::default()) else {
+            return Ok(None);
+        };
+        let location = self.location().unwrap();
+        let span = self.span();
+        let matches =
+            introspector.query(&Selector::Label(selected).within(location.into()));
         Self::try_into_radio_button(selected, &matches, span).map(Some)
     }
 
@@ -345,7 +405,7 @@ impl FormRadioGroup {
 }
 
 /// TODO: docs
-#[elem(name = "radio", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "radio", since = "unreleased", Locatable, Tagged, Synthesize, ShowSet)]
 pub struct FormRadioButton {
     /// The value of the radio group when this option is selected.
     ///
@@ -363,10 +423,72 @@ pub struct FormRadioButton {
     #[ghost]
     #[internal]
     pub parent: Option<Packed<FormRadioGroup>>,
+
+    /// Same as @form.radio.value[`value`], but with `{auto}` converted to an
+    /// auto-generated value.
+    #[internal]
+    #[synthesized]
+    pub resolved_value: EcoString,
+}
+
+impl Synthesize for Packed<FormRadioButton> {
+    fn synthesize(
+        &mut self,
+        engine: &mut Engine,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        if let Smart::Custom(value) = self.value.get_ref(styles) {
+            self.resolved_value = Some(value.clone());
+            return Ok(());
+        }
+
+        if self.location().is_none() {
+            return Ok(());
+        }
+
+        let span = self.span();
+
+        let group = FormRadioGroup::try_from_styles(self, &styles)?;
+
+        let selector = FormRadioButton::ELEM
+            .select()
+            .within(group.location().unwrap().into());
+        let counter = Counter::new(CounterKey::Selector(selector));
+        let context = Context::new(self.location(), Some(styles));
+        let counter_state = counter.get(engine, context.track(), span)?;
+        self.resolved_value = Some(eco_format!("option-{}", counter_state.first()));
+        Ok(())
+    }
+}
+
+impl ShowSet for Packed<FormRadioButton> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        // No need to materialize since the widget show-rule does not access any property.
+        out.set(FormWidget::parent, Some(self.clone().pack()));
+
+        let disabled = styles
+            .get_ref(FormRadioButton::parent)
+            .as_ref()
+            .is_some_and(|group| group.disabled.get(styles));
+        let stroke = styles::field_stroke(disabled);
+        out.set(
+            CircleElem::outset,
+            Sides::splat(Some(Abs::pt(-styles::STROKE_THICKNESS_PT / 2.0).into())),
+        );
+        out.set(CircleElem::stroke, Smart::Custom(Some(stroke)));
+        if disabled {
+            out.set(CircleElem::fill, Some(styles::DISABLED_FILL.into()));
+            styles::set_disabled_styles(&mut out);
+        }
+        out
+    }
 }
 
 /// TODO: docs
-#[elem(name = "textbox", since = "unreleased", Locatable, Tagged)]
+#[elem(name = "textbox", since = "unreleased", Locatable, Tagged, ShowSet)]
 pub struct FormTextbox {
     /// The name of this field.
     ///
@@ -414,8 +536,37 @@ pub struct FormTextbox {
     pub height: Sizing,
 }
 
+impl ShowSet for Packed<FormTextbox> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+
+        let disabled = self.disabled.get(styles);
+        let stroke = styles::field_stroke(disabled);
+        let stroke = if self.multiline.get(styles) {
+            Sides::splat(Some(Some(stroke)))
+        } else {
+            Sides::new(None, None, None, Some(Some(stroke)))
+        };
+
+        out.set(
+            RectElem::outset,
+            Sides::splat(Some(Abs::pt(-styles::STROKE_THICKNESS_PT / 2.0).into())),
+        );
+        out.set(RectElem::stroke, Smart::Custom(stroke));
+        if disabled {
+            styles::set_disabled_styles(&mut out);
+        }
+        out
+    }
+}
+
 /// TODO: docs
-#[elem(name = "choice", since = "unreleased", Locatable, Tagged, Synthesize)]
+#[elem(name = "choice", since = "unreleased", Locatable, Tagged, Synthesize, ShowSet)]
 pub struct FormChoice {
     /// The name of this field.
     ///
@@ -488,6 +639,24 @@ pub struct FormChoice {
     #[internal]
     #[synthesized]
     pub value_indexes: EcoVec<usize>,
+}
+
+impl ShowSet for Packed<FormChoice> {
+    fn show_set(&self, styles: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        // Makes the field itself available to the `FieldWidget`. Should be
+        // superseded by a proper ancestry mechanism in the future.
+        let mut elem = self.clone().pack();
+        elem.materialize(styles);
+        out.set(FormWidget::parent, Some(elem));
+
+        let disabled = self.disabled.get(styles);
+        styles::set_rect_stroke(&mut out, disabled);
+        if disabled {
+            styles::set_disabled_styles(&mut out);
+        }
+        out
+    }
 }
 
 impl Synthesize for Packed<FormChoice> {
@@ -628,9 +797,203 @@ impl FormLabel {
     }
 }
 
+/// Check if the given element is inside a form field;
+/// if so, returns an error.
+pub fn assert_not_inside_form_field<T: NativeElement>(
+    elem: &Packed<T>,
+    styles: StyleChain,
+) -> SourceResult<()> {
+    if let Some(parent) = styles
+        .get_all_ref(FormWidget::parent)
+        .filter_map(|opt| opt.as_ref())
+        .find(|el| el.location() != elem.location())
+    {
+        bail!(
+            elem.span(),
+            "this {} element cannot be inside a form field", T::ELEM.name();
+            hint[parent.span()]: "the outer form field is here";
+        )
+    }
+    Ok(())
+}
+
 /// Generate an implicit field name based on a counter value.
 pub fn gen_field_name(counter: u64) -> EcoString {
     eco_format!("field-{}", counter)
+}
+
+/// The representation of a form field in the document.
+#[derive(Debug, Clone, Hash)]
+pub struct FieldWidget {
+    /// The span of the element declaring this widget.
+    pub span: Span,
+    /// The location of field this widget belongs to.
+    /// If this widget is a radio button, this points to the radio group.
+    pub field_location: Location,
+    /// The size of the widget.
+    pub size: Size,
+    /// The action to perform when clicking this widget, if any.
+    pub action: Option<WidgetAction>,
+    /// The value this widget represents, if any. Used for radio buttons.
+    pub value: Option<EcoString>,
+    /// The appearance of this widget.
+    pub appearance: Arc<FieldAppearanceKind<Frame>>,
+}
+
+/// The appearance of a field widget.
+///
+/// Contains a body of a generic type `T`, so that it can be reused with different types.
+///
+/// For checkboxes and radio buttons, the appearance has two bodies instead of just one,
+/// corresponding to their "off" and "on" states.
+/// Each body may also have different interactive states; see [`FieldAppearanceBody`].
+#[derive(Debug, Clone, Hash)]
+pub enum FieldAppearanceKind<T> {
+    /// A static appearance (e.g., button).
+    Single { variable_text: Option<VariableText>, body: FieldAppearanceBody<T> },
+    /// A dual state appearance (e.g., checkbox).
+    Dual {
+        /// Whether this checkbox/radio is checked.
+        active: bool,
+        /// The body when
+        body_off: FieldAppearanceBody<T>,
+        body_on: FieldAppearanceBody<T>,
+    },
+}
+
+impl<T> FieldAppearanceKind<T> {
+    /// Get the primary body of this appearance.
+    ///
+    /// For single appearances, returns the only body.
+    /// For dual appearances, returns the off body.
+    pub fn primary_body(&self) -> &FieldAppearanceBody<T> {
+        match self {
+            Self::Single { body, .. } => body,
+            Self::Dual { body_off, .. } => body_off,
+        }
+    }
+
+    /// Get the active body of this appearance.
+    pub fn active_body(&self) -> &FieldAppearanceBody<T> {
+        match self {
+            Self::Single { body, .. } => body,
+            Self::Dual { active, body_on, .. } if *active => body_on,
+            Self::Dual { body_off, .. } => body_off,
+        }
+    }
+
+    /// Whether this appearance is of type 'variable text'.
+    pub fn variable_text(&self) -> Option<&VariableText> {
+        match self {
+            Self::Single { variable_text, .. } => variable_text.as_ref(),
+            Self::Dual { .. } => None,
+        }
+    }
+
+    /// If this is of variant [`Self::Single`], convert to [`Option<T>`].
+    pub fn single(self) -> Option<FieldAppearanceBody<T>> {
+        match self {
+            Self::Single { body, .. } => Some(body),
+            Self::Dual { .. } => None,
+        }
+    }
+
+    /// If this is of variant [`Self::Dual`], convert to [`Option<(T, T)>`],
+    /// that is an [`Option`] of `(body_off, body_on)`.
+    pub fn dual(self) -> Option<(FieldAppearanceBody<T>, FieldAppearanceBody<T>)> {
+        match self {
+            Self::Single { .. } => None,
+            Self::Dual { body_off, body_on, .. } => Some((body_off, body_on)),
+        }
+    }
+
+    /// Maps this [`FieldAppearanceKind`] to another body type by applying a
+    /// function to its body/bodies.
+    pub fn try_map<N, E>(
+        &self,
+        mut f: impl FnMut(&T) -> Result<N, E>,
+    ) -> Result<FieldAppearanceKind<N>, E> {
+        match self {
+            Self::Single { variable_text, body } => Ok(FieldAppearanceKind::Single {
+                variable_text: variable_text.clone(),
+                body: body.try_map(&mut f)?,
+            }),
+            Self::Dual { active, body_off, body_on } => Ok(FieldAppearanceKind::Dual {
+                active: *active,
+                body_off: body_off.try_map(&mut f)?,
+                body_on: body_on.try_map(&mut f)?,
+            }),
+        }
+    }
+}
+
+/// The body of a single state of a field widget.
+///
+/// May contain additional representations for the hover and down interactive states.
+#[derive(Debug, Clone, Hash)]
+pub struct FieldAppearanceBody<T> {
+    /// The appearance in the normal state, where the widget is not being interacted with.
+    pub normal: T,
+    /// The appearance when the user's cursor is hovering over the widget.
+    pub hover: Option<T>,
+    /// The appearance when the user is clicking on the widget.
+    pub down: Option<T>,
+}
+
+impl<T> FieldAppearanceBody<T> {
+    /// Create a new [`FieldAppearanceBody`] with the given normal state,
+    /// and [`None`] for hover and down state.
+    pub fn new(normal: T) -> Self {
+        FieldAppearanceBody { normal, hover: None, down: None }
+    }
+
+    /// Maps this [`FieldAppearanceBody`] to another body type by applying a
+    /// function to its states.
+    fn try_map<N, E>(
+        &self,
+        mut f: impl FnMut(&T) -> Result<N, E>,
+    ) -> Result<FieldAppearanceBody<N>, E> {
+        Ok(FieldAppearanceBody {
+            normal: f(&self.normal)?,
+            hover: self.hover.as_ref().map(&mut f).transpose()?,
+            down: self.down.as_ref().map(&mut f).transpose()?,
+        })
+    }
+}
+
+/// Styles to apply to variable text.
+#[derive(Debug, Clone, Hash)]
+pub struct VariableText {
+    /// The type of font to use (sans-serif, serif, or monospace).
+    pub font_type: FontType,
+    /// Whether to use the bold variant of the font.
+    pub font_bold: bool,
+    /// Whether to use the italic variant of the font.
+    pub font_italic: bool,
+    /// Resolved font size.
+    pub font_size: Abs,
+    /// Text color. Only solid colors are supported.
+    pub fill_color: Paint,
+}
+
+/// The type of the font.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum FontType {
+    /// Sans serif.
+    Sans,
+    /// Serif.
+    Serif,
+    /// Monospace.
+    Mono,
+}
+
+/// Action to perform when a widget is clicked on.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum WidgetAction {
+    /// Submit all fields in a form to a given URL.
+    Submit { form: Location, target: FormTarget },
+    /// Reset all fields in the form to their default value.
+    Reset { form: Location },
 }
 
 /// Get a selector that targets all form field types.
@@ -660,4 +1023,114 @@ fn labelable_element_selector() -> &'static Selector {
             FormChoice::ELEM.select(),
         ])
     )
+}
+
+/// Fragment element to allow styling of form fields in a specific state.
+#[elem(name = "widget", since = "unreleased", Construct)]
+pub struct FormWidget {
+    /// Whether the form field is checked.
+    ///
+    /// This is [`None`] if the form field does not have a checked state.
+    pub checked: Option<bool>,
+    /// Whether the form field is hovered.
+    ///
+    /// This is [`None`] if the form field only has the normal state.
+    pub state: Option<WidgetState>,
+
+    /// The form field this widget belongs to.
+    /// This is a bit of a hack and should be superseded by a proper ancestry mechanism.
+    #[ghost]
+    #[internal]
+    pub parent: Option<Content>,
+}
+
+impl Construct for FormWidget {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually")
+    }
+}
+
+/// The interactive state the widget represents.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum WidgetState {
+    /// The normal state, where the widget is not being interacted with.
+    Normal,
+    /// The user's cursor is hovering over the widget.
+    Hovered,
+    /// The user is clicking on the widget.
+    Down,
+}
+
+/// The visual representation of a textbox's value.
+#[elem(name = "cursor", since = "unreleased")]
+pub struct FormCursor {}
+
+/// Constants and helper functions to style form fields.
+pub mod styles {
+    use crate::foundations::{Smart, Styles};
+    use crate::layout::{Abs, Sides};
+    use crate::text::TextElem;
+    use crate::visualize::{Color, Luma, Paint, ProcessColor, RectElem, Rgb, Stroke};
+
+    /// The thickness of the default stroke of form fields, in points.
+    pub const STROKE_THICKNESS_PT: f64 = 0.5;
+
+    /// Background color of disabled field.
+    pub(super) const DISABLED_FILL: Color =
+        Color::Process(ProcessColor::Luma(Luma::new(0.95, 0.7)));
+    /// Stroke color of disabled field.
+    const DISABLED_STROKE_COLOR: Color =
+        Color::Process(ProcessColor::Luma(Luma::new(0.0, 0.5)));
+    /// Text color of disabled field.
+    pub const DISABLED_TEXT_FILL: Color =
+        Color::Process(ProcessColor::Luma(Luma::new(0.15, 0.7)));
+
+    /// Background color of a selected option of a listbox.
+    pub const LISTBOX_SELECTED_FILL: Color =
+        Color::Process(ProcessColor::Rgb(Rgb::new(0.0, 0.47843137, 1.0, 1.0)));
+    /// Background color of a selected option of a disabled listbox.
+    pub const LISTBOX_SELECTED_DISABLED_FILL: Color =
+        Color::Process(ProcessColor::Luma(Luma::new(0.15, 0.21)));
+
+    /// Get the stroke for a field, depending whether it is disabled.
+    pub(super) fn field_stroke(disabled: bool) -> Stroke {
+        if disabled {
+            Stroke::from_pair(DISABLED_STROKE_COLOR, Abs::pt(STROKE_THICKNESS_PT).into())
+        } else {
+            Stroke::from_thickness(Abs::pt(STROKE_THICKNESS_PT))
+        }
+    }
+
+    /// Get the background of a selected option of a listbox,
+    /// depending whether the listbox is disabled.
+    pub fn listbox_selected_paint(disabled: bool) -> Paint {
+        if disabled {
+            LISTBOX_SELECTED_DISABLED_FILL.into()
+        } else {
+            LISTBOX_SELECTED_FILL.into()
+        }
+    }
+
+    /// Set the background and text color for a disabled field.
+    pub(super) fn set_disabled_styles(styles: &mut Styles) {
+        styles.set(RectElem::fill, Some(DISABLED_FILL.into()));
+        styles.set(TextElem::fill, DISABLED_TEXT_FILL.into());
+    }
+
+    /// Set the stroke and accompanying outset/inset for a form field
+    /// that is surrounded by a [`RectElem`].
+    pub(super) fn set_rect_stroke(styles: &mut Styles, disabled: bool) {
+        styles.set(
+            RectElem::outset,
+            Sides::splat(Some(Abs::pt(-STROKE_THICKNESS_PT / 2.0).into())),
+        );
+        styles.set(
+            RectElem::stroke,
+            Smart::Custom(Sides::splat(Some(Some(field_stroke(disabled))))),
+        );
+        styles.set(
+            RectElem::inset,
+            Sides::splat(Some(Abs::pt(STROKE_THICKNESS_PT).into())),
+        );
+    }
 }
