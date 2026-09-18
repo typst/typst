@@ -138,7 +138,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-svg-linked-many-formats paged ---
 #set page(width: auto, height: auto, margin: 1pt)
 #set text(1pt)
-#image("../../../assets/images/linked.svg", width: 39pt)
+#image("/assets/images/linked.svg", width: 39pt)
 
 --- image-svg-linked-file-not-found paged ---
 // Error: 1:8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
@@ -196,6 +196,16 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="file:///home/user/foo.svg" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-invalid paged ---
+// Error: 1:8-7:2 failed to load linked image ../../../assets/images/bad.svg in SVG (failed to parse SVG)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="../../../assets/images/bad.svg" />
   </svg>
   ```.text
 ))
