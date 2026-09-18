@@ -141,7 +141,7 @@ impl std::ops::DerefMut for TraversalStates {
 struct TraversalState {
     /// The highest artifact ancestor in the tree.
     current_artifact: Option<(GroupId, Artifact)>,
-    /// The highest artifact ancestor in the tree.
+    /// The highest ancestor that has an alternative description.
     current_alt: Option<GroupId>,
     /// The stack of ancestors that have a [`GroupKind::bbox`].
     bbox_stack: Vec<BBoxId>,
