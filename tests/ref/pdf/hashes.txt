@@ -652,7 +652,7 @@ cb4d72e9cc3a018f9c34e3e6bb03daec image-pixmap-rgba8
 42c7a88bdb12de376dade21c6a511195 image-svg-complex
 36f9e8783c9bc375d0ffbaf1d8801b64 image-svg-linked-jpg1
 0479e49319ad36244b3f60c32587de70 image-svg-linked-jpg2
-d8574ad73ed82ed07774b6087b70ec0f image-svg-linked-many-formats
+2e32dd263e5d9ed8308bd30876eb126b image-svg-linked-many-formats
 d05b7da1f1d97090f754947cf35aad77 image-svg-text
 10665a9d33a3ea4626a24fb49769456e image-svg-text-font
 df3bb9369dd6be9214558c66dff3fd09 image-svg-variable-font
