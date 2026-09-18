@@ -3,18 +3,18 @@ use typst_macros::{Cast, cast};
 use typst_syntax::Span;
 
 use crate::{
-    diag::{At, Hint, HintedStrResult, SourceResult, StrResult},
+    diag::{At, Hint, HintedStrResult, SourceResult, StrResult, bail},
     engine::Engine,
     foundations::{
-        Array, Content, Dict, FromValue, IntoValue, Label, NativeElement, OneOrMultiple,
-        Packed, Repr, Smart, Value, elem, scope,
+        Args, Array, Construct, Content, Dict, FromValue, IntoValue, Label,
+        NativeElement, OneOrMultiple, Packed, Repr, Smart, Value, elem, scope,
     },
     introspection::{Introspector, Location, QueryLabelIntrospection},
     layout::{Length, Rel, Sizing},
     text::LocalName,
 };
 
-#[elem(scope, since = "unreleased", LocalName)]
+#[elem(scope, since = "unreleased", LocalName, Locatable)]
 pub struct FormElem {
     /// The fields belonging to this form, along with any surrounding content.
     #[required]
@@ -23,6 +23,24 @@ pub struct FormElem {
     /// Where to submit this form when a @form.button with a @form.button.action[submit action]
     /// is pressed.
     pub target: Option<FormTarget>,
+
+    // FIXME?
+    /// This form, to be inherited by field elements.
+    #[internal]
+    #[ghost]
+    pub form: Option<Form>,
+
+    // FIXME?
+    /// A field annotation that should be applied to elements.
+    #[internal]
+    #[ghost]
+    pub field: Option<FormField>,
+
+    // FIXME?
+    /// A field annotation that should be applied to appearances.
+    #[internal]
+    #[ghost]
+    pub appearance: Option<FieldAppearance>,
 }
 
 #[scope]
@@ -416,5 +434,192 @@ impl FormLabel {
             .into_iter()
             .map(|elem| elem.into_packed::<Self>().unwrap())
             .filter_map(|elem| elem.resolve_late(introspector).ok())
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Form {
+    pub location: Location,
+    pub target: Option<FormTarget>,
+}
+
+/// A form field.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FormField {
+    pub form: Location,
+    pub location: Location,
+    pub name: Option<EcoString>, // TODO should `auto` be resolved early?
+    pub kind: FormFieldKind,
+    pub span: Span,
+}
+
+impl FormField {
+    pub fn new(
+        span: Span,
+        location: Location,
+        form: Location,
+        name: Option<EcoString>,
+        kind: impl Into<FormFieldKind>,
+    ) -> Self {
+        Self { form, location, name, kind: kind.into(), span }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum FormFieldKind {
+    /// A button.
+    Button,
+    /// A checkbox.
+    Checkbox(CheckboxField),
+    /// A radio group.
+    Radio(RadioField),
+    /// A textbox.
+    Text(TextField),
+    /// A combobox/dropdown or listbox.
+    Choice(ChoiceField),
+}
+
+impl From<CheckboxField> for FormFieldKind {
+    fn from(field: CheckboxField) -> Self {
+        Self::Checkbox(field)
+    }
+}
+
+impl From<RadioField> for FormFieldKind {
+    fn from(field: RadioField) -> Self {
+        Self::Radio(field)
+    }
+}
+
+impl From<TextField> for FormFieldKind {
+    fn from(field: TextField) -> Self {
+        Self::Text(field)
+    }
+}
+
+impl From<ChoiceField> for FormFieldKind {
+    fn from(field: ChoiceField) -> Self {
+        Self::Choice(field)
+    }
+}
+
+/// A checkbox field.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct CheckboxField {
+    pub checked: bool,
+    pub required: bool,
+    pub read_only: bool,
+}
+
+/// A radio field.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct RadioField {
+    pub selected: Option<EcoString>,
+    pub required: bool,
+    pub read_only: bool,
+}
+
+/// A text field.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct TextField {
+    pub value: Option<EcoString>,
+    pub multiline: bool,
+    pub required: bool,
+    pub max_length: Option<u32>,
+    pub read_only: bool,
+    pub spellcheck: bool,
+}
+
+/// A choice field.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct ChoiceField {
+    pub value: Vec<EcoString>,
+    pub options: Vec<ChoiceOption>,
+    pub multiple: bool,
+    pub required: bool,
+    pub read_only: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FieldAppearance {
+    pub field_location: Location,
+    /// Always the same as `field_location`, except for radio groups.
+    // FIXME: we can probably get rid of this if we figure out how to generate field names in the
+    // show rules, so that we can just have multiple `FormElem::field`/`FormField` instead.
+    pub widget_location: Location,
+    pub action: Option<WidgetAction>,
+    pub value: Option<EcoString>,
+    pub kind: FieldAppearanceKind,
+}
+
+impl FieldAppearance {
+    pub fn new(field_location: Location, kind: FieldAppearanceKind) -> Self {
+        Self {
+            field_location,
+            widget_location: field_location,
+            action: None,
+            value: None,
+            kind,
+        }
+    }
+
+    pub fn with_widget_location(mut self, widget_location: Location) -> Self {
+        self.widget_location = widget_location;
+        self
+    }
+
+    pub fn with_action(mut self, action: Option<WidgetAction>) -> Self {
+        self.action = action;
+        self
+    }
+
+    pub fn with_value(mut self, value: Option<EcoString>) -> Self {
+        self.value = value;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum FieldAppearanceKind {
+    /// A static appearance (e.g., button).
+    Single,
+    /// An appearance that can take user-generated content (e.g., textbox).
+    VariableText,
+    /// The "off" state of a dual state appearance, along whether it is active (e.g., checkbox).
+    Off(bool),
+    /// The "on" state of a dual state appearance, along whether it is active (e.g., checkbox).
+    On(bool),
+}
+
+impl FieldAppearanceKind {
+    pub fn active(&self) -> bool {
+        match self {
+            Self::Single | Self::VariableText => true,
+            Self::Off(active) => *active,
+            Self::On(active) => *active,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum WidgetAction {
+    /// Submit all fields in a form to a given URL.
+    Submit { form: Location, target: FormTarget },
+    /// Reset all fields in the form to their default value.
+    Reset { form: Location },
+}
+
+/// An element that wraps all content that is the appearance of a form field.
+#[elem(Tagged, Construct)]
+pub struct FormFieldMarker {
+    /// The content.
+    #[internal]
+    #[required]
+    pub body: Content,
+}
+
+impl Construct for FormFieldMarker {
+    fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
+        bail!(args.span, "cannot be constructed manually");
     }
 }

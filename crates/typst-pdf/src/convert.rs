@@ -29,6 +29,9 @@ use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
 use crate::attach::attach_files;
+use crate::form::{
+    Field, WidgetAnnotation, build_field_tree, handle_field_appearance, handle_form_field,
+};
 use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
@@ -93,6 +96,8 @@ pub fn convert(
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
+
+    document.set_field_tree(build_field_tree(&mut gc)?);
 
     finish(document, gc)
 }
@@ -170,6 +175,9 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         let link_annotations = fc.link_annotations.into_values().flatten();
         tags::add_link_annotations(gc, &mut page, link_annotations);
+
+        let widget_annotations = fc.widget_annotations;
+        tags::add_widget_annotations(gc, &mut page, widget_annotations.into_values());
     }
 
     Ok(())
@@ -227,6 +235,8 @@ pub(crate) struct FrameContext {
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
     link_annotations: IndexMap<GroupId, SmallVec<[LinkAnnotation; 1]>, FxBuildHasher>,
+    /// The widget annotation belonging to each field, identified by its Location.
+    widget_annotations: IndexMap<Location, WidgetAnnotation, FxBuildHasher>,
 }
 
 impl FrameContext {
@@ -235,6 +245,7 @@ impl FrameContext {
             page_idx,
             states: vec![State::new(size)],
             link_annotations: IndexMap::default(),
+            widget_annotations: IndexMap::default(),
         }
     }
 
@@ -275,6 +286,17 @@ impl FrameContext {
         let annotations = self.link_annotations.entry(id).or_default();
         annotations.push(annotation);
     }
+
+    pub(crate) fn get_widget_annotation_mut(
+        &mut self,
+        widget_location: Location,
+        field_location: Location,
+        bbox: Rect,
+    ) -> &mut WidgetAnnotation {
+        self.widget_annotations
+            .entry(widget_location)
+            .or_insert_with(|| WidgetAnnotation::new(field_location, bbox))
+    }
 }
 
 /// Globally needed context for converting a Typst document.
@@ -301,6 +323,17 @@ pub(crate) struct GlobalContext<'a> {
     pub(crate) page_index_converter: PageIndexConverter,
     /// Tagged PDF context.
     pub(crate) tags: Tags,
+    /// Interactive form fields.
+    pub(crate) fields: FxHashMap<EcoString, Field>,
+    /// Mapping between a location and its field name.
+    // Note: a two typst fields can have the same name and therefore correspond to the same field in
+    // PDF, resulting in a many-to-one relationship.
+    pub(crate) location_to_fields: FxHashMap<Location, EcoString>,
+    /// Mapping between a form and all the non-pushbutton fields it contains.
+    // TODO: should we use introspection instead?
+    pub(crate) form_fields: FxHashMap<Location, Vec<EcoString>>,
+    /// Counter used to name form fields that do not have an explicit name.
+    unnamed_field_counter: u32,
 }
 
 impl<'a> GlobalContext<'a> {
@@ -323,7 +356,16 @@ impl<'a> GlobalContext<'a> {
             image_spans: FxHashSet::default(),
             page_index_converter,
             tags,
+            fields: FxHashMap::default(),
+            location_to_fields: FxHashMap::default(),
+            form_fields: FxHashMap::default(),
+            unnamed_field_counter: 0,
         }
+    }
+
+    pub(crate) fn get_next_field_number(&mut self) -> u32 {
+        self.unnamed_field_counter += 1;
+        self.unnamed_field_counter
     }
 }
 
@@ -372,6 +414,13 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
+            FrameItem::FormField(field, ..) => {
+                // TODO: this probably shouldn't exist and should be moved to introspection perhaps?
+                handle_form_field(gc, field)?;
+            }
+            FrameItem::FieldAppearance(appearance, frame) => {
+                handle_field_appearance(fc, gc, surface, appearance, frame)?;
+            }
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
                     tags::handle_start(gc, fc, surface);
