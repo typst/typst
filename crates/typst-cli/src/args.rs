@@ -282,7 +282,7 @@ pub struct CompletionsCommand {
 /// Which shell to generate completions for.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
 #[clap(rename_all = "lowercase")]
-#[allow(clippy::enum_variant_names)]
+#[expect(clippy::enum_variant_names)]
 pub enum Shell {
     Bash,
     Elvish,
