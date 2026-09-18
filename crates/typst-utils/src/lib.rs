@@ -5,6 +5,7 @@ pub mod fat;
 #[macro_use]
 mod macros;
 mod bitset;
+mod caseless;
 mod deferred;
 mod duration;
 mod hash;
@@ -17,6 +18,7 @@ mod scalar;
 mod version_;
 
 pub use self::bitset::{BitSet, SmallBitSet};
+pub use self::caseless::Caseless;
 pub use self::deferred::Deferred;
 pub use self::duration::format_duration;
 pub use self::hash::{HashLock, LazyHash, ManuallyHash, hash128};

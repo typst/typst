@@ -493,7 +493,7 @@ impl<'a> ShapedText<'a> {
             if let Some(font) = families(self.styles).find_map(|family| {
                 world
                     .book()
-                    .select(family.as_str(), self.variant)
+                    .select(family.name(), self.variant)
                     .and_then(|id| world.font(id))
                     .map(|font| font.instantiate(self.variant, size, &variations))
             }) {
@@ -596,7 +596,7 @@ impl<'a> ShapedText<'a> {
         };
         let mut chain = families(base.styles)
             .filter(|family| family.covers().is_none_or(|c| c.is_match("-")))
-            .map(|family| book.select(family.as_str(), base.variant))
+            .map(|family| book.select(family.name(), base.variant))
             .chain(fallback_func.iter().map(|f| f()))
             .flatten();
 
@@ -915,7 +915,7 @@ where
     let mut covers = None;
     for family in families.by_ref() {
         selection = book
-            .select(family.as_str(), ctx.variant())
+            .select(family.name(), ctx.variant())
             .and_then(|id| world.font(id))
             .map(|font| font.instantiate(ctx.variant(), ctx.size(), ctx.variations()))
             .filter(|font| !ctx.used().contains(font));

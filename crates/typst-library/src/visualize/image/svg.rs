@@ -6,6 +6,7 @@ use ecow::eco_format;
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst_syntax::FileId;
+use typst_utils::Caseless;
 
 use crate::World;
 use crate::diag::{
@@ -54,7 +55,7 @@ impl SvgImage {
     pub fn with_fonts_images(
         data: Bytes,
         world: Tracked<dyn World + '_>,
-        families: &[&str],
+        families: &[&Caseless<str>],
         svg_file: Option<FileId>,
     ) -> LoadResult<SvgImage> {
         let book = world.book();
@@ -175,7 +176,7 @@ struct FontResolver<'a> {
     /// The world we use to load fonts.
     world: Tracked<'a, dyn World + 'a>,
     /// The active list of font families at the location of the SVG.
-    families: &'a [&'a str],
+    families: &'a [&'a Caseless<str>],
     /// A mapping from Typst font indices to fontdb IDs.
     to_id: FxHashMap<usize, Option<fontdb::ID>>,
     /// The reverse mapping.
@@ -189,7 +190,7 @@ impl<'a> FontResolver<'a> {
     fn new(
         world: Tracked<'a, dyn World + 'a>,
         book: &'a FontBook,
-        families: &'a [&'a str],
+        families: &'a [&'a Caseless<str>],
     ) -> Self {
         Self {
             book,
@@ -224,12 +225,12 @@ impl FontResolver<'_> {
         font.families()
             .iter()
             .filter_map(|family| match family {
-                usvg::FontFamily::Named(named) => Some(named.as_str()),
+                usvg::FontFamily::Named(named) => Some(Caseless::wrap(named.as_str())),
                 // We don't support generic families at the moment.
                 _ => None,
             })
             .chain(self.families.iter().copied())
-            .filter_map(|named| self.book.select(&named.to_lowercase(), variant))
+            .filter_map(|named| self.book.select(named, variant))
             .find_map(|index| self.get_or_load(index, db))
     }
 
