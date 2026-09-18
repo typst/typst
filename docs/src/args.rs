@@ -83,6 +83,19 @@ pub struct CompileArgs {
     /// Open the generated output when finished.
     #[arg(long)]
     pub open: bool,
+    /// Whether to keep the working directory.
+    ///
+    /// By default, the working directory is changed to the workspace root. This
+    /// makes all paths relative to that root, so that this program can always
+    /// locate the files for documentation, no matter which directory it is
+    /// called from.
+    ///
+    /// If this flag is set, then the current working directory is kept. In that
+    /// case, this program only works when called from the workspace root, but
+    /// that workspace can be a git worktree other than the one in which this
+    /// program was originally built.
+    #[arg(long, default_value_t)]
+    pub no_cd: bool,
 }
 
 /// Which kind of output to generate.

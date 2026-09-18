@@ -37,11 +37,6 @@ const SITE_PATH: &str = "docs/dist/site";
 
 /// Entry point.
 fn main() -> ExitCode {
-    // Make all paths relative to the workspace.
-    let workspace_dir =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join(std::path::Component::ParentDir);
-    std::env::set_current_dir(workspace_dir).unwrap();
-
     match &ARGS.command {
         Command::Compile(command) => compile(command),
         Command::Watch(command) => watch(command),
@@ -125,6 +120,13 @@ struct Config {
 impl Config {
     /// Preprocess `CompileArgs`, producing a compilation config.
     fn new(args: &CompileArgs, serve: bool) -> Self {
+        if !args.no_cd {
+            // Make all paths relative to the workspace.
+            let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(std::path::Component::ParentDir);
+            std::env::set_current_dir(&workspace_dir).unwrap();
+        }
+
         Self {
             input: args.input.clone(),
             output: args.output.clone().or_else(|| match args.format {
