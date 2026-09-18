@@ -9,6 +9,7 @@ use typst_library::model::{
 use typst_library::text::{
     LinebreakElem, RawContent, RawElem, SmartQuoteElem, SpaceElem, TextElem,
 };
+use typst_syntax::Spanned;
 use typst_syntax::ast::{self, AstNode};
 use typst_utils::PicoStr;
 
@@ -200,8 +201,10 @@ impl Eval for ast::Ref<'_> {
             .expect("unexpected empty reference");
         let mut elem = RefElem::new(target);
         if let Some(supplement) = self.supplement() {
-            elem.supplement
-                .set(Smart::Custom(Some(Supplement::Content(supplement.eval(vm)?))));
+            elem.supplement.set(Spanned::new(
+                Smart::Custom(Some(Supplement::Content(supplement.eval(vm)?))),
+                supplement.span(),
+            ));
         }
         Ok(elem.pack())
     }

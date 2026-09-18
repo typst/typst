@@ -4,7 +4,7 @@ use std::ops::{Deref, MulAssign};
 use std::rc::Rc;
 
 use ecow::EcoString;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::{Get, default_math_class};
 use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
@@ -799,7 +799,7 @@ pub struct CancelItem<'a> {
     /// Whether to draw the line behind the main content.
     pub background: bool,
     /// The angle of the line.
-    pub angle: Smart<CancelAngle>,
+    pub angle: Spanned<Smart<CancelAngle>>,
 }
 
 impl<'a> CancelItem<'a> {
@@ -813,7 +813,7 @@ impl<'a> CancelItem<'a> {
         cross: bool,
         invert_first_line: bool,
         background: bool,
-        angle: Smart<CancelAngle>,
+        angle: Spanned<Smart<CancelAngle>>,
         styles: StyleChain<'a>,
         span: Span,
     ) -> MathItem<'a> {

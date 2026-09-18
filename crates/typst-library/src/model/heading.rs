@@ -1,9 +1,10 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
+use typst_syntax::Spanned;
 use typst_utils::NonZeroExt;
 
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
@@ -171,7 +172,7 @@ pub struct HeadingElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    pub supplement: Smart<Option<Supplement>>,
+    pub supplement: Spanned<Smart<Option<Supplement>>>,
 
     /// Whether the heading should appear in the @outline[outline].
     ///
@@ -251,11 +252,15 @@ impl Synthesize for Packed<HeadingElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let supplement = match self.supplement.get_ref(styles) {
+        let sup = self.supplement.get_ref(styles);
+        let supplement = match &sup.v {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(engine, styles, [self.clone().pack()])?
+                let point = || Tracepoint::call(HeadingElem::ELEM.name());
+                supplement
+                    .resolve(engine, styles, [self.clone().pack()], sup.span)
+                    .trace(engine.world, point, self.span())?
             }
         };
 
@@ -279,8 +284,10 @@ impl Synthesize for Packed<HeadingElem> {
 
         let elem = self.as_mut();
         elem.level.set(Smart::Custom(elem.resolve_level(styles)));
-        elem.supplement
-            .set(Smart::Custom(Some(Supplement::Content(supplement))));
+        elem.supplement.set(Spanned {
+            span: supplement.span(),
+            v: Smart::Custom(Some(Supplement::Content(supplement))),
+        });
         Ok(())
     }
 }
@@ -309,18 +316,20 @@ impl ShowSet for Packed<HeadingElem> {
 }
 
 impl Count for Packed<HeadingElem> {
-    fn update(&self) -> Option<CounterUpdate> {
-        self.numbering
-            .get_ref(StyleChain::default())
-            .is_some()
-            .then(|| CounterUpdate::Step(self.resolve_level(StyleChain::default())))
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
+        self.numbering.get_ref(StyleChain::default()).is_some().then(|| {
+            Spanned::new(
+                CounterUpdate::Step(self.resolve_level(StyleChain::default())),
+                self.span(),
+            )
+        })
     }
 }
 
 impl Refable for Packed<HeadingElem> {
     fn supplement(&self) -> Content {
         // After synthesis, this should always be custom content.
-        match self.supplement.get_cloned(StyleChain::default()) {
+        match self.supplement.get_cloned(StyleChain::default()).v {
             Smart::Custom(Some(Supplement::Content(content))) => content,
             _ => Content::empty(),
         }
