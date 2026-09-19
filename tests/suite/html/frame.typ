@@ -10,9 +10,9 @@ A rectangle:
 
 --- html-frame-position html ---
 // Test that positions are available within a frame, but nowhere else.
-#context test(here().position(), (page: 1, x: none, y: none))
+#context test(here().position(), none)
 #html.frame(box(width: 100pt, height: 50pt, {
   place(top + left, dx: 30pt, dy: 20pt, context {
-    test(here().position(), (page: 1, x: 30pt, y: 20pt))
+    test(here().position(), (x: 30pt, y: 20pt))
   })
 }))

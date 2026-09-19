@@ -108,17 +108,14 @@ A
 // Outside of a frame, there are no coordinates. See `html-frame-position`.
 #context test(
   locate(metadata).position(),
-  (page: 1, x: none, y: none),
+  none
 )
 
 --- locate-bundle-top-level bundle ---
 #metadata(none)
 #document("index.html")[
-  // This is not optimal, it should probably rather error.
-  #context test(
-    locate(metadata).position(),
-    (page: 1, x: 0pt, y: 0pt),
-  )
+  // The metadata is not part of any document, so it has no position.
+  #context test(locate(metadata).position(), none)
 ]
 
 --- locate-bundle-in-pdf bundle ---

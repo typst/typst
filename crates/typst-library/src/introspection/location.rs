@@ -12,7 +12,7 @@ use crate::foundations::{
     Content, Dict, IntoValue, Repr, Selector, func, repr, scope, ty,
 };
 use crate::introspection::{
-    DocumentPosition, History, InnerHtmlPosition, Introspect, Introspector, PagedPosition,
+    DocumentPosition, History, InnerHtmlPosition, Introspect, Introspector,
 };
 use crate::layout::Abs;
 use crate::model::Numbering;
@@ -120,8 +120,10 @@ impl Location {
     /// so positions from two different frames cannot be compared, just as
     /// positions on two different pages cannot be.
     #[func(since = "forever")]
-    pub fn position(self, engine: &mut Engine, span: Span) -> Dict {
-        engine.introspect(PositionIntrospection(self, span)).into()
+    pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
+        engine
+            .introspect(PositionIntrospection(self, span))
+            .and_then(DocumentPosition::into_dict)
     }
 
     /// Returns the page numbering pattern of the page at this location. This
@@ -184,7 +186,7 @@ impl From<Location> for LocationKey {
 pub struct PositionIntrospection(pub Location, pub Span);
 
 impl Introspect for PositionIntrospection {
-    type Output = DocumentPosition;
+    type Output = Option<DocumentPosition>;
 
     fn introspect(
         &self,
@@ -194,7 +196,7 @@ impl Introspect for PositionIntrospection {
         // A location that is not part of the document has no position. This
         // notably includes every location in the first iteration, before there
         // is a document to introspect.
-        introspector.position(self.0).unwrap_or(PagedPosition::ORIGIN.into())
+        introspector.position(self.0)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -207,18 +209,19 @@ impl Introspect for PositionIntrospection {
             |pos| {
                 let coord = |v: Abs| repr::format_float(v.to_pt(), Some(0), false, "pt");
                 match pos {
-                    DocumentPosition::Paged(pos) => eco_format!(
+                    Some(DocumentPosition::Paged(pos)) => eco_format!(
                         "page {} at ({}, {})",
                         pos.page,
                         coord(pos.point.x),
                         coord(pos.point.y)
                     ),
-                    DocumentPosition::Html(pos) => match pos.details() {
+                    Some(DocumentPosition::Html(pos)) => match pos.details() {
                         Some(&InnerHtmlPosition::Frame(point)) => {
                             eco_format!("({}, {})", coord(point.x), coord(point.y))
                         }
-                        _ => eco_format!("no position"),
+                        _ => eco_format!("none"),
                     },
+                    None => eco_format!("none"),
                 }
             },
         )
