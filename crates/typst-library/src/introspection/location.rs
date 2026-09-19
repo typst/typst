@@ -108,17 +108,13 @@ impl Location {
     /// Typst to skip unnecessary work.
     ///
     /// = HTML export <html-export>
-    /// The dictionary has the same keys in HTML export, but only the contents
-    /// of an @html.frame have a position: a frame is laid out by the same
-    /// engine that lays out a page, so `x` and `y` are the coordinates within
-    /// it, measured from its top-left corner. Everywhere else, positioning is
-    /// the browser's business and Typst cannot know where content will end up,
-    /// so `x` and `y` are `{none}`.
+    /// In an HTML document, Typst cannot know where content will end up, so
+    /// this function returns `{none}`.
     ///
-    /// An HTML document has no pages, so `page` is always `{1}`, just like the
-    /// result of `page()`. Note that each frame has its own coordinate system,
-    /// so positions from two different frames cannot be compared, just as
-    /// positions on two different pages cannot be.
+    /// The exception is the contents of an @html.frame: a frame is laid out in
+    /// the same way as pages, so the result is a dictionary with the `x` and `y`
+    /// coordinates within the frame. It has no `page` key because an HTML document
+    /// has no pages.
     #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
         engine
