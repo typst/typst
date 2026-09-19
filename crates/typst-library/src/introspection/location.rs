@@ -119,14 +119,11 @@ impl Location {
     /// If you only need the page number, use `page()` instead as it allows
     /// Typst to skip unnecessary work.
     ///
-    /// = HTML export <html-export>
     /// In an HTML document, Typst cannot know where content will end up, so
-    /// this function returns `{none}`.
-    ///
-    /// The exception is the contents of an @html.frame: a frame is laid out in
-    /// the same way as pages, so the result is a dictionary with the `x` and `y`
-    /// coordinates within the frame. It has no `page` key because an HTML document
-    /// has no pages.
+    /// this function returns `{none}`. The exception is the contents of an @html.frame.
+    /// a frame is laid out in the same way as pages, so the result is a dictionary with
+    /// the `x` and `y` coordinates within the frame. It has no `page` key because an
+    /// HTML document has no pages.
     #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
         engine
