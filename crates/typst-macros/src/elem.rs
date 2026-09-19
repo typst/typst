@@ -397,7 +397,9 @@ fn create_native_elem_impl(element: &Elem) -> Result<TokenStream> {
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;
         if field.external {
-            quote! { #foundations::ExternalFieldData::<#ident, #i>::vtable() }
+            let positional = field.positional;
+            let required = field.required;
+            quote! { #foundations::ExternalFieldData::<#ident, #i>::vtable(#positional, #required) }
         } else if field.variadic {
             quote! { #foundations::RequiredFieldData::<#ident, #i>::vtable_variadic() }
         } else if field.required {
