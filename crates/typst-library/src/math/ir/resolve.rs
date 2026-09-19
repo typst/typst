@@ -705,7 +705,8 @@ fn resolve_frac<'a>(
             styles,
             &elem.num,
             std::slice::from_ref(&elem.denom),
-            false,
+            true,
+            None,
             elem.span(),
         ),
     }
@@ -717,7 +718,15 @@ fn resolve_binom<'a>(
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    resolve_vertical_frac_like(ctx, styles, &elem.upper, &elem.lower, true, elem.span())
+    resolve_vertical_frac_like(
+        ctx,
+        styles,
+        &elem.upper,
+        &elem.lower,
+        false,
+        Some(elem.delim.get(styles)),
+        elem.span(),
+    )
 }
 
 /// Resolve a vertical fraction or binomial.
@@ -726,7 +735,8 @@ fn resolve_vertical_frac_like<'a>(
     styles: StyleChain<'a>,
     num: &'a Content,
     denom: &[Content],
-    binom: bool,
+    line: bool,
+    delim: Option<DelimiterPair>,
     span: Span,
 ) -> SourceResult<()> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
@@ -747,22 +757,32 @@ fn resolve_vertical_frac_like<'a>(
     )?;
 
     let frac =
-        FractionItem::create(numerator, denominator, !binom, FRAC_PADDING, styles, span);
+        FractionItem::create(numerator, denominator, line, FRAC_PADDING, styles, span);
 
-    if binom {
+    if let Some(delim) = delim {
         let stretch =
             Stretch::new().with_y(StretchInfo::new(Rel::one(), DELIM_SHORT_FALL));
-        let open = ctx.resolve_into_item(
-            ctx.store(SymbolElem::packed('(').spanned(span)),
-            styles,
-        )?;
-        open.set_stretch(stretch);
-        let close = ctx.resolve_into_item(
-            ctx.store(SymbolElem::packed(')').spanned(span)),
-            styles,
-        )?;
-        close.set_stretch(stretch);
-        ctx.push(FencedItem::create(Some(open), Some(close), frac, false, styles, span));
+        let open = delim
+            .open()
+            .map(|c| {
+                ctx.resolve_into_item(
+                    ctx.store(SymbolElem::packed(c).spanned(span)),
+                    styles,
+                )
+            })
+            .transpose()?
+            .inspect(|x| x.set_stretch(stretch));
+        let close = delim
+            .close()
+            .map(|c| {
+                ctx.resolve_into_item(
+                    ctx.store(SymbolElem::packed(c).spanned(span)),
+                    styles,
+                )
+            })
+            .transpose()?
+            .inspect(|x| x.set_stretch(stretch));
+        ctx.push(FencedItem::create(open, close, frac, false, styles, span));
     } else {
         ctx.push(frac);
     }
