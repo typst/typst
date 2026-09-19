@@ -1,0 +1,11 @@
+figure = Doz
+table = Biuj
+equation = Daengjsik
+bibliography = Vwnzyen Doiqciuq
+heading = Ciet
+outline = Moegloeg
+raw = Daihmax
+page = yieb
+footnote = Gejnaeuz
+email = E-mail
+telephone = Denva
