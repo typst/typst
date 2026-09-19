@@ -48,9 +48,7 @@ pub fn discover_fonts(args: &FontArgs) -> FontStore {
     }
 
     for path in &args.font_paths {
-        if !path.as_os_str().is_empty() {
-            fonts.extend(fonts::scan(path));
-        }
+        fonts.extend(fonts::scan(path));
     }
 
     fonts
