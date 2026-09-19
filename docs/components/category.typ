@@ -188,7 +188,7 @@
 }
 
 // Displays the documentation for a single parameter.
-#let param-details(func, param, base-label, muted: false) = {
+#let param-details(func, param, base-label, category, muted: false) = {
   let param-label = label(str(def-label(func)) + "." + param.name)
   let input-types = flat-types(param.input)
 
@@ -204,8 +204,10 @@
       }
       if not muted {
         register-index-item(
+          category: category,
           kind: "Parameter of " + repr(func),
           title: title-case(param.name),
+          path: std-path-of(func) + "." + param.name,
           dest: it.location(),
         )
       }
@@ -260,6 +262,7 @@
   params,
   returns,
   base-label,
+  category,
   path: auto,
   indent: false,
   muted: false,
@@ -278,7 +281,7 @@
   }
 
   for param in params {
-    param-details(func, param, base-label, muted: muted)
+    param-details(func, param, base-label, category, muted: muted)
   }
 }
 
@@ -384,6 +387,7 @@
 // section.
 #let func-member(
   func,
+  category: none,
   base-label: none,
   binding-info: none,
   definitions-section: none,
@@ -399,8 +403,10 @@
       register-def(func, it.location())
       if not muted {
         register-index-item(
+          category: category,
           kind: "Function",
           title: info.title,
+          path: std-path-of(func),
           dest: it.location(),
           keywords: info.keywords,
         )
@@ -447,6 +453,7 @@
     params,
     info.returns,
     base-label,
+    category,
     path: path,
     indent: true,
     muted: muted,
@@ -455,12 +462,13 @@
   heading-offset(2, definitions-section(
     info.name,
     scope-from(info.scope, binding-info),
+    category,
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
 
 // Documents the constructor of a type.
-#let constructor-section(func, path) = {
+#let constructor-section(func, category, path) = {
   let info = stdx.describe(func)
   let base-label = <constructor>
 
@@ -489,8 +497,9 @@
     func,
     info.params,
     info.returns,
-    path: path,
     base-label,
+    category,
+    path: path,
     indent: true,
   )
 }
@@ -498,6 +507,7 @@
 // Renders documentation for a type as part of a large documentation section.
 #let ty-member(
   ty,
+  category: none,
   base-label: none,
   binding-info: none,
   definitions-section: none,
@@ -511,8 +521,10 @@
     show heading: it => {
       register-def(ty, it.location())
       register-index-item(
+        category: category,
         kind: "Type",
         title: info.title,
+        path: std-path-of(ty),
         dest: it.location(),
         keywords: info.keywords,
       )
@@ -544,6 +556,7 @@
   if info.constructor != none {
     heading-offset(2, constructor-section(
       info.constructor,
+      category,
       std-path-of(ty).split("."),
     ))
   }
@@ -551,12 +564,13 @@
   heading-offset(2, definitions-section(
     info.short-name,
     scope-from(info.scope, binding-info),
+    category,
     base-label: label(str(base-label) + "-definitions"),
   ))
 }
 
 // Renders a section that documents definitions on a type or function.
-#let definitions-section(parent, scope, base-label: <definitions>) = {
+#let definitions-section(parent, scope, category, base-label: <definitions>) = {
   if scope.dict.len() == 0 {
     return
   }
@@ -577,6 +591,7 @@
     if type(value) == function {
       func-member(
         value,
+        category: category,
         base-label: base-label,
         binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
@@ -584,6 +599,7 @@
     } else if type(value) == type {
       ty-member(
         value,
+        category: category,
         base-label: base-label,
         binding-info: nested-binding(scope, name),
         definitions-section: definitions-section,
@@ -602,18 +618,23 @@
 #let func-or-ty-section(..args) = {
   show heading.where(level: 3): set text(16pt)
   show heading.where(level: 3): set block(below: 16pt)
-  docs-section(..args)
+  docs-section(
+    path: std-path-of(args.def-target),
+    ..args,
+  )
 }
 
 // Renders a section for a function.
 #let func-section(
   base-route,
+  category,
   name,
   func,
   info,
   binding-info,
 ) = {
   show: func-or-ty-section.with(
+    category: category,
     kind: "Function",
     route: base-route + "/" + name,
     title: info.title,
@@ -638,23 +659,26 @@
       info.params,
       info.returns,
       base-label,
+      category,
     )
   }
 
   definitions-section(
     info.name,
     scope-from(info.scope, binding-info),
+    category,
   )
 }
 
 // Renders a section for a type.
-#let ty-section(base-route, name, ty, ty-info, binding-info) = {
+#let ty-section(base-route, category, name, ty, ty-info, binding-info) = {
   show: func-or-ty-section.with(
     route: base-route + "/" + name,
     title: ty-info.title,
     title-fmt: ty-pill(ty, linked: false),
     subtitle: ty-subtitle(ty-info, binding-info),
     has-summary: true,
+    category: category,
     kind: "Type",
     keywords: ty-info.keywords,
     def-target: ty,
@@ -669,6 +693,7 @@
   if ty-info.constructor != none {
     constructor-section(
       ty-info.constructor,
+      category,
       std-path-of(ty).split("."),
     )
   }
@@ -676,6 +701,7 @@
   definitions-section(
     ty-info.short-name,
     scope-from(ty-info.scope, binding-info),
+    category,
   )
 }
 
@@ -691,9 +717,10 @@
 // Renders a section for grouped definitions.
 //
 // An example of this are the various groups like "Attach" in the math docs.
-#let group-section(base-route, base-target, info) = {
+#let group-section(base-route, category, base-target, info) = {
   let def-target = group-target(base-target, info)
   show: docs-section.with(
+    category: category,
     kind: "Group",
     route: base-route + "/" + info.name,
     title: info.title,
@@ -709,6 +736,7 @@
     for (key, value) in info.items {
       func-member(
         value,
+        category: category,
         base-label: base-label,
         binding-info: nested-binding(info.scope, key),
       )
@@ -724,7 +752,7 @@
   if info.title == "Typed HTML" {
     for param in stdx.describe(html.div).params {
       if stdx.is-global-html-attr(param.name) {
-        param-details(html.div, param, <global-attributes>, muted: true)
+        param-details(html.div, param, <global-attributes>, category, muted: true)
       }
     }
   }
@@ -850,6 +878,7 @@
 // Show a list of category definitions built by `build-category-definitions()`.
 #let category-definitions(
   route,
+  category,
   scope,
   def-target,
   definitions,
@@ -863,18 +892,18 @@
       let binding-info = if kind != "addition" { nested-binding(scope, name) }
 
       if kind == "category" {
-        func-category(route, name, value, info, binding-info)
+        func-category(route, category, name, value, info, binding-info)
       } else if type(value) == function {
-        func-section(route, name, value, info, binding-info)
+        func-section(route, category, name, value, info, binding-info)
       } else if type(value) == type {
-        ty-section(route, name, value, info, binding-info)
+        ty-section(route, category, name, value, info, binding-info)
       }
     } else if kind == "group" {
       let group = info
       if group.at("scope", default: none) == none {
         group.scope = scope
       }
-      group-section(route, def-target, group)
+      group-section(route, category, def-target, group)
     }
   }
 }
@@ -882,6 +911,8 @@
 // Renders a section for a combined type and category (used for export formats).
 #let func-category(
   base-route,
+  // The category under which the function is documented.
+  category,
   // The name of the function.
   name,
   // The value of the function.
@@ -906,6 +937,7 @@
   )
 
   func-or-ty-section(
+    category: category,
     kind: "Function",
     route: route,
     title: info.title,
@@ -929,6 +961,7 @@
           info.params,
           info.returns,
           base-label,
+          category,
         )
       }
 
@@ -940,6 +973,7 @@
 
   category-definitions(
     route,
+    category,
     scope,
     def-target,
     definitions,
@@ -947,8 +981,8 @@
   )
 }
 
-// Renders the docs for one category, including an overview section and sections
-// for all definitions in the category.
+// Renders the docs for one category in the Reference, including an overview
+// section and sections for all definitions in the category.
 #let docs-category(
   // The name of the category, e.g. `"foundations"`.
   category: none,
@@ -997,6 +1031,7 @@
     has-summary: true,
     route: route,
     def-target: def-target,
+    category: "Reference",
     kind: "Category",
     description: description,
     {
@@ -1009,6 +1044,7 @@
 
   category-definitions(
     route,
+    title,
     scope,
     def-target,
     definitions,

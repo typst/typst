@@ -9,14 +9,18 @@
 //
 // See `IndexItem` in the Rust sources for more details on the parameters.
 #let register-index-item(
+  category: none,
   kind: none,
   title: none,
+  path: none,
   dest: none,
   keywords: (),
 ) = labelled(
   metadata((
+    category: category,
     kind: kind,
     title: title,
+    path: path,
     dest: dest,
     keywords: keywords,
   )),

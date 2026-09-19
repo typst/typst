@@ -6,6 +6,7 @@
 #show: docs-chapter.with(
   title: "Advanced Styling",
   route: "/tutorial/advanced-styling",
+  category: "Tutorial",
   description: "Typst's tutorial.",
 )
 

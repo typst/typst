@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Syntax",
   route: "/reference/syntax",
+  category: "Reference",
   description: "A compact reference for Typst's syntax. Learn more about the language within markup, math, and code mode.",
 )
 

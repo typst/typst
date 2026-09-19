@@ -5,6 +5,7 @@
 #show: docs-chapter.with(
   title: "Guide for LaTeX Users",
   route: "/guides/for-latex-users",
+  category: "Guides",
   description: "Are you a LaTeX user? This guide explains the differences and similarities between Typst and LaTeX so you can get started quickly.",
 )
 

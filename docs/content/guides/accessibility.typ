@@ -5,6 +5,7 @@
 #show: docs-chapter.with(
   title: "Accessibility Guide",
   route: "/guides/accessibility",
+  category: "Guides",
   description: "Learn how to create accessible documents with Typst. This guide covers semantic markup, reading order, alt text, color contrast, language settings, and PDF/UA compliance to ensure your files work for all readers and Assistive Technology.",
   class: "a11y",
 )
