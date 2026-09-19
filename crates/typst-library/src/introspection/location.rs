@@ -100,6 +100,18 @@ impl Location {
         engine.introspect(PageIntrospection(self, span))
     }
 
+    /// Returns the page numbering pattern of the page at this location. This
+    /// can be used when displaying the page counter in order to obtain the
+    /// local numbering. This is useful if you are building custom indices or
+    /// outlines.
+    ///
+    /// If the page numbering is set to `{none}` at that location, this function
+    /// returns `{none}`.
+    #[func(since = "forever")]
+    pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
+        engine.introspect(PageNumberingIntrospection(self, span))
+    }
+
     /// Returns a dictionary with the page number and the x, y position for this
     /// location. The page number starts at one and the coordinates are measured
     /// from the top-left of the page.
@@ -120,18 +132,6 @@ impl Location {
         engine
             .introspect(PositionIntrospection(self, span))
             .and_then(DocumentPosition::into_dict)
-    }
-
-    /// Returns the page numbering pattern of the page at this location. This
-    /// can be used when displaying the page counter in order to obtain the
-    /// local numbering. This is useful if you are building custom indices or
-    /// outlines.
-    ///
-    /// If the page numbering is set to `{none}` at that location, this function
-    /// returns `{none}`.
-    #[func(since = "forever")]
-    pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
-        engine.introspect(PageNumberingIntrospection(self, span))
     }
 }
 
