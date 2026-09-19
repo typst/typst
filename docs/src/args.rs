@@ -61,8 +61,8 @@ pub struct CompileArgs {
     /// Path to main file.
     ///
     /// If not present, uses the provided default entrypoint in
-    /// `docs/src/main.typ`. Can be customized to consume the docs as a Typst
-    /// package. The package is available as `@typst/docs:0.0.0`.
+    /// `docs/main.typ` in the workspace. Can be customized to consume the
+    /// docs as a Typst package. The package is available as `@typst/docs:0.0.0`.
     pub input: Option<PathBuf>,
     /// Path to the output file or directory.
     ///
@@ -70,6 +70,9 @@ pub struct CompileArgs {
     /// - `docs/dist/docs.pdf` for the PDF version.
     /// - `docs/dist/site/**` for the HTML version (or nothing at all when
     ///   watching).
+    ///
+    /// The default values are relative to the workspace.
+    #[arg(verbatim_doc_comment)]
     pub output: Option<PathBuf>,
     /// The output format.
     #[arg(long = "format", short = 'f', default_value_t)]
@@ -83,19 +86,16 @@ pub struct CompileArgs {
     /// Open the generated output when finished.
     #[arg(long)]
     pub open: bool,
-    /// Whether to keep the working directory.
+    /// Path to the workspace from which to load files for documentation.
     ///
-    /// By default, the working directory is changed to the workspace root. This
-    /// makes all paths relative to that root, so that this program can always
-    /// locate the files for documentation, no matter which directory it is
-    /// called from.
+    /// This program generates documentation from Typst's codebase. By default,
+    /// it loads the workspace in which it was compiled. Once compiled, this
+    /// program may be reused to generate documentation for another clone of the
+    /// codebase. To do so, set this option to that clone's root directory.
     ///
-    /// If this flag is set, then the current working directory is kept. In that
-    /// case, this program only works when called from the workspace root, but
-    /// that workspace can be a git worktree other than the one in which this
-    /// program was originally built.
-    #[arg(long, default_value_t)]
-    pub no_cd: bool,
+    /// The default INPUT and OUTPUT are relative to the value of this option.
+    #[arg(long)]
+    pub workspace: Option<PathBuf>,
 }
 
 /// Which kind of output to generate.

@@ -31,6 +31,9 @@ use crate::world::DocWorld;
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
 
+/// The default entrypoint into the docs.
+const ENTRYPOINT: &str = "docs/main.typ";
+
 // Paths.
 const PDF_PATH: &str = "docs/dist/docs.pdf";
 const SITE_PATH: &str = "docs/dist/site";
@@ -104,8 +107,12 @@ fn print_watch_header(config: &Config) {
 /// Preprocessing configuration for compilation.
 struct Config {
     /// Path to the input Typst file.
-    input: Option<PathBuf>,
+    input: PathBuf,
+    /// The workspace from which to load files for documentation, i.e.
+    /// `@typst/repo` and `@typst/docs` packages.
+    workspace: PathBuf,
     /// The output path to which the compilation output is written.
+    /// If `None`, nothing should be written (e.g., HTML watching).
     output: Option<PathBuf>,
     /// The kind of output to produce.
     output_format: OutputFormat,
@@ -120,20 +127,19 @@ struct Config {
 impl Config {
     /// Preprocess `CompileArgs`, producing a compilation config.
     fn new(args: &CompileArgs, serve: bool) -> Self {
-        if !args.no_cd {
-            // Make all paths relative to the workspace.
-            let workspace_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join(std::path::Component::ParentDir);
-            std::env::set_current_dir(&workspace_dir).unwrap();
-        }
+        let workspace = args.workspace.clone().unwrap_or_else(|| {
+            // Default to the workspace in which this program was compiled.
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(std::path::Component::ParentDir)
+        });
 
         Self {
-            input: args.input.clone(),
+            input: args.input.clone().unwrap_or(workspace.join(ENTRYPOINT)),
             output: args.output.clone().or_else(|| match args.format {
-                OutputFormat::Pdf => Some(PDF_PATH.into()),
+                OutputFormat::Pdf => Some(workspace.join(PDF_PATH)),
                 OutputFormat::Website if serve => None,
-                OutputFormat::Website => Some(SITE_PATH.into()),
+                OutputFormat::Website => Some(workspace.join(SITE_PATH)),
             }),
+            workspace,
             output_format: args.format,
             is_dev_version: !args.release,
             server: (serve && args.format == OutputFormat::Website)
