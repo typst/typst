@@ -206,7 +206,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
 ///
 /// The idiom will fail to work when usvg chooses foreignObject as the winner of
 /// the switch. Nothing will be rendered and this should produce a warning. This
-/// happens when (a) neither requiredExtensions or requiredFeatures is present,
+/// happens when (a) neither requiredExtensions or requir   edFeatures is present,
 /// or (b) requiredFeatures is present and its value matches one of the values
 /// known to usvg. These values are regular svg constructs like text and image,
 /// so it usually does not appear as foreignObjects.  The switch mechanism
@@ -222,10 +222,10 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
 /// get rendered.
 ///
 /// For the idiom in SVG 2.0, see:
-///   https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement
+///   <https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement>
 ///
 /// For the deprecated use of requiredFeatures, see:
-///   https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures
+///   <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures>
 ///
 /// The returned warning has a detached span; the caller is expected to attach
 /// the span of the image element.
