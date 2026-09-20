@@ -190,10 +190,42 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
     LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
 }
 
-/// Produce a warning if the SVG embeds a foreignObject element without
-/// a surrounding switch and a non-foreignObject sibling.
+/// Produce a warning if the SVG embeds a foreignObject that does not have a
+/// fallback rendering that usvg will use.
 ///
-/// See <https://svgwg.org/svg2-draft/embedded.html#ForeignObjectElement>.
+/// foreignObjects contain XHTML elements that may not be supported by the user
+/// agent. To provide fallback representations in such case, there are two
+/// styles of idioms in use. One is SVG2.0 compliant, and the other is
+/// deprecated, but still in use by some graphic tools such as draw.io.  Both
+/// idioms are based on a switch element with a foreignObject and a fallback
+/// representation in SVG as children.
+///
+/// When a foreignObject appears outside of a switch, usvg will ignore it, so
+/// this should cause a warning.  But even when it does appear inside a switch,
+/// there are additional conditions for the idiom to work under usvg.
+///
+/// The idiom will fail to work when usvg chooses foreignObject as the winner of
+/// the switch. Nothing will be rendered and this should produce a warning. This
+/// happens when (a) neither requiredExtensions or requiredFeatures is present,
+/// or (b) requiredFeatures is present and its value matches one of the values
+/// known to usvg. These values are regular svg constructs like text and image,
+/// so it usually does not appear as foreignObjects.  The switch mechanism
+/// doesn't know foreginObject is meaningless to usvg -- it just evaluates the
+/// generic condition attributes and picks foreignObject as the winner.
+/// Following that, usvg's element converter finds an uncrecognized tag and
+/// skips it entirely, so nothing gets rendered.
+///
+/// The idiom will work when usvg chooses to discard foreignObject. This happens
+/// when (c) a requeiredExtensions is present as in SVG2.0, or (d)
+/// requiredFeatures is present, and usvg does not recognize its value. Either
+/// will cause the foreignObject to lose the switch and the fallback to win and
+/// get rendered.
+///
+/// For the idiom in SVG 2.0, see:
+///   https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement
+///
+/// For the deprecated use of requiredFeatures, see:
+///   https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures
 ///
 /// The returned warning has a detached span; the caller is expected to attach
 /// the span of the image element.
