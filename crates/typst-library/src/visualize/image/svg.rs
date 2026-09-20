@@ -212,7 +212,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
 /// so it usually does not appear as foreignObjects.  The switch mechanism
 /// doesn't know foreginObject is meaningless to usvg -- it just evaluates the
 /// generic condition attributes and picks foreignObject as the winner.
-/// Following that, usvg's element converter finds an uncrecognized tag and
+/// Following that, usvg's element converter finds an unrecognized tag and
 /// skips it entirely, so nothing gets rendered.
 ///
 /// The idiom will work when usvg chooses to discard foreignObject. This happens
