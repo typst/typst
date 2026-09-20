@@ -206,7 +206,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
 ///
 /// The idiom will fail to work when usvg chooses foreignObject as the winner of
 /// the switch. Nothing will be rendered and this should produce a warning. This
-/// happens when (a) neither requiredExtensions or requir   edFeatures is present,
+/// happens when (a) neither requiredExtensions nor requiredFeatures is present,
 /// or (b) requiredFeatures is present and its value matches one of the values
 /// known to usvg. These values are regular svg constructs like text and image,
 /// so it usually does not appear as foreignObjects.  The switch mechanism
