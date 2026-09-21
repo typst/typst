@@ -3,10 +3,10 @@ use std::ops::{Deref, DerefMut};
 
 use ecow::EcoVec;
 use typst_library::engine::Engine;
-use typst_library::foundations::Styles;
-use typst_library::introspection::{Location, SplitLocator, Tag, TagFlags};
+use typst_library::foundations::{Resolve, Styles};
+use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
-use typst_library::model::{Destination, LinkElem, ParLineMarker};
+use typst_library::model::{Destination, ParLineMarker};
 use typst_library::text::{FontInstance, Lang, TextElem, TextSize, families, variant};
 use typst_utils::Numeric;
 
@@ -504,6 +504,9 @@ impl LinkRenderInfo {
 }
 
 /// Commit to a line and build its frame.
+///
+/// This will also collect start events, which are shared across lines in case
+/// the event starts in a line and ends in a later one.
 pub fn commit<'l>(
     engine: &mut Engine,
     p: &Preparation,
@@ -575,12 +578,6 @@ pub fn commit<'l>(
             remaining = Abs::zero();
         }
     }
-
-    // Keep track of items spanned by each link, including the destination,
-    // whether a text was spanned, the height, the horizontal offset where it
-    // starts, and (for finished links) the offset where it ends.
-    let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
-        active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
 
     // Horizontal offset after the last frame in the line.
     let mut last_frame_end = Abs::zero();
@@ -661,35 +658,11 @@ pub fn commit<'l>(
     // during introspection and thus things like counters.
     frames.sort_unstable_by_key(|(_, _, idx, _, _)| *idx);
 
-    let prepare_link = |dest: &Destination, link_info: &LinkRenderInfo, end: Abs| {
-        let x = link_info.start + p.config.align.position(remaining);
-        let y = top - link_info.height;
-        let width = end - link_info.start;
-        let height = link_info.height;
-
-        // Can only fail if the link was pushed regardless of being empty.
-        debug_assert!(width >= Abs::zero());
-
-        // TODO: pass relative leading directly to 'modify_text' instead of ad-hoc stylechain modifications?
-        // - also consider per-text run font size.
-        let mut styles = Styles::new();
-        styles.set(LinkElem::current, Some((dest.clone(), Location::new(0))));
-        styles.set(ParElem::leading, p.config.leading);
-        styles.set(TextElem::size, TextSize(Length::from(p.config.font_size)));
-
-        // TODO: a single modify call, calculating the height needed in real-time when going over text...
-        let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
-        let stylechain = StyleChain::new(&styles);
-        if link_info.spans_text {
-            frame.modify_text(stylechain);
-        } else {
-            // Don't add padding; restrict the link to the box.
-            // TODO: also need to consider equations...
-            frame.modify(&FrameModifiers::get_in(stylechain));
-        }
-
-        (Point::new(x, y), frame)
-    };
+    // Keep track of items spanned by each link, including the destination,
+    // whether a text was spanned, the height, the horizontal offset where it
+    // starts, and the offset where it would end (after its last spanned item).
+    let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
+        active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
 
     // Construct the line's frame.
     for (offset, frame, _, frame_index, item) in frames {
@@ -719,7 +692,14 @@ pub fn commit<'l>(
                     // instead of forwards.
                     link_info.start.set_min(offset);
                 } else if frame_index != last_index + 1 {
-                    let (pos, frame) = prepare_link(dest, link_info, link_info.last_end);
+                    let (pos, frame) = prepare_link(
+                        dest,
+                        link_info,
+                        link_info.last_end,
+                        p.config,
+                        remaining,
+                        top,
+                    );
                     output.push_frame(pos, frame);
 
                     // Items are discontinuous; break and begin a new link
@@ -758,7 +738,14 @@ pub fn commit<'l>(
                     // Ignore the offset of the end event itself as it might
                     // (visually) be at the start rather than the end of the link
                     // due to RTL reversal.
-                    let (pos, frame) = prepare_link(dest, &link_info, link_info.last_end);
+                    let (pos, frame) = prepare_link(
+                        dest,
+                        &link_info,
+                        link_info.last_end,
+                        p.config,
+                        remaining,
+                        top,
+                    );
                     output.push_frame(pos, frame);
                 }
             }
@@ -773,7 +760,8 @@ pub fn commit<'l>(
 
         // Only render a link if there was at least one item within it...
         if link_info.last_index.is_some() {
-            let (pos, frame) = prepare_link(dest, &link_info, last_frame_end);
+            let (pos, frame) =
+                prepare_link(dest, &link_info, last_frame_end, p.config, remaining, top);
             output.push_frame(pos, frame);
         }
     }
@@ -816,6 +804,42 @@ fn add_par_line_marker(
     let flags = TagFlags { introspectable: false, tagged: false };
     output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
+}
+
+/// Prepare a link's frame, calculating its optimal position as well as padding.
+fn prepare_link(
+    dest: &Destination,
+    link_info: &LinkRenderInfo,
+    end: Abs,
+    config: &Config,
+    remaining: Abs,
+    top: Abs,
+) -> (Point, Frame) {
+    let x = link_info.start + config.align.position(remaining);
+    let y = top - link_info.height;
+    let width = end - link_info.start;
+    let height = link_info.height;
+
+    // Can only fail if the link was pushed regardless of being empty.
+    debug_assert!(width >= Abs::zero());
+    debug_assert!(link_info.last_index.is_some());
+
+    // TODO: also consider per-text run font size.
+
+    let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+    let modifiers = FrameModifiers::with_dest(dest.clone());
+    if link_info.spans_text {
+        let mut styles = Styles::new();
+        styles.set(TextElem::size, TextSize(Length::from(config.font_size)));
+        let stylechain = StyleChain::new(&styles);
+
+        frame.modify_text(&modifiers, config.leading.resolve(stylechain));
+    } else {
+        // Don't add padding; restrict the link to the box.
+        frame.modify(&modifiers);
+    }
+
+    (Point::new(x, y), frame)
 }
 
 /// How much a glyph should hang into the end margin.

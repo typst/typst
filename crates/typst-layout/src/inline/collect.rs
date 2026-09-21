@@ -137,6 +137,25 @@ impl Segment<'_> {
     }
 }
 
+#[derive(Default)]
+struct EventCollectionState<'a> {
+    /// Events with no matching start tag, carried over from previous paragraphs.
+    initial_events: Vec<Event>,
+
+    /// Paragraph-wide link, according to the flow layouter. Normally, this link
+    /// is applied at the very end of the paragraph (this is then set to
+    /// `None`), unless the whole paragraph is a #link[...], in which case we
+    /// must not apply it again.
+    shared_link: Option<&'a (Destination, Location)>,
+
+    /// The link active in the previously collected item. Used to detect changes
+    /// in links.
+    prev_link: Option<&'a (Destination, Location)>,
+
+    /// Links with currently unclosed marker tags.
+    active_links: Vec<(Destination, Location)>,
+}
+
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
@@ -161,15 +180,11 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    // Paragraph-wide link, according to the flow layouter.
-    // Normally, this link is applied at the very end of the paragraph, unless
-    // the whole paragraph is a #link[...], in which case we must not apply it
-    // again.
-    let mut shared_link = config.link.as_ref();
+    let mut events = EventCollectionState {
+        shared_link: config.link.as_ref(),
+        ..EventCollectionState::default()
+    };
 
-    let mut initial_events = vec![];
-    let mut prev_link: Option<&(Destination, Location)> = None;
-    let mut active_links: Vec<(Destination, Location)> = vec![];
     for &(child, styles) in children {
         let prev_len = collector.full.len();
         let current_link = styles.get_ref(LinkElem::current);
@@ -276,20 +291,20 @@ pub fn collect<'a>(
                         let link = link_marker.dest.clone();
                         let location = elem.tag.location();
                         collector.push_event(Event::StartLink(link.clone()));
-                        active_links.push((link, location));
+                        events.active_links.push((link, location));
 
-                        if let Some((_, loc)) = shared_link
+                        if let Some((_, loc)) = events.shared_link
                             && loc == &location
                         {
                             // Link spanning the entire paragraph starts and
                             // ends within it, so don't apply it twice.
-                            shared_link = None;
+                            events.shared_link = None;
                         }
                     }
                 }
                 Tag::End(location, _, _) => {
                     if let Some((link, _)) =
-                        active_links.pop_if(|(_, loc)| loc == location)
+                        events.active_links.pop_if(|(_, loc)| loc == location)
                     {
                         collector.push_event(Event::EndLink(link));
 
@@ -304,11 +319,11 @@ pub fn collect<'a>(
                     // reverted at the end tag, so we compare with the previous
                     // link style. If it changed, means this tag was ending a
                     // link marker element.
-                    } else if let Some((link, loc)) = prev_link
+                    } else if let Some((link, loc)) = events.prev_link
                         && loc == location
                         && !FrameModifiers::get_in(styles).hidden
                     {
-                        initial_events.push(Event::StartLink(link.clone()));
+                        events.initial_events.push(Event::StartLink(link.clone()));
                         collector.push_event(Event::EndLink(link.clone()));
                     }
 
@@ -327,23 +342,24 @@ pub fn collect<'a>(
             ));
         }
 
-        prev_link = current_link.as_ref();
+        events.prev_link = current_link.as_ref();
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
     }
 
     // Render flow-level link, if the paragraph was not hidden.
-    if let Some((link, _)) = shared_link
+    if let Some((link, _)) = events.shared_link
         && !config.hidden
     {
-        initial_events.push(Event::StartLink(link.clone()));
+        events.initial_events.push(Event::StartLink(link.clone()));
         collector.push_event(Event::EndLink(link.clone()));
     }
 
-    if !initial_events.is_empty() {
+    if !events.initial_events.is_empty() {
         // TODO: could be more efficient by returning initial events directly
-        collector.segments = initial_events
+        collector.segments = events
+            .initial_events
             .into_iter()
             .rev()
             .map(Segment::Event)

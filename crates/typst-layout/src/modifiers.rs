@@ -1,6 +1,6 @@
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
-use typst_library::model::{Destination, LinkElem, ParElem};
+use typst_library::model::{Destination, LinkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -26,6 +26,10 @@ pub struct FrameModifiers {
 }
 
 impl FrameModifiers {
+    pub(super) fn with_dest(dest: Destination) -> Self {
+        Self { dest: Some(dest), hidden: false }
+    }
+
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
@@ -77,7 +81,7 @@ where
 
 pub trait FrameModifyText {
     /// Resolve and apply [`FrameModifiers`] for this text frame.
-    fn modify_text(&mut self, styles: StyleChain);
+    fn modify_text(&mut self, modifiers: &FrameModifiers, leading: Abs);
 
     /// Resolve and apply [`FrameModifiers`] for this text frame, except for
     /// the current link (which is handled by the paragraph itself).
@@ -85,18 +89,15 @@ pub trait FrameModifyText {
 }
 
 impl FrameModifyText for Frame {
-    fn modify_text(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers::get_in(styles);
-        let expand_y = 0.5 * styles.resolve(ParElem::leading);
+    fn modify_text(&mut self, modifiers: &FrameModifiers, leading: Abs) {
+        let expand_y = 0.5 * leading;
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
-        modify_frame(self, &modifiers, Some(outset));
+        modify_frame(self, modifiers, Some(outset));
     }
 
     fn modify_text_without_links(&mut self, styles: StyleChain) {
         let modifiers = FrameModifiers { dest: None, ..FrameModifiers::get_in(styles) };
-        let expand_y = 0.5 * styles.resolve(ParElem::leading);
-        let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
-        modify_frame(self, &modifiers, Some(outset));
+        modify_frame(self, &modifiers, None);
     }
 }
 
