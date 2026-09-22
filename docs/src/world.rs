@@ -49,9 +49,6 @@ pub const DOCS_ROOT: PackageSpec = PackageSpec {
     version: PackageVersion { major: 0, minor: 0, patch: 0 },
 };
 
-/// The default entrypoint into the docs.
-const ENTRYPOINT: &str = "docs/main.typ";
-
 /// A world for docs compilation.
 pub struct DocWorld {
     /// Typst's standard library, extended with docs-specific functionality.
@@ -68,7 +65,10 @@ impl DocWorld {
     pub fn new(config: &Config) -> Self {
         Self {
             library: LazyHash::new(library(config.is_dev_version)),
-            files: FileStore::new(DocsFiles::new(config.input.as_deref())),
+            files: FileStore::new(DocsFiles::new(
+                config.input.as_ref(),
+                &config.workspace,
+            )),
             now: Time::system(),
         }
     }
@@ -137,9 +137,9 @@ struct DocsFiles {
 }
 
 impl DocsFiles {
-    fn new(input: Option<&Path>) -> Self {
+    fn new(input: &Path, workspace: &Path) -> Self {
         // Resolve the system-global input path.
-        let path = input.unwrap_or(Path::new(ENTRYPOINT)).canonicalize().unwrap();
+        let path = input.canonicalize().unwrap();
 
         // Resolve the system-global root directory.
         let root: PathBuf = path.parent().unwrap().into();
@@ -154,8 +154,8 @@ impl DocsFiles {
         Self {
             main,
             project: FsRoot::new(root),
-            repo: FsRoot::new(".".into()),
-            docs: FsRoot::new("docs".into()),
+            repo: FsRoot::new(workspace.into()),
+            docs: FsRoot::new(workspace.join("docs")),
         }
     }
 
