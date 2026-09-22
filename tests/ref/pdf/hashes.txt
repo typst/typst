@@ -650,6 +650,9 @@ cb4d72e9cc3a018f9c34e3e6bb03daec image-pixmap-rgba8
 2e0bb459820fbfa3a02fa45f0321a87b image-sizing
 44c2e2e556d8a1411be2199d31ae4da0 image-svg-auto-detection
 42c7a88bdb12de376dade21c6a511195 image-svg-complex
+02c65a10500515bec996f1fbf177b4c6 image-svg-foreign-object-inside-switch-svg1-1
+9362dbc52ceb0ebcb63ab160b81272f2 image-svg-foreign-object-inside-switch-svg2-0
+95084e986f899c90519ae19ba7e5f0ca image-svg-foreign-object-warning
 36f9e8783c9bc375d0ffbaf1d8801b64 image-svg-linked-jpg1
 0479e49319ad36244b3f60c32587de70 image-svg-linked-jpg2
 2e32dd263e5d9ed8308bd30876eb126b image-svg-linked-many-formats

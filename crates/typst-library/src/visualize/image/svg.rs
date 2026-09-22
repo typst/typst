@@ -9,8 +9,8 @@ use typst_syntax::FileId;
 
 use crate::World;
 use crate::diag::{
-    FileError, LoadError, LoadResult, ReportTextPos, StrResult, bail,
-    format_xml_like_error,
+    FileError, HintedString, LoadError, LoadResult, ReportTextPos, StrResult, Warned,
+    bail, format_xml_like_error, warning,
 };
 use crate::foundations::{Bytes, PathOrStr};
 use crate::layout::Axes;
@@ -56,12 +56,28 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[&str],
         svg_file: Option<FileId>,
-    ) -> LoadResult<SvgImage> {
+    ) -> LoadResult<Warned<SvgImage, HintedString>> {
+        // We parse the XML outside of `usvg::Tree` as we use it both for
+        // checking the warnings and as the source of the usvg tree.
+        let decoded;
+        let text = if data.starts_with(&[0x1f, 0x8b]) {
+            decoded = usvg::decompress_svgz(&data).map_err(format_usvg_error)?;
+            std::str::from_utf8(&decoded)
+        } else {
+            std::str::from_utf8(&data)
+        }
+        .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
+
+        let xml_options =
+            roxmltree::ParsingOptions { allow_dtd: true, ..Default::default() };
+        let document = roxmltree::Document::parse_with_options(text, xml_options)
+            .map_err(|err| format_usvg_error(usvg::Error::ParsingFailed(err)))?;
+
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
         let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
-        let tree = usvg::Tree::from_data(
-            &data,
+        let tree = usvg::Tree::from_xmltree(
+            &document,
             &usvg::Options {
                 font_resolver: usvg::FontResolver {
                     select_font: Box::new(|font, db| {
@@ -85,16 +101,22 @@ impl SvgImage {
             },
         )
         .map_err(format_usvg_error)?;
+
         if let Some(err) = image_resolver.into_inner().unwrap().error {
             return Err(err);
         }
+
+        let warnings = svg_foreign_object_warning(&document).into_iter().collect();
+
         let font_hash = font_resolver.into_inner().unwrap().finish();
-        Ok(Self(Arc::new(SvgImageInner {
+        let output = Self(Arc::new(SvgImageInner {
             data,
             size: tree_size(&tree),
             font_hash,
             tree,
-        })))
+        }));
+
+        Ok(Warned { output, warnings })
     }
 
     /// The raw image data.
@@ -166,6 +188,72 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
         usvg::Error::ParsingFailed(error) => return format_xml_like_error("SVG", error),
     };
     LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
+}
+
+/// Produce a warning if the SVG embeds a `<foreignObject>` element without a
+/// surrounding `<switch>` and a non-`<foreignObject>` sibling.
+///
+/// Foreign objects contain XHTML elements that may not be supported by the user
+/// agent. To provide fallback representations in such a case, there are two
+/// styles of idioms in use. One is SVG 2.0 compliant, and the other is
+/// deprecated, but still in use by some graphic tools such as draw.io. Both
+/// idioms are based on a `<switch>` element with a `<foreignObject>` and a
+/// fallback representation.
+///
+/// When a foreign object appears outside of a switch, usvg will ignore it, so
+/// this should cause a warning. But even when it does appear inside a switch,
+/// there are additional conditions for an idiom to work under usvg.
+///
+/// An idiom fails to work when usvg chooses the foreign object as the winner of
+/// the switch. Nothing will be rendered and this should produce a warning. This
+/// happens when (a) neither `requiredExtensions` nor `requiredFeatures` is
+/// present, or (b) `requiredFeatures` is present but its value matches one of
+/// the values known to usvg.
+///
+/// The known features are regular SVG constructs like text and image, and those
+/// usually do not appear on `<foreignObjects>`. The switch mechanism doesn't
+/// know that foreign objects are meaningless to usvg --- it just evaluates the
+/// generic condition attributes and picks the foreign object as the winner.
+/// Following that, usvg's element converter finds an unrecognized tag and skips
+/// it entirely, so nothing gets rendered.
+///
+/// An idiom works when usvg chooses to discard the foreign object. This happens
+/// when (c) `requiredExtensions` is present as in SVG 2.0, or (d)
+/// `requiredFeatures` is present, and usvg does not recognize its value. Either
+/// will cause the foreign object to lose the switch and the fallback to win and
+/// get rendered.
+///
+/// For the idiom in SVG 2.0, see:
+/// <https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement>
+///
+/// For the deprecated use of `requiredFeatures`, see:
+/// <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures>
+fn svg_foreign_object_warning(document: &roxmltree::Document) -> Option<HintedString> {
+    document
+        .root()
+        .descendants()
+        .filter(|node| node.tag_name().name() == "foreignObject")
+        .any(|node| !foreign_object_covered_by_switch(node))
+        .then(|| {
+            warning!(
+                "image contains foreign object";
+                hint: "its content will be omitted because Typst cannot render embedded HTML";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information";
+            )
+        })
+}
+
+/// Checks whether a `<foreignObject>` node has a parent switch and a sibling.
+fn foreign_object_covered_by_switch(node: roxmltree::Node) -> bool {
+    let skipped_by_switch = node.has_attribute("requiredFeatures")
+        || node.has_attribute("requiredExtensions");
+
+    skipped_by_switch
+        && node.parent().is_some_and(|p| p.tag_name().name() == "switch")
+        && std::iter::successors(node.next_sibling_element(), |n| {
+            n.next_sibling_element()
+        })
+        .any(|n| n.tag_name().name() != "foreignObject")
 }
 
 /// Provides Typst's fonts to usvg.
