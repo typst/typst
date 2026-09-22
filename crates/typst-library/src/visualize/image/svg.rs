@@ -49,9 +49,6 @@ impl SvgImage {
     }
 
     /// Decode an SVG image with access to fonts and linked images.
-    /// At the same time check whether the SVG embeds a foreignObject element
-    /// whose content usvg will silently drop while rendering. If so, return
-    /// a warning alonside the image.
     #[comemo::memoize]
     #[typst_macros::time(name = "load svg")]
     pub fn with_fonts_images(
@@ -60,11 +57,8 @@ impl SvgImage {
         families: &[&str],
         svg_file: Option<FileId>,
     ) -> LoadResult<Warned<SvgImage, HintedString>> {
-        let book = world.book();
-        let font_resolver = Mutex::new(FontResolver::new(world, book, families));
-        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
-        // Parse the XML outside of usvg::Tree, use it for both checking for warnings
-        // and for the source of the usvg tree.
+        // We parse the XML outside of `usvg::Tree` as we use it both for
+        // checking the warnings and as the source of the usvg tree.
         let decoded;
         let text = if data.starts_with(&[0x1f, 0x8b]) {
             decoded = usvg::decompress_svgz(&data).map_err(format_usvg_error)?;
@@ -79,8 +73,9 @@ impl SvgImage {
         let document = roxmltree::Document::parse_with_options(text, xml_options)
             .map_err(|err| format_usvg_error(usvg::Error::ParsingFailed(err)))?;
 
-        let warnings = svg_foreign_object_warning(&document).into_iter().collect();
-
+        let book = world.book();
+        let font_resolver = Mutex::new(FontResolver::new(world, book, families));
+        let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
         let tree = usvg::Tree::from_xmltree(
             &document,
             &usvg::Options {
@@ -106,9 +101,13 @@ impl SvgImage {
             },
         )
         .map_err(format_usvg_error)?;
+
         if let Some(err) = image_resolver.into_inner().unwrap().error {
             return Err(err);
         }
+
+        let warnings = svg_foreign_object_warning(&document).into_iter().collect();
+
         let font_hash = font_resolver.into_inner().unwrap().finish();
         let output = Self(Arc::new(SvgImageInner {
             data,
@@ -116,6 +115,7 @@ impl SvgImage {
             font_hash,
             tree,
         }));
+
         Ok(Warned { output, warnings })
     }
 
@@ -190,61 +190,60 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
     LoadError::text(ReportTextPos::None, "failed to parse SVG", error)
 }
 
-/// Produce a warning if the SVG embeds a foreignObject that does not have a
-/// fallback rendering that usvg will use.
+/// Produce a warning if the SVG embeds a `<foreignObject>` element without a
+/// surrounding `<switch>` and a non-`<foreignObject>` sibling.
 ///
-/// foreignObjects contain XHTML elements that may not be supported by the user
-/// agent. To provide fallback representations in such case, there are two
-/// styles of idioms in use. One is SVG2.0 compliant, and the other is
-/// deprecated, but still in use by some graphic tools such as draw.io.  Both
-/// idioms are based on a switch element with a foreignObject and a fallback
-/// representation in SVG as children.
+/// Foreign objects contain XHTML elements that may not be supported by the user
+/// agent. To provide fallback representations in such a case, there are two
+/// styles of idioms in use. One is SVG 2.0 compliant, and the other is
+/// deprecated, but still in use by some graphic tools such as draw.io. Both
+/// idioms are based on a `<switch>` element with a `<foreignObject>` and a
+/// fallback representation.
 ///
-/// When a foreignObject appears outside of a switch, usvg will ignore it, so
-/// this should cause a warning.  But even when it does appear inside a switch,
-/// there are additional conditions for the idiom to work under usvg.
+/// When a foreign object appears outside of a switch, usvg will ignore it, so
+/// this should cause a warning. But even when it does appear inside a switch,
+/// there are additional conditions for an idiom to work under usvg.
 ///
-/// The idiom will fail to work when usvg chooses foreignObject as the winner of
+/// An idiom fails to work when usvg chooses the foreign object as the winner of
 /// the switch. Nothing will be rendered and this should produce a warning. This
-/// happens when (a) neither requiredExtensions nor requiredFeatures is present,
-/// or (b) requiredFeatures is present and its value matches one of the values
-/// known to usvg. These values are regular svg constructs like text and image,
-/// so it usually does not appear as foreignObjects.  The switch mechanism
-/// doesn't know foreginObject is meaningless to usvg -- it just evaluates the
-/// generic condition attributes and picks foreignObject as the winner.
-/// Following that, usvg's element converter finds an unrecognized tag and
-/// skips it entirely, so nothing gets rendered.
+/// happens when (a) neither `requiredExtensions` nor `requiredFeatures` is
+/// present, or (b) `requiredFeatures` is present but its value matches one of
+/// the values known to usvg.
 ///
-/// The idiom will work when usvg chooses to discard foreignObject. This happens
-/// when (c) a requeiredExtensions is present as in SVG2.0, or (d)
-/// requiredFeatures is present, and usvg does not recognize its value. Either
-/// will cause the foreignObject to lose the switch and the fallback to win and
+/// The known features are regular SVG constructs like text and image, and those
+/// usually do not appear on `<foreignObjects>`. The switch mechanism doesn't
+/// know that foreign objects are meaningless to usvg --- it just evaluates the
+/// generic condition attributes and picks the foreign object as the winner.
+/// Following that, usvg's element converter finds an unrecognized tag and skips
+/// it entirely, so nothing gets rendered.
+///
+/// An idiom works when usvg chooses to discard the foreign object. This happens
+/// when (c) `requiredExtensions` is present as in SVG 2.0, or (d)
+/// `requiredFeatures` is present, and usvg does not recognize its value. Either
+/// will cause the foreign object to lose the switch and the fallback to win and
 /// get rendered.
 ///
 /// For the idiom in SVG 2.0, see:
-///   <https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement>
+/// <https://www.w3.org/TR/SVG2/embedded.html#ForeignObjectElement>
 ///
-/// For the deprecated use of requiredFeatures, see:
-///   <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures>
-///
-/// The returned warning has a detached span; the caller is expected to attach
-/// the span of the image element.
+/// For the deprecated use of `requiredFeatures`, see:
+/// <https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/requiredFeatures>
 fn svg_foreign_object_warning(document: &roxmltree::Document) -> Option<HintedString> {
-    let has_uncovered = document
+    document
         .root()
         .descendants()
         .filter(|node| node.tag_name().name() == "foreignObject")
-        .any(|node| !foreign_object_covered_by_switch(node));
-
-    has_uncovered.then(|| {
-        warning!(
-            "image contains foreign object";
-            hint: "its content will be omitted because Typst cannot render embedded HTML";
-            hint: "see https://github.com/typst/typst/issues/1421 for more information";
-        )
-    })
+        .any(|node| !foreign_object_covered_by_switch(node))
+        .then(|| {
+            warning!(
+                "image contains foreign object";
+                hint: "its content will be omitted because Typst cannot render embedded HTML";
+                hint: "see https://github.com/typst/typst/issues/1421 for more information";
+            )
+        })
 }
 
+/// Checks whether a `<foreignObject>` node has a parent switch and a sibling.
 fn foreign_object_covered_by_switch(node: roxmltree::Node) -> bool {
     let skipped_by_switch = node.has_attribute("requiredFeatures")
         || node.has_attribute("requiredExtensions");

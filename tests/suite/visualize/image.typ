@@ -127,7 +127,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
---- image-svg-foreign-object-inside-switch-svg2_0 paged ---
+--- image-svg-foreign-object-inside-switch-svg2-0 paged ---
 // SVG 2.0 style, using requiredExtensions
 #image(bytes(
   ```
@@ -142,7 +142,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
---- image-svg-foreign-object-inside-switch-svg1_1 paged ---
+--- image-svg-foreign-object-inside-switch-svg1-1 paged ---
 // SVG 1.1 style, using requiredFeatures, remaining in draw.io output
 #image(bytes(
   ```

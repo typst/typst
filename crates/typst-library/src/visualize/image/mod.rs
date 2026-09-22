@@ -262,10 +262,10 @@ impl Packed<ImageElem> {
                     }
                     DataSource::Bytes(_) => span.id(),
                 };
-                // Decode and check if the image contains a '<foreignObject>' element
-                // which does not have a fallback rendering, therefore, will be ignored
-                // by Typst. The warning is produced without a span inside the memoized loader, so
-                // attach the image's span here.
+
+                // Decode and check whether the image contains a
+                // `<foreignObject>` element which does not have a fallback
+                // rendering and, therefore, will be ignored by Typst.
                 let Warned { output, warnings } = SvgImage::with_fonts_images(
                     loaded.data.clone(),
                     engine.world,
