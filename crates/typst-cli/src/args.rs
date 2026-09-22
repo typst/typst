@@ -464,56 +464,8 @@ pub struct PackageArgs {
 }
 
 /// Common arguments to customize available fonts.
-#[derive(Debug, Clone)]
-pub struct FontArgs {
-    pub font_paths: Vec<PathBuf>,
-    pub ignore_system_fonts: bool,
-    #[cfg(feature = "embedded-fonts")]
-    pub ignore_embedded_fonts: bool,
-}
-
-impl From<RawFontArgs> for FontArgs {
-    fn from(raw: RawFontArgs) -> Self {
-        Self {
-            font_paths: raw
-                .font_paths
-                .into_iter()
-                .filter(|path| !path.as_os_str().is_empty())
-                .collect(),
-            ignore_system_fonts: raw.ignore_system_fonts,
-            #[cfg(feature = "embedded-fonts")]
-            ignore_embedded_fonts: raw.ignore_embedded_fonts,
-        }
-    }
-}
-
-impl Args for FontArgs {
-    fn augment_args(cmd: clap::Command) -> clap::Command {
-        RawFontArgs::augment_args(cmd)
-    }
-
-    fn augment_args_for_update(cmd: clap::Command) -> clap::Command {
-        RawFontArgs::augment_args_for_update(cmd)
-    }
-}
-
-impl clap::FromArgMatches for FontArgs {
-    fn from_arg_matches(matches: &clap::ArgMatches) -> Result<Self, clap::Error> {
-        RawFontArgs::from_arg_matches(matches).map(Into::into)
-    }
-
-    fn update_from_arg_matches(
-        &mut self,
-        matches: &clap::ArgMatches,
-    ) -> Result<(), clap::Error> {
-        *self = RawFontArgs::from_arg_matches(matches)?.into();
-        Ok(())
-    }
-}
-
-/// The raw, version of [`FontArgs`].
 #[derive(Debug, Clone, Parser)]
-struct RawFontArgs {
+pub struct FontArgs {
     /// Adds additional directories that are recursively searched for fonts.
     ///
     /// If multiple paths are specified, they are separated by the system's path
@@ -525,17 +477,17 @@ struct RawFontArgs {
         value_delimiter = ENV_PATH_SEP,
         value_parser = font_path_value_parser(),
     )]
-    font_paths: Vec<PathBuf>,
+    pub font_paths: Vec<Option<PathBuf>>,
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
     #[arg(long, env = "TYPST_IGNORE_SYSTEM_FONTS")]
-    ignore_system_fonts: bool,
+    pub ignore_system_fonts: bool,
 
     /// Ensures fonts embedded into Typst won't be considered.
     #[cfg(feature = "embedded-fonts")]
     #[arg(long, env = "TYPST_IGNORE_EMBEDDED_FONTS")]
-    ignore_embedded_fonts: bool,
+    pub ignore_embedded_fonts: bool,
 }
 
 /// Arguments for the HTTP server.
@@ -855,8 +807,11 @@ fn output_value_parser() -> impl TypedValueParser<Value = Output> {
     })
 }
 
-fn font_path_value_parser() -> impl TypedValueParser<Value = PathBuf> {
-    clap::builder::OsStringValueParser::new().map(PathBuf::from)
+/// Allows empty paths (so that `--font-path ""` works) and turns them into
+/// `None`. There is no simple way to filter these out in the arg parsing layer,
+/// so we do so later.
+fn font_path_value_parser() -> impl TypedValueParser<Value = Option<PathBuf>> {
+    clap::builder::OsStringValueParser::new().map(|s| (!s.is_empty()).then(|| s.into()))
 }
 
 /// Parses key/value pairs split by the first equal sign.
