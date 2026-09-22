@@ -81,7 +81,11 @@ fn test_fonts_embedded() {
 fn test_fonts_empty_path() {
     let fonts = tempfs();
     let data = typst_dev_assets::fonts().next().unwrap();
-    let family = typst::text::Font::new(Bytes::new(data), 0).unwrap().info().family.clone();
+    let family = typst::text::Font::new(Bytes::new(data), 0)
+        .unwrap()
+        .info()
+        .family
+        .clone();
     fonts.write("test.ttf", data);
 
     let output = exec()
