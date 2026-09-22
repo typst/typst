@@ -114,8 +114,8 @@ cast! {
     }
 }
 
-impl From<Tag> for ttf_parser::Tag {
+impl From<Tag> for skrifa::Tag {
     fn from(value: Tag) -> Self {
-        ttf_parser::Tag::from_bytes(&value.to_bytes())
+        skrifa::Tag::new(&value.to_bytes())
     }
 }

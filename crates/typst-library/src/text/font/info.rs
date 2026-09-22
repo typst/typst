@@ -1,12 +1,13 @@
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
-use ttf_parser::{PlatformId, name_id};
+use skrifa::MetadataProvider;
+use skrifa::attribute::Style;
+use skrifa::raw::TableProvider;
+use skrifa::string::StringId;
 
 use super::find_exception;
-use crate::text::{
-    AxisValue, FontAxis, FontStretch, FontStyle, FontVariant, FontWeight, Tag,
-};
+use crate::text::{FontAxis, FontStyle, FontVariant};
 
 /// Properties of a single font.
 #[derive(Debug, Clone, PartialEq, Hash, Serialize, Deserialize)]
@@ -45,19 +46,19 @@ bitflags::bitflags! {
 impl FontInfo {
     /// Compute metadata for font at the `index` of the given data.
     pub fn new(data: &[u8], index: u32) -> Option<Self> {
-        let ttf = ttf_parser::Face::parse(data, index).ok()?;
-        Self::from_ttf(&ttf)
+        let skrifa = skrifa::FontRef::from_index(data, index).ok()?;
+        Self::from_skrifa(&skrifa)
     }
 
     /// Compute metadata for all fonts in the given data.
     pub fn iter(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
-        let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
-        (0..count).filter_map(move |index| Self::new(data, index))
+        skrifa::FontRef::fonts(data)
+            .filter_map(|skrifa| Self::from_skrifa(skrifa.as_ref().ok()?))
     }
 
-    /// Compute metadata for a single ttf-parser face.
-    pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
-        let ps_name = find_name(ttf, name_id::POST_SCRIPT_NAME);
+    /// Compute metadata for a single skrifa face.
+    pub(super) fn from_skrifa(skrifa: &skrifa::FontRef) -> Option<Self> {
+        let ps_name = find_name(skrifa, StringId::POSTSCRIPT_NAME);
         let exception = ps_name.as_deref().and_then(find_exception);
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
@@ -72,26 +73,23 @@ impl FontInfo {
         // "ExtraBold").
         let family =
             exception.and_then(|c| c.family.map(str::to_string)).or_else(|| {
-                let family = find_name(ttf, name_id::FAMILY)?;
+                let family = find_name(skrifa, StringId::FAMILY_NAME)?;
                 Some(typographic_family(&family).to_string())
             })?;
 
         let variant = {
+            let attributes = skrifa.attributes();
+
             let style = exception.and_then(|c| c.style).unwrap_or_else(|| {
-                let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
+                let mut full = find_name(skrifa, StringId::FULL_NAME).unwrap_or_default();
                 full.make_ascii_lowercase();
 
                 // Some fonts miss the relevant bits for italic or oblique, so
                 // we also try to infer that from the full name.
                 //
-                // We do not use `ttf.is_italic()` because that also checks the
-                // italic angle which leads to false positives for some oblique
-                // fonts.
-                //
                 // See <https://github.com/typst/typst/issues/7479>.
-                let italic =
-                    ttf.style() == ttf_parser::Style::Italic || full.contains("italic");
-                let oblique = ttf.is_oblique()
+                let italic = attributes.style == Style::Italic || full.contains("italic");
+                let oblique = matches!(attributes.style, Style::Oblique(_))
                     || full.contains("oblique")
                     || full.contains("slanted");
 
@@ -102,51 +100,48 @@ impl FontInfo {
                 }
             });
 
-            let weight = exception.and_then(|c| c.weight).unwrap_or_else(|| {
-                let number = ttf.weight().to_number();
-                FontWeight::from_number(number)
-            });
+            let weight = exception
+                .and_then(|c| c.weight)
+                .unwrap_or_else(|| attributes.weight.into());
 
             let stretch = exception
                 .and_then(|c| c.stretch)
-                .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
+                .unwrap_or_else(|| attributes.stretch.into());
 
             FontVariant { style, weight, stretch }
         };
 
         // Determine the unicode coverage.
         let mut codepoints = vec![];
-        for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
-            if subtable.is_unicode() {
-                subtable.codepoints(|c| codepoints.push(c));
-            }
+        for (c, _) in skrifa.charmap().mappings() {
+            codepoints.push(c);
         }
+        // TODO: less comprehensive as before...
+        // for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
+        //     if subtable.is_unicode() {
+        //         subtable.codepoints(|c| codepoints.push(c));
+        //     }
+        // }
+
+        let axes = skrifa.axes();
 
         let mut flags = FontFlags::empty();
-        flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
-        flags.set(FontFlags::MATH, ttf.tables().math.is_some());
-        flags.set(FontFlags::VARIABLE, ttf.is_variable());
+        flags.set(
+            FontFlags::MONOSPACE,
+            skrifa.post().is_ok_and(|post| post.is_fixed_pitch() != 0),
+        );
+        flags.set(FontFlags::MATH, skrifa.math().is_ok());
+        flags.set(FontFlags::VARIABLE, !axes.is_empty());
 
         // Determine whether this is a serif or sans-serif font.
-        if let Some(panose) = ttf
-            .raw_face()
-            .table(ttf_parser::Tag::from_bytes(b"OS/2"))
-            .and_then(|os2| os2.get(32..45))
-            && matches!(panose, [2, 2..=10, ..])
+        if skrifa
+            .os2()
+            .is_ok_and(|os2| matches!(os2.panose_10(), [2, 2..=10, ..]))
         {
             flags.insert(FontFlags::SERIF);
         }
 
-        let axes = ttf
-            .variation_axes()
-            .into_iter()
-            .map(|axis| FontAxis {
-                tag: Tag::from_bytes(&axis.tag.to_bytes()),
-                min: AxisValue(axis.min_value),
-                max: AxisValue(axis.max_value),
-                default: AxisValue(axis.def_value),
-            })
-            .collect();
+        let axes = axes.iter().map(FontAxis::from).collect();
 
         Some(FontInfo {
             family,
@@ -165,41 +160,11 @@ impl FontInfo {
 }
 
 /// Try to find and decode the name with the given id.
-pub(super) fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
-    ttf.names().into_iter().find_map(|entry| {
-        if entry.name_id == name_id {
-            if let Some(string) = entry.to_string() {
-                return Some(string);
-            }
-
-            if entry.platform_id == PlatformId::Macintosh && entry.encoding_id == 0 {
-                return Some(decode_mac_roman(entry.name));
-            }
-        }
-
-        None
-    })
-}
-
-/// Decode mac roman encoded bytes into a string.
-fn decode_mac_roman(coded: &[u8]) -> String {
-    #[rustfmt::skip]
-    const TABLE: [char; 128] = [
-        'Ä', 'Å', 'Ç', 'É', 'Ñ', 'Ö', 'Ü', 'á', 'à', 'â', 'ä', 'ã', 'å', 'ç', 'é', 'è',
-        'ê', 'ë', 'í', 'ì', 'î', 'ï', 'ñ', 'ó', 'ò', 'ô', 'ö', 'õ', 'ú', 'ù', 'û', 'ü',
-        '†', '°', '¢', '£', '§', '•', '¶', 'ß', '®', '©', '™', '´', '¨', '≠', 'Æ', 'Ø',
-        '∞', '±', '≤', '≥', '¥', 'µ', '∂', '∑', '∏', 'π', '∫', 'ª', 'º', 'Ω', 'æ', 'ø',
-        '¿', '¡', '¬', '√', 'ƒ', '≈', '∆', '«', '»', '…', '\u{a0}', 'À', 'Ã', 'Õ', 'Œ', 'œ',
-        '–', '—', '“', '”', '‘', '’', '÷', '◊', 'ÿ', 'Ÿ', '⁄', '€', '‹', '›', 'ﬁ', 'ﬂ',
-        '‡', '·', '‚', '„', '‰', 'Â', 'Ê', 'Á', 'Ë', 'È', 'Í', 'Î', 'Ï', 'Ì', 'Ó', 'Ô',
-        '\u{f8ff}', 'Ò', 'Ú', 'Û', 'Ù', 'ı', 'ˆ', '˜', '¯', '˘', '˙', '˚', '¸', '˝', '˛', 'ˇ',
-    ];
-
-    fn char_from_mac_roman(code: u8) -> char {
-        if code < 128 { code as char } else { TABLE[(code - 128) as usize] }
-    }
-
-    coded.iter().copied().map(char_from_mac_roman).collect()
+pub(super) fn find_name(skrifa: &skrifa::FontRef, id: StringId) -> Option<String> {
+    skrifa
+        .localized_strings(id)
+        .english_or_first()
+        .map(|name| name.to_string())
 }
 
 /// Trim style naming from a family name and fix bad names.

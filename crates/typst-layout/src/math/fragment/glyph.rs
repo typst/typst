@@ -2,8 +2,11 @@ use std::fmt::{self, Debug, Formatter};
 
 use comemo::Tracked;
 use ecow::EcoString;
-use ttf_parser::GlyphId;
-use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
+use skrifa::GlyphId;
+use skrifa::raw::TableProvider;
+use skrifa::raw::tables::math::{
+    GlyphAssembly, GlyphPartRecord, MathGlyphConstruction, PartFlags, StretchAxis,
+};
 use typst_library::World;
 use typst_library::diag::warning;
 use typst_library::engine::Engine;
@@ -111,7 +114,7 @@ impl GlyphFragment {
         stretch: Stretch,
     ) -> Option<PlannedGlyph> {
         let features = features(styles);
-        let shape = |feats: &[rustybuzz::Feature]| {
+        let shape = |feats: &[harfrust::Feature]| {
             Self::base(world, styles, feats, text, class, math_size)
         };
 
@@ -143,7 +146,7 @@ impl GlyphFragment {
     fn base(
         world: Tracked<dyn World + '_>,
         styles: StyleChain,
-        features: &[rustybuzz::Feature],
+        features: &[harfrust::Feature],
         text: &str,
         class: MathClass,
         math_size: MathSize,
@@ -205,7 +208,7 @@ impl GlyphFragment {
     /// Sets element id and boxes in appropriate way without changing other
     /// styles. This is used to replace the glyph with a stretch variant.
     fn update_glyph(&mut self) {
-        let id = GlyphId(self.item.glyphs[0].id);
+        let id = self.item.glyphs[0].id;
 
         let extended_shape = is_extended_shape(&self.item.font, id);
         let italics = italics_correction(&self.item.font, id).unwrap_or_default();
@@ -273,29 +276,34 @@ impl GlyphFragment {
             return;
         }
 
-        let id = GlyphId(self.item.glyphs[0].id);
+        let id = self.item.glyphs[0].id;
         let font = self.item.font.clone();
         let Some(construction) = glyph_construction(&font, id, axis) else { return };
 
         // Search for a pre-made variant with a good advance.
         let mut best_id = id;
         let mut best_advance = advance;
-        for variant in construction.variants {
-            best_id = variant.variant_glyph;
-            best_advance =
-                self.item.font.to_em(variant.advance_measurement).at(self.item.size);
+        for variant in construction.math_glyph_variant_records() {
+            best_id = variant.variant_glyph().to_u32();
+            best_advance = self
+                .item
+                .font
+                .to_em(variant.advance_measurement().to_u16())
+                .at(self.item.size);
             if short_target <= best_advance {
                 break;
             }
         }
 
+        let assembly = construction.glyph_assembly().transpose().ok().flatten();
+
         // This is either good or the best we've got.
-        if short_target <= best_advance || construction.assembly.is_none() {
+        if short_target <= best_advance || assembly.is_none() {
             self.item.glyphs = vec![Glyph {
-                id: best_id.0,
-                x_advance: self.item.font.x_advance(best_id.0).unwrap_or_default(),
+                id: best_id,
+                x_advance: self.item.font.x_advance(best_id).unwrap_or_default(),
                 x_offset: Em::zero(),
-                y_advance: self.item.font.y_advance(best_id.0).unwrap_or_default(),
+                y_advance: self.item.font.y_advance(best_id).unwrap_or_default(),
                 y_offset: Em::zero(),
                 range: self.item.glyphs[0].range.clone(),
                 span: self.item.glyphs[0].span,
@@ -305,7 +313,7 @@ impl GlyphFragment {
         }
 
         // Assemble from parts.
-        let assembly = construction.assembly.unwrap();
+        let assembly = assembly.unwrap();
         let min_overlap = min_connector_overlap(&self.item.font)
             .unwrap_or_default()
             .at(self.item.size);
@@ -407,7 +415,7 @@ fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
         // Combining marks (e.g. accent glyphs) typically have zero advance in
         // `hmtx`, so the advance above is no good. We explicitly compute the
         // bounding box, just in case.
-        if let Some(bbox) = font.ttf().glyph_bounding_box(GlyphId(id)) {
+        if let Some(bbox) = font.bounding_box(id) {
             let extents = Axes::new(
                 font.to_em(bbox.x_max - bbox.x_min),
                 font.to_em(bbox.y_max - bbox.y_min),
@@ -461,109 +469,105 @@ fn resolve_stretch(
     Some((target, short_fall))
 }
 
-fn ascent_descent(font: &FontInstance, id: GlyphId) -> Option<(Em, Em)> {
-    let bbox = font.ttf().glyph_bounding_box(id)?;
+fn ascent_descent(font: &FontInstance, gid: impl Into<GlyphId>) -> Option<(Em, Em)> {
+    let bbox = font.bounding_box(gid)?;
     Some((font.to_em(bbox.y_max), -font.to_em(bbox.y_min)))
 }
 
 /// Look up the italics correction for a glyph.
-fn italics_correction(font: &FontInstance, id: GlyphId) -> Option<Em> {
-    font.ttf()
-        .tables()
-        .math?
-        .glyph_info?
-        .italic_corrections?
-        .get(id)
-        .map(|value| font.to_em(value.value))
+fn italics_correction(font: &FontInstance, gid: impl Into<GlyphId>) -> Option<Em> {
+    font.skrifa()
+        .math()
+        .and_then(|math| math.math_glyph_info())
+        .and_then(|info| info.math_italics_correction_info().transpose())
+        .ok()
+        .flatten()
+        .and_then(|table| table.correction(gid.into()))
+        .map(|value| font.to_em(value))
 }
 
 /// Loop up the top accent attachment position for a glyph.
-fn accent_attach(font: &FontInstance, id: GlyphId) -> Option<Em> {
-    font.ttf()
-        .tables()
-        .math?
-        .glyph_info?
-        .top_accent_attachments?
-        .get(id)
-        .map(|value| font.to_em(value.value))
+fn accent_attach(font: &FontInstance, gid: impl Into<GlyphId>) -> Option<Em> {
+    font.skrifa()
+        .math()
+        .and_then(|math| math.math_glyph_info())
+        .and_then(|info| info.math_top_accent_attachment().transpose())
+        .ok()
+        .flatten()
+        .and_then(|table| table.attachment(gid.into()))
+        .map(|value| font.to_em(value))
 }
 
 /// Look up whether a glyph is an extended shape.
-fn is_extended_shape(font: &FontInstance, id: GlyphId) -> bool {
-    font.ttf()
-        .tables()
-        .math
-        .and_then(|math| math.glyph_info)
-        .and_then(|glyph_info| glyph_info.extended_shapes)
-        .and_then(|coverage| coverage.get(id))
-        .is_some()
+fn is_extended_shape(font: &FontInstance, gid: impl Into<GlyphId>) -> bool {
+    font.skrifa()
+        .math()
+        .and_then(|math| math.math_glyph_info())
+        .ok()
+        .is_some_and(|info| info.is_extended_shape(gid.into()))
 }
 
 /// Look up a kerning value at a specific corner and height.
 pub(super) fn kern_at_height(
     font: &FontInstance,
-    id: GlyphId,
+    gid: impl Into<GlyphId>,
     corner: Corner,
     height: Em,
 ) -> Option<Em> {
-    let kerns = font.ttf().tables().math?.glyph_info?.kern_infos?.get(id)?;
-    let kern = match corner {
-        Corner::TopLeft => kerns.top_left,
-        Corner::TopRight => kerns.top_right,
-        Corner::BottomRight => kerns.bottom_right,
-        Corner::BottomLeft => kerns.bottom_left,
-    }?;
+    let kern = font
+        .skrifa()
+        .math()
+        .and_then(|math| math.math_glyph_info())
+        .and_then(|info| info.math_kern_info().transpose())
+        .ok()
+        .flatten()
+        .and_then(|table| table.kern(gid.into(), corner.into()))?;
 
-    let mut i = 0;
-    while i < kern.count() && height >= font.to_em(kern.height(i)?.value) {
+    let mut i: usize = 0;
+    while i < kern.height_count() as usize
+        && height >= font.to_em(kern.correction_height().get(i)?.value().to_i16())
+    {
         i += 1;
     }
 
-    Some(font.to_em(kern.kern(i)?.value))
+    Some(font.to_em(kern.kern_values().get(i)?.value().to_i16()))
 }
 
-fn stretch_axes(font: &FontInstance, id: u16) -> Axes<bool> {
-    let id = GlyphId(id);
+fn stretch_axes(font: &FontInstance, gid: impl Into<GlyphId>) -> Axes<bool> {
+    let gid = gid.into();
     let horizontal = font
-        .ttf()
-        .tables()
-        .math
-        .and_then(|math| math.variants)
-        .and_then(|variants| variants.horizontal_constructions.get(id))
+        .skrifa()
+        .math()
+        .and_then(|math| math.math_variants())
+        .ok()
+        .and_then(|table| table.glyph_construction(gid, StretchAxis::Horizontal))
         .is_some();
     let vertical = font
-        .ttf()
-        .tables()
-        .math
-        .and_then(|math| math.variants)
-        .and_then(|variants| variants.vertical_constructions.get(id))
+        .skrifa()
+        .math()
+        .and_then(|math| math.math_variants())
+        .ok()
+        .and_then(|table| table.glyph_construction(gid, StretchAxis::Vertical))
         .is_some();
 
     Axes::new(horizontal, vertical)
 }
 
 fn min_connector_overlap(font: &FontInstance) -> Option<Em> {
-    font.ttf()
-        .tables()
-        .math?
-        .variants
-        .map(|variants| font.to_em(variants.min_connector_overlap))
+    font.skrifa()
+        .math()
+        .and_then(|math| math.math_variants())
+        .ok()
+        .map(|value| font.to_em(value.min_connector_overlap().to_u16()))
 }
 
 fn glyph_construction(
     font: &FontInstance,
-    id: GlyphId,
+    gid: impl Into<GlyphId>,
     axis: Axis,
-) -> Option<GlyphConstruction<'_>> {
-    font.ttf()
-        .tables()
-        .math?
-        .variants
-        .map(|variants| match axis {
-            Axis::X => variants.horizontal_constructions,
-            Axis::Y => variants.vertical_constructions,
-        })?
-        .get(id)
+) -> Option<MathGlyphConstruction<'_>> {
+    let table = font.skrifa().math().and_then(|math| math.math_variants()).ok()?;
+    table.glyph_construction(gid.into(), axis.into())
 }
 
 /// Assemble a glyph from parts.
@@ -585,16 +589,21 @@ fn assemble(
         full = Abs::zero();
         ratio = 0.0;
 
-        let mut parts = parts(assembly, repeat).peekable();
+        let mut parts = parts(&assembly, repeat).peekable();
         let mut growable = Abs::zero();
 
         while let Some(part) = parts.next() {
-            let mut advance = base.item.font.to_em(part.full_advance).at(base.item.size);
+            let mut advance =
+                base.item.font.to_em(part.full_advance().to_u16()).at(base.item.size);
             if let Some(next) = parts.peek() {
                 let max_overlap = base
                     .item
                     .font
-                    .to_em(part.end_connector_length.min(next.start_connector_length))
+                    .to_em(
+                        part.end_connector_length()
+                            .to_u16()
+                            .min(next.start_connector_length().to_u16()),
+                    )
                     .at(base.item.size);
                 if max_overlap < min_overlap {
                     // This condition happening is indicative of a bug in the
@@ -630,14 +639,19 @@ fn assemble(
     }
 
     let mut glyphs = vec![];
-    let mut parts = parts(assembly, repeat).peekable();
+    let mut parts = parts(&assembly, repeat).peekable();
     while let Some(part) = parts.next() {
-        let mut advance = base.item.font.to_em(part.full_advance).at(base.item.size);
+        let mut advance =
+            base.item.font.to_em(part.full_advance().to_u16()).at(base.item.size);
         if let Some(next) = parts.peek() {
             let max_overlap = base
                 .item
                 .font
-                .to_em(part.end_connector_length.min(next.start_connector_length))
+                .to_em(
+                    part.end_connector_length()
+                        .to_u16()
+                        .min(next.start_connector_length().to_u16()),
+                )
                 .at(base.item.size);
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
@@ -657,13 +671,13 @@ fn assemble(
                 // a glyph extends below the baseline and then we must move it
                 // up for it to align properly. `y_advance` is Y-up, so that
                 // matches up.)
-                ascent_descent(&base.item.font, part.glyph_id)
+                ascent_descent(&base.item.font, part.glyph_id())
                     .map(|x| x.1)
                     .unwrap_or_default(),
             ),
         };
         glyphs.push(Glyph {
-            id: part.glyph_id.0,
+            id: part.glyph_id().to_u32(),
             x_advance,
             x_offset: Em::zero(),
             y_advance,
@@ -678,7 +692,7 @@ fn assemble(
             base.size.x = full;
             let (ascent, descent) = glyphs
                 .iter()
-                .filter_map(|glyph| ascent_descent(&base.item.font, GlyphId(glyph.id)))
+                .filter_map(|glyph| ascent_descent(&base.item.font, glyph.id))
                 .reduce(|(ma, md), (a, d)| (ma.max(a), md.max(d)))
                 .unwrap_or((Em::zero(), Em::zero()));
             base.baseline = Some(ascent.at(base.item.size));
@@ -700,7 +714,7 @@ fn assemble(
     base.italics_correction = base
         .item
         .font
-        .to_em(assembly.italics_correction.value)
+        .to_em(assembly.italics_correction().value().to_i16())
         .at(base.item.size);
     if axis == Axis::X {
         base.accent_attach = (full / 2.0, full / 2.0);
@@ -710,12 +724,13 @@ fn assemble(
 
 /// Return an iterator over the assembly's parts with extenders repeated the
 /// specified number of times.
-fn parts(
-    assembly: GlyphAssembly<'_>,
+fn parts<'a>(
+    assembly: &'a GlyphAssembly<'a>,
     repeat: usize,
-) -> impl Iterator<Item = GlyphPart> + '_ {
-    assembly.parts.into_iter().flat_map(move |part| {
-        let count = if part.part_flags.extender() { repeat } else { 1 };
+) -> impl Iterator<Item = &'a GlyphPartRecord> + 'a {
+    assembly.part_records().iter().flat_map(move |part| {
+        let count =
+            if part.part_flags().contains(PartFlags::EXTENDER_FLAG) { repeat } else { 1 };
         std::iter::repeat_n(part, count)
     })
 }

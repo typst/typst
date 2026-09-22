@@ -50,7 +50,7 @@ impl SvgPathBuilder {
     }
 
     /// Finish building the path.
-    pub fn finsish(self) -> EcoString {
+    pub fn finish(self) -> EcoString {
         self.path
     }
 
@@ -173,7 +173,7 @@ mod outline {
     use crate::path::SvgPathBuilder;
 
     /// A builder for SVG path. This is used to build the path for a glyph.
-    impl ttf_parser::OutlineBuilder for SvgPathBuilder {
+    impl skrifa::outline::OutlinePen for SvgPathBuilder {
         fn move_to(&mut self, x: f32, y: f32) {
             self.move_to(point(x, y));
         }

@@ -808,9 +808,17 @@ dependencies = [
 
 [[package]]
 name = "font-types"
-version = "0.12.2"
+version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a7299a780854a6d391be2ae1c8521c9368471b559dbfd6a8dbd9f407eaff100"
+checksum = "b8eb065f3251655b3c90e22e5e363f310fc5332fb3402e37bbc94752283248f6"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
+name = "font-types"
+version = "0.12.5"
+source = "git+https://github.com/googlefonts/fontations?rev=9a4f247#9a4f2478cac890ea57152e7694165f7489ca0934"
 dependencies = [
  "bytemuck",
 ]
@@ -966,6 +974,18 @@ dependencies = [
  "bitflags 2.11.1",
  "bytemuck",
  "read-fonts 0.41.0",
+ "smallvec",
+]
+
+[[package]]
+name = "harfrust"
+version = "0.13.3"
+source = "git+https://github.com/mkorje/harfrust?rev=ed76a8b#ed76a8b277a477dde7c356cdffe83a47e3323cd0"
+dependencies = [
+ "bitflags 2.11.1",
+ "bytemuck",
+ "once_cell",
+ "read-fonts 0.44.0",
  "smallvec",
 ]
 
@@ -1536,7 +1556,7 @@ dependencies = [
  "flate2",
  "float-cmp",
  "gif",
- "harfrust",
+ "harfrust 0.12.0",
  "hayro-write",
  "image-webp",
  "imagesize",
@@ -2139,10 +2159,9 @@ checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
 [[package]]
 name = "pixglyph"
 version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47945e80a49d08350e4a007ac4294c6498d23956c18ea5e6ff480dc93d31643c"
+source = "git+https://github.com/mkorje/pixglyph?rev=43aad7d#43aad7d36aac15b19034b9c8a95244d9749e175b"
 dependencies = [
- "ttf-parser",
+ "skrifa 0.47.0",
 ]
 
 [[package]]
@@ -2359,8 +2378,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "046a7d674daf459825b32f5062056d6882db0d2f5a479fbd76ccfc870ac18709"
 dependencies = [
  "bytemuck",
- "font-types 0.12.2",
+ "font-types 0.12.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "once_cell",
+]
+
+[[package]]
+name = "read-fonts"
+version = "0.44.0"
+source = "git+https://github.com/googlefonts/fontations?rev=9a4f247#9a4f2478cac890ea57152e7694165f7489ca0934"
+dependencies = [
+ "bytemuck",
+ "font-types 0.12.5 (git+https://github.com/googlefonts/fontations?rev=9a4f247)",
+ "once_cell",
+ "yoke",
 ]
 
 [[package]]
@@ -2746,6 +2776,15 @@ checksum = "819ab7d62b1d3e72d9d9dea5650bac30424f9111364bb94928dbf5ecad1baa68"
 dependencies = [
  "bytemuck",
  "read-fonts 0.41.0",
+]
+
+[[package]]
+name = "skrifa"
+version = "0.47.0"
+source = "git+https://github.com/googlefonts/fontations?rev=9a4f247#9a4f2478cac890ea57152e7694165f7489ca0934"
+dependencies = [
+ "bytemuck",
+ "read-fonts 0.44.0",
 ]
 
 [[package]]
@@ -3415,6 +3454,7 @@ dependencies = [
  "comemo",
  "ecow",
  "either",
+ "harfrust 0.13.3",
  "hypher",
  "icu_properties",
  "icu_provider",
@@ -3424,9 +3464,8 @@ dependencies = [
  "libm",
  "memchr",
  "rustc-hash",
- "rustybuzz",
+ "skrifa 0.47.0",
  "smallvec",
- "ttf-parser",
  "typst-assets",
  "typst-library",
  "typst-macros",
@@ -3456,6 +3495,7 @@ dependencies = [
  "flate2",
  "fontdb",
  "glidesort",
+ "harfrust 0.13.3",
  "hayagriva",
  "hayro-syntax",
  "icu_collator",
@@ -3478,16 +3518,15 @@ dependencies = [
  "roxmltree 0.21.1",
  "rust_decimal",
  "rustc-hash",
- "rustybuzz",
  "serde",
  "serde_json",
  "serde_yaml",
  "siphasher",
+ "skrifa 0.47.0",
  "smallvec",
  "syntect",
  "time",
  "toml",
- "ttf-parser",
  "two-face",
  "typed-arena",
  "typst-assets",
@@ -3572,8 +3611,8 @@ dependencies = [
  "libm",
  "pixglyph",
  "resvg",
+ "skrifa 0.47.0",
  "tiny-skia",
- "ttf-parser",
  "typst-assets",
  "typst-layout",
  "typst-library",
@@ -3598,7 +3637,7 @@ dependencies = [
  "itoa",
  "rustc-hash",
  "ryu",
- "ttf-parser",
+ "skrifa 0.47.0",
  "typst-assets",
  "typst-layout",
  "typst-library",

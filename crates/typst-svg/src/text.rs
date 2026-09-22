@@ -1,5 +1,5 @@
 use ecow::EcoString;
-use ttf_parser::GlyphId;
+use skrifa::GlyphId;
 use typst_library::layout::{Abs, Ratio, Size, Transform};
 use typst_library::text::TextItem;
 use typst_library::text::color::{
@@ -41,11 +41,10 @@ impl SVGRenderer<'_> {
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
         for glyph in &text.glyphs {
-            let id = GlyphId(glyph.id);
             let x_offset = x + glyph.x_offset.at(text.size);
             let y_offset = y + glyph.y_offset.at(text.size);
 
-            self.render_glyph(svg, &state, text, id, x_offset, y_offset);
+            self.render_glyph(svg, &state, text, glyph.id.into(), x_offset, y_offset);
 
             x += glyph.x_advance.at(text.size);
             y += glyph.y_advance.at(text.size);
@@ -68,8 +67,8 @@ impl SVGRenderer<'_> {
             let key = (&text.font, glyph_id, scale);
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
-                text.font.ttf().outline_glyph(glyph_id, &mut builder)?;
-                Some(RenderedGlyph::Path(builder.finsish()))
+                text.font.outline_glyph(glyph_id, &mut builder)?;
+                Some(RenderedGlyph::Path(builder.finish()))
             });
 
             if path.is_some() {
@@ -83,7 +82,7 @@ impl SVGRenderer<'_> {
             // per text size is a bit of a waste.
             let key = (&text.font, glyph_id);
             let (id, frame) = self.glyphs.insert_with_val(key, || {
-                let frame = glyph_frame(&text.font, glyph_id.0)?;
+                let frame = glyph_frame(&text.font, glyph_id)?;
                 Some(RenderedGlyph::Frame(frame))
             });
 
@@ -128,15 +127,15 @@ impl SVGRenderer<'_> {
         // strokes and fills with gradients and tilings.
         let state = state.pre_concat(Transform::translate(x_offset, y_offset));
 
-        let Some(glyph_size) = text.font.ttf().glyph_bounding_box(glyph_id) else {
+        let Some(glyph_size) = text.font.bounding_box(glyph_id) else {
             // This shouldn't happen, because the glyph has been successfully
             // outlined to create the path.
             return;
         };
 
         let aspect_ratio = Size::new(
-            Abs::pt(glyph_size.width() as f64),
-            Abs::pt(glyph_size.height() as f64),
+            Abs::pt((glyph_size.x_max - glyph_size.x_min) as f64),
+            Abs::pt((glyph_size.y_max - glyph_size.y_min) as f64),
         )
         .aspect_ratio();
 

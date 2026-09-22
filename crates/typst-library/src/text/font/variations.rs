@@ -50,6 +50,17 @@ impl FontAxis {
     }
 }
 
+impl From<skrifa::Axis> for FontAxis {
+    fn from(axis: skrifa::Axis) -> Self {
+        Self {
+            tag: Tag::from_bytes(&axis.tag().to_be_bytes()),
+            min: AxisValue(axis.min_value()),
+            max: AxisValue(axis.max_value()),
+            default: AxisValue(axis.default_value()),
+        }
+    }
+}
+
 /// A value for an OpenType font variation.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]

@@ -28,7 +28,7 @@ const LINE_SEPARATOR: char = '\u{2028}'; // We use LS to distinguish justified b
 /// At most two inline items must be created individually for this line: The
 /// first and last one since they may be broken apart by the start or end of the
 /// line, respectively. But even those can partially reuse previous results when
-/// the break index is safe-to-break per rustybuzz.
+/// the break index is safe-to-break per harfrust.
 pub struct Line<'a> {
     /// The items the line is made of.
     pub items: Items<'a>,
@@ -686,11 +686,11 @@ fn overhang(glyph: &ShapedGlyph) -> Abs {
 /// Generates a sorted table with overhang ratios indexed by glyph ID for a
 /// particular font.
 #[comemo::memoize]
-fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
+fn font_overhang_table(font: &FontInstance) -> EcoVec<(u32, f64)> {
     let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
     for &(c, factor) in DEFAULT_OVERHANG_TABLE {
-        if let Some(id) = font.ttf().glyph_index(c) {
-            table.push((id.0, factor));
+        if let Some(id) = font.glyph_index(c) {
+            table.push((id.to_u32(), factor));
         }
     }
     table.make_mut().sort_unstable_by_key(|(id, _)| *id);
