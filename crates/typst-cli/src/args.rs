@@ -545,8 +545,9 @@ pub struct FontArgs {
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
         value_delimiter = ENV_PATH_SEP,
+        value_parser = font_path_value_parser(),
     )]
-    pub font_paths: Vec<PathBuf>,
+    pub font_paths: Vec<Option<PathBuf>>,
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
@@ -874,6 +875,13 @@ fn output_value_parser() -> impl TypedValueParser<Value = Output> {
             Ok(Output::Path(value.into()))
         }
     })
+}
+
+/// Allows empty paths (so that `--font-path ""` works) and turns them into
+/// `None`. There is no simple way to filter these out in the arg parsing layer,
+/// so we do so later.
+fn font_path_value_parser() -> impl TypedValueParser<Value = Option<PathBuf>> {
+    clap::builder::OsStringValueParser::new().map(|s| (!s.is_empty()).then(|| s.into()))
 }
 
 /// Parses key/value pairs split by the first equal sign.

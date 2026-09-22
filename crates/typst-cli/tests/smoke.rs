@@ -126,6 +126,38 @@ fn test_fonts_embedded() {
 }
 
 #[test]
+fn test_fonts_empty_path() {
+    let fonts = tempfs();
+    let data = typst_dev_assets::fonts().next().unwrap();
+    let family = typst::text::Font::new(Bytes::new(data), 0)
+        .unwrap()
+        .info()
+        .family
+        .clone();
+    fonts.write("test.ttf", data);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .must_succeed();
+    output.stdout.must_match_lines([family.as_str()]);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg("")
+        .must_succeed();
+    output.stdout.must_match_lines([]);
+}
+
+#[test]
 fn test_fonts_path() {
     let fonts = tempfs();
     let mut expected = HashSet::new();
