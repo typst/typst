@@ -671,6 +671,20 @@ impl HintedString {
         self.0.extend(hints);
         self
     }
+
+    /// Convert this hinted string into a spanned error.
+    pub fn into_error_at(self, span: Span) -> SourceDiagnostic {
+        let mut components = self.0.into_iter();
+        let message = components.next().unwrap();
+        SourceDiagnostic::error(span, message).with_hints(components)
+    }
+
+    /// Convert this hinted string into a spanned warning.
+    pub fn into_warning_at(self, span: Span) -> SourceDiagnostic {
+        let mut components = self.0.into_iter();
+        let message = components.next().unwrap();
+        SourceDiagnostic::warning(span, message).with_hints(components)
+    }
 }
 
 impl<S> From<S> for HintedString
@@ -684,12 +698,7 @@ where
 
 impl<T> At<T> for HintedStrResult<T> {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|err| {
-            let mut components = err.0.into_iter();
-            let message = components.next().unwrap();
-            let diag = SourceDiagnostic::error(span, message).with_hints(components);
-            eco_vec![diag]
-        })
+        self.map_err(|err| eco_vec![err.into_error_at(span)])
     }
 }
 

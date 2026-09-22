@@ -7,7 +7,7 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, HintedString, SourceDiagnostic, WarningSink, error};
+use crate::diag::{HintedStrResult, HintedString, WarningSink, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
@@ -739,10 +739,7 @@ pub struct NormalBindingGuard<'x, 'y> {
 
 impl WarningSink for NormalBindingGuard<'_, '_> {
     fn emit(&mut self, message: HintedString) {
-        self.engine.sink.warn(
-            SourceDiagnostic::warning(self.span, message.message())
-                .with_hints(message.hints().iter().cloned()),
-        );
+        self.engine.sink.warn(message.into_warning_at(self.span));
     }
 }
 

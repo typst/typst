@@ -20,8 +20,7 @@ use typst_syntax::{Spanned, VirtualPath};
 use typst_utils::{LazyHash, NonZeroExt};
 
 use crate::diag::{
-    At, LoadError, LoadedWithin, SourceDiagnostic, SourceResult, StrResult, Warned, bail,
-    warning,
+    At, LoadError, LoadedWithin, SourceResult, StrResult, Warned, bail, warning,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -275,10 +274,7 @@ impl Packed<ImageElem> {
                 )
                 .within(loaded)?;
                 for warning in warnings {
-                    engine.sink.warn(
-                        SourceDiagnostic::warning(span, warning.message())
-                            .with_hints(warning.hints().iter().cloned()),
-                    );
+                    engine.sink.warn(warning.into_warning_at(span));
                 }
 
                 ImageKind::Svg(output)
