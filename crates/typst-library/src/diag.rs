@@ -166,6 +166,19 @@ macro_rules! __error {
 #[clippy::format_args]
 // See the comment below for why this is `__warning` and not `warning`.
 macro_rules! __warning {
+    // For `warning!("a hinted {}", "string"; hint: "some hint"; hint: "...")`
+    (
+        $fmt:literal $(, $arg:expr)* $(,)?
+        $(; hint: $hint:literal $(, $hint_arg:expr)*)*
+        $(;)?
+    ) => {
+        $crate::diag::HintedString::new(
+            $crate::diag::eco_format!($fmt $(, $arg)*)
+        ) $(.with_hint($crate::diag::eco_format!($hint $(, $hint_arg)*)))*
+    };
+
+    // For `warning!(span, ...)`
+    // Hints may include a span inside brackets: `hint[span_expr]: "msg"`.
     (
         $span:expr, $fmt:literal $(, $arg:expr)* $(,)?
         $(; hint $([$hint_span:expr])? : $hint:literal $(, $hint_arg:expr)*)*
@@ -349,11 +362,11 @@ where
 
 /// An output alongside warnings generated while producing it.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Warned<T> {
+pub struct Warned<T, W = SourceDiagnostic> {
     /// The produced output.
     pub output: T,
     /// Warnings generated while producing the output.
-    pub warnings: EcoVec<SourceDiagnostic>,
+    pub warnings: EcoVec<W>,
 }
 
 impl<T, E> Warned<Result<T, E>> {

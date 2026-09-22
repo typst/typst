@@ -5,11 +5,11 @@ use comemo::Tracked;
 use ecow::eco_format;
 use rustc_hash::FxHashMap;
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst_syntax::{FileId, Span};
+use typst_syntax::FileId;
 
 use crate::World;
 use crate::diag::{
-    FileError, LoadError, LoadResult, ReportTextPos, SourceDiagnostic, StrResult, Warned,
+    FileError, HintedString, LoadError, LoadResult, ReportTextPos, StrResult, Warned,
     bail, format_xml_like_error, warning,
 };
 use crate::foundations::{Bytes, PathOrStr};
@@ -59,7 +59,7 @@ impl SvgImage {
         world: Tracked<dyn World + '_>,
         families: &[&str],
         svg_file: Option<FileId>,
-    ) -> LoadResult<Warned<SvgImage>> {
+    ) -> LoadResult<Warned<SvgImage, HintedString>> {
         let book = world.book();
         let font_resolver = Mutex::new(FontResolver::new(world, book, families));
         let image_resolver = Mutex::new(ImageResolver::new(world, svg_file));
@@ -229,9 +229,7 @@ fn format_usvg_error(error: usvg::Error) -> LoadError {
 ///
 /// The returned warning has a detached span; the caller is expected to attach
 /// the span of the image element.
-fn svg_foreign_object_warning(
-    document: &roxmltree::Document,
-) -> Option<SourceDiagnostic> {
+fn svg_foreign_object_warning(document: &roxmltree::Document) -> Option<HintedString> {
     let has_uncovered = document
         .root()
         .descendants()
@@ -240,7 +238,6 @@ fn svg_foreign_object_warning(
 
     has_uncovered.then(|| {
         warning!(
-            Span::detached(),
             "image contains foreign object";
             hint: "its content will be omitted because Typst cannot render embedded HTML";
             hint: "see https://github.com/typst/typst/issues/1421 for more information";
