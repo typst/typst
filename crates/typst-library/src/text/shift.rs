@@ -1,4 +1,4 @@
-use ttf_parser::Tag;
+use skrifa::Tag;
 
 use crate::foundations::{Content, Smart, elem};
 use crate::layout::{Em, Length};
@@ -198,8 +198,8 @@ impl ScriptKind {
     /// The corresponding OpenType feature.
     pub const fn feature(self) -> Tag {
         match self {
-            Self::Sub => Tag::from_bytes(b"subs"),
-            Self::Super => Tag::from_bytes(b"sups"),
+            Self::Sub => Tag::new(b"subs"),
+            Self::Super => Tag::new(b"sups"),
         }
     }
 }

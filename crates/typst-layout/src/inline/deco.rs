@@ -1,5 +1,4 @@
 use kurbo::{BezPath, Line, ParamCurve};
-use ttf_parser::{GlyphId, OutlineBuilder};
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
     BottomEdge, DecoLine, Decoration, TextEdgeBounds, TextItem, TopEdge,
@@ -93,7 +92,8 @@ pub fn decorate(
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
-        let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+        text.font.outline_glyph(glyph.id, &mut builder);
+        let bbox = builder.bounding_box();
         let path = builder.finish();
 
         x += glyph.x_advance.at(text.size);
@@ -164,6 +164,7 @@ struct BezPathBuilder {
     units_per_em: f64,
     font_size: Abs,
     x_offset: f64,
+    bounds: skrifa::outline::pen::ControlBoundsPen,
 }
 
 impl BezPathBuilder {
@@ -173,6 +174,7 @@ impl BezPathBuilder {
             units_per_em,
             font_size,
             x_offset,
+            bounds: skrifa::outline::pen::ControlBoundsPen::new(),
         }
     }
 
@@ -187,26 +189,35 @@ impl BezPathBuilder {
     fn s(&self, v: f32) -> f64 {
         Em::from_units(v, self.units_per_em).at(self.font_size).to_raw()
     }
+
+    fn bounding_box(&self) -> Option<skrifa::metrics::BoundingBox> {
+        self.bounds.bounding_box()
+    }
 }
 
-impl OutlineBuilder for BezPathBuilder {
+impl skrifa::outline::OutlinePen for BezPathBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         self.path.move_to(self.p(x, y));
+        self.bounds.move_to(x, y);
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
         self.path.line_to(self.p(x, y));
+        self.bounds.line_to(x, y);
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         self.path.quad_to(self.p(x1, y1), self.p(x, y));
+        self.bounds.quad_to(x1, y1, x, y);
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         self.path.curve_to(self.p(x1, y1), self.p(x2, y2), self.p(x, y));
+        self.bounds.curve_to(x1, y1, x2, y2, x, y);
     }
 
     fn close(&mut self) {
         self.path.close_path();
+        self.bounds.close();
     }
 }

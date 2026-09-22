@@ -152,6 +152,12 @@ impl Display for FontWeight {
     }
 }
 
+impl From<skrifa::attribute::Weight> for FontWeight {
+    fn from(weight: skrifa::attribute::Weight) -> Self {
+        Self::from_number(weight.value() as u16)
+    }
+}
+
 impl From<fontdb::Weight> for FontWeight {
     fn from(weight: fontdb::Weight) -> Self {
         Self::from_number(weight.0)
@@ -306,6 +312,12 @@ impl Display for FontStretch {
         } else {
             write!(f, "{int_part}.{dec_part}%")
         }
+    }
+}
+
+impl From<skrifa::attribute::Stretch> for FontStretch {
+    fn from(stretch: skrifa::attribute::Stretch) -> Self {
+        Self::from_ratio(Ratio::new(stretch.ratio() as f64))
     }
 }
 

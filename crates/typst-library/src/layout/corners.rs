@@ -313,3 +313,14 @@ impl Corner {
         }
     }
 }
+
+impl From<Corner> for skrifa::raw::tables::math::MathKernCorner {
+    fn from(value: Corner) -> Self {
+        match value {
+            Corner::TopLeft => Self::TopLeft,
+            Corner::TopRight => Self::TopRight,
+            Corner::BottomRight => Self::BottomRight,
+            Corner::BottomLeft => Self::BottomLeft,
+        }
+    }
+}
