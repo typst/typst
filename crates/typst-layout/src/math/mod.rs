@@ -644,7 +644,7 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
             "the current math font is {}, but it is not designed for math",
             font.info().family;
             hint: "to avoid poor rendering, use an OpenType math font instead";
-            hint: "to use it only for specific characters, specify the covers"
+            hint: "to use it only for specific characters, specify the covers";
         ));
     }
 }

@@ -12,9 +12,9 @@ This section documents all changes to the Typst language and compiler between Ty
 = Highlights <highlights>
 - Typst now supports @text.variations[variable fonts]
 - HTML export now supports equations out of the box via MathML
-- With the new, experimental @reference:bundle[_bundle_] export target, a single Typst project can output multiple files (e.g. a multi-page website)
+- With the new, experimental @format.bundle[_bundle_] export target, a single Typst project can output multiple files (e.g. a multi-page website)
 - A single document can now contain multiple @bibliography.target[bibliographies]
-- Typst can now target multiple @pdf:pdf-standards[PDF standards] at once
+- Typst can now target multiple @pdf.standard[PDF standards] at once
 - The new @selector.within[`within`] selector simplifies many introspection use cases
 - The new @divider element represents a thematic break that templates can style
 - @color.spot[Spot colors] enable use of custom pigments in offset printing
@@ -196,9 +196,9 @@ This section documents all changes to the Typst language and compiler between Ty
 = Export <export>
 
 == Bundle <bundle-export>
-- Added new, experimental @reference:bundle[_bundle_ export target] #pr(7964)
+- Added new, experimental @format.bundle[_bundle_ export target] #pr(7964)
   - With bundle export, you can emit multiple output files from a single Typst project
-  - Bundles can contain any combination of @html[HTML pages], @pdf[PDFs], @reference:png[PNGs], @reference:svg[SVGs], and arbitrary @asset[assets]
+  - Bundles can contain any combination of @html[HTML pages], @pdf[PDFs], @format.png[PNGs], @format.svg[SVGs], and arbitrary @asset[assets]
 
 == HTML <html-export>
 - Mathematical equations are now automatically exported to MathML _(thanks to #gh("mkorje"))_ #pr(7436)
@@ -384,7 +384,7 @@ $ R != cal(R) $
 ```
 
 == #short-or-long[HTML paragraphs][Paragraphs, boxes, and blocks in HTML] <html-paragraphs>
-Typst automatically @par:what-becomes-a-paragraph[collects inline-level content into paragraphs]. In Typst 0.14 and below, the exact same rules were used to collect inline-level HTML elements (e.g. a `<span>`) into Typst paragraphs, which in turn result in `<p>` elements. This had the unfortunate effect that even use of the low-level @html:typed[typed HTML API] could result in `<p>` elements appearing automatically. Consider the example below:
+Typst automatically @par:what-becomes-a-paragraph[collects inline-level content into paragraphs]. In Typst 0.14 and below, the exact same rules were used to collect inline-level HTML elements (e.g. a `<span>`) into Typst paragraphs, which in turn result in `<p>` elements. This had the unfortunate effect that even use of the low-level @html[typed HTML API] could result in `<p>` elements appearing automatically. Consider the example below:
 
 ```typ
 #html.div({

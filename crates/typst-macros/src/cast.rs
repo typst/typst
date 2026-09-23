@@ -32,7 +32,7 @@ pub fn derive_cast(item: DeriveInput) -> Result<TokenStream> {
         variants.push(Variant {
             ident: variant.ident.clone(),
             string,
-            docs: documentation(&variant.attrs),
+            docs: documentation(&variant.attrs)?,
         });
     }
 
@@ -72,7 +72,7 @@ pub fn cast(stream: TokenStream) -> Result<TokenStream> {
     let input: CastInput = syn::parse2(stream)?;
     let ty = &input.ty;
     let castable_body = create_castable_body(&input);
-    let input_body = create_input_body(&input);
+    let input_body = create_input_body(&input)?;
     let output_body = create_output_body(&input);
     let into_value_body = create_into_value_body(&input);
     let from_value_body = create_from_value_body(&input);
@@ -239,11 +239,11 @@ fn create_castable_body(input: &CastInput) -> TokenStream {
     }
 }
 
-fn create_input_body(input: &CastInput) -> TokenStream {
+fn create_input_body(input: &CastInput) -> Result<TokenStream> {
     let mut infos = vec![];
 
     for cast in &input.from_value {
-        let docs = documentation(&cast.attrs);
+        let docs = documentation(&cast.attrs)?;
         infos.push(match &cast.pattern {
             Pattern::Str(lit) => {
                 quote! {
@@ -265,9 +265,9 @@ fn create_input_body(input: &CastInput) -> TokenStream {
         });
     }
 
-    quote! {
+    Ok(quote! {
         #(#infos)+*
-    }
+    })
 }
 
 fn create_output_body(input: &CastInput) -> TokenStream {

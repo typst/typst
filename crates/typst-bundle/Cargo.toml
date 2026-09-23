@@ -19,7 +19,7 @@ typst-library = { workspace = true }
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 typst-pdf = { workspace = true }
 typst-svg = { workspace = true }
 typst-render = { workspace = true }

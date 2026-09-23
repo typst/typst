@@ -42,6 +42,54 @@ fn test_compile_pdf_version() {
 }
 
 #[test]
+fn test_compile_pdf_tagged_and_pages() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged")
+        .arg("--pages=1")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot enable PDF tags when exporting a page range");
+}
+
+#[test]
+fn test_compile_pages_warning_untagged() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--pages=1").arg(&hello).must_succeed();
+    output
+        .stderr
+        .must_contain("using `--pages` implies `--pdf-tagged=false`");
+}
+
+#[test]
+fn test_compile_pdf_untagged_and_accessible_standard() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged=false")
+        .arg("--pdf-standard=a-3a")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot disable PDF tags when exporting a PDF/A-3a document");
+}
+
+#[test]
+fn test_compile_no_pdf_tags_deprecated() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--no-pdf-tags").arg(&hello).must_succeed();
+    output.stderr.must_contain("`--no-pdf-tags` is deprecated");
+}
+
+#[test]
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);
@@ -75,6 +123,38 @@ fn test_fonts_embedded() {
         "New Computer Modern",
         "New Computer Modern Math",
     ]);
+}
+
+#[test]
+fn test_fonts_empty_path() {
+    let fonts = tempfs();
+    let data = typst_dev_assets::fonts().next().unwrap();
+    let family = typst::text::Font::new(Bytes::new(data), 0)
+        .unwrap()
+        .info()
+        .family
+        .clone();
+    fonts.write("test.ttf", data);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .must_succeed();
+    output.stdout.must_match_lines([family.as_str()]);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg("")
+        .must_succeed();
+    output.stdout.must_match_lines([]);
 }
 
 #[test]

@@ -161,7 +161,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         Some(|base| base.trim_end_matches("Elem")),
     )?;
 
-    let docs = documentation(&body.attrs);
+    let docs = documentation(&body.attrs)?;
 
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
@@ -217,7 +217,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         vis: field.vis.clone(),
         ty: field.ty.clone(),
         name: ident.to_string().to_kebab_case(),
-        docs: documentation(&attrs),
+        docs: documentation(&attrs)?,
         positional,
         required,
         variadic,

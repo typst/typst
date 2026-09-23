@@ -4,11 +4,11 @@ use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{Artifact, ArtifactType, ContentTag, SpanTag};
 use typst_layout::PagedDocument;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::SourceResult;
+use typst_library::format::Complete;
 use typst_library::layout::{FrameParent, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
-use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
@@ -25,12 +25,11 @@ mod resolve;
 mod tree;
 mod util;
 
-pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags> {
-    let tree = if options.tagged {
-        if options.page_ranges.is_some() {
-            bail!(Span::detached(), "cannot enable tagged PDF and export a page range");
-        }
-
+pub fn init(
+    document: &PagedDocument,
+    options: &PdfOptions<Complete>,
+) -> SourceResult<Tags> {
+    let tree = if options.tagged() {
         tree::build(document, options)?
     } else {
         Tree::empty(document, options)
@@ -118,9 +117,7 @@ pub fn tiling<T>(
             tiling_size.y.to_pt() as f32,
         );
         surface.start_tagged(ContentTag::Artifact(Artifact::new(
-            if gc.options.standards.config.version() == PdfVersion::Pdf17
-                && bbox.is_none()
-            {
+            if gc.options.version() == PdfVersion::Pdf17 && bbox.is_none() {
                 // PDF 1.7 cannot tolerate empty bounding boxes for background
                 // artifacts.
                 ArtifactType::Other
@@ -142,10 +139,10 @@ pub fn tiling<T>(
 }
 
 /// Whether tag generation is currently disabled. Either because it has been
-/// disabled by the user using the [`PdfOptions::tagged`] flag, or we're inside
-/// a tiling.
+/// disabled by the user using the [`crate::PdfFormatOptions::tagged`] flag, or
+/// we're inside a tiling.
 pub fn disabled(gc: &GlobalContext) -> bool {
-    !gc.options.tagged || gc.tags.in_tiling
+    !gc.options.tagged() || gc.tags.in_tiling
 }
 
 /// Add all annotations that were found in the page frame.
@@ -269,7 +266,7 @@ pub fn shape<'a, 'b>(
     }
 
     surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
-        if gc.options.standards.config.version() == PdfVersion::Pdf17
+        if gc.options.version() == PdfVersion::Pdf17
             && artifact_type == ArtifactType::Background
         {
             ArtifactType::Other
@@ -287,36 +284,8 @@ fn update_bbox(
     compute_bbox: impl FnOnce() -> Rect,
 ) {
     if let Some(bbox) = gc.tags.tree.parent_bbox()
-        && gc.options.standards.config.validators().accessibility().is_some()
+        && gc.options.validators().accessibility().is_some()
     {
         bbox.expand_frame(fc, compute_bbox);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::num::NonZeroUsize;
-
-    use ecow::EcoVec;
-    use typst_layout::PagedDocument;
-    use typst_library::layout::PageRanges;
-    use typst_library::model::DocumentInfo;
-    use typst_utils::NonZeroExt;
-
-    use crate::tags;
-
-    #[test]
-    fn tagged_and_page_range() {
-        let options = crate::PdfOptions {
-            page_ranges: Some(PageRanges::new(vec![Some(NonZeroUsize::ONE)..=None])),
-            ..Default::default()
-        };
-        let document = PagedDocument::new(EcoVec::new(), DocumentInfo::default());
-        let res = tags::init(&document, &options);
-
-        assert_eq!(
-            res.err().unwrap().first().unwrap().message,
-            "cannot enable tagged PDF and export a page range"
-        );
     }
 }

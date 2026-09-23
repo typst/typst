@@ -1124,7 +1124,7 @@ impl Array {
                 })?;
                 if let [key, value] = pair.as_slice() {
                     let key = key.clone().cast::<Str>().map_err(|_| {
-                        eco_format!("expected key of type str, found {}", value.ty())
+                        eco_format!("expected key of type string, found {}", key.ty())
                     })?;
                     Ok((key, value.clone()))
                 } else {

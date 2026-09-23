@@ -31,17 +31,15 @@ use crate::world::DocWorld;
 /// The parsed command line arguments.
 static ARGS: LazyLock<CliArguments> = LazyLock::new(CliArguments::parse);
 
+/// The default entrypoint into the docs.
+const ENTRYPOINT: &str = "docs/main.typ";
+
 // Paths.
 const PDF_PATH: &str = "docs/dist/docs.pdf";
 const SITE_PATH: &str = "docs/dist/site";
 
 /// Entry point.
 fn main() -> ExitCode {
-    // Make all paths relative to the workspace.
-    let workspace_dir =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join(std::path::Component::ParentDir);
-    std::env::set_current_dir(workspace_dir).unwrap();
-
     match &ARGS.command {
         Command::Compile(command) => compile(command),
         Command::Watch(command) => watch(command),
@@ -109,8 +107,12 @@ fn print_watch_header(config: &Config) {
 /// Preprocessing configuration for compilation.
 struct Config {
     /// Path to the input Typst file.
-    input: Option<PathBuf>,
+    input: PathBuf,
+    /// The workspace from which to load files for documentation, i.e.
+    /// `@typst/repo` and `@typst/docs` packages.
+    workspace: PathBuf,
     /// The output path to which the compilation output is written.
+    /// If `None`, nothing should be written (e.g., HTML watching).
     output: Option<PathBuf>,
     /// The kind of output to produce.
     output_format: OutputFormat,
@@ -125,13 +127,19 @@ struct Config {
 impl Config {
     /// Preprocess `CompileArgs`, producing a compilation config.
     fn new(args: &CompileArgs, serve: bool) -> Self {
+        let workspace = args.workspace.clone().unwrap_or_else(|| {
+            // Default to the workspace in which this program was compiled.
+            Path::new(env!("CARGO_MANIFEST_DIR")).join(std::path::Component::ParentDir)
+        });
+
         Self {
-            input: args.input.clone(),
+            input: args.input.clone().unwrap_or(workspace.join(ENTRYPOINT)),
             output: args.output.clone().or_else(|| match args.format {
-                OutputFormat::Pdf => Some(PDF_PATH.into()),
+                OutputFormat::Pdf => Some(workspace.join(PDF_PATH)),
                 OutputFormat::Website if serve => None,
-                OutputFormat::Website => Some(SITE_PATH.into()),
+                OutputFormat::Website => Some(workspace.join(SITE_PATH)),
             }),
+            workspace,
             output_format: args.format,
             is_dev_version: !args.release,
             server: (serve && args.format == OutputFormat::Website)
@@ -146,16 +154,10 @@ impl Config {
 /// printing.
 fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
     let mut warned = match config.output_format {
-        OutputFormat::Website => {
-            let Warned { output, warnings } = typst::compile::<Bundle>(world);
-            let result = output.and_then(|bundle| export_website(bundle, config));
-            Warned { output: result, warnings }
-        }
-        OutputFormat::Pdf => {
-            let Warned { output, warnings } = typst::compile::<PagedDocument>(world);
-            let result = output.and_then(|document| export_pdf(&document, config));
-            Warned { output: result, warnings }
-        }
+        OutputFormat::Website => typst::compile::<Bundle>(world)
+            .and_then(|bundle| export_website(bundle, config)),
+        OutputFormat::Pdf => typst::compile::<PagedDocument>(world)
+            .and_then(|document| export_pdf(&document, config)),
     };
 
     if config.open && warned.output.is_ok() {
@@ -177,26 +179,30 @@ fn compile_once(world: &DocWorld, config: &mut Config) -> Report {
 
 /// Exports the built website, adding a search index, and refreshes the live
 /// reload server.
-fn export_website(mut bundle: Bundle, config: &Config) -> SourceResult<()> {
-    let index = crate::search::build_search_index(&bundle)?;
-    let search_path = crate::search::index_path(&bundle).at(Span::detached())?;
-    Arc::make_mut(&mut bundle.files).insert(
-        search_path,
-        BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
-    );
+fn export_website(mut bundle: Bundle, config: &Config) -> Warned<SourceResult<()>> {
+    Warned::from(Ok(()))
+        .and_then(|()| {
+            let index = crate::search::build_search_index(&bundle)?;
+            let search_path = crate::search::index_path(&bundle).at(Span::detached())?;
+            Arc::make_mut(&mut bundle.files).insert(
+                search_path,
+                BundleFile::Asset(Bytes::new(serde_json::to_vec(&index).unwrap())),
+            );
 
-    let options = BundleOptions::default();
-    let fs = typst_bundle::export(&bundle, &options)?;
+            Ok(BundleOptions::default())
+        })
+        .and_then(|options| typst_bundle::export(&bundle, &options))
+        .and_then(|fs| {
+            if let Some(path) = &config.output {
+                write_virtual_fs(path, &fs);
+            }
 
-    if let Some(path) = &config.output {
-        write_virtual_fs(path, &fs);
-    }
+            if let Some(server) = &config.server {
+                server.set_bundle(bundle, fs);
+            }
 
-    if let Some(server) = &config.server {
-        server.set_bundle(bundle, fs);
-    }
-
-    Ok(())
+            Ok(())
+        })
 }
 
 /// Writes a bundle's files to disk.
@@ -212,15 +218,16 @@ fn write_virtual_fs(root: &Path, fs: &VirtualFs) {
 }
 
 /// Exports a document to PDF and writes it to disk.
-fn export_pdf(document: &PagedDocument, config: &Config) -> SourceResult<()> {
-    let data = typst_pdf::pdf(document, &PdfOptions::default())?;
-    if let Some(path) = &config.output {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).unwrap();
+fn export_pdf(document: &PagedDocument, config: &Config) -> Warned<SourceResult<()>> {
+    typst_pdf::pdf(document, &PdfOptions::default()).and_then(|data| {
+        if let Some(path) = &config.output {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).unwrap();
+            }
+            std::fs::write(path, data).unwrap();
         }
-        std::fs::write(path, data).unwrap();
-    }
-    Ok(())
+        Ok(())
+    })
 }
 
 /// Acquires the output stream for user-facing messages.

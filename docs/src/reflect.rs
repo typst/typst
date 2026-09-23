@@ -2,11 +2,15 @@
 //!
 //! Cooperates with `docs/components/reflect.typ`.
 
+use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::LazyLock;
 
 use ecow::EcoString;
 use heck::ToTitleCase;
+use icu_collator::options::{CollatorOptions, Strength};
+use icu_collator::preferences::CollationType;
+use icu_collator::{Collator, CollatorPreferences};
 use rustc_hash::FxHashMap;
 use typst::diag::bail;
 use typst::foundations::{
@@ -22,10 +26,29 @@ use unscanny::Scanner;
 
 use crate::world::REPO_ROOT;
 
+/// A value that can have a scope.
+pub enum ToScope {
+    Module(Module),
+    Type(Type),
+    Func(Func),
+}
+
+cast! {
+    ToScope,
+    m: Module => Self::Module(m),
+    t: Type => Self::Type(t),
+    f: Func => Self::Func(f),
+}
+
 /// Provides details about a binding in a module.
 #[func]
-pub fn binding(module: Module, name: EcoString) -> Option<Dict> {
-    let binding = module.scope().get(&name)?;
+pub fn binding(scope: ToScope, name: EcoString) -> Option<Dict> {
+    let scope = match &scope {
+        ToScope::Module(module) => module.scope(),
+        ToScope::Type(ty) => ty.scope(),
+        ToScope::Func(func) => func.scope()?,
+    };
+    let binding = scope.get(&name)?;
     Some(dict! {
         "category" => binding.category().map(|c| c.name()),
         "feature" => binding.feature().map(|f| f.to_string()),
@@ -209,6 +232,17 @@ pub fn unicode_name(c: Cluster) -> Option<EcoString> {
     MAP.get(&c.value).cloned().or_else(|| {
         Some(unicode_names2::name(c.primary())?.to_string().to_title_case().into())
     })
+}
+
+/// Returns `{true}` if two emoji are in order.
+#[func]
+pub fn emoji_ordering(left: EcoString, right: EcoString) -> bool {
+    let mut preferences = CollatorPreferences::default();
+    preferences.collation_type = Some(CollationType::Emoji);
+    let mut options = CollatorOptions::default();
+    options.strength = Some(Strength::Quaternary);
+    let collator = Collator::try_new(preferences, options).unwrap();
+    collator.compare(&left, &right) != Ordering::Greater
 }
 
 /// Returns the name of a character in LaTeX.

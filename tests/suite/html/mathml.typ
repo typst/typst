@@ -46,6 +46,13 @@ $
       d & = e + f
 $
 
+--- mathml-multiline-matrix-spacing html ---
+$
+  "square matrix" & = mat(1, 0; 0, 1) \
+          "array" & = mat(1, 0) \
+         "vector" & = vec(1, 0)
+$
+
 --- mathml-stretch-largeop-vs-explicit html ---
 $ integral $
 $ stretch(integral) $

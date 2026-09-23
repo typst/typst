@@ -4,512 +4,55 @@ pub mod fat;
 
 #[macro_use]
 mod macros;
-mod bitset;
-mod deferred;
-mod duration;
+mod defer;
+mod fmt;
 mod hash;
-mod listset;
-mod pico;
-mod protected;
-mod round;
-mod scalar;
+mod math;
+mod numeric;
 #[path = "version.rs"]
 mod version_;
 
-pub use self::bitset::{BitSet, SmallBitSet};
-pub use self::deferred::Deferred;
-pub use self::duration::format_duration;
+#[cfg(feature = "full")]
+block! {
+    mod bitset;
+    mod collection;
+    mod def_site;
+    mod deferred;
+    mod duration;
+    mod get;
+    mod listset;
+    mod option;
+    mod pico;
+    mod protected;
+    mod round;
+    mod scalar;
+    #[path = "static.rs"]
+    mod static_;
+}
+
+pub use self::defer::defer;
+pub use self::fmt::{debug, display};
 pub use self::hash::{HashLock, LazyHash, ManuallyHash, hash128};
-pub use self::listset::ListSet;
-pub use self::pico::{PicoStr, ResolvedPicoStr};
-pub use self::protected::Protected;
-pub use self::round::{round_int_with_precision, round_with_precision};
-pub use self::scalar::Scalar;
+pub use self::math::default_math_class;
+pub use self::numeric::{NonZeroExt, Numeric, NumericLength};
 pub use self::version_::{TypstVersion, display_commit, version};
 
-#[doc(hidden)]
-pub use once_cell;
-
-use std::fmt::{Debug, Display, Formatter};
-use std::hash::Hash;
-use std::iter::{Chain, Flatten, Rev};
-use std::num::{NonZeroU32, NonZeroUsize};
-use std::ops::{Add, Deref, DerefMut, Div, Mul, Neg, Sub};
-
-use smallvec::SmallVec;
-use unicode_math_class::MathClass;
-
-/// Turn a closure into a struct implementing [`Debug`].
-pub fn debug<F>(f: F) -> impl Debug
-where
-    F: Fn(&mut Formatter) -> std::fmt::Result,
-{
-    struct Wrapper<F>(F);
-
-    impl<F> Debug for Wrapper<F>
-    where
-        F: Fn(&mut Formatter) -> std::fmt::Result,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            self.0(f)
-        }
-    }
-
-    Wrapper(f)
-}
-
-/// Turn a closure into a struct implementing [`Display`].
-pub fn display<F>(f: F) -> impl Display
-where
-    F: Fn(&mut Formatter) -> std::fmt::Result,
-{
-    struct Wrapper<F>(F);
-
-    impl<F> Display for Wrapper<F>
-    where
-        F: Fn(&mut Formatter) -> std::fmt::Result,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            self.0(f)
-        }
-    }
-
-    Wrapper(f)
-}
-
-/// An extra constant for [`NonZeroUsize`].
-pub trait NonZeroExt {
-    /// The number `1`.
-    const ONE: Self;
-}
-
-impl NonZeroExt for NonZeroUsize {
-    const ONE: Self = Self::new(1).unwrap();
-}
-
-impl NonZeroExt for NonZeroU32 {
-    const ONE: Self = Self::new(1).unwrap();
-}
-
-/// Extra methods for [`Option`].
-pub trait OptionExt<T> {
-    /// Maps an `Option<T>` to `U` by applying a function to a contained value
-    /// (if `Some`) or returns a default (if `None`).
-    fn map_or_default<U: Default, F>(self, f: F) -> U
-    where
-        F: FnOnce(T) -> U;
-}
-
-impl<T> OptionExt<T> for Option<T> {
-    fn map_or_default<U: Default, F>(self, f: F) -> U
-    where
-        F: FnOnce(T) -> U,
-    {
-        match self {
-            Some(x) => f(x),
-            None => U::default(),
-        }
-    }
-}
-
-/// Extra methods for [`[T]`](slice).
-pub trait SliceExt<T> {
-    /// Returns a slice with all matching elements from the start of the slice
-    /// removed.
-    fn trim_start_matches<F>(&self, f: F) -> &[T]
-    where
-        F: FnMut(&T) -> bool;
-
-    /// Returns a slice with all matching elements from the end of the slice
-    /// removed.
-    fn trim_end_matches<F>(&self, f: F) -> &[T]
-    where
-        F: FnMut(&T) -> bool;
-
-    /// Split a slice into consecutive runs with the same key and yield for
-    /// each such run the key and the slice of elements with that key.
-    fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F>
-    where
-        F: FnMut(&T) -> K,
-        K: PartialEq;
-
-    /// Computes two indices which split a slice into three parts.
-    ///
-    /// - A prefix which matches `f`
-    /// - An inner portion
-    /// - A suffix which matches `f` and does not overlap with the prefix
-    ///
-    /// If all elements match `f`, the prefix becomes `self` and the suffix
-    /// will be empty.
-    ///
-    /// Returns the indices at which the inner portion and the suffix start.
-    fn split_prefix_suffix<F>(&self, f: F) -> (usize, usize)
-    where
-        F: FnMut(&T) -> bool;
-}
-
-impl<T> SliceExt<T> for [T] {
-    fn trim_start_matches<F>(&self, mut f: F) -> &[T]
-    where
-        F: FnMut(&T) -> bool,
-    {
-        let len = self.len();
-        let mut i = 0;
-        while i < len && f(&self[i]) {
-            i += 1;
-        }
-        &self[i..]
-    }
-
-    fn trim_end_matches<F>(&self, mut f: F) -> &[T]
-    where
-        F: FnMut(&T) -> bool,
-    {
-        let mut i = self.len();
-        while i > 0 && f(&self[i - 1]) {
-            i -= 1;
-        }
-        &self[..i]
-    }
-
-    fn group_by_key<K, F>(&self, f: F) -> GroupByKey<'_, T, F> {
-        GroupByKey { slice: self, f }
-    }
-
-    fn split_prefix_suffix<F>(&self, mut f: F) -> (usize, usize)
-    where
-        F: FnMut(&T) -> bool,
-    {
-        let start = self.iter().position(|v| !f(v)).unwrap_or(self.len());
-        let end = self
-            .iter()
-            .skip(start)
-            .rposition(|v| !f(v))
-            .map_or(start, |i| start + i + 1);
-        (start, end)
-    }
-}
-
-/// A variant of `dedup` that keeps the later value rather than the earlier one.
-pub trait Rdedup {
-    type Item;
-
-    /// Deduplicates values in a sorted sequence using a key function, but
-    /// unlike the standard version keeps the later one.
-    fn rdedup_by_key<K, F>(&mut self, key: F)
-    where
-        F: Fn(&mut Self::Item) -> K,
-        K: PartialEq<K>;
-}
-
-impl<T: Copy, const N: usize> Rdedup for SmallVec<[T; N]> {
-    type Item = T;
-
-    fn rdedup_by_key<K, F>(&mut self, mut key: F)
-    where
-        T: Copy,
-        K: PartialEq<K>,
-        F: FnMut(&mut T) -> K,
-    {
-        let mut k = 0;
-        for i in 1..self.len() {
-            if key(&mut self[i]) != key(&mut self[k]) {
-                k += 1;
-            }
-            if k < i {
-                self[k] = self[i];
-            }
-        }
-        self.truncate(k + 1);
-    }
-}
-
-/// This struct is created by [`SliceExt::group_by_key`].
-pub struct GroupByKey<'a, T, F> {
-    slice: &'a [T],
-    f: F,
-}
-
-impl<'a, T, K, F> Iterator for GroupByKey<'a, T, F>
-where
-    F: FnMut(&T) -> K,
-    K: PartialEq,
-{
-    type Item = (K, &'a [T]);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut iter = self.slice.iter();
-        let key = (self.f)(iter.next()?);
-        let count = 1 + iter.take_while(|t| (self.f)(t) == key).count();
-        let (head, tail) = self.slice.split_at(count);
-        self.slice = tail;
-        Some((key, head))
-    }
-}
-
-/// Adapter for reversing iterators conditionally.
-pub trait MaybeReverseIter {
-    type RevIfIter;
-
-    /// Reverse this iterator (apply `.rev()`) based on some condition.
-    fn rev_if(self, condition: bool) -> Self::RevIfIter
-    where
-        Self: Sized;
-}
-
-impl<I: Iterator + DoubleEndedIterator> MaybeReverseIter for I {
-    type RevIfIter =
-        Chain<Flatten<std::option::IntoIter<I>>, Flatten<std::option::IntoIter<Rev<I>>>>;
-
-    fn rev_if(self, condition: bool) -> Self::RevIfIter
-    where
-        Self: Sized,
-    {
-        let (maybe_self_iter, maybe_rev_iter) =
-            if condition { (None, Some(self.rev())) } else { (Some(self), None) };
-
-        maybe_self_iter
-            .into_iter()
-            .flatten()
-            .chain(maybe_rev_iter.into_iter().flatten())
-    }
-}
-
-/// Check if the [`Option`]-wrapped L is same to R.
-pub fn option_eq<L, R>(left: Option<L>, other: R) -> bool
-where
-    L: PartialEq<R>,
-{
-    left.is_some_and(|v| v == other)
-}
-
-/// A container around a static reference that is cheap to clone and hash.
-#[derive(Debug)]
-pub struct Static<T: 'static>(pub &'static T);
-
-impl<T> Deref for Static<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl<T> Copy for Static<T> {}
-
-impl<T> Clone for Static<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> Eq for Static<T> {}
-
-impl<T> PartialEq for Static<T> {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0, other.0)
-    }
-}
-
-impl<T> Hash for Static<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const T as usize);
-    }
-}
-
-/// Generic access to a structure's components.
-pub trait Get<Index> {
-    /// The structure's component type.
-    type Component;
-
-    /// Borrow the component for the specified index.
-    fn get_ref(&self, index: Index) -> &Self::Component;
-
-    /// Borrow the component for the specified index mutably.
-    fn get_mut(&mut self, index: Index) -> &mut Self::Component;
-
-    /// Convenience method for getting a copy of a component.
-    fn get(self, index: Index) -> Self::Component
-    where
-        Self: Sized,
-        Self::Component: Copy,
-    {
-        *self.get_ref(index)
-    }
-
-    /// Convenience method for setting a component.
-    fn set(&mut self, index: Index, component: Self::Component) {
-        *self.get_mut(index) = component;
-    }
-
-    /// Builder-style method for setting a component.
-    fn with(mut self, index: Index, component: Self::Component) -> Self
-    where
-        Self: Sized,
-    {
-        self.set(index, component);
-        self
-    }
-}
-
-/// A numeric type.
-pub trait Numeric:
-    Sized
-    + Debug
-    + Copy
-    + PartialEq
-    + Neg<Output = Self>
-    + Add<Output = Self>
-    + Sub<Output = Self>
-    + Mul<f64, Output = Self>
-    + Div<f64, Output = Self>
-{
-    /// The identity element for addition.
-    fn zero() -> Self;
-
-    /// Whether `self` is zero.
-    fn is_zero(self) -> bool {
-        self == Self::zero()
-    }
-
-    /// Whether `self` consists only of finite parts.
-    fn is_finite(self) -> bool;
-}
-
-/// A marker trait for numeric lengths.
-pub trait NumericLength: Numeric {}
-
-/// Returns the default math class of a character in Typst, if it has one.
-///
-/// This is determined by the Unicode math class, with some manual overrides.
-pub fn default_math_class(c: char) -> Option<MathClass> {
-    match c {
-        // Better spacing.
-        // https://github.com/typst/typst/commit/2e039cb052fcb768027053cbf02ce396f6d7a6be
-        ':' => Some(MathClass::Relation),
-
-        // Better spacing when used alongside + PLUS SIGN.
-        // https://github.com/typst/typst/pull/1726
-        '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
-
-        // Better spacing.
-        // https://github.com/typst/typst/pull/1855
-        '.' | '/' => Some(MathClass::Normal),
-
-        // ⊥ UP TACK should not be a relation, contrary to ⟂ PERPENDICULAR.
-        // https://github.com/typst/typst/pull/5714
-        '\u{22A5}' => Some(MathClass::Normal),
-
-        // Used as a binary connector in linear logic, where it is referred to
-        // as "par".
-        // https://github.com/typst/typst/issues/5764
-        '⅋' => Some(MathClass::Binary),
-
-        // Those overrides should become the default in the next revision of
-        // MathClass.txt.
-        // https://github.com/typst/typst/issues/5764#issuecomment-2632435247
-        '⎰' | '⟅' => Some(MathClass::Opening),
-        '⎱' | '⟆' => Some(MathClass::Closing),
-
-        // Both ∨ and ⟑ are classified as Binary.
-        // https://github.com/typst/typst/issues/5764
-        '⟇' => Some(MathClass::Binary),
-
-        // Arabic comma.
-        // https://github.com/latex3/unicode-math/pull/633#issuecomment-2028936135
-        '،' => Some(MathClass::Punctuation),
-
-        c => unicode_math_class::class(c),
-    }
-}
-
-/// Automatically calls a deferred function when the returned handle is dropped.
-pub fn defer<T, F: FnOnce(&mut T)>(
-    thing: &mut T,
-    deferred: F,
-) -> impl DerefMut<Target = T> {
-    pub struct DeferHandle<'a, T, F: FnOnce(&mut T)> {
-        thing: &'a mut T,
-        deferred: Option<F>,
-    }
-
-    impl<T, F: FnOnce(&mut T)> Drop for DeferHandle<'_, T, F> {
-        fn drop(&mut self) {
-            std::mem::take(&mut self.deferred).expect("deferred function")(self.thing);
-        }
-    }
-
-    impl<T, F: FnOnce(&mut T)> std::ops::Deref for DeferHandle<'_, T, F> {
-        type Target = T;
-
-        fn deref(&self) -> &Self::Target {
-            self.thing
-        }
-    }
-
-    impl<T, F: FnOnce(&mut T)> std::ops::DerefMut for DeferHandle<'_, T, F> {
-        fn deref_mut(&mut self) -> &mut Self::Target {
-            self.thing
-        }
-    }
-
-    DeferHandle { thing, deferred: Some(deferred) }
-}
-
-/// Describes the source code where something is defined.
-///
-/// This does not include a concrete line number because, due to the way Rust
-/// macros expand, a `#[func]` item in a `#[scope]` impl receives the line of
-/// the full impl, which is not so useful. Rather, a per-file unique key is used
-/// to find the element. Identifiers of a semantical parent may also be used in
-/// this key. This has the added benefit that we can reliably find the
-/// definition site in the presence of edits (for hot reload).
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct DefSite {
-    /// The path to the file as returned by the `file!()` macro.
-    ///
-    /// Note that the path separator may vary across platforms.
-    pub path: &'static str,
-    /// An identifying key associated with the definition. Can be used to find
-    /// the definition in the file.
-    pub key: &'static str,
-}
-
-/// Implements `Display` for a type that implements clap's `ValueEnum` via
-/// `to_possible_values`.
-#[macro_export]
-macro_rules! display_possible_values {
-    ($ty:ty) => {
-        impl std::fmt::Display for $ty {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                self.to_possible_value()
-                    .expect("no values are skipped")
-                    .get_name()
-                    .fmt(f)
-            }
-        }
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rdedup() {
-        #[track_caller]
-        fn test(given: &[(char, i32)], expected: &[(char, i32)]) {
-            let mut vec: SmallVec<[(char, i32); 2]> = given.into();
-            vec.rdedup_by_key(|&mut (c, _)| c);
-            assert_eq!(vec.as_slice(), expected);
-        }
-
-        test(&[], &[]);
-        test(&[('a', 1), ('a', 2), ('a', 3), ('b', 2)], &[('a', 3), ('b', 2)]);
-        test(&[('b', 2), ('c', 3), ('c', 4)], &[('b', 2), ('c', 4)]);
-        test(
-            &[('a', 1), ('b', 1), ('c', 1), ('c', 2), ('d', 1)],
-            &[('a', 1), ('b', 1), ('c', 2), ('d', 1)],
-        );
-    }
+#[cfg(feature = "full")]
+block! {
+    pub use self::bitset::{BitSet, SmallBitSet};
+    pub use self::collection::{GroupByKey, MaybeReverseIter, Rdedup, SliceExt};
+    pub use self::def_site::DefSite;
+    pub use self::deferred::Deferred;
+    pub use self::duration::format_duration;
+    pub use self::get::Get;
+    pub use self::listset::ListSet;
+    pub use self::option::{OptionExt, option_eq};
+    pub use self::pico::{PicoStr, ResolvedPicoStr};
+    pub use self::protected::Protected;
+    pub use self::round::{round_int_with_precision, round_with_precision};
+    pub use self::scalar::Scalar;
+    pub use self::static_::Static;
+
+    #[doc(hidden)]
+    pub use once_cell;
 }

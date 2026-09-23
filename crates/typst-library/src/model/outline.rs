@@ -20,8 +20,8 @@ use crate::layout::{
     Abs, Axes, BlockBody, BlockElem, BoxElem, Dir, Em, Fr, HElem, Length, Region, Rel,
     RepeatElem, Sides,
 };
+use crate::model::PdfMarkerTag;
 use crate::model::{HeadingElem, NumberingPattern, ParElem, Refable};
-use crate::pdf::PdfMarkerTag;
 use crate::text::{LocalName, SpaceElem, TextElem};
 
 /// A table of contents, figures, or other elements.

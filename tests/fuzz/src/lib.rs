@@ -3,7 +3,7 @@ use typst::foundations::{Bytes, Datetime, Duration};
 use typst::syntax::{FileId, Source};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
-use typst::{Library, LibraryExt, World};
+use typst::{Features, Library, LibraryExt, World};
 
 pub struct FuzzWorld {
     library: LazyHash<Library>,
@@ -18,7 +18,17 @@ impl FuzzWorld {
         let font = Font::new(Bytes::new(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
         Self {
-            library: LazyHash::new(Library::default()),
+            library: LazyHash::new(
+                Library::builder([
+                    typst_html::FORMAT,
+                    typst_pdf::FORMAT,
+                    typst_svg::FORMAT,
+                    typst_render::FORMAT,
+                    typst_bundle::FORMAT,
+                ])
+                .with_features(Features::all())
+                .build(),
+            ),
             book: LazyHash::new(book),
             font,
             source: Source::detached(text),

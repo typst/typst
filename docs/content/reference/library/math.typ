@@ -2,7 +2,7 @@
 
 #let math-definitions = dictionary(math)
 #let math-items(..keys) = {
-  keys.pos().map(k => (k, math-definitions.at(k)))
+  keys.pos().map(k => (k, math-definitions.at(k))).to-dict()
 }
 
 #show: docs-category.with(
@@ -64,6 +64,8 @@
         Delimiters above or below parts of an equation.
 
         The braces and brackets further allow you to add an optional annotation below or above themselves.
+
+        These functions are intended specifically for adding delimiters. If you want to place two arbitrary parts of an equation over or under one another, without delimiters, use the @math.attach[`attach`] function instead.
       ],
     ),
     (

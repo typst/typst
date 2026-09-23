@@ -482,8 +482,12 @@
 #(("key",1,2),).to-dict()
 
 --- array-to-dict-bad-key-type eval ---
-// Error: 2-21 expected key of type str, found integer
+// Error: 2-21 expected key of type string, found integer
 #((1, 2),).to-dict()
+
+--- array-to-dict-none-key-type eval ---
+// Error: 2-24 expected key of type string, found none
+#((none, 2),).to-dict()
 
 --- array-zip-positional-and-named-argument eval ---
 // Error: 13-30 unexpected argument: val

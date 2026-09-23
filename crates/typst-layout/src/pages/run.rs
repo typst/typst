@@ -12,8 +12,7 @@ use typst_library::layout::{
     Length, OuterVAlignment, PageElem, Paper, Region, Regions, Rel, Sides, Size,
     VAlignment,
 };
-use typst_library::model::Numbering;
-use typst_library::pdf::ArtifactKind;
+use typst_library::model::{ArtifactKind, Numbering};
 use typst_library::routines::Pair;
 use typst_library::text::{LocalName, TextElem};
 use typst_library::visualize::Paint;
@@ -197,6 +196,7 @@ fn layout_page_run_impl(
             count: styles.get(PageElem::columns),
             balanced: styles.get(ColumnsElem::balanced),
             gutter: styles.get(ColumnsElem::gutter).resolve(styles),
+            separator: styles.get_cloned(ColumnsElem::separator),
         },
         FlowMode::Root,
     )?;

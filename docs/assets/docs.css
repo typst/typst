@@ -1416,15 +1416,7 @@ h4 .additional-info .pill + .pill {
 }
 
 .single-arg .arguments .overview-param {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-inline: 2px;
-}
-
-.single-arg .arguments .pill + .pill {
-  margin-inline-start: 0px;
+  display: inline;
 }
 
 .arguments {

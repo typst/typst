@@ -20,7 +20,7 @@ use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, SmallBitSet};
 
-use crate::pdf::{TableCellKind, TableHeaderScope};
+use crate::model::{TableCellKind, TableHeaderScope};
 
 /// Convert a grid to a cell grid.
 #[typst_macros::time(span = elem.span())]

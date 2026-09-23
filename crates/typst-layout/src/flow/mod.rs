@@ -14,20 +14,22 @@ use bumpalo::Bump;
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::EcoVec;
 use rustc_hash::FxHashSet;
-use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, bail};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Content, Packed, Resolve, StyleChain};
 use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator, Tag,
 };
 use typst_library::layout::{
-    Abs, ColumnsElem, Dir, Em, Fragment, Frame, PageElem, PlacementScope, Region,
-    Regions, Rel, Size,
+    Abs, Angle, ColumnsElem, Dir, Em, Fragment, Frame, HAlignment, PageElem, Region,
+    Regions, Rel, Size, VAlignment,
 };
-use typst_library::model::{FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine};
-use typst_library::pdf::ArtifactKind;
+use typst_library::model::{
+    ArtifactKind, FootnoteElem, FootnoteEntry, LineNumberingScope, ParLine,
+};
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::TextElem;
+use typst_library::visualize::LineElem;
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, NonZeroExt, Numeric, Protected};
 
@@ -35,8 +37,7 @@ use self::block::{layout_multi_block, layout_single_block};
 use self::collect::{
     Child, LineChild, MultiChild, MultiSpill, PlacedChild, SingleChild, collect,
 };
-use self::compose::{Composer, compose};
-use self::distribute::distribute;
+use self::compose::compose;
 
 /// Lays out content into a single region, producing a single frame.
 pub fn layout_frame(
@@ -75,6 +76,7 @@ pub fn layout_fragment(
             count: NonZeroUsize::ONE,
             balanced: false,
             gutter: Rel::zero(),
+            separator: None,
         },
     )
 }
@@ -106,6 +108,7 @@ pub fn layout_columns(
             count: elem.count.get(styles),
             balanced: elem.balanced.get(styles),
             gutter: elem.gutter.resolve(styles),
+            separator: elem.separator.get_cloned(styles),
         },
     )
 }
@@ -261,6 +264,12 @@ fn configuration<'x>(
                 gutter,
                 dir,
                 balanced: column.balanced,
+                separator: column.separator.map(|separator| {
+                    separator
+                        .set(LineElem::length, Rel::one())
+                        .set(LineElem::angle, Angle::deg(90.0))
+                        .aligned(HAlignment::Center + VAlignment::Horizon)
+                }),
             }
         },
         footnote: FootnoteConfig {
@@ -368,6 +377,8 @@ pub struct ColumnOptions {
     pub balanced: bool,
     /// The spacing between columns.
     pub gutter: Rel<Abs>,
+    /// The separator between columns.
+    pub separator: Option<Content>,
 }
 
 /// Shared configuration for the whole flow.
@@ -411,6 +422,8 @@ struct ColumnConfig {
     dir: Dir,
     /// Whether to equalize the height of columns by breaking columns early.
     balanced: bool,
+    /// The separator between columns.
+    separator: Option<Content>,
 }
 
 /// Configuration of line numbers.
@@ -429,27 +442,4 @@ struct LineNumberConfig {
     /// value is a percentage of the page width clamped between `0.75em` and
     /// `2.5em`.
     default_clearance: Abs,
-}
-
-/// The result type for flow layout.
-///
-/// The `Err(_)` variant incorporate control flow events for finishing and
-/// relayouting regions.
-type FlowResult<T> = Result<T, Stop>;
-
-/// A control flow event during flow layout.
-enum Stop {
-    /// Indicates that the current subregion should be finished. Can be caused
-    /// by a lack of space (`false`) or an explicit column break (`true`).
-    Finish(bool),
-    /// Indicates that the given scope should be relayouted.
-    Relayout(PlacementScope),
-    /// A fatal error.
-    Error(EcoVec<SourceDiagnostic>),
-}
-
-impl From<EcoVec<SourceDiagnostic>> for Stop {
-    fn from(error: EcoVec<SourceDiagnostic>) -> Self {
-        Stop::Error(error)
-    }
 }

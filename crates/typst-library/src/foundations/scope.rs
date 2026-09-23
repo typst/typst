@@ -7,7 +7,7 @@ use indexmap::map::Entry;
 use rustc_hash::FxBuildHasher;
 use typst_syntax::Span;
 
-use crate::diag::{HintedStrResult, HintedString, SourceDiagnostic, WarningSink, error};
+use crate::diag::{HintedStrResult, HintedString, WarningSink, error};
 use crate::engine::Engine;
 use crate::foundations::{
     Func, IntoValue, NativeElement, NativeFunc, NativeFuncData, NativeType, Value,
@@ -216,6 +216,42 @@ impl Scope {
         let mut binding = Binding::detached(value);
         binding.init_info().category = self.category;
         self.bind(name.into(), binding)
+    }
+
+    /// Prelude a binding from a path.
+    ///
+    /// The path may not contain multiple bindings with different feature gates,
+    /// otherwise this function will panic.
+    pub(crate) fn prelude_path<'a, const N: usize>(
+        &'a mut self,
+        path: [&'static str; N],
+    ) -> Option<&'a mut Binding> {
+        let [first, path @ .., last] = path.as_slice() else {
+            panic!("prelude path must have at least two segments");
+        };
+
+        let mut binding = self.get(first)?;
+        let mut path_feature = binding.feature();
+
+        for name in path.iter().chain([last]) {
+            binding = binding.value.scope()?.get(name)?;
+
+            if let Some(new) = binding.feature()
+                && let Some(prev) = path_feature.replace(new)
+                && prev != new
+            {
+                panic!(
+                    "cannot prelude from path {path:?} because it's \
+                     gated by two different features: `{prev}` and `{new}`"
+                );
+            }
+        }
+
+        let mut binding = binding.clone();
+        if let Some(feature) = path_feature {
+            binding.with_feature(feature);
+        }
+        Some(self.bind((*last).into(), binding))
     }
 }
 
@@ -703,10 +739,7 @@ pub struct NormalBindingGuard<'x, 'y> {
 
 impl WarningSink for NormalBindingGuard<'_, '_> {
     fn emit(&mut self, message: HintedString) {
-        self.engine.sink.warn(
-            SourceDiagnostic::warning(self.span, message.message())
-                .with_hints(message.hints().iter().cloned()),
-        );
+        self.engine.sink.warn(message.into_warning_at(self.span));
     }
 }
 
