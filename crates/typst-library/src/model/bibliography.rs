@@ -38,7 +38,7 @@ use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    HeadingElem, LinkElem, ParElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -98,6 +98,24 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///   [Physics],
 ///   [`{"american-physics-society"}`],
 /// )
+/// = Hanging indent <hanging-indent>
+/// By default, bibliography entries use a hanging indent of `{1.5em}`,
+/// applied through a built-in show-set rule on `{par.hanging-indent}`.
+/// Because show-set rules take precedence over prior `set` rules, a plain
+/// `{set par(hanging-indent: ...)}` elsewhere in your document will have no
+/// effect on the bibliography. To change or disable this indent, target the
+/// bibliography's own show rule instead:
+///
+/// ```example
+/// #set bibliography(style: "apa")
+/// Multiple sources say... @arrgh @netwok
+///
+/// #bibliography("works.bib")
+/// #show bibliography: set par(hanging-indent: 3em)
+///
+/// Might be a pirate. @netwok
+/// #bibliography("works.bib")
+/// ```
 ///
 /// = Multiple bibliographies <multiple-bibliographies>
 /// When a Typst document contains multiple bibliographies, each citation is
@@ -118,9 +136,9 @@ pub struct BibliographyElem {
     /// - An array where each item is one of the above.
     #[required]
     #[parse(
-        let sources = args.expect("sources")?;
-        Bibliography::load(engine.world, sources)?
-    )]
+                let sources = args.expect("sources")?;
+                Bibliography::load(engine.world, sources)?
+            )]
     pub sources: Derived<OneOrMultiple<DataSource>, Bibliography>,
 
     /// The title of the bibliography.
@@ -153,13 +171,13 @@ pub struct BibliographyElem {
     ///   #link("https://citationstyles.org/")[CSL file].
     /// - Raw bytes from which a CSL style should be decoded.
     #[parse(match args.named::<Spanned<CslSource>>("style")? {
-        Some(source) => Some(CslStyle::load(engine, source)?),
-        None => None,
-    })]
+                Some(source) => Some(CslStyle::load(engine, source)?),
+                None => None,
+            })]
     #[default({
-        let default = ArchivedStyle::InstituteOfElectricalAndElectronicsEngineers;
-        Derived::new(CslSource::Named(default, None), CslStyle::from_archived(default))
-    })]
+                let default = ArchivedStyle::InstituteOfElectricalAndElectronicsEngineers;
+                Derived::new(CslSource::Named(default, None), CslStyle::from_archived(default))
+            })]
     pub style: Derived<CslSource, CslStyle>,
 
     /// Defines which citations to include in the bibliography.
@@ -339,6 +357,7 @@ impl ShowSet for Packed<BibliographyElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::numbering, None);
         out.set(PadElem::left, INDENT.into());
+        out.set(ParElem::hanging_indent, Em::new(1.5).into());
         out
     }
 }
@@ -1093,17 +1112,17 @@ fn render<'a>(
     });
 
     if let Some(offset) = offset
-        && let Some(bib) = &rendered.bibliography
-        // Check whether the bibliography or any citation displays citation
-        // numbers. Only then does the bibliography occupy a numbering range
-        // that subsequent bibliographies in the same group must skip.
-        && (bib.items.iter().any(displays_citation_number)
-            || rendered.citations.iter().any(|rendered| {
-                rendered
-                    .citation
-                    .find_meta(&hayagriva::ElemMeta::CitationNumber)
-                    .is_some()
-            }))
+                && let Some(bib) = &rendered.bibliography
+                // Check whether the bibliography or any citation displays citation
+                // numbers. Only then does the bibliography occupy a numbering range
+                // that subsequent bibliographies in the same group must skip.
+                && (bib.items.iter().any(displays_citation_number)
+                    || rendered.citations.iter().any(|rendered| {
+                        rendered
+                            .citation
+                            .find_meta(&hayagriva::ElemMeta::CitationNumber)
+                            .is_some()
+                    }))
     {
         *offset += bib.items.len();
     }
@@ -1667,7 +1686,7 @@ fn uncovered_citation(
             "citation is not covered by any bibliography";
             hint[bib.elem.span()]:
             "a bibliography containing the key `{key}` exists, \
-             but its `target` excludes this citation";
+            but its `target` excludes this citation";
         )
     } else {
         error!(
