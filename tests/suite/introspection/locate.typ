@@ -114,7 +114,8 @@ A
 --- locate-bundle-top-level bundle ---
 #metadata(none)
 #document("index.html")[
-  // The metadata is not part of any document, so it has no position.
+  // The metadata is not part of any document, so it has no page/position.
+  #context test(locate(metadata).page(), none)
   #context test(locate(metadata).position(), none)
 ]
 

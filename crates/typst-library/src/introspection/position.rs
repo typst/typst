@@ -43,7 +43,9 @@ impl DocumentPosition {
         }
     }
 
-    /// Returns `None` if the position cannot be expressed as coordinates.
+    /// Returns a dictionary with `x`, `y`, and `page` (unless in an
+    /// `html.frame`) or `None` if the position cannot be expressed as
+    /// coordinates.
     pub fn into_dict(self) -> Option<Dict> {
         match self {
             DocumentPosition::Paged(pos) => Some(pos.into()),

@@ -4,7 +4,6 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, VirtualPath};
-use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
@@ -81,13 +80,15 @@ impl Location {
     /// Returns the page number for this location.
     ///
     /// Note that this does not return the value of the @counter[page counter]
-    /// at this location, but the true page number (starting from one).
-    ///
-    /// If you want to know the value of the page counter, use
+    /// at this location, but the true page number (starting from one). If you
+    /// want to know the value of the page counter, use
     /// `{counter(page).at(loc)}` instead.
     ///
-    /// Can be used with @here to retrieve the physical page position of the
-    /// current context:
+    /// In an HTML document, Typst cannot know where content will end up, so
+    /// this function returns `{none}`.
+    ///
+    /// This method can be used in combination with @here to retrieve the
+    /// physical page position of the current context:
     ///
     /// ```example
     /// #context [
@@ -96,7 +97,7 @@ impl Location {
     /// ]
     /// ```
     #[func(since = "forever")]
-    pub fn page(self, engine: &mut Engine, span: Span) -> NonZeroUsize {
+    pub fn page(self, engine: &mut Engine, span: Span) -> Option<NonZeroUsize> {
         engine.introspect(PageIntrospection(self, span))
     }
 
@@ -116,14 +117,14 @@ impl Location {
     /// location. The page number starts at one and the coordinates are measured
     /// from the top-left of the page.
     ///
-    /// If you only need the page number, use `page()` instead as it allows
-    /// Typst to skip unnecessary work.
+    /// If you only need the page number, use @location.page[`page()`] instead
+    /// as it allows Typst to skip unnecessary work.
     ///
     /// In an HTML document, Typst cannot know where content will end up, so
-    /// this function returns `{none}`. The exception is the contents of an @html.frame.
-    /// a frame is laid out in the same way as pages, so the result is a dictionary with
-    /// the `x` and `y` coordinates within the frame. It has no `page` key because an
-    /// HTML document has no pages.
+    /// this function returns `{none}`. The contents of an @html.frame form an
+    /// exception as these are laid out using Typst's layout engine. For
+    /// locations within such frames, this function returns a dictionary with
+    /// just the `x` and `y` coordinates within the frame, but no `page` key.
     #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
         engine
@@ -212,9 +213,9 @@ impl Introspect for PositionIntrospection {
                         Some(&InnerHtmlPosition::Frame(point)) => {
                             eco_format!("({}, {})", coord(point.x), coord(point.y))
                         }
-                        _ => eco_format!("none"),
+                        _ => "none".into(),
                     },
-                    None => eco_format!("none"),
+                    None => "none".into(),
                 }
             },
         )
@@ -226,15 +227,14 @@ impl Introspect for PositionIntrospection {
 pub struct PageIntrospection(pub Location, pub Span);
 
 impl Introspect for PageIntrospection {
-    type Output = NonZeroUsize;
+    type Output = Option<NonZeroUsize>;
 
     fn introspect(
         &self,
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        // Maybe error here instead of calling `unwrap_or`?
-        introspector.page(self.0).unwrap_or(NonZeroUsize::ONE)
+        introspector.page(self.0)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -244,7 +244,10 @@ impl Introspect for PageIntrospection {
             history,
             "page numbers",
             |element| eco_format!("page number of the {element}"),
-            |n| eco_format!("page {n}"),
+            |n| match n {
+                Some(n) => eco_format!("page {n}"),
+                None => "none".into(),
+            },
         )
     }
 }
