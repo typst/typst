@@ -11,7 +11,7 @@
 So far, you have written a report with some text, a few equations and images. However, it still looks very plain. Your teaching assistant does not yet know that you are using a new typesetting system, and you want your report to fit in with the other student's submissions. In this chapter, we will see how to format your report using Typst's styling system.
 
 = Set rules <set-rules>
-As we have seen in the previous chapter, Typst has functions that _insert_ content (e.g. the @image function) and others that _manipulate_ content that they received as arguments (e.g. the @align function). The first impulse you might have when you want, for example, to change the font, could be to look for a function that does that and wrap the complete document in it.
+As we have seen in the previous chapter, Typst has functions that _insert_ content (e.g. the @image function) and others that _manipulate_ content that they received as arguments (e.g. the @figure function). The first impulse you might have when you want, for example, to change the font, could be to look for a function that does that and wrap the complete document in it.
 
 ```example
 #text(font: "New Computer Modern")[
@@ -174,7 +174,7 @@ This example also uses the @lorem function to generate some placeholder text. Th
 = Show rules <show-rules>
 You are already pretty happy with how this turned out. But one last thing needs to be fixed: The report you are writing is intended for a larger project and that project's name should always be accompanied by a logo, even in prose.
 
-You consider your options. You could add an `[#image("logo.svg")]` call before every instance of the logo using search and replace. That sounds very tedious. Instead, you could maybe @function:defining-functions[define a custom function] that always yields the logo with its image. However, there is an even easier way:
+You consider your options. You could add an `[#image("logo.svg")]` call before every instance of the project name using search and replace. That sounds very tedious. Instead, you could maybe @function:defining-functions[define a custom function] that always yields the logo with its image. However, there is an even easier way:
 
 With show rules, you can redefine how Typst displays certain elements. You specify which elements Typst should show differently and how they should look. Show rules can be applied to instances of text, many functions, and even the whole document.
 
