@@ -1,5 +1,8 @@
 use std::sync::OnceLock;
 
+use skrifa::MetadataProvider;
+use skrifa::raw::TableProvider;
+
 use crate::foundations::Cast;
 use crate::layout::{Em, Frame};
 use crate::text::{DEFAULT_SUBSCRIPT_METRICS, DEFAULT_SUPERSCRIPT_METRICS, FontInstance};
@@ -33,27 +36,69 @@ pub struct FontMetrics {
 
 impl FontMetrics {
     /// Extract the font's metrics.
-    pub fn from_ttf(ttf: &ttf_parser::Face) -> Self {
-        let units_per_em = f64::from(ttf.units_per_em());
+    pub fn from_skrifa(
+        skrifa: &skrifa::FontRef,
+        location: skrifa::instance::LocationRef,
+    ) -> Self {
+        let metrics = skrifa.metrics(skrifa::instance::Size::unscaled(), location);
+
+        let units_per_em = f64::from(metrics.units_per_em);
         let to_em = |units| Em::from_units(units, units_per_em);
+        let coords = location.coords();
 
-        let ascender = to_em(ttf.typographic_ascender().unwrap_or(ttf.ascender()));
-        let cap_height = ttf.capital_height().filter(|&h| h > 0).map_or(ascender, to_em);
-        let x_height = ttf.x_height().filter(|&h| h > 0).map_or(ascender, to_em);
-        let descender = to_em(ttf.typographic_descender().unwrap_or(ttf.descender()));
+        let ascender = to_em(
+            skrifa
+                .os2()
+                .ok()
+                .map(|os2| {
+                    let mut ascent = os2.s_typo_ascender() as f32;
+                    if let (Ok(mvar), true) = (skrifa.mvar(), !coords.is_empty()) {
+                        use skrifa::raw::tables::mvar::tags::*;
+                        let metric_delta = |tag| {
+                            mvar.metric_delta(tag, coords).unwrap_or_default().to_f64()
+                                as f32
+                        };
+                        ascent += metric_delta(HASC);
+                    }
 
-        let strikeout = ttf.strikeout_metrics();
-        let underline = ttf.underline_metrics();
+                    ascent
+                })
+                .unwrap_or(metrics.ascent),
+        );
+        let cap_height = metrics.cap_height.filter(|&h| h > 0.0).map_or(ascender, to_em);
+        let x_height = metrics.x_height.filter(|&h| h > 0.0).map_or(ascender, to_em);
+        let descender = to_em(
+            skrifa
+                .os2()
+                .ok()
+                .map(|os2| {
+                    let mut descent = os2.s_typo_descender() as f32;
+                    if let (Ok(mvar), true) = (skrifa.mvar(), !coords.is_empty()) {
+                        use skrifa::raw::tables::mvar::tags::*;
+                        let metric_delta = |tag| {
+                            mvar.metric_delta(tag, coords).unwrap_or_default().to_f64()
+                                as f32
+                        };
+                        descent += metric_delta(HDSC);
+                    }
+
+                    descent
+                })
+                .unwrap_or(metrics.descent),
+        );
+
+        let strikeout = metrics.strikeout;
+        let underline = metrics.underline;
 
         let strikethrough = LineMetrics {
-            position: strikeout.map_or(Em::new(0.25), |s| to_em(s.position)),
+            position: strikeout.map_or(Em::new(0.25), |s| to_em(s.offset)),
             thickness: strikeout
                 .or(underline)
                 .map_or(Em::new(0.06), |s| to_em(s.thickness)),
         };
 
         let underline = LineMetrics {
-            position: underline.map_or(Em::new(-0.2), |s| to_em(s.position)),
+            position: underline.map_or(Em::new(-0.2), |s| to_em(s.offset)),
             thickness: underline
                 .or(strikeout)
                 .map_or(Em::new(0.06), |s| to_em(s.thickness)),
@@ -64,18 +109,54 @@ impl FontMetrics {
             thickness: underline.thickness,
         };
 
-        let subscript = ttf.subscript_metrics().map(|metrics| ScriptMetrics {
-            width: to_em(metrics.x_size),
-            height: to_em(metrics.y_size),
-            horizontal_offset: to_em(metrics.x_offset),
-            vertical_offset: -to_em(metrics.y_offset),
+        let subscript = skrifa.os2().ok().map(|os2| {
+            let mut x_size = os2.y_subscript_x_size() as f32;
+            let mut y_size = os2.y_subscript_y_size() as f32;
+            let mut x_offset = os2.y_subscript_x_offset() as f32;
+            let mut y_offset = os2.y_subscript_y_offset() as f32;
+
+            if let (Ok(mvar), true) = (skrifa.mvar(), !coords.is_empty()) {
+                use skrifa::raw::tables::mvar::tags::*;
+                let metric_delta = |tag| {
+                    mvar.metric_delta(tag, coords).unwrap_or_default().to_f64() as f32
+                };
+                x_size += metric_delta(SBXS);
+                y_size += metric_delta(SBYS);
+                x_offset += metric_delta(SBXO);
+                y_offset += metric_delta(SBYO);
+            }
+
+            ScriptMetrics {
+                width: to_em(x_size),
+                height: to_em(y_size),
+                horizontal_offset: to_em(x_offset),
+                vertical_offset: -to_em(y_offset),
+            }
         });
 
-        let superscript = ttf.superscript_metrics().map(|metrics| ScriptMetrics {
-            width: to_em(metrics.x_size),
-            height: to_em(metrics.y_size),
-            horizontal_offset: to_em(metrics.x_offset),
-            vertical_offset: to_em(metrics.y_offset),
+        let superscript = skrifa.os2().ok().map(|os2| {
+            let mut x_size = os2.y_superscript_x_size() as f32;
+            let mut y_size = os2.y_superscript_y_size() as f32;
+            let mut x_offset = os2.y_superscript_x_offset() as f32;
+            let mut y_offset = os2.y_superscript_y_offset() as f32;
+
+            if let (Ok(mvar), true) = (skrifa.mvar(), !coords.is_empty()) {
+                use skrifa::raw::tables::mvar::tags::*;
+                let metric_delta = |tag| {
+                    mvar.metric_delta(tag, coords).unwrap_or_default().to_f64() as f32
+                };
+                x_size += metric_delta(SPXS);
+                y_size += metric_delta(SPYS);
+                x_offset += metric_delta(SPXO);
+                y_offset += metric_delta(SPYO);
+            }
+
+            ScriptMetrics {
+                width: to_em(x_size),
+                height: to_em(y_size),
+                horizontal_offset: to_em(x_offset),
+                vertical_offset: to_em(y_offset),
+            }
         });
 
         Self {
@@ -199,120 +280,143 @@ pub struct MathConstants {
 
 impl MathConstants {
     pub(super) fn new(font: &FontInstance) -> Box<Self> {
-        let ttf = font.ttf();
-
-        let space_width = ttf
+        let space_width = font
             .glyph_index(' ')
-            .and_then(|id| ttf.glyph_hor_advance(id).map(|units| font.to_em(units)))
+            .and_then(|id| font.x_advance(id))
             .unwrap_or(typst_library::math::THICK);
 
-        ttf.tables()
-            .math
-            .and_then(|math| math.constants)
-            .map(|constants| Self::from_constants(font, &constants, space_width))
+        font.skrifa()
+            .math()
+            .ok()
+            .and_then(|math| {
+                Some((math.math_constants().ok()?, math.has_swapped_min_heights()))
+            })
+            .map(|(constants, is_cambria)| {
+                Self::from_constants(font, &constants, space_width, is_cambria)
+            })
             .unwrap_or_else(|| Self::fallback(font, space_width))
     }
 
     fn from_constants(
         font: &FontInstance,
-        constants: &ttf_parser::math::Constants,
+        constants: &skrifa::raw::tables::math::MathConstants,
         space_width: Em,
+        is_cambria: bool,
     ) -> Box<Self> {
-        let is_cambria =
-            || font.post_script_name().is_some_and(|name| name == "CambriaMath");
-
         Box::new(Self {
             space_width,
             script_percent_scale_down: constants.script_percent_scale_down(),
             script_script_percent_scale_down: constants
                 .script_script_percent_scale_down(),
-            display_operator_min_height: font.to_em(if is_cambria() {
-                constants.delimited_sub_formula_min_height()
+            display_operator_min_height: font.to_em(if is_cambria {
+                constants.delimited_sub_formula_min_height().to_u16()
             } else {
-                constants.display_operator_min_height()
+                constants.display_operator_min_height().to_u16()
             }),
-            axis_height: font.to_em(constants.axis_height().value),
-            accent_base_height: font.to_em(constants.accent_base_height().value),
+            axis_height: font.to_em(constants.axis_height().value().to_i16()),
+            accent_base_height: font
+                .to_em(constants.accent_base_height().value().to_i16()),
             flattened_accent_base_height: font
-                .to_em(constants.flattened_accent_base_height().value),
-            subscript_shift_down: font.to_em(constants.subscript_shift_down().value),
-            subscript_top_max: font.to_em(constants.subscript_top_max().value),
+                .to_em(constants.flattened_accent_base_height().value().to_i16()),
+            subscript_shift_down: font
+                .to_em(constants.subscript_shift_down().value().to_i16()),
+            subscript_top_max: font.to_em(constants.subscript_top_max().value().to_i16()),
             subscript_baseline_drop_min: font
-                .to_em(constants.subscript_baseline_drop_min().value),
-            superscript_shift_up: font.to_em(constants.superscript_shift_up().value),
+                .to_em(constants.subscript_baseline_drop_min().value().to_i16()),
+            superscript_shift_up: font
+                .to_em(constants.superscript_shift_up().value().to_i16()),
             superscript_shift_up_cramped: font
-                .to_em(constants.superscript_shift_up_cramped().value),
-            superscript_bottom_min: font.to_em(constants.superscript_bottom_min().value),
+                .to_em(constants.superscript_shift_up_cramped().value().to_i16()),
+            superscript_bottom_min: font
+                .to_em(constants.superscript_bottom_min().value().to_i16()),
             superscript_baseline_drop_max: font
-                .to_em(constants.superscript_baseline_drop_max().value),
+                .to_em(constants.superscript_baseline_drop_max().value().to_i16()),
             sub_superscript_gap_min: font
-                .to_em(constants.sub_superscript_gap_min().value),
-            superscript_bottom_max_with_subscript: font
-                .to_em(constants.superscript_bottom_max_with_subscript().value),
-            space_after_script: font.to_em(constants.space_after_script().value),
-            upper_limit_gap_min: font.to_em(constants.upper_limit_gap_min().value),
+                .to_em(constants.sub_superscript_gap_min().value().to_i16()),
+            superscript_bottom_max_with_subscript: font.to_em(
+                constants.superscript_bottom_max_with_subscript().value().to_i16(),
+            ),
+            space_after_script: font
+                .to_em(constants.space_after_script().value().to_i16()),
+            upper_limit_gap_min: font
+                .to_em(constants.upper_limit_gap_min().value().to_i16()),
             upper_limit_baseline_rise_min: font
-                .to_em(constants.upper_limit_baseline_rise_min().value),
-            lower_limit_gap_min: font.to_em(constants.lower_limit_gap_min().value),
+                .to_em(constants.upper_limit_baseline_rise_min().value().to_i16()),
+            lower_limit_gap_min: font
+                .to_em(constants.lower_limit_gap_min().value().to_i16()),
             lower_limit_baseline_drop_min: font
-                .to_em(constants.lower_limit_baseline_drop_min().value),
-            stack_top_shift_up: font.to_em(constants.stack_top_shift_up().value),
+                .to_em(constants.lower_limit_baseline_drop_min().value().to_i16()),
+            stack_top_shift_up: font
+                .to_em(constants.stack_top_shift_up().value().to_i16()),
             stack_top_display_style_shift_up: font
-                .to_em(constants.stack_top_display_style_shift_up().value),
+                .to_em(constants.stack_top_display_style_shift_up().value().to_i16()),
             stack_bottom_shift_down: font
-                .to_em(constants.stack_bottom_shift_down().value),
-            stack_bottom_display_style_shift_down: font
-                .to_em(constants.stack_bottom_display_style_shift_down().value),
-            stack_gap_min: font.to_em(constants.stack_gap_min().value),
+                .to_em(constants.stack_bottom_shift_down().value().to_i16()),
+            stack_bottom_display_style_shift_down: font.to_em(
+                constants.stack_bottom_display_style_shift_down().value().to_i16(),
+            ),
+            stack_gap_min: font.to_em(constants.stack_gap_min().value().to_i16()),
             stack_display_style_gap_min: font
-                .to_em(constants.stack_display_style_gap_min().value),
+                .to_em(constants.stack_display_style_gap_min().value().to_i16()),
             stretch_stack_top_shift_up: font
-                .to_em(constants.stretch_stack_top_shift_up().value),
+                .to_em(constants.stretch_stack_top_shift_up().value().to_i16()),
             stretch_stack_bottom_shift_down: font
-                .to_em(constants.stretch_stack_bottom_shift_down().value),
+                .to_em(constants.stretch_stack_bottom_shift_down().value().to_i16()),
             stretch_stack_gap_above_min: font
-                .to_em(constants.stretch_stack_gap_above_min().value),
+                .to_em(constants.stretch_stack_gap_above_min().value().to_i16()),
             stretch_stack_gap_below_min: font
-                .to_em(constants.stretch_stack_gap_below_min().value),
+                .to_em(constants.stretch_stack_gap_below_min().value().to_i16()),
             fraction_numerator_shift_up: font
-                .to_em(constants.fraction_numerator_shift_up().value),
-            fraction_numerator_display_style_shift_up: font
-                .to_em(constants.fraction_numerator_display_style_shift_up().value),
+                .to_em(constants.fraction_numerator_shift_up().value().to_i16()),
+            fraction_numerator_display_style_shift_up: font.to_em(
+                constants.fraction_numerator_display_style_shift_up().value().to_i16(),
+            ),
             fraction_denominator_shift_down: font
-                .to_em(constants.fraction_denominator_shift_down().value),
-            fraction_denominator_display_style_shift_down: font
-                .to_em(constants.fraction_denominator_display_style_shift_down().value),
+                .to_em(constants.fraction_denominator_shift_down().value().to_i16()),
+            fraction_denominator_display_style_shift_down: font.to_em(
+                constants
+                    .fraction_denominator_display_style_shift_down()
+                    .value()
+                    .to_i16(),
+            ),
             fraction_numerator_gap_min: font
-                .to_em(constants.fraction_numerator_gap_min().value),
+                .to_em(constants.fraction_numerator_gap_min().value().to_i16()),
             fraction_num_display_style_gap_min: font
-                .to_em(constants.fraction_num_display_style_gap_min().value),
+                .to_em(constants.fraction_num_display_style_gap_min().value().to_i16()),
             fraction_rule_thickness: font
-                .to_em(constants.fraction_rule_thickness().value),
+                .to_em(constants.fraction_rule_thickness().value().to_i16()),
             fraction_denominator_gap_min: font
-                .to_em(constants.fraction_denominator_gap_min().value),
+                .to_em(constants.fraction_denominator_gap_min().value().to_i16()),
             fraction_denom_display_style_gap_min: font
-                .to_em(constants.fraction_denom_display_style_gap_min().value),
+                .to_em(constants.fraction_denom_display_style_gap_min().value().to_i16()),
             skewed_fraction_vertical_gap: font
-                .to_em(constants.skewed_fraction_vertical_gap().value),
+                .to_em(constants.skewed_fraction_vertical_gap().value().to_i16()),
             skewed_fraction_horizontal_gap: font
-                .to_em(constants.skewed_fraction_horizontal_gap().value),
-            overbar_vertical_gap: font.to_em(constants.overbar_vertical_gap().value),
-            overbar_rule_thickness: font.to_em(constants.overbar_rule_thickness().value),
-            overbar_extra_ascender: font.to_em(constants.overbar_extra_ascender().value),
-            underbar_vertical_gap: font.to_em(constants.underbar_vertical_gap().value),
+                .to_em(constants.skewed_fraction_horizontal_gap().value().to_i16()),
+            overbar_vertical_gap: font
+                .to_em(constants.overbar_vertical_gap().value().to_i16()),
+            overbar_rule_thickness: font
+                .to_em(constants.overbar_rule_thickness().value().to_i16()),
+            overbar_extra_ascender: font
+                .to_em(constants.overbar_extra_ascender().value().to_i16()),
+            underbar_vertical_gap: font
+                .to_em(constants.underbar_vertical_gap().value().to_i16()),
             underbar_rule_thickness: font
-                .to_em(constants.underbar_rule_thickness().value),
+                .to_em(constants.underbar_rule_thickness().value().to_i16()),
             underbar_extra_descender: font
-                .to_em(constants.underbar_extra_descender().value),
-            radical_vertical_gap: font.to_em(constants.radical_vertical_gap().value),
+                .to_em(constants.underbar_extra_descender().value().to_i16()),
+            radical_vertical_gap: font
+                .to_em(constants.radical_vertical_gap().value().to_i16()),
             radical_display_style_vertical_gap: font
-                .to_em(constants.radical_display_style_vertical_gap().value),
-            radical_rule_thickness: font.to_em(constants.radical_rule_thickness().value),
-            radical_extra_ascender: font.to_em(constants.radical_extra_ascender().value),
+                .to_em(constants.radical_display_style_vertical_gap().value().to_i16()),
+            radical_rule_thickness: font
+                .to_em(constants.radical_rule_thickness().value().to_i16()),
+            radical_extra_ascender: font
+                .to_em(constants.radical_extra_ascender().value().to_i16()),
             radical_kern_before_degree: font
-                .to_em(constants.radical_kern_before_degree().value),
+                .to_em(constants.radical_kern_before_degree().value().to_i16()),
             radical_kern_after_degree: font
-                .to_em(constants.radical_kern_after_degree().value),
+                .to_em(constants.radical_kern_after_degree().value().to_i16()),
             radical_degree_bottom_raise_percent: constants
                 .radical_degree_bottom_raise_percent()
                 as f64
@@ -424,7 +528,7 @@ pub enum TextEdgeBounds<'a> {
     /// Set the bounds to zero.
     Zero,
     /// Use the bounding box of the given glyph for the bounds.
-    Glyph(u16),
+    Glyph(u32),
     /// Use the dimension of the given frame for the bounds.
     Frame(&'a Frame),
 }

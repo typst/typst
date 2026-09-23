@@ -2,7 +2,9 @@
 
 use std::io::Read;
 
-use ttf_parser::{GlyphId, RgbaColor};
+use skrifa::color::{Brush, Color, ColorStop, Extend, Transform};
+use skrifa::raw::TableProvider;
+use skrifa::{GlyphId, MetadataProvider};
 use typst_syntax::Span;
 use usvg::tiny_skia_path;
 use xmlwriter::XmlWriter;
@@ -17,15 +19,14 @@ use crate::visualize::{
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
 pub fn should_outline(font: &FontInstance, glyph_id: GlyphId) -> bool {
-    let ttf = font.ttf();
-    (ttf.tables().glyf.is_some()
-        || ttf.tables().cff.is_some()
-        || ttf.tables().cff2.is_some())
-        && !ttf
-            .glyph_raster_image(glyph_id, u16::MAX)
-            .is_some_and(|img| img.format == ttf_parser::RasterImageFormat::PNG)
-        && !ttf.is_color_glyph(glyph_id)
-        && ttf.glyph_svg_image(glyph_id).is_none()
+    let skrifa = font.skrifa();
+    skrifa.outline_glyphs().format().is_some()
+        && !skrifa
+            .bitmap_strikes()
+            .glyph_for_size(skrifa::instance::Size::unscaled(), glyph_id)
+            .is_some_and(|glyph| matches!(glyph.data, skrifa::bitmap::BitmapData::Png(_)))
+        && skrifa.color_glyphs().get(glyph_id).is_none()
+        && !skrifa.svg().is_ok_and(|svg| svg.glyph_data(glyph_id).is_some())
 }
 
 /// A frame that can draw a glyph.
@@ -86,9 +87,8 @@ impl GlyphFrameItem {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
-pub fn glyph_frame(font: &FontInstance, glyph_id: u16) -> Option<GlyphFrame> {
+pub fn glyph_frame(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let upem = Abs::pt(font.units_per_em());
-    let glyph_id = GlyphId(glyph_id);
 
     if let Some(frame) = draw_glyph(font, upem, glyph_id) {
         return Some(frame);
@@ -98,21 +98,22 @@ pub fn glyph_frame(font: &FontInstance, glyph_id: u16) -> Option<GlyphFrame> {
     // the space glyph. Then, an empty frame does the job. (This happens for
     // some rare CBDT fonts, which don't define a bitmap for the space, but
     // also don't have a glyf or CFF table.)
-    let not_space = font.ttf().glyph_index(' ') != Some(glyph_id);
+    let not_space = font.glyph_index(' ') != Some(glyph_id);
     not_space.then(|| draw_fallback_tofu(font, upem, glyph_id))
 }
 
 /// Tries to draw a glyph.
 fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
-    let ttf = font.ttf();
-    let kind = if let Some(raster_image) = ttf
-        .glyph_raster_image(glyph_id, u16::MAX)
-        .filter(|img| img.format == ttf_parser::RasterImageFormat::PNG)
+    let skrifa = font.skrifa();
+    let kind = if let Some(raster) = skrifa
+        .bitmap_strikes()
+        .glyph_for_size(skrifa::instance::Size::unscaled(), glyph_id)
+        .filter(|glyph| matches!(glyph.data, skrifa::bitmap::BitmapData::Png(_)))
     {
-        draw_raster_glyph(font, upem, raster_image)
-    } else if ttf.is_color_glyph(glyph_id) {
+        draw_raster_glyph(font, upem, raster)
+    } else if skrifa.color_glyphs().get(glyph_id).is_some() {
         draw_colr_glyph(font, glyph_id)
-    } else if ttf.glyph_svg_image(glyph_id).is_some() {
+    } else if skrifa.svg().is_ok_and(|svg| svg.glyph_data(glyph_id).is_some()) {
         draw_svg_glyph(font, glyph_id)
     } else {
         None
@@ -124,8 +125,8 @@ fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<Glyph
 /// Draws a fallback tofu box with the advance width of the glyph.
 fn draw_fallback_tofu(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
     let advance = font
-        .ttf()
-        .glyph_hor_advance(glyph_id)
+        .glyph_metrics()
+        .advance_width(glyph_id)
         .map(|advance| Abs::pt(advance as f64))
         .unwrap_or(upem / 3.0);
     let inset = 0.15 * advance;
@@ -144,19 +145,24 @@ fn draw_fallback_tofu(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Glyp
 fn draw_raster_glyph(
     font: &FontInstance,
     upem: Abs,
-    raster_image: ttf_parser::RasterGlyphImage,
+    raster: skrifa::bitmap::BitmapGlyph,
 ) -> Option<GlyphFrameItem> {
-    let data = Bytes::new(raster_image.data.to_vec());
+    let skrifa::bitmap::BitmapData::Png(data) = raster.data else { unreachable!() };
+    let data = Bytes::new(data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
-    let scale = upem / raster_image.pixels_per_em as f64;
+    let scale = upem / raster.ppem_x as f64;
     let image_width = scale * image.width();
     let image_height = scale * image.height();
 
-    let x_offset = scale * raster_image.x as f64;
-    let mut y_offset = scale * raster_image.y as f64;
+    let x_offset = scale * raster.inner_bearing_x as f64;
+    let y = match raster.placement_origin {
+        skrifa::bitmap::Origin::TopLeft => raster.inner_bearing_y - raster.height as f32,
+        skrifa::bitmap::Origin::BottomLeft => raster.inner_bearing_y,
+    };
+    let mut y_offset = scale * y as f64;
     // Apple Color emoji doesn't provide offset information (or at least
-    // not in a way ttf-parser understands), so we artificially shift their
+    // not in a way skrifa understands), so we artificially shift their
     // baseline to make it look good.
     if font.info().family.to_lowercase() == "apple color emoji" {
         // This factor is just taken from krilla.
@@ -172,11 +178,11 @@ fn draw_raster_glyph(
 fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     let svg_string = colr_glyph_to_svg(font, glyph_id)?;
 
-    let ttf = font.ttf();
-    let width = ttf.global_bounding_box().width() as f64;
-    let height = ttf.global_bounding_box().height() as f64;
-    let x_min = ttf.global_bounding_box().x_min as f64;
-    let y_max = ttf.global_bounding_box().y_max as f64;
+    let head = font.skrifa().head().ok()?;
+    let width = (head.x_max() - head.x_min()) as f64;
+    let height = (head.y_max() - head.y_min()) as f64;
+    let x_min = head.x_min() as f64;
+    let y_max = head.y_max() as f64;
 
     let data = Bytes::from_string(svg_string);
     let image = Image::plain(SvgImage::new(data).ok()?);
@@ -190,11 +196,11 @@ fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameI
 fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
-    let ttf = font.ttf();
-    let width = ttf.global_bounding_box().width() as f64;
-    let height = ttf.global_bounding_box().height() as f64;
-    let x_min = ttf.global_bounding_box().x_min as f64;
-    let y_max = ttf.global_bounding_box().y_max as f64;
+    let head = font.skrifa().head().ok()?;
+    let width = (head.x_max() - head.x_min()) as f64;
+    let height = (head.y_max() - head.y_min()) as f64;
+    let x_min = head.x_min() as f64;
+    let y_max = head.y_max() as f64;
     let tx = -x_min;
     let ty = -y_max;
 
@@ -215,19 +221,27 @@ fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
         format_args!("matrix(1 0 0 -1 0 0) matrix(1 0 0 1 {tx} {ty})"),
     );
 
+    let skrifa = font.skrifa();
+    let location = font.location();
     let mut glyph_painter = GlyphPainter {
-        face: ttf,
+        font: skrifa,
+        location,
         svg: &mut svg,
         path_buf: &mut path_buf,
         gradient_index,
         clip_path_index,
-        palette_index: 0,
-        transform: ttf_parser::Transform::default(),
-        outline_transform: ttf_parser::Transform::default(),
-        transforms_stack: vec![ttf_parser::Transform::default()],
+        foreground_color: Color { blue: 0, green: 0, red: 0, alpha: 255 },
+        transform: Transform::default(),
+        outline_transform: Transform::default(),
+        transforms_stack: vec![Transform::default()],
+        clip_stack: vec![],
     };
 
-    ttf.paint_color_glyph(glyph_id, 0, RgbaColor::new(0, 0, 0, 255), &mut glyph_painter)?;
+    skrifa
+        .color_glyphs()
+        .get(glyph_id)?
+        .paint(location, &mut glyph_painter)
+        .ok()?;
     svg.end_element();
 
     Some(svg.end_document())
@@ -237,7 +251,7 @@ fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
 fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
-    let mut data = font.ttf().glyph_svg_image(glyph_id)?.data;
+    let mut data = font.skrifa().svg().ok().and_then(|svg| svg.glyph_data(glyph_id))?;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
@@ -360,101 +374,151 @@ fn fixup_svg(svg: &mut String, view_box: Rect) {
     }
 }
 
-struct ColrBuilder<'a>(&'a mut String);
+struct ColrBuilder<'a> {
+    path: &'a mut String,
+    min_x: f32,
+    min_y: f32,
+    max_x: f32,
+    max_y: f32,
+}
 
-impl ColrBuilder<'_> {
+impl<'a> ColrBuilder<'a> {
+    fn new(path: &'a mut String) -> Self {
+        Self {
+            path,
+            min_x: f32::MAX,
+            min_y: f32::MAX,
+            max_x: f32::MIN,
+            max_y: f32::MIN,
+        }
+    }
+
+    fn add_point(&mut self, x: f32, y: f32) {
+        self.min_x = self.min_x.min(x);
+        self.min_y = self.min_y.min(y);
+        self.max_x = self.max_x.max(x);
+        self.max_y = self.max_y.max(y);
+    }
+
+    /// Returns a conservative bounding box of the written path.
+    /// It includes curve control points, so it can be larger than the exact
+    /// bounding box, but never smaller.
+    fn bounds(&self) -> Option<tiny_skia_path::Rect> {
+        if self.min_x <= self.max_x && self.min_y <= self.max_y {
+            tiny_skia_path::Rect::from_ltrb(
+                self.min_x, self.min_y, self.max_x, self.max_y,
+            )
+        } else {
+            None
+        }
+    }
+
     fn finish(&mut self) {
-        if !self.0.is_empty() {
-            self.0.pop(); // remove trailing space
+        if !self.path.is_empty() {
+            self.path.pop(); // remove trailing space
         }
     }
 }
 
-impl ttf_parser::OutlineBuilder for ColrBuilder<'_> {
+impl skrifa::outline::OutlinePen for ColrBuilder<'_> {
     fn move_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "M {x} {y} ").unwrap();
+        self.add_point(x, y);
+        write!(self.path, "M {x} {y} ").unwrap();
     }
 
     fn line_to(&mut self, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "L {x} {y} ").unwrap();
+        self.add_point(x, y);
+        write!(self.path, "L {x} {y} ").unwrap();
     }
 
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "Q {x1} {y1} {x} {y} ").unwrap();
+        self.add_point(x1, y1);
+        self.add_point(x, y);
+        write!(self.path, "Q {x1} {y1} {x} {y} ").unwrap();
     }
 
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         use std::fmt::Write;
-        write!(self.0, "C {x1} {y1} {x2} {y2} {x} {y} ").unwrap();
+        self.add_point(x1, y1);
+        self.add_point(x2, y2);
+        self.add_point(x, y);
+        write!(self.path, "C {x1} {y1} {x2} {y2} {x} {y} ").unwrap();
     }
 
     fn close(&mut self) {
-        self.0.push_str("Z ");
+        self.path.push_str("Z ");
     }
 }
 
 // NOTE: This is only a best-effort translation of COLR into SVG. It's not feature-complete
 // and it's also not possible to make it feature-complete using just raw SVG features.
 pub(crate) struct GlyphPainter<'a> {
-    pub(crate) face: &'a ttf_parser::Face<'a>,
+    pub(crate) font: &'a skrifa::FontRef<'a>,
+    /// The variation location to draw outlines at.
+    pub(crate) location: skrifa::instance::LocationRef<'a>,
     pub(crate) svg: &'a mut xmlwriter::XmlWriter,
     pub(crate) path_buf: &'a mut String,
     pub(crate) gradient_index: usize,
     pub(crate) clip_path_index: usize,
-    pub(crate) palette_index: u16,
-    pub(crate) transform: ttf_parser::Transform,
-    pub(crate) outline_transform: ttf_parser::Transform,
-    pub(crate) transforms_stack: Vec<ttf_parser::Transform>,
+    pub(crate) foreground_color: Color,
+    pub(crate) transform: Transform,
+    pub(crate) outline_transform: Transform,
+    pub(crate) transforms_stack: Vec<Transform>,
+    /// The bounding box of every active clip, in the root coordinate space.
+    /// `None` means the clip is empty (or its bounds are unknown).
+    pub(crate) clip_stack: Vec<Option<tiny_skia_path::Rect>>,
 }
 
-impl<'a> GlyphPainter<'a> {
-    fn write_gradient_stops(&mut self, stops: ttf_parser::colr::GradientStopsIter) {
+impl GlyphPainter<'_> {
+    fn write_gradient_stops(&mut self, stops: &[ColorStop]) {
         for stop in stops {
+            let color = self.palette_index_to_color(stop.palette_index, stop.alpha);
             self.svg.start_element("stop");
-            self.svg.write_attribute("offset", &stop.stop_offset);
-            self.write_color_attribute("stop-color", stop.color);
-            let opacity = f32::from(stop.color.alpha) / 255.0;
+            self.svg.write_attribute("offset", &stop.offset);
+            self.write_color_attribute("stop-color", color);
+            let opacity = f32::from(color.alpha) / 255.0;
             self.svg.write_attribute("stop-opacity", &opacity);
             self.svg.end_element();
         }
     }
 
-    fn write_color_attribute(&mut self, name: &str, color: ttf_parser::RgbaColor) {
+    fn write_color_attribute(&mut self, name: &str, color: Color) {
         self.svg.write_attribute_fmt(
             name,
             format_args!("rgb({}, {}, {})", color.red, color.green, color.blue),
         );
     }
 
-    fn write_transform_attribute(&mut self, name: &str, ts: ttf_parser::Transform) {
-        if ts.is_default() {
+    fn write_transform_attribute(&mut self, name: &str, ts: Transform) {
+        if ts == Transform::default() {
             return;
         }
 
         self.svg.write_attribute_fmt(
             name,
-            format_args!("matrix({} {} {} {} {} {})", ts.a, ts.b, ts.c, ts.d, ts.e, ts.f),
+            format_args!(
+                "matrix({} {} {} {} {} {})",
+                ts.xx, ts.yx, ts.xy, ts.yy, ts.dx, ts.dy
+            ),
         );
     }
 
-    fn write_spread_method_attribute(
-        &mut self,
-        extend: ttf_parser::colr::GradientExtend,
-    ) {
+    fn write_spread_method_attribute(&mut self, extend: Extend) {
         self.svg.write_attribute(
             "spreadMethod",
             match extend {
-                ttf_parser::colr::GradientExtend::Pad => &"pad",
-                ttf_parser::colr::GradientExtend::Repeat => &"repeat",
-                ttf_parser::colr::GradientExtend::Reflect => &"reflect",
+                Extend::Pad => &"pad",
+                Extend::Repeat => &"repeat",
+                Extend::Reflect => &"reflect",
+                Extend::Unknown => return,
             },
         );
     }
 
-    fn paint_solid(&mut self, color: ttf_parser::RgbaColor) {
+    fn paint_solid(&mut self, color: Color) {
         self.svg.start_element("path");
         self.write_color_attribute("fill", color);
         let opacity = f32::from(color.alpha) / 255.0;
@@ -464,30 +528,28 @@ impl<'a> GlyphPainter<'a> {
         self.svg.end_element();
     }
 
-    fn paint_linear_gradient(&mut self, gradient: ttf_parser::colr::LinearGradient<'a>) {
+    fn paint_linear_gradient(
+        &mut self,
+        p0: skrifa::raw::types::Point<f32>,
+        p1: skrifa::raw::types::Point<f32>,
+        color_stops: &[ColorStop],
+        extend: Extend,
+    ) {
         let gradient_id = format!("lg{}", self.gradient_index);
         self.gradient_index += 1;
 
         let gradient_transform = paint_transform(self.outline_transform, self.transform);
 
-        // TODO: We ignore x2, y2. Have to apply them somehow.
-        // TODO: The way spreadMode works in ttf and svg is a bit different. In SVG, the spreadMode
-        // will always be applied based on x1/y1 and x2/y2. However, in TTF the spreadMode will
-        // be applied from the first/last stop. So if we have a gradient with x1=0 x2=1, and
-        // a stop at x=0.4 and x=0.6, then in SVG we will always see a padding, while in ttf
-        // we will see the actual spreadMode. We need to account for that somehow.
         self.svg.start_element("linearGradient");
         self.svg.write_attribute("id", &gradient_id);
-        self.svg.write_attribute("x1", &gradient.x0);
-        self.svg.write_attribute("y1", &gradient.y0);
-        self.svg.write_attribute("x2", &gradient.x1);
-        self.svg.write_attribute("y2", &gradient.y1);
+        self.svg.write_attribute("x1", &p0.x);
+        self.svg.write_attribute("y1", &p0.y);
+        self.svg.write_attribute("x2", &p1.x);
+        self.svg.write_attribute("y2", &p1.y);
         self.svg.write_attribute("gradientUnits", &"userSpaceOnUse");
-        self.write_spread_method_attribute(gradient.extend);
+        self.write_spread_method_attribute(extend);
         self.write_transform_attribute("gradientTransform", gradient_transform);
-        self.write_gradient_stops(
-            gradient.stops(self.palette_index, self.face.variation_coordinates()),
-        );
+        self.write_gradient_stops(color_stops);
         self.svg.end_element();
 
         self.svg.start_element("path");
@@ -498,26 +560,37 @@ impl<'a> GlyphPainter<'a> {
         self.svg.end_element();
     }
 
-    fn paint_radial_gradient(&mut self, gradient: ttf_parser::colr::RadialGradient<'a>) {
+    fn paint_radial_gradient(
+        &mut self,
+        c0: skrifa::raw::types::Point<f32>,
+        r0: f32,
+        c1: skrifa::raw::types::Point<f32>,
+        r1: f32,
+        color_stops: &[ColorStop],
+        extend: Extend,
+    ) {
         let gradient_id = format!("rg{}", self.gradient_index);
         self.gradient_index += 1;
 
         let gradient_transform = paint_transform(self.outline_transform, self.transform);
 
+        // TODO: Normalizing the stops into the 0..1 range moves the circles onto the
+        // first and last stop, which can make `r0` (and in theory `r1`) negative.
+        // SVG cannot express that, so the color line should be cut where the radius
+        // reaches zero, with an interpolated stop inserted at the cut and the
+        // remaining stops reparameterized into the 0..1 range.
         self.svg.start_element("radialGradient");
         self.svg.write_attribute("id", &gradient_id);
-        self.svg.write_attribute("cx", &gradient.x1);
-        self.svg.write_attribute("cy", &gradient.y1);
-        self.svg.write_attribute("r", &gradient.r1);
-        self.svg.write_attribute("fr", &gradient.r0);
-        self.svg.write_attribute("fx", &gradient.x0);
-        self.svg.write_attribute("fy", &gradient.y0);
+        self.svg.write_attribute("cx", &c1.x);
+        self.svg.write_attribute("cy", &c1.y);
+        self.svg.write_attribute("r", &r1);
+        self.svg.write_attribute("fr", &r0);
+        self.svg.write_attribute("fx", &c0.x);
+        self.svg.write_attribute("fy", &c0.y);
         self.svg.write_attribute("gradientUnits", &"userSpaceOnUse");
-        self.write_spread_method_attribute(gradient.extend);
+        self.write_spread_method_attribute(extend);
         self.write_transform_attribute("gradientTransform", gradient_transform);
-        self.write_gradient_stops(
-            gradient.stops(self.palette_index, self.face.variation_coordinates()),
-        );
+        self.write_gradient_stops(color_stops);
         self.svg.end_element();
 
         self.svg.start_element("path");
@@ -528,30 +601,21 @@ impl<'a> GlyphPainter<'a> {
         self.svg.end_element();
     }
 
-    fn paint_sweep_gradient(&mut self, _: ttf_parser::colr::SweepGradient<'a>) {}
+    fn paint_sweep_gradient(
+        &mut self,
+        _c0: skrifa::raw::types::Point<f32>,
+        _start_angle: f32,
+        _end_angle: f32,
+        _color_stops: &[ColorStop],
+        _extend: Extend,
+    ) {
+    }
 }
 
-fn paint_transform(
-    outline_transform: ttf_parser::Transform,
-    transform: ttf_parser::Transform,
-) -> ttf_parser::Transform {
-    let outline_transform = tiny_skia_path::Transform::from_row(
-        outline_transform.a,
-        outline_transform.b,
-        outline_transform.c,
-        outline_transform.d,
-        outline_transform.e,
-        outline_transform.f,
-    );
+fn paint_transform(outline_transform: Transform, transform: Transform) -> Transform {
+    let outline_transform = skrifa_to_tsp_transform(outline_transform);
 
-    let gradient_transform = tiny_skia_path::Transform::from_row(
-        transform.a,
-        transform.b,
-        transform.c,
-        transform.d,
-        transform.e,
-        transform.f,
-    );
+    let gradient_transform = skrifa_to_tsp_transform(transform);
 
     let gradient_transform = outline_transform
         .invert()
@@ -559,14 +623,54 @@ fn paint_transform(
         .unwrap_or_default()
         .pre_concat(gradient_transform);
 
-    ttf_parser::Transform {
-        a: gradient_transform.sx,
-        b: gradient_transform.ky,
-        c: gradient_transform.kx,
-        d: gradient_transform.sy,
-        e: gradient_transform.tx,
-        f: gradient_transform.ty,
+    tsp_to_skrifa_transform(gradient_transform)
+}
+
+fn skrifa_to_tsp_transform(t: Transform) -> tiny_skia_path::Transform {
+    tiny_skia_path::Transform::from_row(t.xx, t.yx, t.xy, t.yy, t.dx, t.dy)
+}
+
+fn tsp_to_skrifa_transform(t: tiny_skia_path::Transform) -> Transform {
+    Transform {
+        xx: t.sx,
+        yx: t.ky,
+        xy: t.kx,
+        yy: t.sy,
+        dx: t.tx,
+        dy: t.ty,
     }
+}
+
+/// Returns the bounding box of `rect` transformed by `ts`.
+fn map_rect(
+    rect: tiny_skia_path::Rect,
+    ts: tiny_skia_path::Transform,
+) -> Option<tiny_skia_path::Rect> {
+    let mut points = [
+        tiny_skia_path::Point::from_xy(rect.left(), rect.top()),
+        tiny_skia_path::Point::from_xy(rect.right(), rect.top()),
+        tiny_skia_path::Point::from_xy(rect.left(), rect.bottom()),
+        tiny_skia_path::Point::from_xy(rect.right(), rect.bottom()),
+    ];
+    ts.map_points(&mut points);
+    let min_x = points.iter().map(|p| p.x).fold(f32::MAX, f32::min);
+    let min_y = points.iter().map(|p| p.y).fold(f32::MAX, f32::min);
+    let max_x = points.iter().map(|p| p.x).fold(f32::MIN, f32::max);
+    let max_y = points.iter().map(|p| p.y).fold(f32::MIN, f32::max);
+    tiny_skia_path::Rect::from_ltrb(min_x, min_y, max_x, max_y)
+}
+
+/// Returns the intersection of two rects, or `None` when they do not overlap.
+fn intersect_rects(
+    a: tiny_skia_path::Rect,
+    b: tiny_skia_path::Rect,
+) -> Option<tiny_skia_path::Rect> {
+    tiny_skia_path::Rect::from_ltrb(
+        a.left().max(b.left()),
+        a.top().max(b.top()),
+        a.right().min(b.right()),
+        a.bottom().min(b.bottom()),
+    )
 }
 
 impl GlyphPainter<'_> {
@@ -586,30 +690,106 @@ impl GlyphPainter<'_> {
         self.svg
             .write_attribute_fmt("clip-path", format_args!("url(#{clip_id})"));
     }
-}
 
-impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
-    fn outline_glyph(&mut self, glyph_id: ttf_parser::GlyphId) {
+    /// Outlines a glyph into `path_buf` at the current variation location
+    /// (an empty path on failure), records the current transform as the
+    /// outline transform and returns the outline's conservative bounding box
+    /// in the glyph's local coordinate space.
+    fn outline_glyph(&mut self, glyph_id: GlyphId) -> Option<tiny_skia_path::Rect> {
         self.path_buf.clear();
-        let mut builder = ColrBuilder(self.path_buf);
-        match self.face.outline_glyph(glyph_id, &mut builder) {
-            Some(v) => v,
-            None => return,
+
+        let mut bounds = None;
+        let outlined = if let Some(outliner) = self.font.outline_glyphs().get(glyph_id) {
+            let mut builder = ColrBuilder::new(self.path_buf);
+            let size = skrifa::instance::Size::unscaled();
+            let ok = outliner
+                .draw(
+                    skrifa::outline::DrawSettings::unhinted(size, self.location)
+                        .with_path_style(skrifa::outline::pen::PathStyle::HarfBuzz),
+                    &mut builder,
+                )
+                .is_ok();
+            if ok {
+                builder.finish();
+                bounds = builder.bounds();
+            }
+            ok
+        } else {
+            false
         };
-        builder.finish();
+        if !outlined {
+            // A partial outline may have been written before a draw error.
+            self.path_buf.clear();
+        }
 
         // We have to write outline using the current transform.
         self.outline_transform = self.transform;
+
+        bounds
     }
 
-    fn push_layer(&mut self, mode: ttf_parser::colr::CompositeMode) {
+    /// Paints `path_buf` (positioned by the outline transform) with the given brush.
+    fn paint_brush(&mut self, brush: Brush<'_>) {
+        match brush {
+            Brush::Solid { palette_index, alpha } => {
+                let color = self.palette_index_to_color(palette_index, alpha);
+                self.paint_solid(color);
+            }
+            Brush::LinearGradient { p0, p1, color_stops, extend } => {
+                self.paint_linear_gradient(p0, p1, color_stops, extend);
+            }
+            Brush::RadialGradient { c0, r0, c1, r1, color_stops, extend } => {
+                self.paint_radial_gradient(c0, r0, c1, r1, color_stops, extend);
+            }
+            Brush::SweepGradient { c0, start_angle, end_angle, color_stops, extend } => {
+                self.paint_sweep_gradient(
+                    c0,
+                    start_angle,
+                    end_angle,
+                    color_stops,
+                    extend,
+                );
+            }
+        }
+    }
+
+    fn palette_index_to_color(&self, palette_index: u16, alpha: f32) -> Color {
+        let lookup = || -> Option<Color> {
+            // We always use the first palette. `ColorPalettes` handles
+            // per-palette record offsets internally.
+            let palettes = self.font.color_palettes();
+            let palette = palettes.get(0)?;
+            let color = palette.colors().get(palette_index as usize)?;
+            Some(Color {
+                red: color.red,
+                green: color.green,
+                blue: color.blue,
+                alpha: color.alpha,
+            })
+        };
+
+        let mut color = if palette_index == u16::MAX {
+            self.foreground_color
+        } else {
+            lookup().unwrap_or(self.foreground_color)
+        };
+
+        // Multiply alpha
+        color.alpha = ((color.alpha as f32) * alpha) as u8;
+
+        color
+    }
+}
+
+impl skrifa::color::ColorPainter for GlyphPainter<'_> {
+    fn push_layer(&mut self, composite_mode: skrifa::color::CompositeMode) {
         self.svg.start_element("g");
 
-        use ttf_parser::colr::CompositeMode;
+        use skrifa::color::CompositeMode;
         // TODO: Need to figure out how to represent the other blend modes
         // in SVG.
-        let mode = match mode {
-            CompositeMode::SourceOver => "normal",
+        let mode = match composite_mode {
+            CompositeMode::SrcOver => "normal",
             CompositeMode::Screen => "screen",
             CompositeMode::Overlay => "overlay",
             CompositeMode::Darken => "darken",
@@ -621,10 +801,10 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
             CompositeMode::Difference => "difference",
             CompositeMode::Exclusion => "exclusion",
             CompositeMode::Multiply => "multiply",
-            CompositeMode::Hue => "hue",
-            CompositeMode::Saturation => "saturation",
-            CompositeMode::Color => "color",
-            CompositeMode::Luminosity => "luminosity",
+            CompositeMode::HslHue => "hue",
+            CompositeMode::HslSaturation => "saturation",
+            CompositeMode::HslColor => "color",
+            CompositeMode::HslLuminosity => "luminosity",
             _ => "normal",
         };
         self.svg.write_attribute_fmt(
@@ -637,17 +817,28 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
         self.svg.end_element(); // g
     }
 
-    fn push_transform(&mut self, transform: ttf_parser::Transform) {
+    fn push_transform(&mut self, transform: Transform) {
         self.transforms_stack.push(self.transform);
-        self.transform = ttf_parser::Transform::combine(self.transform, transform);
+        self.transform *= transform;
     }
 
-    fn paint(&mut self, paint: ttf_parser::colr::Paint<'a>) {
-        match paint {
-            ttf_parser::colr::Paint::Solid(color) => self.paint_solid(color),
-            ttf_parser::colr::Paint::LinearGradient(lg) => self.paint_linear_gradient(lg),
-            ttf_parser::colr::Paint::RadialGradient(rg) => self.paint_radial_gradient(rg),
-            ttf_parser::colr::Paint::SweepGradient(sg) => self.paint_sweep_gradient(sg),
+    fn fill_glyph(
+        &mut self,
+        glyph_id: GlyphId,
+        brush_transform: Option<Transform>,
+        brush: Brush<'_>,
+    ) {
+        // Fill the glyph outline directly instead of the default
+        // clip-then-fill decomposition. This avoids a redundant clip path
+        // per fill and matches the output of the old ttf-parser based painter.
+        self.outline_glyph(glyph_id);
+
+        if let Some(brush_transform) = brush_transform {
+            self.push_transform(brush_transform);
+            self.paint_brush(brush);
+            self.pop_transform();
+        } else {
+            self.paint_brush(brush);
         }
     }
 
@@ -657,15 +848,21 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
         }
     }
 
-    fn push_clip(&mut self) {
-        self.clip_with_path(&self.path_buf.clone());
+    fn push_clip_glyph(&mut self, glyph_id: GlyphId) {
+        let bounds = self.outline_glyph(glyph_id);
+
+        // Clip with the outline. This must always open a clip group - even
+        // when outlining failed (an empty path clips everything away) - since
+        // the corresponding `pop_clip` will unconditionally close it.
+        let path = self.path_buf.clone();
+        self.clip_with_path(&path);
+
+        let root_bounds = bounds
+            .and_then(|b| map_rect(b, skrifa_to_tsp_transform(self.outline_transform)));
+        self.clip_stack.push(root_bounds);
     }
 
-    fn pop_clip(&mut self) {
-        self.svg.end_element();
-    }
-
-    fn push_clip_box(&mut self, clipbox: ttf_parser::colr::ClipBox) {
+    fn push_clip_box(&mut self, clipbox: skrifa::raw::types::BoundingBox<f32>) {
         let x_min = clipbox.x_min;
         let x_max = clipbox.x_max;
         let y_min = clipbox.y_min;
@@ -675,6 +872,59 @@ impl<'a> ttf_parser::colr::Painter<'a> for GlyphPainter<'a> {
             "M {x_min} {y_min} L {x_max} {y_min} L {x_max} {y_max} L {x_min} {y_max} Z"
         );
 
+        // The clip box is positioned by the current transform.
+        self.outline_transform = self.transform;
         self.clip_with_path(&clip_path);
+
+        let bounds = tiny_skia_path::Rect::from_ltrb(x_min, y_min, x_max, y_max)
+            .and_then(|b| map_rect(b, skrifa_to_tsp_transform(self.outline_transform)));
+        self.clip_stack.push(bounds);
+    }
+
+    fn pop_clip(&mut self) {
+        self.svg.end_element();
+        self.clip_stack.pop();
+    }
+
+    fn fill(&mut self, brush: Brush<'_>) {
+        // A fill paints the intersection of all currently active clips.
+        // Paint a rectangle covering that intersection and let the enclosing
+        // clip groups shape it.
+
+        let mut region: Option<tiny_skia_path::Rect> = None;
+        for bounds in &self.clip_stack {
+            // A clip with no (or unknown) bounds clips everything away.
+            let Some(bounds) = bounds else { return };
+            region = Some(match region {
+                Some(region) => match intersect_rects(region, *bounds) {
+                    Some(r) => r,
+                    // An empty intersection - there is nothing to paint.
+                    None => return,
+                },
+                None => *bounds,
+            });
+        }
+        let Some(region) = region else { return };
+
+        use std::fmt::Write;
+        self.path_buf.clear();
+        write!(
+            self.path_buf,
+            "M {} {} L {} {} L {} {} L {} {} Z",
+            region.left(),
+            region.top(),
+            region.right(),
+            region.top(),
+            region.right(),
+            region.bottom(),
+            region.left(),
+            region.bottom()
+        )
+        .unwrap();
+
+        // The covering rectangle is in the root coordinate space.
+        self.outline_transform = Transform::default();
+
+        self.paint_brush(brush);
     }
 }

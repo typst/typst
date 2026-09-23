@@ -10,6 +10,11 @@ mod tag;
 mod variant;
 mod variations;
 
+use skrifa::outline::pen::PathStyle;
+use skrifa::outline::{AdjustedMetrics, DrawSettings, OutlinePen};
+use skrifa::prelude::Size;
+use skrifa::{GlyphId, MetadataProvider};
+
 pub use self::book::FontBook;
 pub use self::info::{Coverage, FontFlags, FontInfo};
 pub use self::metrics::{
@@ -24,9 +29,7 @@ use std::cell::OnceCell;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::Deref;
-use std::sync::Arc;
-
-use ttf_parser::{GlyphId, name_id};
+use std::sync::{Arc, OnceLock};
 
 use self::exceptions::find_exception;
 use self::info::find_name;
@@ -46,14 +49,16 @@ struct FontInner {
     index: u32,
     /// Metadata about the font.
     info: FontInfo,
-    // NOTE: `ttf` references `data`, so it's important for `data` to be
-    // dropped after `ttf` or `ttf` will be left dangling while the data is
-    // dropped. Fields are dropped in declaration order, so `data` needs to be
-    // declared after `ttf`.
-    /// The underlying ttf-parser face.
-    ttf: ttf_parser::Face<'static>,
+    /// Cached shaper data for the font.
+    harfrust: harfrust::ShaperData,
+    // NOTE: `skrifa` references `data`, so it's important for `data` to be
+    // dropped after `skrifa` or `skrifa` will be left dangling while the data
+    // is dropped. Fields are dropped in declaration order, so `data` needs to
+    // be declared after `skrifa`.
+    /// The underlying skrifa face.
+    skrifa: skrifa::FontRef<'static>,
     /// The raw font data, possibly shared with other fonts from the same
-    /// collection. The vector's allocation must not move, because `ttf`
+    /// collection. The vector's allocation must not move, because `skrifa`
     /// points into it using unsafe code.
     data: Bytes,
 }
@@ -66,19 +71,24 @@ impl Font {
         //   - We don't move the underlying vector
         //   - Nobody else can move it since we have a strong ref to the `Arc`.
         // - The internal 'static lifetime is not leaked because its rewritten
-        //   to the self-lifetime in `ttf()`.
+        //   to the self-lifetime in `ttf()`. TODO: this comment.
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
-        let ttf = ttf_parser::Face::parse(slice, index).ok()?;
-        let info = FontInfo::from_ttf(&ttf)?;
+        let skrifa = skrifa::FontRef::from_index(slice, index).ok()?;
+        let harfrust = harfrust::ShaperData::new(&skrifa);
+        let info = FontInfo::from_skrifa(&skrifa)?;
 
-        Some(Self(Arc::new(FontInner { index, info, ttf, data })))
+        Some(Self(Arc::new(FontInner { index, info, harfrust, skrifa, data })))
     }
 
     /// Parse all fonts in the given data.
     pub fn iter(data: Bytes) -> impl Iterator<Item = Self> {
-        let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
+        let count = match skrifa::raw::FileRef::new(&data) {
+            Ok(skrifa::raw::FileRef::Font(_)) => 1,
+            Ok(skrifa::raw::FileRef::Collection(ttc)) => ttc.len(),
+            _ => 0,
+        };
         (0..count).filter_map(move |index| Self::new(data.clone(), index))
     }
 
@@ -97,9 +107,14 @@ impl Font {
         &self.0.info
     }
 
+    /// The underlying skrifa face.
+    pub fn skrifa(&self) -> &skrifa::FontRef<'_> {
+        &self.0.skrifa
+    }
+
     /// Determine the font's PostScript name.
     pub fn post_script_name(&self) -> Option<String> {
-        find_name(&self.0.ttf, name_id::POST_SCRIPT_NAME)
+        find_name(&self.0.skrifa, skrifa::string::StringId::POSTSCRIPT_NAME)
     }
 
     /// Instantiates the font with specific text properties. The resulting
@@ -121,23 +136,26 @@ impl Font {
     /// type allows access to methods that depend on coordinates.
     #[comemo::memoize]
     fn instantiate_impl(self, variations: FontVariations) -> FontInstance {
-        let data = self.data();
-        let index = self.index();
+        let instance = harfrust::ShaperInstance::from_variations(
+            &self.0.skrifa,
+            variations.0.iter().map(|&(tag, value)| harfrust::Variation {
+                tag: tag.into(),
+                value: value.0,
+            }),
+        );
 
-        // Safety: See `Self::new`.
-        let slice: &'static [u8] =
-            unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
-
-        let mut rusty = rustybuzz::Face::from_slice(slice, index).unwrap();
-        for &(tag, value) in &variations.0 {
-            rusty.set_variation(tag.into(), value.0);
-        }
-
-        let metrics = FontMetrics::from_ttf(&rusty);
+        let metrics = FontMetrics::from_skrifa(
+            &self.0.skrifa,
+            skrifa::instance::LocationRef::new(instance.coords()),
+        );
 
         FontInstance(Arc::new(FontInstanceInner {
             metrics,
-            rusty,
+            shaper: OnceLock::new(),
+            glyph_metrics: OnceLock::new(),
+            charmap: OnceLock::new(),
+            outlines: OnceLock::new(),
+            instance,
             variations,
             font: self,
         }))
@@ -175,14 +193,24 @@ pub struct FontInstance(Arc<FontInstanceInner>);
 struct FontInstanceInner {
     /// The font's metrics.
     metrics: FontMetrics,
-    // NOTE: `rusty` references `font`, so it's important for `font` to be
-    // dropped after `rusty` or `rusty` will be left dangling while the font is
-    // dropped. Fields are dropped in declaration order, so `font` needs to be
-    // declared after `rusty`.
-    /// The underlying rustybuzz face.
-    rusty: rustybuzz::Face<'static>,
-    // The instance's variation coordinates.
+    /// The instance's variation coordinates.
     variations: FontVariations,
+    // NOTE: `shaper` and `glyph_metrics` reference `instance` and `font`, so
+    // it's important that they are dropped after them or they will be left
+    // dangling while they're dropped. Fields are dropped in declaration order,
+    // so `instance` and `data` need to be declared after `shaper` and
+    // `glyph_metrics`.
+    /// The shaper for this instance.
+    shaper: OnceLock<harfrust::Shaper<'static>>,
+    /// Glyph metrics for this instance in font units.
+    glyph_metrics: OnceLock<skrifa::metrics::GlyphMetrics<'static>>,
+    ///
+    charmap: OnceLock<skrifa::charmap::Charmap<'static>>,
+    ///
+    outlines: OnceLock<skrifa::outline::OutlineGlyphCollection<'static>>,
+    // TODO: this comment.
+    /// The instance's normalized variation coordinates.
+    instance: harfrust::ShaperInstance,
     /// The underlying font.
     font: Font,
 }
@@ -220,33 +248,44 @@ impl FontInstance {
     }
 
     /// Look up the horizontal advance width of a glyph.
-    pub fn x_advance(&self, glyph: u16) -> Option<Em> {
-        self.0
-            .rusty
-            .glyph_hor_advance(GlyphId(glyph))
+    pub fn x_advance(&self, gid: impl Into<GlyphId>) -> Option<Em> {
+        self.glyph_metrics()
+            .advance_width(gid.into())
             .map(|units| self.to_em(units))
+    }
+
+    ///
+    pub fn outline_glyph(
+        &self,
+        gid: impl Into<GlyphId>,
+        pen: &mut impl OutlinePen,
+    ) -> Option<AdjustedMetrics> {
+        let settings = DrawSettings::unhinted(Size::unscaled(), self.location())
+            .with_path_style(PathStyle::HarfBuzz);
+        self.outlines().get(gid.into())?.draw(settings, pen).ok()
     }
 
     /// Look up the vertical advance width of a glyph.
-    pub fn y_advance(&self, glyph: u16) -> Option<Em> {
-        self.0
-            .rusty
-            .glyph_ver_advance(GlyphId(glyph))
-            .map(|units| self.to_em(units))
+    pub fn y_advance(&self, gid: impl Into<GlyphId>) -> Option<Em> {
+        // TODO manually: skrifa doesn't provide these: https://github.com/googlefonts/fontations/pull/1552
+        // self.0
+        //     .rusty
+        //     .glyph_ver_advance(GlyphId(glyph))
+        //     .map(|units| self.to_em(units))
+        None
     }
 
-    /// A reference to the underlying `ttf-parser` face.
-    pub fn ttf(&self) -> &ttf_parser::Face<'_> {
-        // We can't implement Deref because that would leak the
-        // internal 'static lifetime.
-        &self.0.rusty
+    ///
+    pub fn bounding_box(
+        &self,
+        gid: impl Into<GlyphId>,
+    ) -> Option<skrifa::metrics::BoundingBox> {
+        self.glyph_metrics().bounds(gid.into())
     }
 
-    /// A reference to the underlying `rustybuzz` face.
-    pub fn rusty(&self) -> &rustybuzz::Face<'_> {
-        // We can't implement Deref because that would leak the
-        // internal 'static lifetime.
-        &self.0.rusty
+    ///
+    pub fn glyph_index(&self, c: char) -> Option<skrifa::GlyphId> {
+        self.charmap().map(c)
     }
 
     /// Resolve the top and bottom edges of text.
@@ -258,8 +297,8 @@ impl FontInstance {
         bounds: TextEdgeBounds,
     ) -> (Abs, Abs) {
         let cell = OnceCell::new();
-        let bbox = |gid, f: fn(ttf_parser::Rect) -> i16| {
-            cell.get_or_init(|| self.ttf().glyph_bounding_box(GlyphId(gid)))
+        let bbox = |gid, f: fn(skrifa::metrics::BoundingBox) -> f32| {
+            cell.get_or_init(|| self.bounding_box(gid))
                 .map(|bbox| self.to_em(f(bbox)).at(font_size))
                 .unwrap_or_default()
         };
@@ -289,6 +328,65 @@ impl FontInstance {
         };
 
         (top, bottom)
+    }
+
+    /// The shaper for this instance.
+    pub fn shaper(&self) -> &harfrust::Shaper<'_> {
+        self.0.shaper.get_or_init(|| {
+            let (font, instance) = self.borrow_parts();
+            font.0
+                .harfrust
+                .shaper(&font.0.skrifa)
+                .instance(Some(instance))
+                .build()
+        })
+    }
+
+    /// Glyph metrics for this instance in font units.
+    fn glyph_metrics(&self) -> &skrifa::metrics::GlyphMetrics<'_> {
+        self.0.glyph_metrics.get_or_init(|| {
+            let (font, instance) = self.borrow_parts();
+            skrifa::metrics::GlyphMetrics::new(
+                &font.0.skrifa,
+                skrifa::instance::Size::unscaled(),
+                skrifa::instance::LocationRef::new(instance.coords()),
+            )
+        })
+    }
+
+    fn charmap(&self) -> &skrifa::charmap::Charmap<'_> {
+        self.0.charmap.get_or_init(|| {
+            let (font, _) = self.borrow_parts();
+            font.0.skrifa.charmap()
+        })
+    }
+
+    fn outlines(&self) -> &skrifa::outline::OutlineGlyphCollection<'_> {
+        self.0.outlines.get_or_init(|| {
+            let (font, _) = self.borrow_parts();
+            font.0.skrifa.outline_glyphs()
+        })
+    }
+
+    /// The instance's normalized variation coordinates.
+    pub fn location(&self) -> skrifa::instance::LocationRef<'_> {
+        skrifa::instance::LocationRef::new(self.0.instance.coords())
+    }
+
+    // TODO: this comment.
+    /// Reinterprets the font and shaper instance as `'static`.
+    ///
+    /// Safety:
+    /// - Both live in the `Arc` this is called through, so their addresses are
+    ///   already fixed and they stay alive as long as it does.
+    /// - The `'static` lifetime is not leaked: it is only used to build values
+    ///   stored in the same `Arc`, and those are handed out rewritten to the
+    ///   self-lifetime by `shaper()` and `glyph_metrics()`.
+    /// - Those values are declared before `instance` and `font`, so they are
+    ///   dropped first.
+    fn borrow_parts(&self) -> (&'static Font, &'static harfrust::ShaperInstance) {
+        let ptr = Arc::as_ptr(&self.0);
+        unsafe { (&*(&raw const (*ptr).font), &*(&raw const (*ptr).instance)) }
     }
 }
 

@@ -53,9 +53,7 @@ impl TextItem {
                 Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
             let offset =
                 Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
-            if let Some(rect) =
-                self.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(glyph.id))
-            {
+            if let Some(rect) = self.font.bounding_box(glyph.id) {
                 let pos = cursor + offset;
                 let a = pos
                     + Point::new(
@@ -93,7 +91,7 @@ impl Debug for TextItem {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Glyph {
     /// The glyph's index in the font.
-    pub id: u16,
+    pub id: u32,
     /// The advance width of the glyph.
     pub x_advance: Em,
     /// The horizontal offset of the glyph.

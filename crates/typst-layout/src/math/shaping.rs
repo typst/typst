@@ -1,9 +1,8 @@
 use az::SaturatingAs;
 use comemo::Tracked;
-use rustybuzz::{
-    BufferFlags, Direction, Feature, Language, Script, UnicodeBuffer, shape_with_plan,
+use harfrust::{
+    BufferFlags, Direction, Feature, Language, ShapeOptions, Tag, UnicodeBuffer, script,
 };
-use ttf_parser::Tag;
 use typst_library::World;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Em};
@@ -73,8 +72,8 @@ pub fn feat_fallback<F>(mut features: Vec<Feature>, mut retry: F)
 where
     F: FnMut(&[Feature]) -> bool,
 {
-    const FLAC: Tag = Tag::from_bytes(b"flac");
-    const SSTY: Tag = Tag::from_bytes(b"ssty");
+    const FLAC: Tag = Tag::new(b"flac");
+    const SSTY: Tag = Tag::new(b"ssty");
 
     // (flac, ssty) combinations to try.
     // Whilst there can be more ssty levels above two, only the first two are
@@ -175,7 +174,7 @@ fn shape_text<'a>(
         for _ in text.chars() {
             ctx.glyphs.push(Glyph {
                 id: 0,
-                x_advance: font.x_advance(0).unwrap_or_default(),
+                x_advance: font.x_advance(0_u32).unwrap_or_default(),
                 x_offset: Em::zero(),
                 y_advance: Em::zero(),
                 y_offset: Em::zero(),
@@ -195,9 +194,7 @@ fn shape_text<'a>(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(ctx.language.clone());
-    // TODO: Use `rustybuzz::script::MATH` once
-    // https://github.com/harfbuzz/rustybuzz/pull/165 is released.
-    buffer.set_script(Script::from_iso15924_tag(Tag::from_bytes(b"math")).unwrap());
+    buffer.set_script(script::MATH);
     buffer.set_direction(Direction::LeftToRight);
     buffer.set_flags(BufferFlags::REMOVE_DEFAULT_IGNORABLES);
 
@@ -209,7 +206,7 @@ fn shape_text<'a>(
         ctx.features,
     );
 
-    let buffer = shape_with_plan(font.rusty(), &plan, buffer);
+    let buffer = font.shaper().shape(buffer, ShapeOptions::new().plan(Some(&plan)));
     // Because we will only ever shape single grapheme clusters, we will
     // (incorrectly) assume that the output from the shaper is a single cluster
     // that spans the entire range of the given text. The only problem this
@@ -225,7 +222,7 @@ fn shape_text<'a>(
             let info = buffer.glyph_infos()[i];
             let pos = buffer.glyph_positions()[i];
             ctx.glyphs.push(Glyph {
-                id: info.glyph_id as u16,
+                id: info.glyph_id,
                 x_advance: font.to_em(pos.x_advance),
                 x_offset: font.to_em(pos.x_offset),
                 y_advance: font.to_em(pos.y_advance),

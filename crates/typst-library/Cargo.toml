@@ -31,6 +31,7 @@ either = { workspace = true }
 flate2 = { workspace = true }
 fontdb = { workspace = true }
 glidesort = { workspace = true }
+harfrust = { workspace = true }
 hayagriva = { workspace = true }
 hayro-syntax = { workspace = true }
 icu_collator = { workspace = true }
@@ -53,16 +54,15 @@ regex-syntax = { workspace = true }
 roxmltree = { workspace = true }
 rust_decimal = { workspace = true }
 rustc-hash = { workspace = true }
-rustybuzz = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 siphasher = { workspace = true }
+skrifa = { workspace = true }
 smallvec = { workspace = true }
 syntect = { workspace = true }
 time = { workspace = true }
 toml = { workspace = true }
-ttf-parser = { workspace = true }
 two-face = { workspace = true }
 typed-arena = { workspace = true }
 unicode-math-class = { workspace = true }

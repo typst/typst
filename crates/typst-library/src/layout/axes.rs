@@ -204,6 +204,15 @@ cast! {
     "vertical" => Self::Y,
 }
 
+impl From<Axis> for skrifa::raw::tables::math::StretchAxis {
+    fn from(value: Axis) -> Self {
+        match value {
+            Axis::X => Self::Horizontal,
+            Axis::Y => Self::Vertical,
+        }
+    }
+}
+
 impl<T> Axes<Smart<T>> {
     /// Unwrap the individual fields.
     pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {

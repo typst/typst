@@ -1,5 +1,6 @@
 use codex::styling::{MathStyle, to_style};
 use ecow::EcoString;
+use skrifa::raw::TableProvider;
 use typst_library::diag::SourceResult;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Size};
@@ -126,11 +127,16 @@ pub fn layout_glyph(
 
 /// Whether the given font has the dtls OpenType feature.
 fn has_dtls_feat(font: &FontInstance) -> bool {
-    font.ttf()
-        .tables()
-        .gsub
-        .and_then(|gsub| gsub.features.index(ttf_parser::Tag::from_bytes(b"dtls")))
-        .is_some()
+    font.skrifa()
+        .gsub()
+        .and_then(|gsub| gsub.feature_list())
+        .is_ok_and(|list| {
+            list.feature_records()
+                .binary_search_by(|record| {
+                    record.feature_tag().cmp(&skrifa::Tag::new(b"dtls"))
+                })
+                .is_ok()
+        })
 }
 
 /// The non-dotless version of a dotless character that can be used with the
