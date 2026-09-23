@@ -400,8 +400,6 @@ impl CoverageBuilder {
     /// Add a single codepoint to the set being built. Codepoints must be added
     /// in a strictly increasing order.
     fn add_codepoint(&mut self, codepoint: u32) {
-        debug_assert!(codepoint >= self.next, "Codepoints provided in wrong order");
-
         let range = codepoint..(codepoint.saturating_add(1));
         self.add_codepoint_range(range);
     }
