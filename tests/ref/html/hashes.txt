@@ -88,6 +88,7 @@ a606359ed2edd035026fc92f0fc9fd89 issue-3973-math-equation-align
 9b9cc62e1c579a65d36cde16496ad4fb issue-4188-lr-corner-brackets
 c7fdf53834e30a25e43dd1d2e08590fe issue-4828-math-number-multi-char
 0b59c30e66c5370819c6d5d695bb835a issue-4985-up-tack-is-normal-perp-is-relation
+8f030283b94c1898932ff3820e37bd6b issue-5536-quote-inline-quotes-false
 325212ec038fa5008495a7ecc678cf79 issue-6090-math-overhang
 8c0b68b8c3a7633f72fb0ccd7afaec3f issue-6170-equation-stroke
 33952b2eeda5761fca8d943d0d8721ef issue-7437-math-accent-text-presentation
@@ -466,10 +467,10 @@ ad987718b189a7a4f9de0f75c8aa9e29 par-semantic-html-parbreak
 04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level
 04f74c1f6a4cd13b788d6144b31e56e4 par-semantic-html-top-level-typed
 ee1af2d796df103c690536cc76abaae8 par-semantic-metadata-elements
-ad4a2b75b2ae315d25efe30c36b3abfc query-within
+6317a091392d32b1434ecf6657591989 query-within
 70fea5f21b3073a8dcb3d7537bbd50d2 quote-attribution-html
 3c61b759029c8ca2236b7e1ac3f13db7 quote-attribution-link
-e9c863ebe3c177f34b94fcae961a4d72 quote-nesting-html
+9ea0376d04d5c80229af48c7d2eeee48 quote-nesting-html
 62e7284a64596eb4b4c6c2563ab84a03 quote-plato
 8498ef968b5bdbb377e37da1fa323632 raw-html
 579a4e43087174d0a68087fb296afddd raw-html-inline-spaces
