@@ -19,7 +19,7 @@ Before we start, let's create a team, invite your supervisor and add them to the
   shadow: false,
 )
 
-Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the owners dropdown. Don't forget to save your changes!
+Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the Location dropdown. Don't forget to save your changes!
 
 Now, your supervisor can also edit the project and you can both see the changes in real time. You can join our #link("https://discord.gg/2uDybryKPe")[Discord server] to find other users and try teams with them!
 
@@ -29,7 +29,7 @@ The layout guidelines are available on the conference website. Let's take a look
 - The font should be an 11pt serif font
 - The title should be in 17pt and bold
 - The paper contains a single-column abstract and two-column main text
-- The abstract should be centered
+- The abstract should be ragged and centered
 - The main text should be justified
 - First level section headings should be 13pt, centered, and rendered in small capitals
 - Second level headings are run-ins, italicized and have the same size as the body text
@@ -77,7 +77,7 @@ Now, let's add a title and an abstract. We'll start with the title. Typst comes 
 ]
 ```
 
-You can see that the title is already boldfaced and has some space around it. However, it is left-aligned and not exactly 17pt large. Hence, we need to adjust its appearance. The title function does not come with any arguments for font or text size we could set. Instead, these properties are defined on the `text` and `align` functions.
+You can see that the title is already boldfaced and has some space around it. However, it is not exactly 17pt large and is left-aligned. Hence, we need to adjust its appearance. The title function does not come with any arguments for text size or alignment we could set. Instead, these properties are defined on the `text` and `align` functions.
 
 #info[
   What is the difference between what the `title` function inserted and the headings we produced with equals signs?
@@ -123,7 +123,7 @@ This looks right. Let's also add the author list: Since we are writing this pape
 >>>   A Fluid Dynamic Model
 >>>   for Glacier Flow
 >>> ]
-
+>>>
 #grid(
   columns: (1fr, 1fr),
   align(center)[
@@ -558,7 +558,7 @@ Let's review the conference's style guide:
   - The font should be an 11pt serif font
   - The title should be in 17pt and bold
   - The paper contains a single-column abstract and two-column main text
-  - The abstract should be centered
+  - The abstract should be ragged and centered
   - The main text should be justified
   - First level section headings should be centered, rendered in small caps and in 13pt
   - Second level headings are run-ins, italicized and have the same size as the body text
