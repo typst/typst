@@ -120,7 +120,8 @@ impl FontInfo {
         if let Some(cmap) = ttf.tables().cmap {
             for subtable in cmap.subtables {
                 if subtable.is_unicode() {
-                    let mut subtable_coverage = CoverageBuilder::new();
+                    let mut subtable_coverage =
+                        CoverageBuilder::with_capacity(coverage.0.len());
                     subtable.codepoints(|c| {
                         // We expect codepoints in CMAP subtables to be already sorted
                         subtable_coverage.add_codepoint(c);
@@ -299,7 +300,7 @@ impl Coverage {
         codepoints.sort();
         codepoints.dedup();
 
-        let mut builder = CoverageBuilder::new();
+        let mut builder = CoverageBuilder::with_capacity(0);
         for c in codepoints {
             builder.add_codepoint(c);
         }
@@ -343,7 +344,8 @@ impl Coverage {
     /// Returns an encoding of the set of codepoints covered by either `self` or
     /// `other`.
     fn union(&self, other: &Coverage) -> Self {
-        let mut builder = CoverageBuilder::new();
+        let capacity = self.0.len().max(other.0.len());
+        let mut builder = CoverageBuilder::with_capacity(capacity);
 
         let mut self_ranges = self.iter_ranges().peekable();
         let mut other_ranges = other.iter_ranges().peekable();
@@ -385,10 +387,12 @@ struct CoverageBuilder {
 }
 
 impl CoverageBuilder {
-    fn new() -> Self {
-        Self { runs: vec![], next: 0 }
+    /// Create a new coverage builder with at least the given capacity.
+    fn with_capacity(capacity: usize) -> Self {
+        Self { runs: Vec::with_capacity(capacity), next: 0 }
     }
 
+    /// Build the [`Coverage`] set.
     fn build(self) -> Coverage {
         Coverage(self.runs)
     }
