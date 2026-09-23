@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
-use typst_utils::display_possible_values;
+use clap::builder::ValueParser;
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
+use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// Generator for Typst's documentation.
 #[derive(Debug, Clone, Parser)]
@@ -77,6 +78,15 @@ pub struct CompileArgs {
     /// The output format.
     #[arg(long = "format", short = 'f', default_value_t)]
     pub format: OutputFormat,
+    /// Add a string key-value pair visible through `sys.inputs`.
+    #[clap(
+        short = 'i',
+        long = "input",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_sys_input_pair),
+    )]
+    pub inputs: Vec<(String, String)>,
     /// Do not add the "development version" warning to the generated PDF.
     #[arg(long)]
     pub release: bool,

@@ -4,6 +4,7 @@ pub mod fat;
 
 #[macro_use]
 mod macros;
+mod args;
 mod defer;
 mod fmt;
 mod hash;
@@ -30,6 +31,7 @@ block! {
     mod static_;
 }
 
+pub use self::args::parse_sys_input_pair;
 pub use self::defer::defer;
 pub use self::fmt::{debug, display};
 pub use self::hash::{HashLock, LazyHash, ManuallyHash, hash128};
