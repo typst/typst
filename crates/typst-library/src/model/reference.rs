@@ -368,7 +368,9 @@ fn to_citation(
 ) -> SourceResult<Packed<CiteElem>> {
     let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
         match reference.supplement.get_cloned(styles) {
-            Smart::Custom(Some(Supplement::Content(content))) => Some(content),
+            Smart::Custom(Some(Supplement::Content(content))) => {
+                Some(super::CitationSupplement { locator: None, content })
+            }
             _ => None,
         },
     ));
