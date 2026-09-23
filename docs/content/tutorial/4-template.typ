@@ -246,7 +246,7 @@ Let's build this new template function. The title can be displayed with the @tit
 
 The new `authors` parameter expects an @array[array] of @dictionary[dictionaries] with the keys `name`, `affiliation` and `email`. Because we can have an arbitrary number of authors, we dynamically determine if we need one, two or three columns for the author list. First, we determine the number of authors using the @array.len[`.len()`] method on the `authors` array. Then, we set the number of columns as the minimum of this count and three, so that we never create more than three columns. If there are more than three authors, a new row will be inserted instead. For this purpose, we have also added a `row-gutter` parameter to the `grid` function. Otherwise, the rows would be too close together. To extract the details about the authors from the dictionary, we use the @reference:scripting:fields[field access syntax].
 
-We still have to provide an argument to the grid for each author: Here is where the array's @array.map[`map` method] comes in handy. It takes a function as an argument that gets called with each item of the array. We pass it a function that formats the details for each author and returns a new array containing content values. We've now got one array of values that we'd like to use as multiple arguments for the grid. We can do that by using the @arguments[`spread` operator]. It takes an array and applies each of its items as a separate argument to the function.
+We still have to provide an argument to the grid for each author: Here is where the array's @array.map[`map` method] comes in handy. It takes a function as an argument that gets called with each item of the array. We pass it a function that formats the details for each author and returns a new array containing content values. We've now got one array of values that we'd like to use as multiple arguments for the grid. We can do that by using the @arguments[`..spread` operator]. It takes an array and applies each of its items as a separate argument to the function.
 
 The resulting template function looks like this:
 
@@ -292,7 +292,7 @@ The resulting template function looks like this:
 ```
 
 = #short-or-long[Separate File][A separate file] <separate-file>
-Most of the time, a template is specified in a different file and then imported into the document. This way, the main file you write in is kept clutter free and your template is easily reused. Create a new text file in the file panel by clicking the plus button and name it `conf.typ`. Move the `conf` function definition inside of that new file. Now you can access it from your main file by adding an import before the show rule. Specify the path of the file between the `{import}` keyword and a colon, then name the function that you want to import.
+Most of the time, a template is specified in a different file and then imported into the document. This way, the main file you write in is kept clutter free and your template is easily reused. Create a new text file in the file panel by clicking the file button and name it `conf.typ`. Move the `conf` function definition inside of that new file. Now you can access it from your main file by adding an import before the show rule. Specify the path of the file between the `{import}` keyword and a colon, then name the function that you want to import.
 
 Another thing that you can do to make applying templates just a bit more elegant is to use the @function.with[`.with`] method on functions to pre-populate all the named arguments. This way, you can avoid spelling out a closure and appending the content argument at the bottom of your template list. Templates on #link("https://typst.app/universe")[Typst Universe] are designed to work with this style of function call.
 
@@ -410,7 +410,7 @@ Another thing that you can do to make applying templates just a bit more elegant
   ```
 )
 
-We have now converted the conference paper into a reusable template for that conference! Why not share it in the #link("https://forum.typst.app/")[Forum] or on #link("https://discord.gg/2uDybryKPe")[Typst's Discord server] so that others can use it too?
+We have now converted the conference paper into a reusable template for that conference! Why not share it in the #link("https://forum.typst.app/")[Typst Forum] or on #link("https://discord.gg/2uDybryKPe")[Typst's Discord server] so that others can use it too?
 
 = Review <review>
 Congratulations, you have completed Typst's Tutorial! In this section, you have learned how to define your own functions and how to create and apply templates that define reusable document styles. You've made it far and learned a lot. You can now use Typst to write your own documents and share them with others.
