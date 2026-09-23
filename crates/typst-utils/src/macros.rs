@@ -1,3 +1,9 @@
+/// An identity macro. Allows you to attach a `cfg` to multiple items.
+#[macro_export]
+macro_rules! block {
+    ($($v:tt)*) => {$($v)*}
+}
+
 /// Create a lazy initialized, globally unique `'static` reference to a value.
 #[macro_export]
 macro_rules! singleton {

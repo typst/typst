@@ -99,9 +99,11 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features
       # These crates have cargo features, so we check them separately, or else
       # feature unification may mask errors.
+      - run: cargo clippy --package typst-timing --no-default-features
+      - run: cargo clippy --package typst-utils --no-default-features
+      - run: cargo clippy --package typst-syntax --no-default-features
       - run: cargo clippy --package typst-cli --no-default-features
       - run: cargo clippy --package typst-kit --no-default-features
-      - run: cargo clippy --package typst-timing --no-default-features
       - run: cargo fmt --check --all
       - run: cargo doc --workspace --no-deps --document-private-items
       - run: git diff --exit-code
