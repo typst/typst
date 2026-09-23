@@ -710,19 +710,33 @@ impl Lexer<'_> {
                 SyntaxKind::MathPrimes
             }
 
-            // We lex delimiters as `{Left,Right}{Brace,Paren}` and convert back
-            // to `MathGrapheme` or `MathShorthand` in the parser.
+            // Delimiters have two special cases:
+            // 1. We lex parentheses as `{Left,Right}Paren` and convert back to
+            //    `MathOpening`/`MathClosing` in the parser if not used for an
+            //    actual function call.
+            // 2. The `[|` and `|]` shorthands become `MathShorthand` nested
+            //    inside `MathOpening` or `MathClosing`.
             '(' => SyntaxKind::LeftParen,
             ')' => SyntaxKind::RightParen,
-            // TODO: We may instead want to add `MathOpening` and `MathClosing`
-            // kinds for these.
-            '[' if self.s.eat_if('|') => SyntaxKind::LeftBrace,
-            '|' if self.s.eat_if(']') => SyntaxKind::RightBrace,
+            '[' if self.s.eat_if('|') => {
+                let kind = SyntaxKind::MathOpening;
+                let leaf =
+                    SyntaxNode::leaf(SyntaxKind::MathShorthand, self.s.from(start));
+                let node = SyntaxNode::inner(kind, vec![leaf]);
+                return (kind, Some(node));
+            }
+            '|' if self.s.eat_if(']') => {
+                let kind = SyntaxKind::MathClosing;
+                let leaf =
+                    SyntaxNode::leaf(SyntaxKind::MathShorthand, self.s.from(start));
+                let node = SyntaxNode::inner(kind, vec![leaf]);
+                return (kind, Some(node));
+            }
             c if default_math_class(c) == Some(MathClass::Opening) => {
-                SyntaxKind::LeftBrace
+                SyntaxKind::MathOpening
             }
             c if default_math_class(c) == Some(MathClass::Closing) => {
-                SyntaxKind::RightBrace
+                SyntaxKind::MathClosing
             }
 
             // Numbers.
