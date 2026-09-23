@@ -35,7 +35,7 @@ const MIN_APPROX_RATIO: f64 = -0.5;
 const BOUND_EPS: f64 = 1e-3;
 
 /// The general line break segmenter.
-static SEGMENTER: LazyLock<LineSegmenterBorrowed> =
+pub(super) static SEGMENTER: LazyLock<LineSegmenterBorrowed> =
     LazyLock::new(|| LineSegmenter::new_lstm(LineBreakOptions::default()));
 
 /// The line break segmenter for Chinese/Japanese text.
