@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Page Setup Guide",
   route: "/guides/page-setup",
+  category: "Guides",
   description: "An in-depth guide to setting page dimensions, margins, and page numbers in Typst. Learn how to create appealing and clear layouts and get there quickly.",
 )
 

@@ -5,6 +5,7 @@
 #docs-chapter(
   title: "Tutorial",
   route: "/tutorial",
+  category: "Category",
   description: "Typst's tutorial.",
   introduction: true,
 )[

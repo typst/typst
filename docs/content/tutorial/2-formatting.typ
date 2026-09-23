@@ -5,6 +5,7 @@
 #show: docs-chapter.with(
   title: "Formatting",
   route: "/tutorial/formatting",
+  category: "Tutorial",
   description: "Typst's tutorial.",
 )
 

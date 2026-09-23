@@ -3,6 +3,7 @@
 #show: docs-chapter.with(
   title: "Table Guide",
   route: "/guides/tables",
+  category: "Guides",
   description: "Not sure how to change table strokes? Need to rotate a table? This guide explains all you need to know about tables in Typst.",
 )
 

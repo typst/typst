@@ -5,6 +5,7 @@
 #show: docs-chapter.with(
   title: "Writing in Typst",
   route: "/tutorial/writing-in-typst",
+  category: "Tutorial",
   description: "Typst's tutorial.",
 )
 
