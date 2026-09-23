@@ -1,4 +1,4 @@
-use typst_library::diag::{At, SourceResult, warning};
+use typst_library::diag::{At, SourceResult, bail, warning};
 use typst_library::foundations::{
     Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
 };
@@ -50,6 +50,12 @@ fn eval_markup<'a>(
                 seq.push(tail.styled_with_recipe(&mut vm.engine, vm.context, recipe)?);
             }
             expr => match expr.eval(vm)? {
+                Value::Label(label) if label.resolve().as_str().contains('/') => {
+                    bail!(
+                        expr.span(),
+                        "label paths cannot be used to label content";
+                    );
+                }
                 Value::Label(label) => {
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
