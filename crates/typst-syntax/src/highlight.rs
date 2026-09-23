@@ -186,6 +186,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathAlignPoint => Some(Tag::MathOperator),
         SyntaxKind::MathCall => None,
         SyntaxKind::MathArgs => None,
+        SyntaxKind::MathOpening => None,
+        SyntaxKind::MathClosing => None,
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,

@@ -271,6 +271,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
+    // Whether this expression can group with a following open delimiter as an
+    // implicit function call.
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
@@ -287,18 +289,16 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             }
         }
 
-        SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
+        // Parse delimiters as an atomic unit.
+        SyntaxKind::MathOpening | SyntaxKind::LeftParen => {
             math_delimited(p);
         }
-        SyntaxKind::RightBrace if p.current_text() == "|]" => {
-            p.convert_and_eat(SyntaxKind::MathShorthand);
+        // An unmatched closing delimiter.
+        SyntaxKind::MathClosing | SyntaxKind::RightParen => {
+            p.convert_and_eat(SyntaxKind::MathClosing);
         }
 
-        SyntaxKind::Bang
-        | SyntaxKind::Comma
-        | SyntaxKind::Semicolon
-        | SyntaxKind::RightBrace
-        | SyntaxKind::RightParen => {
+        SyntaxKind::Bang | SyntaxKind::Comma | SyntaxKind::Semicolon => {
             p.convert_and_eat(SyntaxKind::MathGrapheme);
         }
 
@@ -316,6 +316,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             p.eat();
         }
 
+        // The only prefix operator in math.
         SyntaxKind::Root => {
             p.eat();
             let m2 = p.marker();
@@ -333,7 +334,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     if continuable
         && MATH_FUNC_PREC >= min_prec
         && !p.had_trivia()
-        && p.at_set(syntax_set!(LeftBrace, LeftParen))
+        && p.at_set(syntax_set!(MathOpening, LeftParen))
     {
         math_delimited(p);
         p.wrap(m, SyntaxKind::Math);
@@ -420,24 +421,17 @@ fn math_op(
 
 /// Parse matched delimiters in math: `[x + y]`.
 ///
-/// The lexer produces `{Left,Right}{Brace,Paren}` for delimiters, and it's our
-/// job to convert them back to `MathGrapheme` or `MathShorthand` before eating.
+/// `{Left,Right}Paren` need to be converted to `Math{Opening,Closing}` since we
+/// parens are separated out to aid function call parsing. Note that they may be
+/// converted _back_ to `{Left,Right}Paren` by a later `math_unparen` call.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    if p.current_text() == "[|" {
-        p.convert_and_eat(SyntaxKind::MathShorthand);
-    } else {
-        p.convert_and_eat(SyntaxKind::MathGrapheme);
-    }
+    p.convert_and_eat(SyntaxKind::MathOpening); // Converts `LeftParen`.
     let m_body = p.marker();
-    math_exprs(p, syntax_set!(Dollar, End, RightBrace, RightParen));
-    if p.at_set(syntax_set!(RightBrace, RightParen)) {
+    math_exprs(p, syntax_set!(Dollar, End, MathClosing, RightParen));
+    if p.at_set(syntax_set!(MathClosing, RightParen)) {
         p.wrap(m_body, SyntaxKind::Math);
-        if p.current_text() == "|]" {
-            p.convert_and_eat(SyntaxKind::MathShorthand);
-        } else {
-            p.convert_and_eat(SyntaxKind::MathGrapheme);
-        }
+        p.convert_and_eat(SyntaxKind::MathClosing); // Converts `RightParen`.
         p.wrap(m, SyntaxKind::MathDelimited);
     } else {
         // If we had no closing delimiter, just produce a math sequence.
@@ -2097,6 +2091,8 @@ impl Parser<'_> {
         // opening and closing grouping delimiters before continuing.
         self.with_nl_mode(AtNewline::Continue, |p| {
             loop {
+                // We don't need to add `MathOpening/MathClosing` since they
+                // don't actually contribute to delimiter balance.
                 if p.at_set(syntax_set!(LeftBracket, LeftBrace, LeftParen)) {
                     balance = balance.saturating_add(1);
                 } else if p.at_set(syntax_set!(RightBracket, RightBrace, RightParen)) {

@@ -309,6 +309,10 @@ pub enum Expr<'a> {
     MathAlignPoint(MathAlignPoint<'a>),
     /// A function call in math: `mat(delim: "[", a, b; ..#($c$,), d)`
     MathCall(MathCall<'a>),
+    /// An opening delimiter in math: `(`, `{`.
+    MathOpening(MathOpening<'a>),
+    /// A closing delimiter in math: `)`, `}`.
+    MathClosing(MathClosing<'a>),
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited(MathDelimited<'a>),
     /// A base with optional attachments in math: `a_1^2`.
@@ -428,6 +432,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
                 Some(Self::MathAlignPoint(MathAlignPoint(node)))
             }
             SyntaxKind::MathCall => Some(Self::MathCall(MathCall(node))),
+            SyntaxKind::MathOpening => Some(Self::MathOpening(MathOpening(node))),
+            SyntaxKind::MathClosing => Some(Self::MathClosing(MathClosing(node))),
             SyntaxKind::MathDelimited => Some(Self::MathDelimited(MathDelimited(node))),
             SyntaxKind::MathAttach => Some(Self::MathAttach(MathAttach(node))),
             SyntaxKind::MathPrimes => Some(Self::MathPrimes(MathPrimes(node))),
@@ -499,6 +505,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathCall(v) => v.to_untyped(),
+            Self::MathOpening(v) => v.to_untyped(),
+            Self::MathClosing(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
             Self::MathAttach(v) => v.to_untyped(),
             Self::MathPrimes(v) => v.to_untyped(),
@@ -1235,13 +1243,51 @@ node! {
 }
 
 node! {
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// Also wraps the opening double square bracket shorthand: `[|`.
+    struct MathOpening
+}
+
+impl MathOpening<'_> {
+    /// Get the opening delimiter character. May be computed from an inner
+    /// [`MathShorthand`] if this is not a leaf node.
+    pub fn get(self) -> char {
+        if let Some(open) = self.0.leaf_text().chars().next() {
+            open
+        } else {
+            self.0.cast_first::<MathShorthand>().get()
+        }
+    }
+}
+
+node! {
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// Also wraps the closing double square bracket shorthand: `|]`.
+    struct MathClosing
+}
+
+impl MathClosing<'_> {
+    /// Get the closing delimiter character. May be computed from an inner
+    /// [`MathShorthand`] if this is not a leaf node.
+    pub fn get(self) -> char {
+        if let Some(open) = self.0.leaf_text().chars().next() {
+            open
+        } else {
+            self.0.cast_first::<MathShorthand>().get()
+        }
+    }
+}
+
+node! {
     /// Matched delimiters in math: `[x + y]`.
     struct MathDelimited
 }
 
 impl<'a> MathDelimited<'a> {
     /// The opening delimiter.
-    pub fn open(self) -> Expr<'a> {
+    pub fn open(self) -> MathOpening<'a> {
         self.0.cast_first()
     }
 
@@ -1251,7 +1297,7 @@ impl<'a> MathDelimited<'a> {
     }
 
     /// The closing delimiter.
-    pub fn close(self) -> Expr<'a> {
+    pub fn close(self) -> MathClosing<'a> {
         self.0.cast_last()
     }
 }

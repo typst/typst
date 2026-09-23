@@ -106,6 +106,14 @@ pub enum SyntaxKind {
     MathCall,
     /// Function arguments in math: `(delim: "[", a, b; ..#($c$,), d)`.
     MathArgs,
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// Also wraps the opening double square bracket shorthand: `[|`.
+    MathOpening,
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// Also wraps the closing double square bracket shorthand: `|]`.
+    MathClosing,
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
@@ -452,6 +460,8 @@ impl SyntaxKind {
             Self::MathAlignPoint => "math alignment point",
             Self::MathCall => "math function call",
             Self::MathArgs => "math call arguments",
+            Self::MathOpening => "math opening delimiter",
+            Self::MathClosing => "math closing delimiter",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
@@ -651,6 +661,8 @@ impl SyntaxKind {
             Self::MathAlignPoint => Known(Math),
             Self::MathCall => Known(Math),
             Self::MathArgs => Known(Math),
+            Self::MathOpening => Known(Math),
+            Self::MathClosing => Known(Math),
             Self::MathDelimited => Known(Math),
             Self::MathAttach => Known(Math),
             Self::MathPrimes => Known(Math),
