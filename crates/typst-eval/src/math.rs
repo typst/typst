@@ -109,13 +109,38 @@ impl Eval for ast::MathAlignPoint<'_> {
     }
 }
 
+impl Eval for ast::MathOpening<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        // This is mainly used for an unpaired delimiter like `$ ( $`.
+        Ok(SymbolElem::packed(self.get()))
+    }
+}
+
+impl Eval for ast::MathClosing<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        // This is mainly used for an unpaired delimiter like `$ ) $`.
+        Ok(SymbolElem::packed(self.get()))
+    }
+}
+
 impl Eval for ast::MathDelimited<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let open = self.open().eval_display(vm)?;
+        let open = {
+            let delim = self.open();
+            delim.eval(vm)?.spanned(delim.span())
+        };
         let body = self.body().eval(vm)?;
-        let close = self.close().eval_display(vm)?;
+        let close = {
+            let delim = self.close();
+            delim.eval(vm)?.spanned(delim.span())
+        };
+
         Ok(LrElem::new(open + body + close).pack())
     }
 }
