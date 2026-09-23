@@ -15,6 +15,7 @@ mod version_;
 #[cfg(feature = "full")]
 block! {
     mod bitset;
+    mod caseless;
     mod collection;
     mod def_site;
     mod deferred;
@@ -40,6 +41,7 @@ pub use self::version_::{TypstVersion, display_commit, version};
 #[cfg(feature = "full")]
 block! {
     pub use self::bitset::{BitSet, SmallBitSet};
+    pub use self::caseless::Caseless;
     pub use self::collection::{GroupByKey, MaybeReverseIter, Rdedup, SliceExt};
     pub use self::def_site::DefSite;
     pub use self::deferred::Deferred;
