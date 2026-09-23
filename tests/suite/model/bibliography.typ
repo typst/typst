@@ -98,7 +98,9 @@ hi:
 #bibliography("/assets/bib/works_too.bib", style: "mla")
 
 --- bibliography-hanging-indent paged ---
-// Test that the hanging indent of a bibliography (for styles that use one, like MLA) can be customized with a show-set rule for `par`, and that it does not leak into paragraphs outside of the bibliography.
+// Test that the hanging indent of a bibliography (for styles that use one,
+// like MLA) can be customized with a show-set rule for `par`, and that it
+// does not leak into paragraphs outside of the bibliography.
 #show bibliography: set par(hanging-indent: 3em)
 
 Hanging indent should not affect this paragraph, which is long enough to wrap onto a second line.
