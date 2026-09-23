@@ -693,7 +693,6 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
             '*' | '-' | '~' => SyntaxKind::MathShorthand,
 
-            '.' => SyntaxKind::Dot,
             ',' => SyntaxKind::Comma,
             ';' => SyntaxKind::Semicolon,
 

@@ -294,8 +294,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         SyntaxKind::RightBrace if p.current_text() == "|]" => {
             p.convert_and_eat(SyntaxKind::MathShorthand);
         }
-        SyntaxKind::Dot
-        | SyntaxKind::Bang
+        SyntaxKind::Bang
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
         | SyntaxKind::RightBrace
