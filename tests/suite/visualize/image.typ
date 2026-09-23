@@ -437,7 +437,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
   let size = measure(image("/assets/images/tiger.jpg"))
-  test(size, (width: 1024pt, height: 670pt))
+  test(size, (width: 1024pt, height: 670pt, baseline: 670pt))
 }
 
 --- issue-2051-new-cm-svg paged ---
