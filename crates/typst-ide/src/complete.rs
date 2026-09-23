@@ -116,7 +116,7 @@ pub enum CompletionKind {
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     let (after_dot, textual_dot) = match ctx.leaf.kind() {
         SyntaxKind::Dot => (true, false),
-        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.leaf_text() == "." => {
+        SyntaxKind::Text | SyntaxKind::MathGrapheme if ctx.leaf.leaf_text() == "." => {
             (true, true)
         }
         _ => (false, false),
@@ -126,7 +126,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     if after_dot
         && let Some(prev) = ctx.leaf.prev_sibling()
         // We don't complete when we had trivia between the previous node
-        // and a textual dot: `[#x .|]`
+        // and a textual dot: `[#x .|]` or `$arrow .|$`
         && (!textual_dot || prev.range().end == ctx.leaf.range().start)
         && prev.is::<ast::Expr>() // The dot must comes after an expression.
         // And that expression must allow field access
@@ -798,7 +798,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Math));
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathLetter | SyntaxKind::MathIdent) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;

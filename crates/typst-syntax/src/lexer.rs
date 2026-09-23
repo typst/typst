@@ -711,7 +711,7 @@ impl Lexer<'_> {
             }
 
             // We lex delimiters as `{Left,Right}{Brace,Paren}` and convert back
-            // to `MathText` or `MathShorthand` in the parser.
+            // to `MathGrapheme` or `MathShorthand` in the parser.
             '(' => SyntaxKind::LeftParen,
             ')' => SyntaxKind::RightParen,
             // TODO: We may instead want to add `MathOpening` and `MathClosing`
@@ -725,22 +725,42 @@ impl Lexer<'_> {
                 SyntaxKind::RightBrace
             }
 
-            // Identifiers.
-            c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
-                self.s.eat_while(is_math_id_continue);
-                let (last_index, _) =
-                    self.s.from(start).grapheme_indices(true).next_back().unwrap();
-                if last_index == 0 {
-                    // If this was just a single grapheme.
-                    SyntaxKind::MathText
-                } else {
-                    let (kind, node) = self.math_ident_or_field(start);
-                    return (kind, Some(node));
+            // Numbers.
+            c if c.is_numeric() => {
+                self.s.eat_while(char::is_numeric);
+                let mut s = self.s;
+                if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
+                    self.s = s;
                 }
+                SyntaxKind::MathNumber
             }
 
-            // Other math atoms.
-            _ => self.math_text(start, c),
+            // Identifier or a single letter.
+            c if is_math_id_start(c) => {
+                if self.s.at(is_math_id_continue) {
+                    self.s.eat_while(is_math_id_continue);
+                    let (last_index, _) =
+                        self.s.from(start).grapheme_indices(true).next_back().unwrap();
+                    if last_index != 0 {
+                        // More than one grapheme, we lex this as an identifier
+                        // potentially with a field access.
+                        let (kind, node) = self.math_ident_or_field(start);
+                        return (kind, Some(node));
+                    }
+                }
+                // Otherwise, it was just one letter.
+                SyntaxKind::MathLetter
+            }
+            _ => {
+                let grapheme_len = self
+                    .s
+                    .get(start..self.s.string().len())
+                    .graphemes(true)
+                    .next()
+                    .map_or(0, str::len);
+                self.s.jump(start + grapheme_len);
+                SyntaxKind::MathGrapheme
+            }
         };
         (kind, None)
     }
@@ -771,26 +791,6 @@ impl Lexer<'_> {
         } else {
             None
         }
-    }
-
-    fn math_text(&mut self, start: usize, c: char) -> SyntaxKind {
-        // Keep numbers and grapheme clusters together.
-        if c.is_numeric() {
-            self.s.eat_while(char::is_numeric);
-            let mut s = self.s;
-            if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
-                self.s = s;
-            }
-        } else {
-            let len = self
-                .s
-                .get(start..self.s.string().len())
-                .graphemes(true)
-                .next()
-                .map_or(0, str::len);
-            self.s.jump(start + len);
-        }
-        SyntaxKind::MathText
     }
 
     /// Handle named arguments in math function call.

@@ -3,8 +3,7 @@ use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::{default_math_class, defer};
-use unicode_math_class::MathClass;
+use typst_utils::defer;
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
@@ -294,24 +293,25 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
         SyntaxKind::RightBrace if p.current_text() == "|]" => {
             p.convert_and_eat(SyntaxKind::MathShorthand);
         }
+
         SyntaxKind::Bang
         | SyntaxKind::Comma
         | SyntaxKind::Semicolon
         | SyntaxKind::RightBrace
         | SyntaxKind::RightParen => {
-            p.convert_and_eat(SyntaxKind::MathText);
-        }
-
-        SyntaxKind::MathText => {
-            continuable = is_math_alphabetic(p.current_text());
-            p.eat();
+            p.convert_and_eat(SyntaxKind::MathGrapheme);
         }
 
         SyntaxKind::Linebreak
         | SyntaxKind::MathAlignPoint
+        | SyntaxKind::MathGrapheme
+        | SyntaxKind::MathNumber
         | SyntaxKind::MathShorthand => p.eat(),
 
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::MathLetter
+        | SyntaxKind::MathPrimes
+        | SyntaxKind::Escape
+        | SyntaxKind::Str => {
             continuable = true;
             p.eat();
         }
@@ -340,7 +340,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     }
 
     // Parse infix and postfix operators. The general form of a parsed op looks
-    // like: `MathAttach[ MathText("x"), Hat("^"), MathText("2") ]`.
+    // like: `MathAttach[ MathLetter("x"), Hat("^"), MathNumber("2") ]`.
     while !p.at_set(stop_set)
         && let op_kind = p.current()
         && let had_trivia = p.had_trivia()
@@ -359,7 +359,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 
         // Eat the operator itself.
         if op_kind == SyntaxKind::Bang {
-            p.convert_and_eat(SyntaxKind::MathText);
+            p.convert_and_eat(SyntaxKind::MathGrapheme);
         } else {
             p.eat();
         }
@@ -418,28 +418,16 @@ fn math_op(
     Some(op)
 }
 
-/// Whether text counts as alphabetic in math. For the `Text` and `MathText`
-/// kinds, this causes them to group with parens as an implicit function call.
-fn is_math_alphabetic(text: &str) -> bool {
-    if let Some((0, c)) = text.char_indices().next_back() {
-        // Just a single character.
-        c.is_alphabetic() || default_math_class(c) == Some(MathClass::Alphabetic)
-    } else {
-        // Multiple characters.
-        text.chars().all(char::is_alphabetic)
-    }
-}
-
 /// Parse matched delimiters in math: `[x + y]`.
 ///
 /// The lexer produces `{Left,Right}{Brace,Paren}` for delimiters, and it's our
-/// job to convert them back to `MathText` or `MathShorthand` before eating.
+/// job to convert them back to `MathGrapheme` or `MathShorthand` before eating.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
     if p.current_text() == "[|" {
         p.convert_and_eat(SyntaxKind::MathShorthand);
     } else {
-        p.convert_and_eat(SyntaxKind::MathText);
+        p.convert_and_eat(SyntaxKind::MathGrapheme);
     }
     let m_body = p.marker();
     math_exprs(p, syntax_set!(Dollar, End, RightBrace, RightParen));
@@ -448,7 +436,7 @@ fn math_delimited(p: &mut Parser) {
         if p.current_text() == "|]" {
             p.convert_and_eat(SyntaxKind::MathShorthand);
         } else {
-            p.convert_and_eat(SyntaxKind::MathText);
+            p.convert_and_eat(SyntaxKind::MathGrapheme);
         }
         p.wrap(m, SyntaxKind::MathDelimited);
     } else {

@@ -293,8 +293,12 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
-    MathText(MathText<'a>),
+    /// A single letter in math: `x`, `π`.
+    MathLetter(MathLetter<'a>),
+    /// A non-letter, non-numeric symbol in math: `+`, `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    MathGrapheme(MathGrapheme<'a>),
+    /// A number in math: `25`, `2.718`.
+    MathNumber(MathNumber<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
     /// A field access in math: `arrow.r.long.double.bar`.
@@ -412,7 +416,9 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::TermItem => Some(Self::TermItem(TermItem(node))),
             SyntaxKind::Equation => Some(Self::Equation(Equation(node))),
             SyntaxKind::Math => Some(Self::Math(Math(node))),
-            SyntaxKind::MathText => Some(Self::MathText(MathText(node))),
+            SyntaxKind::MathLetter => Some(Self::MathLetter(MathLetter(node))),
+            SyntaxKind::MathGrapheme => Some(Self::MathGrapheme(MathGrapheme(node))),
+            SyntaxKind::MathNumber => Some(Self::MathNumber(MathNumber(node))),
             SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
             SyntaxKind::MathFieldAccess => {
                 Some(Self::MathFieldAccess(MathFieldAccess(node)))
@@ -485,7 +491,9 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::TermItem(v) => v.to_untyped(),
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
-            Self::MathText(v) => v.to_untyped(),
+            Self::MathLetter(v) => v.to_untyped(),
+            Self::MathGrapheme(v) => v.to_untyped(),
+            Self::MathNumber(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
             Self::MathFieldAccess(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
@@ -938,27 +946,38 @@ impl<'a> Math<'a> {
 }
 
 node! {
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
-    struct MathText
+    /// A single letter in math: `x`, `π`.
+    struct MathLetter
 }
 
-/// The underlying text kind.
-pub enum MathTextKind<'a> {
-    Grapheme(&'a EcoString),
-    Number(&'a EcoString),
-}
-
-impl<'a> MathText<'a> {
+impl<'a> MathLetter<'a> {
     /// Return the underlying text.
-    pub fn get(self) -> MathTextKind<'a> {
-        let text = self.0.leaf_text();
-        if text.chars().next().unwrap_or_default().is_numeric() {
-            // Numbers are potentially grouped as multiple characters. This is
-            // done in `Lexer::math_text()`.
-            MathTextKind::Number(text)
-        } else {
-            MathTextKind::Grapheme(text)
-        }
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A non-letter, non-numeric symbol in math: `+`, `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    struct MathGrapheme
+}
+
+impl<'a> MathGrapheme<'a> {
+    /// Return the underlying text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A number in math: `25`, `2.718`.
+    struct MathNumber
+}
+
+impl<'a> MathNumber<'a> {
+    /// Return the underlying text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
     }
 }
 

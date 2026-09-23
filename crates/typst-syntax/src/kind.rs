@@ -80,8 +80,20 @@ pub enum SyntaxKind {
     Equation,
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
-    MathText,
+    /// A single letter in math: `x`, `π`.
+    ///
+    /// This is alwyas a valid start of an identifier.
+    MathLetter,
+    /// A non-letter, non-numeric symbol in math: `+`, `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    ///
+    /// Note that `∅` and `∅︀` are `[U+2205]` and `[U+2205, U+FE00]`
+    /// respectively.
+    MathGrapheme,
+    /// A number in math: `25`, `2.718`.
+    ///
+    /// Will only ever include a single dot between digits, never at the
+    /// start/end.
+    MathNumber,
     /// An identifier in math: `pi`.
     MathIdent,
     /// A field access in math: `arrow.r.long.double.bar`.
@@ -367,6 +379,14 @@ impl SyntaxKind {
         )
     }
 
+    /// Does this produce textual content matching itself?
+    pub fn is_text_like(self) -> bool {
+        matches!(
+            self,
+            Self::Text | Self::MathLetter | Self::MathGrapheme | Self::MathNumber
+        )
+    }
+
     /// Whether this kind of node is automatically skipped by the parser in
     /// code and math mode.
     pub fn is_trivia(self) -> bool {
@@ -423,7 +443,9 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
-            Self::MathText => "math text",
+            Self::MathLetter => "math letter",
+            Self::MathGrapheme => "math text",
+            Self::MathNumber => "math number",
             Self::MathIdent => "math identifier",
             Self::MathFieldAccess => "math field access",
             Self::MathShorthand => "math shorthand",
@@ -620,7 +642,9 @@ impl SyntaxKind {
 
             Self::Equation => Embeddable, // code/markup: expr
             Self::Math => Known(Math),
-            Self::MathText => Known(Math),
+            Self::MathLetter => Known(Math),
+            Self::MathGrapheme => Known(Math),
+            Self::MathNumber => Known(Math),
             Self::MathIdent => Known(Math),
             Self::MathFieldAccess => Known(Math),
             Self::MathShorthand => Known(Math),
