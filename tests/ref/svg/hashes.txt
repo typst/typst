@@ -1249,6 +1249,8 @@ d7f53f360455986291e85c9561470423 math-mat-sparse
 a83519ab9e0fcd83d58b8b32f7a0688c math-mat-spread
 23339d331c978259983f90d3e3ba5d2f math-mat-spread-1d
 fc892dffbbdea554d1dae01a8e5fffab math-mat-spread-2d
+74fd5959d8d41f9387df7d19b7861f57 math-mat-transpose
+5fdf80eac417c0651ca7f6450e055ece math-mat-transpose-augment
 3aeaf703ce9ed898ffb36e5c66843df4 math-mat-vec-cases-unity
 9ac34e5e2200306cb49751f82ccb63fc math-multiline-multiple-trailing-linebreaks
 f42e0b798a36e2b85dbbf0188aeaa410 math-multiline-no-trailing-linebreak
