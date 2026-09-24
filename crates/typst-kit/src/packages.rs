@@ -235,8 +235,7 @@ impl FsPackages {
         };
 
         // The directory in which the package's version lives.
-        let base_dir =
-            self.path().join(spec.namespace.as_str()).join(spec.name.as_str());
+        let base_dir = self.path().join(spec.namespace.as_str()).join(spec.name.as_str());
 
         // The place at which the specific package version will live in the end.
         let package_dir = base_dir.join(spec.version.to_string());
