@@ -260,6 +260,19 @@ $ 1 + 2 $ <eq>
 // Hint: 2-28 the `context` expression should wrap everything that depends on this function
 #counter("key").at(<label>)
 
+--- counter-update-panic paged trace ---
+// Error: 22-29 panicked
+#let page-count(n) = panic()
+
+// Trace: 2-34 (1) while calling `page-count`
+#state("page").update(page-count)
+
+// Trace: 1:10-3:2 (3) while calling function
+#context {
+  // Trace: 3-24 (2) while calling `final`
+  state("page").final()
+}
+
 --- issue-2480-counter-reset paged ---
 #let q = counter("question")
 #let step-show =  q.step() + context q.display("1")

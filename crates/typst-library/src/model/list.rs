@@ -1,4 +1,5 @@
 use comemo::Track;
+use typst_syntax::{Span, Spanned};
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
@@ -84,15 +85,15 @@ pub struct ListElem {
     ///   - Items
     /// - Items
     /// ```
-    #[default(ListMarker::Content(vec![
+    #[default(Spanned::detached(ListMarker::Content(vec![
         // These are all available in the default font, vertically centered, and
         // roughly of the same size (with the last one having slightly lower
         // weight because it is not filled).
         TextElem::packed('\u{2022}'), // Bullet
         TextElem::packed('\u{2023}'), // Triangular Bullet
         TextElem::packed('\u{2013}'), // En-dash
-    ]))]
-    pub marker: ListMarker,
+    ])))]
+    pub marker: Spanned<ListMarker>,
 
     /// The indent of each item.
     pub indent: Length,
@@ -189,13 +190,19 @@ impl ListMarker {
         engine: &mut Engine,
         styles: StyleChain,
         depth: usize,
+        span: Span,
     ) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
             Self::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), [depth])?
+                .call_traced(
+                    engine,
+                    Context::new(None, Some(styles)).track(),
+                    [depth],
+                    span,
+                )?
                 .display(),
         })
     }
