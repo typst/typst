@@ -1,9 +1,10 @@
 use typst_library::diag::warning;
 use typst_library::foundations::{Packed, Resolve};
-use typst_library::introspection::{SplitLocator, Tag, TagElem};
+use typst_library::introspection::{Location, SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
+use typst_library::model::{Destination, LinkElem, LinkMarker};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -13,7 +14,7 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify_without_links};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -43,6 +44,9 @@ pub enum Item<'a> {
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
+    /// An event for a secondary effect on the paragraph, such as a link start
+    /// or end.
+    Event(Event),
 }
 
 impl<'a> Item<'a> {
@@ -67,7 +71,7 @@ impl<'a> Item<'a> {
     pub fn is_skippable(&self) -> bool {
         match self {
             Self::Text(text) => text.glyphs.is_empty(),
-            Self::Tag(_) => true,
+            Self::Tag(_) | Self::Event(_) => true,
             Self::Skip(_) => true,
             _ => false,
         }
@@ -80,7 +84,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text,
             Self::Absolute(_, _) | Self::Fractional(_, _) => SPACING_REPLACE,
             Self::Frame(_) => OBJ_REPLACE,
-            Self::Tag(_) => "",
+            Self::Tag(_) | Self::Event(_) => "",
             Self::Skip(s) => s,
         }
     }
@@ -96,10 +100,16 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) | Self::Event(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum Event {
+    StartLink(Destination),
+    EndLink(Destination),
 }
 
 /// An item or not-yet shaped text. We can't shape text until we have collected
@@ -112,6 +122,8 @@ pub enum Segment<'a> {
     Text(usize, StyleChain<'a>),
     /// An already prepared item.
     Item(Item<'a>),
+    /// An event.
+    Event(Event),
 }
 
 impl Segment<'_> {
@@ -120,13 +132,36 @@ impl Segment<'_> {
         match self {
             Self::Text(len, _) => *len,
             Self::Item(item) => item.textual_len(),
+            Self::Event(_) => 0,
         }
     }
+}
+
+#[derive(Default)]
+struct EventCollectionState<'a> {
+    /// Events with no matching start tag, carried over from previous paragraphs.
+    initial_events: Vec<Event>,
+
+    /// Paragraph-wide link, according to the flow layouter. Normally, this link
+    /// is applied at the very end of the paragraph (this is then set to
+    /// `None`), unless the whole paragraph is a #link[...], in which case we
+    /// must not apply it again.
+    shared_link: Option<&'a (Destination, Location)>,
+
+    /// The link active in the previously collected item. Used to detect changes
+    /// in links.
+    prev_link: Option<&'a (Destination, Location)>,
+
+    /// Links with currently unclosed marker tags.
+    active_links: Vec<(Destination, Location)>,
 }
 
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
+///
+/// Additionally, returns a list of events (such as links) that started before
+/// the current paragraph.
 #[typst_macros::time]
 pub fn collect<'a>(
     children: &[Pair<'a>],
@@ -134,7 +169,7 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     config: &Config,
     region: Size,
-) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
+) -> SourceResult<(String, Vec<Event>, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
@@ -148,8 +183,14 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    let mut events = EventCollectionState {
+        shared_link: config.link.as_ref(),
+        ..EventCollectionState::default()
+    };
+
     for &(child, styles) in children {
         let prev_len = collector.full.len();
+        let current_link = styles.get_ref(LinkElem::current);
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
@@ -231,14 +272,69 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width.get(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let mut frame = layout_and_modify(styles, |styles| {
+                let mut frame = layout_and_modify_without_links(styles, |styles| {
                     layout_box(elem, engine, loc, styles, region)
                 })?;
+
                 apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
-            collector.push_item(Item::Tag(&elem.tag));
+            // Push tag before a corresponding start event, and after an end
+            // event, so that PDF tags can be generated with correct nesting.
+            match &elem.tag {
+                Tag::Start(content, _) => {
+                    // Push the start tag BEFORE the start event, so the event
+                    // pair is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
+
+                    if let Some(link_marker) = content.to_packed::<LinkMarker>()
+                        && !FrameModifiers::get_in(styles).hidden
+                    {
+                        let link = link_marker.dest.clone();
+                        let location = elem.tag.location();
+                        collector.push_event(Event::StartLink(link.clone()));
+                        events.active_links.push((link, location));
+
+                        if let Some((_, loc)) = events.shared_link
+                            && loc == &location
+                        {
+                            // Link spanning the entire paragraph starts and
+                            // ends within it, so don't apply it twice.
+                            events.shared_link = None;
+                        }
+                    }
+                }
+                Tag::End(location, _, _) => {
+                    if let Some((link, _)) =
+                        events.active_links.pop_if(|(_, loc)| loc == location)
+                    {
+                        collector.push_event(Event::EndLink(link));
+
+                    // End tag doesn't contain a link's destination - in fact,
+                    // we can't even know if this is ending a link or some other
+                    // element.
+                    //
+                    // So, instead, check for changes in the stylechain before
+                    // and after this end tag.
+                    //
+                    // Empirically, we see that the link style is already
+                    // reverted at the end tag, so we compare with the previous
+                    // link style. If it changed, means this tag was ending a
+                    // link marker element.
+                    } else if let Some((link, loc)) = events.prev_link
+                        && loc == location
+                        && !FrameModifiers::get_in(styles).hidden
+                    {
+                        events.initial_events.push(Event::StartLink(link.clone()));
+                        collector.push_event(Event::EndLink(link.clone()));
+                    }
+
+                    // Push the end tag AFTER the end event, so the event pair
+                    // is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
+                }
+            }
         } else {
             // Non-paragraph inline layout should never trigger this since it
             // only won't be triggered if we see any non-inline content.
@@ -249,11 +345,26 @@ pub fn collect<'a>(
             ));
         }
 
+        events.prev_link = current_link.as_ref();
+
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
     }
 
-    Ok((collector.full, collector.segments, collector.spans))
+    // Render flow-level link, if the paragraph was not hidden.
+    if let Some((link, _)) = events.shared_link
+        && !config.hidden
+    {
+        events.initial_events.push(Event::StartLink(link.clone()));
+        collector.push_event(Event::EndLink(link.clone()));
+    }
+
+    // Note that we return the 'initial_events' vector directly instead of
+    // prepending it to segments as that is a potentially much more costly
+    // operation, whereas we can just have lines treat those events as events
+    // that started in a previous line (even though they didn't, the effect is
+    // the same: they didn't start in the current line).
+    Ok((collector.full, events.initial_events, collector.segments, collector.spans))
 }
 
 /// Collects segments.
@@ -310,6 +421,10 @@ impl<'a> Collector<'a> {
                 self.segments.push(Segment::Item(item));
             }
         }
+    }
+
+    fn push_event(&mut self, event: Event) {
+        self.segments.push(Segment::Event(event));
     }
 }
 
