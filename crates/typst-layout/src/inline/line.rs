@@ -658,6 +658,20 @@ pub fn commit<'l>(
     // during introspection and thus things like counters.
     frames.sort_unstable_by_key(|(_, _, idx, _, _)| *idx);
 
+    build_output(p, active_links, remaining, last_frame_end, top, frames, &mut output);
+
+    Ok(output)
+}
+
+fn build_output<'a>(
+    p: &Preparation<'_>,
+    active_links: &mut Vec<&'a Destination>,
+    remaining: Abs,
+    last_frame_end: Abs,
+    top: Abs,
+    frames: Vec<(Abs, Option<Frame>, LogicalIndex, usize, &'a ItemEntry<'_>)>,
+    output: &mut Frame,
+) {
     // Keep track of items spanned by each link, including the destination,
     // whether a text was spanned, the height, the horizontal offset where it
     // starts, and the offset where it would end (after its last spanned item).
@@ -765,8 +779,6 @@ pub fn commit<'l>(
             output.push_frame(pos, frame);
         }
     }
-
-    Ok(output)
 }
 
 /// Adds a paragraph line marker to a paragraph line's output frame if
