@@ -3,7 +3,6 @@
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
-use ecow::eco_format;
 use typst_syntax::package::{PackageSpec, PackageVersion, VersionlessPackageSpec};
 
 use crate::files::FsRoot;
@@ -11,6 +10,7 @@ use crate::files::FsRoot;
 #[cfg(feature = "universe-packages")]
 use {
     crate::downloader::Downloader,
+    ecow::eco_format,
     once_cell::sync::OnceCell,
     serde::Deserialize,
     std::io::{Cursor, Read},
@@ -166,7 +166,7 @@ impl FsPackages {
     /// - `%APPDATA%/typst/packages` on Windows
     #[cfg(feature = "system-packages")]
     pub fn system_data() -> Option<FsPackages> {
-        dirs::data_dir().map(|dir| FsPackages::new(dir.join("typst/packages")))
+        dirs::data_dir().map(|dir| FsPackages::new(dir.join("typst").join("packages")))
     }
 
     /// Tries to provide a handle to the environment-defined standard system
@@ -178,7 +178,7 @@ impl FsPackages {
     /// - `%LOCALAPPDATA%/typst/packages` on Windows
     #[cfg(feature = "system-packages")]
     pub fn system_cache() -> Option<FsPackages> {
-        dirs::cache_dir().map(|dir| FsPackages::new(dir.join("typst/packages")))
+        dirs::cache_dir().map(|dir| FsPackages::new(dir.join("typst").join("packages")))
     }
 
     /// Returns the path from which this serves packages.
@@ -189,8 +189,11 @@ impl FsPackages {
     /// Returns the file system root from which the given package's content can
     /// be loaded.
     pub fn obtain(&self, spec: &PackageSpec) -> Option<FsRoot> {
-        let subdir = eco_format!("{}/{}/{}", spec.namespace, spec.name, spec.version);
-        let dir = self.path().join(subdir.as_str());
+        let dir = self
+            .path()
+            .join(spec.namespace.as_str())
+            .join(spec.name.as_str())
+            .join(spec.version.to_string());
         dir.exists().then_some(FsRoot::new(dir))
     }
 
@@ -203,8 +206,8 @@ impl FsPackages {
         // For other namespaces, search locally. We only search in the data
         // directory and not the cache directory, because the latter is not
         // intended for storage of local packages.
-        let subdir = format!("{}/{}", spec.namespace, spec.name);
-        std::fs::read_dir(self.path().join(&subdir))
+        let dir = self.path().join(spec.namespace.as_str()).join(spec.name.as_str());
+        std::fs::read_dir(dir)
             .into_iter()
             .flatten()
             .filter_map(|entry| entry.ok())
@@ -232,10 +235,11 @@ impl FsPackages {
         };
 
         // The directory in which the package's version lives.
-        let base_dir = self.path().join(format!("{}/{}", spec.namespace, spec.name));
+        let base_dir =
+            self.path().join(spec.namespace.as_str()).join(spec.name.as_str());
 
         // The place at which the specific package version will live in the end.
-        let package_dir = base_dir.join(format!("{}", spec.version));
+        let package_dir = base_dir.join(spec.version.to_string());
 
         // To prevent multiple Typst instances from interfering, we download
         // into a temporary directory first and then move this directory to
