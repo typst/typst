@@ -159,6 +159,9 @@ struct EventCollectionState<'a> {
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
+///
+/// Additionally, returns a list of events (such as links) that started before
+/// the current paragraph.
 #[typst_macros::time]
 pub fn collect<'a>(
     children: &[Pair<'a>],
@@ -166,7 +169,7 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     config: &Config,
     region: Size,
-) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
+) -> SourceResult<(String, Vec<Event>, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
@@ -356,17 +359,12 @@ pub fn collect<'a>(
         collector.push_event(Event::EndLink(link.clone()));
     }
 
-    if !events.initial_events.is_empty() {
-        // TODO: could be more efficient by returning initial events directly
-        collector.segments = events
-            .initial_events
-            .into_iter()
-            .rev()
-            .map(Segment::Event)
-            .chain(collector.segments)
-            .collect();
-    }
-    Ok((collector.full, collector.segments, collector.spans))
+    // Note that we return the 'initial_events' vector directly instead of
+    // prepending it to segments as that is a potentially much more costly
+    // operation, whereas we can just have lines treat those events as events
+    // that started in a previous line (even though they didn't, the effect is
+    // the same: they didn't start in the current line).
+    Ok((collector.full, events.initial_events, collector.segments, collector.spans))
 }
 
 /// Collects segments.
