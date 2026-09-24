@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 
+use ecow::EcoString;
 use krilla::configure::PdfVersion;
 use krilla::geom as kg;
 use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
@@ -415,6 +416,15 @@ impl Group {
         }
     }
 
+    pub fn push_graphic_shape(&mut self, alt: EcoString, id: Identifier) {
+        let last_node = self.nodes.last_mut();
+        if let Some(TagNode::GraphicShape(_, nodes)) = last_node {
+            nodes.push(id);
+        } else {
+            self.nodes.push(TagNode::GraphicShape(alt, vec![id]));
+        }
+    }
+
     pub fn pop_node(&mut self) -> Option<TagNode> {
         self.nodes.pop()
     }
@@ -501,6 +511,10 @@ impl GroupKind {
 
     pub fn is_link(&self) -> bool {
         matches!(self, Self::Link(..))
+    }
+
+    pub fn is_figure(&self) -> bool {
+        matches!(self, Self::Figure(..) | Self::Image(..))
     }
 
     pub fn to_artifact(
