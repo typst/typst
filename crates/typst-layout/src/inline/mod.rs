@@ -168,11 +168,12 @@ fn layout_inline_impl<'a>(
     let config = configuration(base, children, shared, par);
 
     // Collect all text into one string for BiDi analysis.
-    let (text, segments, spans) = collect(children, engine, locator, &config, region)?;
+    let (text, initial_events, segments, spans) =
+        collect(children, engine, locator, &config, region)?;
 
     // Perform BiDi analysis and performs some preparation steps before we
     // proceed to line breaking.
-    let p = prepare(engine, &config, &text, segments, spans)?;
+    let p = prepare(engine, &config, &text, initial_events, segments, spans)?;
 
     // Break the text into lines.
     let lines = linebreak(engine, &p, region.x - config.hanging_indent);

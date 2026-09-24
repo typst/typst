@@ -28,7 +28,21 @@ pub fn finalize(
 
     // Keep track of active links across lines, as some links might span
     // multiple lines.
-    let mut active_links = Vec::new();
+    //
+    // The list of active links starts with those that began before the
+    // paragraph started. Guaranteed to be start events, but pushed in the order
+    // of end events (as unmatched end events are found), so appropriately
+    // reverse their order below.
+    let mut active_links = p
+        .initial_events
+        .iter()
+        .rev()
+        .map(|evt| match evt {
+            Event::StartLink(dest) => dest,
+            Event::EndLink(_) => unreachable!(),
+        })
+        .collect::<Vec<_>>();
+
 
     // Stack the lines into one frame per region.
     lines
