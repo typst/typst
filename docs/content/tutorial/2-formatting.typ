@@ -11,7 +11,7 @@
 So far, you have written a report with some text, a few equations and images. However, it still looks very plain. Your teaching assistant does not yet know that you are using a new typesetting system, and you want your report to fit in with the other student's submissions. In this chapter, we will see how to format your report using Typst's styling system.
 
 = Set rules <set-rules>
-As we have seen in the previous chapter, Typst has functions that _insert_ content (e.g. the @image function) and others that _manipulate_ content that they received as arguments (e.g. the @align function). The first impulse you might have when you want, for example, to change the font, could be to look for a function that does that and wrap the complete document in it.
+As we have seen in the previous chapter, Typst has functions that _insert_ content (e.g. the @image function) and others that _manipulate_ content that they received as arguments (e.g. the @figure function). The first impulse you might have when you want, for example, to change the font, could be to look for a function that does that and wrap the complete document in it.
 
 ```example
 #text(font: "New Computer Modern")[
