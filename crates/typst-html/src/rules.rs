@@ -389,7 +389,7 @@ const FOOTNOTE_CONTAINER_RULE: ShowFn<FootnoteContainer> = |elem, engine, _| {
     // represent an ordered list. However, the list is already numbered with the
     // footnote superscripts in the DOM, so we turn off CSS' list enumeration.
     let list = HtmlElem::new(tag::ol)
-        .with_css(css::Properties::new().with("list-style-type", "none"))
+        .with_css(css::Properties::new().with_semantic("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack();
 
@@ -423,25 +423,27 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
-    fn convert_list(list: Vec<OutlineNode>) -> Content {
+    fn convert_list(list: Vec<OutlineNode>, styles: StyleChain<'_>) -> Content {
         // The Digital Publishing ARIA spec also proposed to add
         // `role="directory"` to the `<ol>` element, but this role is
         // deprecated, so we don't do that. The elements are already easily
         // selectable via `nav[role="doc-toc"] ol`.
         HtmlElem::new(tag::ol)
-            .with_css(css::Properties::new().with("list-style-type", "none"))
-            .with_body(Some(Content::sequence(list.into_iter().map(convert_node))))
+            .with_css(css::Properties::new().with_semantic("list-style-type", "none"))
+            .with_body(Some(Content::sequence(
+                list.into_iter().map(|node| convert_node(styles, node)),
+            )))
             .pack()
     }
 
-    fn convert_node(node: OutlineNode) -> Content {
+    fn convert_node(styles: StyleChain<'_>, node: OutlineNode) -> Content {
         let body = if !node.children.is_empty() {
             // The `<div>` is not technically necessary, but otherwise it
             // auto-wraps in a `<p>`, which results in bad spacing. Perhaps, we
             // can remove this in the future. See also:
             // <https://github.com/typst/typst/issues/5907>
             HtmlElem::new(tag::div).with_body(Some(node.entry.pack())).pack()
-                + convert_list(node.children)
+                + convert_list(node.children, styles)
         } else {
             node.entry.pack()
         };
@@ -450,7 +452,7 @@ const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
 
     let title = elem.realize_title(styles);
     let tree = elem.realize_tree(engine, styles)?;
-    let list = convert_list(tree);
+    let list = convert_list(tree, styles);
 
     Ok(BlockElem::packed(
         HtmlElem::new(tag::nav)
@@ -535,7 +537,7 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
 
     let title = elem.realize_title(styles);
     let list = HtmlElem::new(tag::ul)
-        .with_css(css::Properties::new().with("list-style-type", "none"))
+        .with_css(css::Properties::new().with_presentational("list-style-type", "none"))
         .with_body(Some(Content::sequence(items)))
         .pack()
         .spanned(span);
@@ -697,14 +699,14 @@ const UNDERLINE_RULE: ShowFn<UnderlineElem> = |elem, _, _| {
     // rather an "Unarticulated Annotation" element (see HTML spec
     // 4.5.22). Using `text-decoration` instead is recommended by MDN.
     Ok(HtmlElem::new(tag::span)
-        .with_css(css::Properties::new().with("text-decoration", "underline"))
+        .with_css(css::Properties::new().with_semantic("text-decoration", "underline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
 
 const OVERLINE_RULE: ShowFn<OverlineElem> = |elem, _, _| {
     Ok(HtmlElem::new(tag::span)
-        .with_css(css::Properties::new().with("text-decoration", "overline"))
+        .with_css(css::Properties::new().with_semantic("text-decoration", "overline"))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -718,7 +720,7 @@ const HIGHLIGHT_RULE: ShowFn<HighlightElem> =
 const SMALLCAPS_RULE: ShowFn<SmallcapsElem> = |elem, _, styles| {
     let variant = if elem.all.get(styles) { "all-small-caps" } else { "small-caps" };
     Ok(HtmlElem::new(tag::span)
-        .with_css(css::Properties::new().with("font-variant-caps", variant))
+        .with_css(css::Properties::new().with_semantic("font-variant-caps", variant))
         .with_body(Some(elem.body.clone()))
         .pack())
 };
@@ -762,7 +764,11 @@ const RAW_RULE: ShowFn<RawElem> = |elem, _, styles| {
 pub fn html_span_filled(content: Content, color: Color) -> Content {
     let span = content.span();
     HtmlElem::new(tag::span)
-        .with_css(css::Properties::build(()).with("color", color).finish())
+        .with_css(
+            css::Properties::build(())
+                .with_presentational("color", color)
+                .finish(),
+        )
         .with_body(Some(content))
         .pack()
         .spanned(span)
@@ -792,21 +798,18 @@ const IMAGE_RULE: ShowFn<ImageElem> = |elem, engine, styles| {
 
     let mut css = css::Properties::build(engine.binding_guard(elem.span()));
 
-    // TODO: Exclude in semantic profile.
     if let Some(value) = typst_svg::convert_image_scaling(image.scaling()) {
-        css.push("image-rendering", value);
+        css.push_presentational("image-rendering", value);
     }
 
-    // TODO: Exclude in semantic profile?
     match elem.width.get(styles) {
         Smart::Auto => {}
-        Smart::Custom(rel) => css.push("width", rel),
+        Smart::Custom(rel) => css.push_presentational("width", rel),
     }
 
-    // TODO: Exclude in semantic profile?
     match elem.height.get(styles) {
         Sizing::Auto => {}
-        Sizing::Rel(rel) => css.push("height", rel),
+        Sizing::Rel(rel) => css.push_presentational("height", rel),
         Sizing::Fr(_) => {}
     }
 

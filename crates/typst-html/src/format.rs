@@ -3,9 +3,11 @@ use typst_library::Feature;
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
 use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
-use typst_library::foundations::{Args, Construct, Content, Scope, StyleChain};
+use typst_library::foundations::{
+    Args, BundlePath, Cast, Construct, Content, Dict, Scope, StyleChain, Value, cast,
+    dict, elem, scope,
+};
 use typst_library::introspection::Location;
-use typst_macros::{elem, scope};
 use typst_syntax::Spanned;
 
 use crate::{HtmlAttr, HtmlAttrs, HtmlTag, css};
@@ -132,6 +134,12 @@ pub struct HtmlFormat {
     /// space-efficient way.
     #[default(false)]
     pub pretty: bool,
+
+    /// The HTML profile controls how elements are styled in HTML.
+    ///
+    /// The DOM structure will remains exactly the same.
+    #[default(Some(HtmlStyles::default()))]
+    pub styles: Option<HtmlStyles>,
 }
 
 impl Construct for HtmlFormat {
@@ -162,12 +170,14 @@ impl HtmlFormat {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct HtmlFormatOptions<F: Fields = Complete> {
     pub pretty: F::Value<HtmlFormat, { HtmlFormat::pretty.index() }>,
+    pub styles: F::Value<HtmlFormat, { HtmlFormat::styles.index() }>,
 }
 
 impl Populate for HtmlFormatOptions {
     fn populate(&mut self, styles: Spanned<StyleChain>) {
         // VOLATILE: This must be updated when adding more fields.
         self.pretty.populate(styles);
+        self.styles.populate(styles);
     }
 }
 
@@ -176,8 +186,85 @@ impl HtmlFormatOptions<Partial> {
     pub fn resolve(&self, default: &HtmlFormatOptions) -> HtmlFormatOptions {
         HtmlFormatOptions {
             pretty: Partial::resolve(self.pretty, default.pretty),
+            styles: Partial::resolve_cloned(&self.styles, &default.styles),
         }
     }
+}
+
+/// Configuration options for HTML style generation.
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub struct HtmlStyles {
+    /// Configure which styles to include.
+    pub profile: HtmlStyleProfile,
+    /// Configure where to store styles.
+    pub location: HtmlStyleLocation,
+}
+
+impl HtmlStyles {}
+
+cast! {
+    HtmlStyles,
+    self => Value::Dict(dict! {
+        "profile" => self.profile,
+        "location" => self.location,
+    }),
+    profile: HtmlStyleProfile => Self { profile, ..Default::default() },
+    location: HtmlStyleLocation => Self { location, ..Default::default() },
+    mut dict: Dict => {
+        let profile = dict.take("profile").ok().map(Value::cast).transpose()?.unwrap_or_default();
+        let location = dict.take("location").ok().map(Value::cast).transpose()?.unwrap_or_default();
+        dict.finish(&["profile", "location"])?;
+        Self { profile, location }
+    }
+}
+
+/// The HTML styling profile.
+///
+/// By default Typst tries to produce semantic HTML with limited styles.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Cast)]
+pub enum HtmlStyleProfile {
+    /// The semantic profile tries to produce most closely represent the
+    /// semantic structure of the Typst document in HTML.
+    #[default]
+    Semantic,
+    /// The presentational profile tries to closely resemble the paged output by
+    /// writing additional inline style properties and nested elements.
+    Presentational,
+}
+
+/// Where to store styles:
+///   (only supported in the bundle target)
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+pub enum HtmlStyleLocation {
+    /// Styles are stored inline directly on elements.
+    Inline,
+    /// A style sheet will be generated and stored a `<style>` element withing
+    /// the `<head>`.
+    #[default]
+    Embedded,
+    /// An external style sheet will generated and created.
+    External(BundlePath),
+}
+
+cast! {
+    HtmlStyleLocation,
+    self => {
+        match self {
+            Self::Inline => Value::Str("inline".into()),
+            Self::Embedded => Value::Str("embedded".into()),
+            Self::External(path) => {
+                Value::Dict(dict! { "path" => path })
+            }
+        }
+    },
+    "inline" => Self::Inline,
+    "embedded" => Self::Embedded,
+    mut dict: Dict => {
+        let path = dict.take("path")?.cast()?;
+        dict.finish(&["path"])?;
+        Self::External(path)
+    }
+
 }
 
 /// An HTML element that can contain Typst content.

@@ -1,6 +1,6 @@
 use comemo::{Track, Tracked, TrackedMut};
 use ecow::{EcoVec, eco_vec};
-use typst_library::diag::{SourceResult, bail, error};
+use typst_library::diag::{At, SourceResult, StrResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{Content, NativeElement, StyleChain, Styles};
@@ -15,8 +15,11 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{LazyHash, Protected};
 
 use crate::convert::{ConversionLevel, Whitespace};
-use crate::mathml::EQUATION_CSS_STYLES;
-use crate::{HtmlDocument, HtmlElement, HtmlNode, attr, css, tag};
+use crate::css::{ExternalCss, StylesheetData};
+use crate::format::HtmlStyleLocation;
+use crate::{
+    HtmlDocument, HtmlElement, HtmlFormat, HtmlNode, HtmlStyleProfile, attr, css, tag,
+};
 
 /// Produce an HTML document from content.
 ///
@@ -65,12 +68,21 @@ fn html_document_impl(
         styles,
     )?;
 
+    error_for_external_stylesheet(&document).at(Span::detached())?;
+
     // Assigns HTML fragment IDs to linked-to elements.
     let targets = document.introspector().link_targets();
     let anchors = crate::link::create_link_anchors(&mut document, &targets);
     document.introspector_mut().set_anchors(anchors);
 
     Ok(document)
+}
+
+fn error_for_external_stylesheet(document: &HtmlDocument) -> StrResult<()> {
+    if document.external_css().is_some() {
+        bail!("external stylesheets are only supported in bundle export");
+    }
+    Ok(())
 }
 
 /// Produce an HTML document from content, as part of a bundle compilation
@@ -172,12 +184,18 @@ fn html_document_common(
         styles,
     )?;
 
+    // Generate styles after `finalize_dom`, since it might have inserted more
+    // DOM nodes that have styles.
+    let html_options = options.get::<HtmlFormat>().clone();
+    let profile = html_options.styles.v.as_ref().map(|styles| styles.profile);
+
     let nodes = crate::convert::convert_to_nodes(
         &mut engine,
         &mut locator,
         children.iter().copied(),
         ConversionLevel::Block,
         Whitespace::Normal,
+        profile,
     )?;
 
     let mut output = finalize_dom(
@@ -186,38 +204,21 @@ fn html_document_common(
         &info,
         footnote_locator,
         StyleChain::new(&Styles::root(&children, styles)),
+        profile,
     )?;
 
-    // Since `finalize_dom` might have inserted more DOM nodes that have styles,
-    // the styles must be resolved last.
-    css::resolve_inline_styles(output.root_mut());
-
-    let has_equations = !engine
-        .introspect(QueryIntrospection(EquationElem::ELEM.select(), Span::detached()))
-        .is_empty();
-
-    if has_equations {
-        let root = output.root_mut();
-
-        let head = root.children.make_mut().iter_mut().find_map(|node| match node {
-            HtmlNode::Element(elem) if elem.tag == tag::head => Some(elem),
-            _ => None,
+    let external_stylesheet =
+        Spanned::from(html_options.styles).transpose().and_then(|styles| {
+            let has_math = !engine
+                .introspect(QueryIntrospection(
+                    EquationElem::ELEM.select(),
+                    Span::detached(),
+                ))
+                .is_empty();
+            handle_styles(output.root_mut(), styles.map(|s| s.location), has_math)
         });
 
-        // TODO: this becomes an error when html fragments are supported
-        let head = head.expect("head to be present in document output");
-
-        head.children.push(
-            HtmlElement::new(tag::style)
-                .with_children(eco_vec![HtmlNode::Text(
-                    EQUATION_CSS_STYLES.clone(),
-                    Span::detached(),
-                )])
-                .into(),
-        );
-    }
-
-    Ok(HtmlDocument::new(output, info, options))
+    Ok(HtmlDocument::new(output, external_stylesheet, info, options))
 }
 
 /// The introspectible output of HTML compilation.
@@ -265,6 +266,7 @@ fn finalize_dom(
     info: &DocumentInfo,
     footnote_locator: Locator<'_>,
     footnote_styles: StyleChain<'_>,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<HtmlOutput> {
     let count = nodes.iter().filter(|node| !matches!(node, HtmlNode::Tag(_))).count();
 
@@ -298,6 +300,7 @@ fn finalize_dom(
             footnote_locator,
             footnote_styles,
             Whitespace::Normal,
+            profile,
         )?;
         body.children.extend(footnotes);
         eco_vec![body.into()]
@@ -362,6 +365,34 @@ fn head_element(info: &DocumentInfo) -> HtmlElement {
     }
 
     HtmlElement::new(tag::head).with_children(children)
+}
+
+fn handle_styles(
+    root: &mut HtmlElement,
+    location: Spanned<HtmlStyleLocation>,
+    has_math: bool,
+) -> Option<ExternalCss> {
+    match location.v {
+        HtmlStyleLocation::Inline => {
+            css::write_inline_styles(root);
+            None
+        }
+        HtmlStyleLocation::Embedded => {
+            let candidates = css::find_selector_candidates(root);
+            let data = StylesheetData::new(candidates, has_math);
+            let stylesheet = css::resolve_stylesheet(&mut [root], &data);
+            if !stylesheet.is_empty() {
+                css::insert_embedded_stylesheet(root, stylesheet);
+            }
+            None
+        }
+        HtmlStyleLocation::External(path) => {
+            let candidates = css::find_selector_candidates(root);
+            let data = StylesheetData::new(candidates, has_math);
+            let path = Spanned::new(path, location.span);
+            Some(ExternalCss::new(path, data))
+        }
+    }
 }
 
 /// Fails with an error if there are footnotes.
