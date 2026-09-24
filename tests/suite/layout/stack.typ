@@ -39,6 +39,72 @@
   rect(width: 30pt, height: 13pt, fill: forest),
 ))
 
+--- issue-8790-stack-overflow-btt paged ---
+// https://github.com/typst/typst/issues/8790
+// An unbreakable stack keeps each child's height when it overflows.
+#set page(width: 160pt, height: 90pt, margin: 10pt)
+#set text(size: 9pt)
+#let colors = (rgb("#2455c3"), rgb("#168f66"), rgb("#c38a17"), rgb("#b24d72"), rgb("#7b55b6"))
+#block(width: 140pt, height: 70pt, breakable: false, clip: true, stroke: 0.5pt)[
+  #stack(
+    dir: btt,
+    ..range(5).map(i => block(
+      width: 100%,
+      height: 22pt,
+      fill: colors.at(i).transparentize(30%),
+      text(fill: white, weight: "bold", [item #(i + 1)]),
+    )),
+  )
+]
+
+--- issue-8790-stack-exact-fit paged ---
+// An exact fit must keep the bottom-to-top stack inside its region.
+#set page(width: 70pt, height: 64pt, margin: 10pt)
+#block(width: 50pt, height: 44pt, breakable: false, clip: true)[
+  #stack(
+    dir: btt,
+    block(width: 50pt, height: 22pt, fill: eastern)[A],
+    block(width: 50pt, height: 22pt, fill: conifer)[B],
+  )
+]
+
+--- issue-8790-stack-overflow-visible-btt paged ---
+// Expose the overflowing children to make collapsed heights visible.
+#set page(width: 70pt, height: 100pt, margin: 10pt)
+#block(width: 50pt, height: 44pt, breakable: false, clip: false)[
+  #stack(
+    dir: btt,
+    block(width: 50pt, height: 22pt, fill: eastern)[A],
+    block(width: 50pt, height: 22pt, fill: conifer)[B],
+    block(width: 50pt, height: 22pt, fill: forest)[C],
+  )
+]
+
+--- issue-8790-stack-overflow-ttb paged ---
+// Top-to-bottom overflow must retain each child's height too.
+#set page(width: 70pt, height: 100pt, margin: 10pt)
+#block(width: 50pt, height: 44pt, breakable: false, clip: false)[
+  #stack(
+    dir: ttb,
+    block(width: 50pt, height: 22pt, fill: eastern)[A],
+    block(width: 50pt, height: 22pt, fill: conifer)[B],
+    block(width: 50pt, height: 22pt, fill: forest)[C],
+  )
+]
+
+--- issue-8790-stack-overflow-spacing paged ---
+// Explicit spacing also consumes region height before later children.
+#set page(width: 70pt, height: 100pt, margin: 10pt)
+#block(width: 50pt, height: 44pt, breakable: false, clip: false)[
+  #stack(
+    dir: btt,
+    spacing: 5pt,
+    block(width: 50pt, height: 22pt, fill: eastern)[A],
+    block(width: 50pt, height: 22pt, fill: conifer)[B],
+    block(width: 50pt, height: 22pt, fill: forest)[C],
+  )
+]
+
 --- stack-fr paged ---
 #set page(height: 3.5cm)
 #stack(
