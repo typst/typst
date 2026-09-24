@@ -490,9 +490,9 @@ pub fn apply_shift<'a>(
 #[derive(Debug, Default)]
 struct LinkRenderInfo {
     spans_text: bool,
-    height: Abs,
+    top: Abs,
     start: Abs,
-    y: Abs,
+    bottom: Abs,
     last_index: Option<usize>,
     last_end: Abs,
 }
@@ -681,7 +681,7 @@ fn build_output<'a>(
     // Construct the line's frame.
     for (offset, frame, _, frame_index, item) in frames {
         let mut frame_width = Abs::zero();
-        let mut frame_height = Abs::zero();
+        let mut frame_top = Abs::zero();
         let mut frame_bottom = Abs::zero();
 
         if let Some(frame) = frame {
@@ -689,7 +689,7 @@ fn build_output<'a>(
             let y = top - frame.baseline();
 
             frame_width = frame.width();
-            frame_height = frame.height();
+            frame_top = frame.baseline();
             frame_bottom = frame.size().y - frame.baseline();
 
             output.push_frame(Point::new(x, y), frame);
@@ -723,8 +723,8 @@ fn build_output<'a>(
             }
 
             // Ensure link spans at least this frame as well.
-            link_info.height.set_max(frame_height);
-            link_info.y.set_max(frame_bottom);
+            link_info.top.set_max(frame_top);
+            link_info.bottom.set_max(frame_bottom);
             link_info.last_end.set_max(offset + frame_width);
             link_info.last_index = Some(frame_index);
 
@@ -828,9 +828,9 @@ fn prepare_link(
     top: Abs,
 ) -> (Point, Frame) {
     let x = link_info.start + config.align.position(remaining);
-    let y = top - link_info.height;
+    let y = top - link_info.top;
     let width = end - link_info.start;
-    let height = link_info.height;
+    let height = link_info.top + link_info.bottom;
 
     // Can only fail if the link was pushed regardless of being empty.
     debug_assert!(width >= Abs::zero());
