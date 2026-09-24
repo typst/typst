@@ -309,10 +309,9 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
     let font_paths = env
         .typst_font_paths
         .as_deref()
-        .unwrap_or_default()
-        .split(':')
-        .filter(|s| !s.is_empty())
-        .map(PathBuf::from)
+        .into_iter()
+        .flat_map(std::env::split_paths)
+        .filter(|p| !p.as_os_str().is_empty())
         .collect::<_>();
 
     let version = typst::utils::version();
