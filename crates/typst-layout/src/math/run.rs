@@ -185,8 +185,6 @@ impl MathFragmentsExt for MathRun {
             frame.translate(Point::with_y(ascent));
         };
 
-        let mut space_is_visible = false;
-
         let is_space = |f: &MathFragment| matches!(f, MathFragment::Space(_));
         let is_line_break_opportunity = |class, next_fragment| match class {
             // Don't split when two relations are in a row or when preceding a
@@ -200,8 +198,21 @@ impl MathFragmentsExt for MathRun {
 
         let mut iter = self.into_iter().peekable();
         while let Some(fragment) = iter.next() {
-            if space_is_visible && is_space(&fragment) {
-                items.push(InlineItem::Space(fragment.width(), true));
+            if let MathFragment::Fractional(fr) = fragment {
+                if !empty {
+                    let mut frame_prev =
+                        std::mem::replace(&mut frame, Frame::soft(Size::zero()));
+
+                    finalize_frame(&mut frame_prev, x, ascent, descent);
+                    items.push(InlineItem::Frame(frame_prev));
+                    empty = true;
+
+                    x = Abs::zero();
+                    ascent = Abs::zero();
+                    descent = Abs::zero();
+                }
+
+                items.push(InlineItem::Fractional(fr));
                 continue;
             }
 
@@ -230,14 +241,13 @@ impl MathFragmentsExt for MathRun {
                 ascent = Abs::zero();
                 descent = Abs::zero();
 
-                space_is_visible = true;
-                if let Some(f_next) = iter.peek()
-                    && !is_space(f_next)
-                {
-                    items.push(InlineItem::Space(Abs::zero(), true));
+                if iter.peek().map(is_space).is_some() {
+                    while let Some(f_next) = iter.next_if(is_space) {
+                        items.push(InlineItem::Absolute(f_next.width(), true));
+                    }
+                } else {
+                    items.push(InlineItem::Absolute(Abs::zero(), true));
                 }
-            } else {
-                space_is_visible = false;
             }
         }
 

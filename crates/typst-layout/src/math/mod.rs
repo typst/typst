@@ -472,8 +472,14 @@ fn layout_realized(
     // Handle non-component items first.
     let comp = match item {
         MathItem::Component(comp) => comp,
-        MathItem::Spacing(amount, font_size, _) => {
-            ctx.push(MathFragment::Space(amount.at(*font_size)));
+        MathItem::Absolute(amount, font_size, _) => {
+            ctx.push(MathFragment::Space(
+                amount.map(|abs| abs.at(*font_size)).relative_to(ctx.region.size.x),
+            ));
+            return Ok(());
+        }
+        MathItem::Fractional(fr) => {
+            ctx.push(MathFragment::Fractional(*fr));
             return Ok(());
         }
         MathItem::Space => {
