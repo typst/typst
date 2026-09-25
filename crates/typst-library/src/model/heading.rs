@@ -214,6 +214,25 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    /// Whether the heading's bookmark in the exported PDF's outline should be
+    /// shown in its expanded state by default.
+    ///
+    /// This only affects headings that have bookmarked descendants: PDF viewers
+    /// use this state to decide whether the bookmark's children are revealed
+    /// when the document is opened. It has no effect on headings without any,
+    /// nor on other export formats, such as PNG.
+    ///
+    /// ```example
+    /// #set heading(expanded: true)
+    ///
+    /// = Expanded section
+    /// Its children are revealed
+    /// in the PDF's bookmark
+    /// outline.
+    /// ```
+    #[default(true)]
+    pub expanded: bool,
+
     /// The indent all but the first line of a heading should have.
     ///
     /// The default value of `{auto}` uses the width of the numbering as indent

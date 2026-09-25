@@ -72,7 +72,8 @@ fn convert_node(
     };
 
     if let Some(dest) = crate::link::pos_to_xyz(&gc.page_index_converter, pos) {
-        let mut outline_node = KrillaOutlineNode::new(title, dest);
+        let expanded = node.entry.expanded.get(StyleChain::default());
+        let mut outline_node = KrillaOutlineNode::new(title, dest).with_open(expanded);
         for child in convert_list(&node.children, gc) {
             outline_node.push_child(child);
         }
