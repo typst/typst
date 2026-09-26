@@ -856,6 +856,7 @@ e1d3eb6301fb147a71e6da0a5b305df6 issue-7428-heading-numbering-errors
 b65136a2425a4de64f20ee6d074818af issue-7437-math-accent-text-presentation
 abe703183168222efdea9e9fad4b45fc issue-7541-justify-with-zero-width-space
 ae20f6aff17916fdeb8c306e03357c63 issue-758-link-repeat
+406a91a2bf65ce18802f4f2111aeb1b0 issue-7646-linebreak-thai-quotes
 f56795c728b71c3362c549303cd72cee issue-785-cite-locate
 8df622e20e954ba4703dbc3e8741ed70 issue-7872-negative-scale
 6d78160f24ae092b4b9aa84da23b96c2 issue-7901-rect-negative-dimensions-radius

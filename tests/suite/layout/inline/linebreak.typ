@@ -192,3 +192,9 @@ Et les autres ‹ guillemets › en français & suisse romande.
 
 #set text(lang: "de")
 Alternative »Anführungszeichen« in DE & AT.
+
+--- issue-7646-linebreak-thai-quotes paged ---
+// In Thai text, lines should not break before closing quotation marks.
+#set page(width: 96pt, margin: 0pt)
+#set text(font: "Noto Sans Thai", lang: "th")
+"พระเจ้าทรงเป็นความรัก"
