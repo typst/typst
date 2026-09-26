@@ -772,6 +772,36 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                     continue;
                 }
 
+                // https://github.com/typst/typst/issues/7646
+                //
+                // UAX #14 rules LB13, LB19, and LB21 prohibit line breaks
+                // before quotation marks, closing punctuation, and non-starters
+                // (e.g. `× QU`, `× CL`, `× CP`, `× EX`, `× IS`, `× SY`).
+                // However, the ICU complex script segmenter produces word
+                // boundary breakpoints at the end of complex script words
+                // (such as Thai) even when immediately followed by a closing
+                // quotation mark or punctuation. We suppress these illegitimate
+                // breakpoints here.
+                LineBreak::ComplexContext
+                    if matches!(
+                        text[point..].chars().next().map(|next| LINEBREAK_DATA.get(next)),
+                        Some(
+                            LineBreak::Quotation
+                                | LineBreak::ClosePunctuation
+                                | LineBreak::CloseParenthesis
+                                | LineBreak::Exclamation
+                                | LineBreak::InfixNumeric
+                                | LineBreak::BreakSymbols
+                                | LineBreak::Nonstarter
+                        )
+                    ) || matches!(
+                        text[point..].chars().next(),
+                        Some('\u{0E46}' | '\u{0E2F}')
+                    ) =>
+                {
+                    continue;
+                }
+
                 _ => Breakpoint::Normal,
             }
         };
