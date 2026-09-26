@@ -8,7 +8,10 @@ use typst_syntax::{Span, Spanned};
 use typst_utils::{Scalar, round_int_with_precision, round_with_precision};
 
 use crate::diag::{At, HintedString, SourceResult, StrResult, bail};
-use crate::foundations::{Decimal, IntoValue, Module, Scope, Value, cast, func, ops};
+use crate::foundations::{
+    BindingDocumentation, Decimal, IntoValue, Module, Scope, Since, Value, cast, func,
+    ops,
+};
 use crate::layout::{Angle, Fr, Length, Ratio};
 
 /// A module with calculation definitions.
@@ -55,10 +58,76 @@ pub fn module() -> Module {
     scope.define_func::<rem_euclid>();
     scope.define_func::<quo>();
     scope.define_func::<norm>();
-    scope.define("inf", f64::INFINITY);
-    scope.define("pi", std::f64::consts::PI);
-    scope.define("tau", std::f64::consts::TAU);
-    scope.define("e", std::f64::consts::E);
+    scope
+        .define("inf", f64::INFINITY)
+        .with_documentation(BindingDocumentation {
+            name: "inf",
+            title: "Infinity",
+            docs: "
+            Infinity ($+oo$) as a value.
+
+            This is the same value as @float.inf. See the corresponding
+            documentation for more details.
+            ",
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
+    scope
+        .define("pi", std::f64::consts::PI)
+        .with_documentation(BindingDocumentation {
+            name: "pi",
+            title: "Pi",
+            docs: "
+            Archimedes' constant ($pi$).
+
+            This is the ratio of a circle's circumference to its diameter.
+
+            ```example
+            #calc.pi
+            ```
+            ",
+            since: Some(Since::Forever),
+            keywords: &["Archimedes"],
+            def_site: None,
+        });
+    scope
+        .define("tau", std::f64::consts::TAU)
+        .with_documentation(BindingDocumentation {
+            name: "tau",
+            title: "Tau",
+            docs: r"
+            The circumference of a unit circle ($tau$).
+
+            The constant $tau$ is defined by the relation $tau = 2 pi$.
+
+            ```example
+            #calc.tau \
+            #(2 * calc.pi)
+            ```
+            ",
+            since: Some(Since::Version([0, 8, 0])),
+            keywords: &[],
+            def_site: None,
+        });
+    scope
+        .define("e", std::f64::consts::E)
+        .with_documentation(BindingDocumentation {
+            name: "e",
+            title: "Euler's number",
+            docs: "
+            Euler's number ($e$).
+
+            This is the base of the natural logarithm and the exponential function.
+
+            ```example
+            #calc.e
+            ```
+            ",
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
     Module::new("calc", scope)
 }
 
@@ -833,7 +902,7 @@ pub fn fract(
 ///
 /// In addition, this function can error if there is an attempt to round beyond
 /// the maximum or minimum integer or `decimal`. If the number is a `float`,
-/// such an attempt will cause `{float.inf}` or `{-float.inf}` to be returned
+/// such an attempt will cause @calc.inf or `{-calc.inf}` to be returned
 /// for maximum and minimum respectively.
 ///
 /// ```example

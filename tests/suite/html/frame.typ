@@ -8,12 +8,11 @@ A rectangle:
 // path.
 #html.frame[A]
 
---- html-frame-shared-defs html ---
-// Test that definitions shared by multiple frames are written only once, at
-// the end of the body.
-#let shared = {
-  box(clip: true, fill: gradient.linear(red, blue))[A]
-  box(fill: tiling(size: (4pt, 4pt), circle(radius: 1pt)))[B]
-}
-#html.frame(shared)
-#html.frame(shared)
+--- html-frame-position html ---
+// Test that positions are available within a frame, but nowhere else.
+#context test(here().position(), none)
+#html.frame(box(width: 100pt, height: 50pt, {
+  place(top + left, dx: 30pt, dy: 20pt, context {
+    test(here().position(), (x: 30pt, y: 20pt))
+  })
+}))

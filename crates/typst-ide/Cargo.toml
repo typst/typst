@@ -17,7 +17,7 @@ typst = { workspace = true }
 typst-eval = { workspace = true }
 typst-html = { workspace = true }
 typst-layout = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 comemo = { workspace = true }
 ecow = { workspace = true }
 indexmap = { workspace = true }

@@ -1,3 +1,9 @@
+/// An identity macro. Allows you to attach a `cfg` to multiple items.
+#[macro_export]
+macro_rules! block {
+    ($($v:tt)*) => {$($v)*}
+}
+
 /// Create a lazy initialized, globally unique `'static` reference to a value.
 #[macro_export]
 macro_rules! singleton {
@@ -71,5 +77,21 @@ macro_rules! assign_impl {
 macro_rules! display {
     ($($arg:tt)*) => {
         $crate::display(|f| write!(f, $($arg)*))
+    };
+}
+
+/// Implements `Display` for a type that implements clap's `ValueEnum` via
+/// `to_possible_values`.
+#[macro_export]
+macro_rules! display_possible_values {
+    ($ty:ty) => {
+        impl std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.to_possible_value()
+                    .expect("no values are skipped")
+                    .get_name()
+                    .fmt(f)
+            }
+        }
     };
 }

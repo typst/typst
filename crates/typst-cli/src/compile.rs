@@ -298,10 +298,7 @@ pub fn compile_once(
 
     // Add static warnings (for deprecated CLI flags and such).
     for warning in &config.warnings {
-        warnings.push(
-            SourceDiagnostic::warning(Span::detached(), warning.message())
-                .with_hints(warning.hints().iter().map(Into::into)),
-        );
+        warnings.push(warning.clone().into_warning_at(Span::detached()));
     }
 
     match &output {

@@ -16,7 +16,7 @@ typst-bundle = { workspace = true, optional = true }
 typst-library = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 chrono = { workspace = true, optional = true }
 codespan-reporting = { workspace = true, optional = true }
 dirs = { workspace = true, optional = true }

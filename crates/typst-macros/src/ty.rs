@@ -5,7 +5,8 @@ use syn::{Attribute, Ident, Result};
 
 use crate::util::{
     BareType, Since, determine_name_and_title, documentation, foundations, kw, oneliner,
-    parse_flag, parse_key_value, parse_string, parse_string_array,
+    parse_flag, parse_key_value, parse_string, parse_string_array, quote_option,
+    remove_attrs,
 };
 
 /// Expand the `#[ty]` macro.
@@ -23,7 +24,7 @@ pub fn ty(stream: TokenStream, mut item: syn::Item) -> Result<TokenStream> {
         _ => bail!(item, "invalid type item"),
     };
     let ty = parse(meta, ident.clone(), attrs)?;
-    attrs.retain(|attr| !attr.path().is_ident("doc"));
+    remove_attrs(attrs, "doc");
     Ok(create(&ty, keep.then_some(&item)))
 }
 
@@ -81,11 +82,7 @@ fn create(ty: &Type, item: Option<&syn::Item>) -> TokenStream {
     let Meta { keywords, .. } = meta;
     let def_site_key = ident.to_string();
     let oneliner = oneliner(docs);
-    let since = if let Some(since) = &meta.since {
-        quote! { Some(#since) }
-    } else {
-        quote! { None }
-    };
+    let since = quote_option(&meta.since);
 
     let constructor = if meta.scope {
         quote! { <#ident as #foundations::NativeScope>::constructor() }

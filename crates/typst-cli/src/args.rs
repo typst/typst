@@ -13,10 +13,10 @@ use std::str::FromStr;
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
-use clap_complete::Shell;
+use clap_complete::Generator;
 use semver::Version;
 use serde::Serialize;
-use typst_utils::display_possible_values;
+use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -279,6 +279,43 @@ pub struct CompletionsCommand {
     pub shell: Shell,
 }
 
+/// Which shell to generate completions for.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+#[expect(clippy::enum_variant_names)]
+pub enum Shell {
+    Bash,
+    Elvish,
+    Fish,
+    Nushell,
+    PowerShell,
+    Zsh,
+}
+
+impl Generator for Shell {
+    fn file_name(&self, name: &str) -> String {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.file_name(name),
+            Shell::Elvish => clap_complete::shells::Elvish.file_name(name),
+            Shell::Fish => clap_complete::shells::Fish.file_name(name),
+            Shell::Nushell => clap_complete_nushell::Nushell.file_name(name),
+            Shell::PowerShell => clap_complete::shells::PowerShell.file_name(name),
+            Shell::Zsh => clap_complete::shells::Zsh.file_name(name),
+        }
+    }
+
+    fn generate(&self, cmd: &clap::Command, buf: &mut dyn Write) {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.generate(cmd, buf),
+            Shell::Elvish => clap_complete::shells::Elvish.generate(cmd, buf),
+            Shell::Fish => clap_complete::shells::Fish.generate(cmd, buf),
+            Shell::Nushell => clap_complete_nushell::Nushell.generate(cmd, buf),
+            Shell::PowerShell => clap_complete::shells::PowerShell.generate(cmd, buf),
+            Shell::Zsh => clap_complete::shells::Zsh.generate(cmd, buf),
+        }
+    }
+}
+
 /// Displays environment variables and default values Typst uses.
 #[derive(Debug, Clone, Parser)]
 pub struct InfoCommand {
@@ -508,8 +545,9 @@ pub struct FontArgs {
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
         value_delimiter = ENV_PATH_SEP,
+        value_parser = font_path_value_parser(),
     )]
-    pub font_paths: Vec<PathBuf>,
+    pub font_paths: Vec<Option<PathBuf>>,
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
@@ -839,18 +877,9 @@ fn output_value_parser() -> impl TypedValueParser<Value = Output> {
     })
 }
 
-/// Parses key/value pairs split by the first equal sign.
-///
-/// This function will return an error if the argument contains no equals sign
-/// or contains the key (before the equals sign) is empty.
-fn parse_sys_input_pair(raw: &str) -> Result<(String, String), String> {
-    let (key, val) = raw
-        .split_once('=')
-        .ok_or("input must be a key and a value separated by an equal sign")?;
-    let key = key.trim().to_owned();
-    if key.is_empty() {
-        return Err("the key was missing or empty".to_owned());
-    }
-    let val = val.trim().to_owned();
-    Ok((key, val))
+/// Allows empty paths (so that `--font-path ""` works) and turns them into
+/// `None`. There is no simple way to filter these out in the arg parsing layer,
+/// so we do so later.
+fn font_path_value_parser() -> impl TypedValueParser<Value = Option<PathBuf>> {
+    clap::builder::OsStringValueParser::new().map(|s| (!s.is_empty()).then(|| s.into()))
 }

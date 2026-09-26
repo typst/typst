@@ -41,8 +41,10 @@ use crate::layout::{Abs, Axes, Length, Region, Size};
 /// #thing[Welcome]
 /// ```
 ///
-/// The measure function returns a dictionary with the entries `width` and
-/// `height`, both of type @length.
+/// The measure function returns a dictionary with the entries `width`, `height`,
+/// and `baseline`, all of type @length. The `baseline` entry is the vertical
+/// position of the content's baseline relative to its top edge, with positive
+/// values extending downwards.
 #[func(contextual, since = "forever")]
 pub fn measure(
     engine: &mut Engine,
@@ -101,5 +103,9 @@ pub fn measure(
         pod,
     )?;
     let Size { x, y } = frame.size();
-    Ok(dict! { "width" => x, "height" => y })
+    Ok(dict! {
+        "width" => x,
+        "height" => y,
+        "baseline" => frame.baseline(),
+    })
 }
