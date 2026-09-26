@@ -182,7 +182,7 @@ impl SVGRenderer<'_> {
 
     /// Build the glyph definitions.
     pub(super) fn write_glyph_defs(&mut self, svg: &mut SvgElem) {
-        if self.glyphs.iter().all(|(_, g)| g.is_none()) {
+        if !self.has_glyph_defs() {
             return;
         }
 
@@ -216,5 +216,10 @@ impl SVGRenderer<'_> {
         // The glyphs have been taken above, there shouldn't be any new glyphs
         // produced from writing the glyph definitions.
         assert!(self.glyphs.is_empty());
+    }
+
+    /// Whether any glyph definitions have been collected.
+    pub(super) fn has_glyph_defs(&self) -> bool {
+        self.glyphs.iter().any(|(_, glyph)| glyph.is_some())
     }
 }
