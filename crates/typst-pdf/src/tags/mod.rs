@@ -219,7 +219,13 @@ pub fn text<'a, 'b>(
     let content = ContentTag::Span(SpanTag::empty().with_lang(lang_str.as_deref()));
     let id = surface.start_tagged(content);
 
-    gc.tags.push_text(attrs, id);
+    gc.tags.push_text(
+        attrs,
+        tree::TextRun {
+            id,
+            actual_text: Some(text.text.clone()), // TODO: condition on text being outlined
+        },
+    );
 
     TagHandle { surface, started: true }
 }

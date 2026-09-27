@@ -9,8 +9,8 @@ use crate::tags::context::figure::build_figure;
 use crate::tags::context::grid::build_grid;
 use crate::tags::context::table::build_table;
 use crate::tags::groups::GroupKind;
-use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
+use crate::tags::tree::{ResolvedTextAttrs, TextRun};
 use crate::tags::util::{Id, IdVec};
 use crate::util::AbsExt;
 
@@ -56,9 +56,9 @@ impl Tags {
         group.push_leaf(id);
     }
 
-    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, text_id: Identifier) {
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, run: TextRun) {
         let group = self.tree.groups.get_mut(self.tree.current());
-        group.push_text(new_attrs, text_id);
+        group.push_text(new_attrs, run);
     }
 }
 
