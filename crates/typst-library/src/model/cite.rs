@@ -2,11 +2,11 @@ use ecow::EcoString;
 use hayagriva::citationberg::taxonomy::Locator;
 use typst_syntax::Spanned;
 
-use crate::diag::{SourceResult, bail};
+use crate::diag::{HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Cast, Content, Derived, Label, Packed, Repr, Smart, StyleChain, Synthesize,
-    cast, elem,
+    Cast, Content, Derived, Dict, Fold, FromValue, IntoValue, Label, Packed, Repr, Smart,
+    StyleChain, Synthesize, Value, cast, elem,
 };
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
@@ -68,7 +68,8 @@ pub struct CiteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
-    pub supplement: Option<CitationSupplement>,
+    #[fold]
+    pub supplement: CitationSupplement,
 
     /// The kind of citation to produce. Different forms are useful in different
     /// scenarios: A normal citation is useful as a source at the end of a
@@ -136,33 +137,48 @@ cast! {
 /// The supplement of the citation.
 #[derive(Debug, Clone, PartialEq, Hash, Default)]
 pub struct CitationSupplement {
-    pub locator: Option<Locator>,
-    pub content: Content,
+    pub kind: Option<Locator>,
+    pub content: Option<Content>,
+}
+
+impl Fold for CitationSupplement {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            kind: self.kind.or(outer.kind),
+            content: self.content,
+        }
+    }
 }
 
 cast! {
     CitationSupplement,
-    self => if let Some(locator) = self.locator {
-        vec![locator.into_value(), self.content.into_value()].into_value()
-    } else {
-        self.content.into_value()
-    },
+    self => Value::Dict(self.into()),
     content: Content => Self {
-        locator: None,
-        content,
+        kind: None,
+        content: Some(content),
     },
-    v: Array => {
-        let mut iter = v.into_iter();
-        match (iter.next(), iter.next(), iter.next()) {
-            (Some(locator), Some(content), None) => Self {
-                locator: Some(locator.cast::<Locator>().map_err(|e| {
-                    e.with_hint("invalid locator in citation supplement")
-                })?),
-                content: content.cast::<Content>()?,
-            },
-            _ => bail!("citation supplement array must contain exactly 2 items: (locator, content)"),
+    mut dict: Dict => {
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
         }
-    },
+        let kind = take(&mut dict, "kind")?;
+        let content = take(&mut dict, "value")?;
+        dict.finish(&["kind", "value"])?;
+        Self { kind, content }
+    }
+}
+
+impl From<CitationSupplement> for Dict {
+    fn from(value: CitationSupplement) -> Self {
+        let mut dict = Dict::new();
+        if let Some(locator) = value.kind {
+            dict.insert("kind".into(), locator.into_value());
+        }
+        dict.insert("value".into(), value.content.into_value());
+        dict
+    }
 }
 
 impl Repr for Locator {

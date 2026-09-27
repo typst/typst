@@ -13,7 +13,8 @@ use crate::introspection::{
 };
 use crate::math::EquationElem;
 use crate::model::{
-    BibliographyElem, CiteElem, DirectLinkElem, Figurable, FootnoteElem, Numbering,
+    BibliographyElem, CitationSupplement, CiteElem, DirectLinkElem, Figurable,
+    FootnoteElem, Numbering,
 };
 use crate::text::TextElem;
 
@@ -369,9 +370,9 @@ fn to_citation(
     let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
         match reference.supplement.get_cloned(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => {
-                Some(super::CitationSupplement { locator: None, content })
+                super::CitationSupplement { kind: None, content: Some(content) }
             }
-            _ => None,
+            _ => CitationSupplement::default(),
         },
     ));
 
