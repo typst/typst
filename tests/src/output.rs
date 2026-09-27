@@ -360,6 +360,7 @@ fn pdf_options(standards: Option<&[PdfStandard]>) -> PdfOptions {
     // TODO: Maybe enable pretty here too?
     PdfOptions {
         creator: Smart::Custom(Some("Typst Test Runner".into())),
+        producer: Smart::Custom(None),
         format: PdfFormatOptions { standard, ..Default::default() },
         ..Default::default()
     }
