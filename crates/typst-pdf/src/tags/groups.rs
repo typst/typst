@@ -19,7 +19,7 @@ use crate::tags::context::{
     AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
 };
 use crate::tags::resolve::TagNode;
-use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
+use crate::tags::tree::{ResolvedTextAttrs, TextAttr, TextRun};
 use crate::tags::util::{self, Id, IdVec};
 
 pub type GroupId = Id<Group>;
@@ -399,19 +399,19 @@ impl Group {
         self.nodes.push(TagNode::Annotation(annot_id));
     }
 
-    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, text_id: Identifier) {
-        if new_attrs.is_empty() {
-            self.push_leaf(text_id);
+    pub fn push_text(&mut self, new_attrs: ResolvedTextAttrs, run: TextRun) {
+        if new_attrs.is_empty() && run.actual_text.is_none() {
+            self.push_leaf(run.id);
             return;
         }
 
         let last_node = self.nodes.last_mut();
-        if let Some(TagNode::Text(prev_attrs, nodes)) = last_node
+        if let Some(TagNode::Text(prev_attrs, runs)) = last_node
             && *prev_attrs == new_attrs
         {
-            nodes.push(text_id);
+            runs.push(run);
         } else {
-            self.nodes.push(TagNode::Text(new_attrs, vec![text_id]));
+            self.nodes.push(TagNode::Text(new_attrs, vec![run]));
         }
     }
 
