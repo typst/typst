@@ -1,22 +1,21 @@
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 
+use codex::numeral_systems::NamedNumeralSystem;
 use ecow::{EcoString, eco_format};
 use typst_utils::{NonZeroExt, singleton};
 
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
-    elem, scope,
+    Content, Label, NativeElement, Packed, SequenceElem, ShowSet, Smart, StyleChain,
+    Styles, cast, elem, scope,
 };
 use crate::introspection::{
     Count, Counter, CounterUpdate, Location, QueryLabelIntrospection,
 };
-use crate::layout::{Abs, Em, Length, Ratio};
-use crate::model::{
-    Destination, DirectLinkElem, Numbering, NumberingKind, NumberingPattern, ParElem,
-};
+use crate::layout::{Em, HElem, Length, Ratio};
+use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
 use crate::text::{LocalName, SuperElem, TextElem, TextSize};
 use crate::visualize::{LineElem, Stroke};
 
@@ -81,6 +80,22 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
+    /// The separator between the footnote markers in the text.
+    ///
+    /// It is `{auto}` by default, and the separator depends on the footnote
+    /// @numbering[numbering pattern or function]. If set to `{none}`,
+    /// there's no separator.
+    ///
+    /// ```example
+    /// #set footnote(separator: "&")
+    ///
+    /// The coldest winter is the summer in San Francisco
+    /// #footnote[Referring to the city's characteristic summer fog.]
+    /// #footnote[This quip is often misattributed to Mark Twain.].
+    /// ```
+    #[default(Smart::Auto)]
+    pub separator: Smart<Option<Content>>,
+
     /// The content to put into the footnote. Can also be the label of another
     /// footnote this one should point to.
     #[required]
@@ -91,8 +106,6 @@ pub struct FootnoteElem {
 impl FootnoteElem {
     #[elem]
     type FootnoteEntry;
-    #[elem]
-    type FootnoteGroup;
 }
 
 impl LocalName for Packed<FootnoteElem> {
@@ -181,87 +194,6 @@ impl Count for Packed<FootnoteElem> {
     }
 }
 
-/// A group of footnotes.
-///
-/// This is automatically created from adjacent footnotes during show rule
-/// application.
-#[elem(name = "group", title = "Footnote Group", Locatable)]
-pub struct FootnoteGroup {
-    /// The separator between the footnote markers in the text.
-    ///
-    /// It is `{auto}` by default, and the separator depends on the footnote
-    /// [numbering pattern or function]($numbering). If set to `{none}`,
-    /// there's no separator.
-    ///
-    /// ```example
-    /// #set footnote.group(separator: "&")
-    ///
-    /// The coldest winter is the summer in San Francisco
-    /// #footnote[Referring to the city's characteristic summer fog.]
-    /// #footnote[This quip is often misattributed to Mark Twain.].
-    /// ```
-    #[default(Smart::Auto)]
-    pub separator: Smart<Option<Content>>,
-
-    /// The footnotes.
-    #[required]
-    pub children: Vec<Packed<FootnoteElem>>,
-}
-
-impl FootnoteGroup {
-    pub fn alt_text(styles: StyleChain, nums: Vec<&str>) -> EcoString {
-        let local_name = Packed::<FootnoteElem>::local_name_in(styles);
-        eco_format!("{local_name} {}", nums.join(","))
-    }
-
-    pub fn get_separator(
-        &self,
-        numbering: Numbering,
-        styles: StyleChain,
-    ) -> Option<Content> {
-        if let Smart::Custom(sep) = self.separator.get_cloned(styles) {
-            return sep;
-        }
-
-        match numbering {
-            // The most sensible default since a Func can be arbitrary
-            // and we don't presume to guess.
-            Numbering::Func(_) => None,
-            Numbering::Pattern(pattern) => match pattern {
-                // If a footnote marker's either end is normal text
-                // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
-                // to add a separator.
-                NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
-                NumberingPattern { pieces, .. } => match pieces.as_slice() {
-                    [(prefix, ..), ..] if !prefix.is_empty() => None,
-                    [.., (.., kind)] => match kind {
-                        NumberingKind::LowerSimplifiedChinese
-                        | NumberingKind::UpperSimplifiedChinese
-                        | NumberingKind::LowerTraditionalChinese
-                        | NumberingKind::UpperTraditionalChinese
-                        | NumberingKind::HiraganaAiueo
-                        | NumberingKind::HiraganaIroha
-                        | NumberingKind::KatakanaAiueo
-                        | NumberingKind::KatakanaIroha => Some(TextElem::packed("、")),
-                        NumberingKind::KoreanJamo | NumberingKind::KoreanSyllable => {
-                            Some(TextElem::packed("·"))
-                        }
-                        NumberingKind::EasternArabic
-                        | NumberingKind::EasternArabicPersian => {
-                            Some(TextElem::packed("،"))
-                        }
-                        NumberingKind::Symbol => Some(TextElem::packed(" ")),
-                        NumberingKind::CircledNumber
-                        | NumberingKind::DoubleCircledNumber => None,
-                        _ => Some(TextElem::packed(",")),
-                    },
-                    _ => None,
-                },
-            },
-        }
-    }
-}
-
 /// The body of a footnote can be either some content or a label referencing
 /// another footnote.
 #[derive(Debug, Clone, PartialEq, Hash)]
@@ -280,6 +212,78 @@ cast! {
     v: Label => Self::Reference(v),
 }
 
+/// A group of footnotes.
+///
+/// This is automatically created from adjacent footnotes during
+/// realization.
+///
+/// The footnote group element is purposefully kept internal to retain
+/// flexibility in how it is collected.
+#[elem(Locatable)]
+pub struct FootnoteGroup {
+    /// The footnotes.
+    #[required]
+    pub children: Vec<Packed<FootnoteElem>>,
+}
+
+impl FootnoteGroup {
+    /// Resolves the separator to place between footnotes in this group.
+    pub fn separator(&self, styles: StyleChain) -> Option<Content> {
+        let first = self.children.first()?;
+        match first.separator.get_ref(styles) {
+            Smart::Custom(sep) => sep.clone(),
+            Smart::Auto => {
+                let numbering = first.numbering.get_ref(styles);
+                match numbering {
+                    Numbering::Func(_) => None,
+                    Numbering::Pattern(pattern) => match pattern {
+                        // If a footnote marker's either end has normal text
+                        // (e.g. "#1", "1)", "[1]"), it's generally unnecessary
+                        // to add a separator.
+                        NumberingPattern { suffix, .. } if !suffix.is_empty() => None,
+                        NumberingPattern { pieces, .. } => match pieces.as_slice() {
+                            [(prefix, ..), ..] if !prefix.is_empty() => None,
+                            [.., (.., kind)] => match kind {
+                                NamedNumeralSystem::Symbols
+                                | NamedNumeralSystem::CircledArabic
+                                | NamedNumeralSystem::DoubleCircledArabic => None,
+                                _ => Some(TextElem::packed(",")),
+                            },
+                            _ => None,
+                        },
+                    },
+                }
+            }
+        }
+    }
+}
+
+impl Packed<FootnoteGroup> {
+    /// Realizes the footnote group with a custom decorator for each note's
+    /// superscript item.
+    pub fn realize_with(
+        &self,
+        engine: &mut Engine,
+        styles: StyleChain,
+        decorate: impl Fn(&Packed<FootnoteElem>, Content) -> Content,
+    ) -> SourceResult<Content> {
+        let sep = self.separator(styles).map(|c| SuperElem::new(c).pack());
+        let mut sups = Vec::new();
+        for (i, note) in self.children.iter().enumerate() {
+            if let Some(sep) = &sep
+                && i != 0
+            {
+                sups.push(sep.clone());
+            }
+            let link = note.realize(engine, styles)?;
+            let sup = SuperElem::new(link).pack().spanned(note.span());
+            sups.push(decorate(note, sup));
+        }
+        let content = SequenceElem::new(sups).pack().spanned(self.span());
+        Ok(HElem::hole().clone() + content)
+    }
+}
+
 /// An entry in a footnote list.
 ///
 /// This function is not intended to be called directly. Instead, it is used in
@@ -290,7 +294,7 @@ cast! {
 ///
 /// My footnote listing
 /// #footnote[It's down here]
-/// has red Some(TextElem::packed
+/// has red text!
 /// ```
 ///
 /// _Note:_ Footnote entry properties must be uniform across each page run (a

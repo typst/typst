@@ -582,9 +582,11 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
         }
         find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
         find_in_frame_impl::<FootnoteGroup>(&mut note_groups, frame, Abs::zero());
-        for (group_abs, group) in &note_groups {
+        // Expand each group into its constituent footnotes (using the group's
+        // y-position as the position for all children in the group).
+        for (y, group) in &note_groups {
             for child in &group.children {
-                notes.push((*group_abs, child.clone()));
+                notes.push((*y, child.clone()));
             }
         }
         if notes.is_empty() {

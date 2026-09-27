@@ -1023,10 +1023,12 @@ const MAX_GROUP_NESTING: usize = 3;
 static BUNDLE_RULES: &[&GroupingRule] = &[];
 
 /// Grouping rules used in normal realization.
-static FLOW_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+static FLOW_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in paragraph realization.
-static PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
+static PAR_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
 static MATH_RULES: &[&GroupingRule] = &[&CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
@@ -1111,24 +1113,32 @@ static CITES: GroupingRule = GroupingRule {
 static FOOTNOTES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
-    trigger: |content, _| content.elem() == FootnoteElem::ELEM,
-    inner: |content| content.elem() == SpaceElem::ELEM,
+    effect: |content| {
+        let elem = content.elem();
+        if elem == FootnoteElem::ELEM {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
+    },
     interrupt: |elem| {
         elem == FootnoteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
     finish: finish_footnotes,
 };
 
-/// Builds a [`ListElem`] from grouped `ListItems`s.
+/// Builds a `ListElem` from grouped `ListItems`s.
 static LIST: GroupingRule = list_like_grouping::<ListElem>();
 
-/// Builds an [`EnumElem`] from grouped `EnumItem`s.
+/// Builds an `EnumElem` from grouped `EnumItem`s.
 static ENUM: GroupingRule = list_like_grouping::<EnumElem>();
 
-/// Builds a [`TermsElem`] from grouped `TermItem`s.
+/// Builds a `TermsElem` from grouped `TermItem`s.
 static TERMS: GroupingRule = list_like_grouping::<TermsElem>();
 
-/// Collects [`ListItemLike`] elements into a `ListLike` element.
+/// Collects `ListItemLike` elements into a `ListLike` element.
 const fn list_like_grouping<T: ListLike>() -> GroupingRule {
     GroupingRule {
         priority: 2,
@@ -1214,7 +1224,7 @@ fn is_fully_inline_or_neutral(s: &State) -> bool {
     }
 }
 
-/// Builds the [`ParElem`] from inline-level elements.
+/// Builds the `ParElem` from inline-level elements.
 fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     // Collapse unsupported spaces in-place.
     let (sink, start) = grouped.get_mut();
@@ -1231,7 +1241,7 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the [`CiteGroup`] from [`CiteElem`]s.
+/// Builds the `CiteGroup` from `CiteElem`s.
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
@@ -1263,7 +1273,7 @@ fn finish_footnotes(grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the [`ListLike`] element from [`ListItemLike`] elements.
+/// Builds the `ListLike` element from `ListItemLike` elements.
 fn finish_list_like<T: ListLike>(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();

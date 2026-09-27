@@ -6,28 +6,28 @@ use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use typst_library::diag::{At, warning};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Selector, SequenceElem, ShowFn,
-    Smart, StyleChain, Target,
+    Content, Context, NativeElement, NativeRuleMap, Selector, ShowFn, Smart, StyleChain,
+    Target,
 };
 use typst_library::introspection::{
     Counter, DocumentIntrospection, Locator, QueryIntrospection,
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
-use typst_library::layout::{BlockElem, HElem, OuterVAlignment, Sizing};
+use typst_library::layout::{BlockElem, OuterVAlignment, Sizing};
 use typst_library::math::EquationElem;
 use typst_library::math::ir::resolve_equation;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
     FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
-    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
-    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteGroup, FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::routines::Arenas;
 use typst_library::text::{
     HighlightElem, LinebreakElem, OverlineElem, RawElem, RawLine, SmallcapsElem,
-    SpaceElem, StrikeElem, SubElem, SuperElem, TextElem, UnderlineElem,
+    SpaceElem, StrikeElem, SubElem, SuperElem, UnderlineElem,
 };
 use typst_library::visualize::{Color, ImageElem};
 use typst_syntax::Span;
@@ -328,38 +328,12 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
 };
 
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
-    let sep = elem
-        .get_separator(
-            // This unwrap() is safe, as there's at least one footnote.
-            elem.children.first().unwrap().numbering.get_cloned(styles),
-            styles,
-        )
-        .map(|c| SuperElem::new(c).pack());
-    let mut sups = Vec::<Content>::new();
-    for (i, note) in elem.children.iter().enumerate() {
-        if let Some(sep) = &sep
-            && i != 0
-        {
-            // TODO: Use `Iterator::intersperse` when stabilized.
-            sups.push(sep.clone());
-        }
+    elem.realize_with(engine, styles, |note, sup| {
         let span = note.span();
-        let (dest, num) = note.realize(engine, styles)?;
-        let sup = SuperElem::new(num).pack().spanned(span);
-        // Link to the footnote entry.
-        let link = LinkElem::new(dest.into(), sup)
-            .pack()
-            .styled(HtmlElem::role.set(Some("doc-noteref".into())));
-        // Indicates the presence of a default footnote rule to emit an error
-        // when no footnote container is available.
+        let sup = sup.styled(HtmlElem::role.set(Some("doc-noteref".into())));
         let marker = FootnoteMarker::new().pack().spanned(span);
-        sups.push(link + marker);
-    }
-    if styles.resolve(TextElem::dir) == Dir::RTL {
-        sups.reverse();
-    }
-    let content = SequenceElem::new(sups).pack().spanned(elem.span());
-    Ok(HElem::hole().clone() + content)
+        sup + marker
+    })
 };
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());

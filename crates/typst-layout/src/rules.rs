@@ -3,12 +3,12 @@ use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, bail};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, SequenceElem,
-    ShowFn, Smart, StyleChain, Synthesize, Target, dict,
+    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
+    StyleChain, Synthesize, Target, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Dir, Em,
+    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
     FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
     InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
     PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
@@ -18,8 +18,8 @@ use typst_library::math::EquationElem;
 use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, EmphElem, EnumElem, FigureCaption, FigureElem,
-    FootnoteElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
+    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
+    FigureElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
     ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
     StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
@@ -391,42 +391,8 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-// const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-//     // The footnote number that links to the footnote entry.
-//     let link = elem.realize(engine, styles)?;
-//     let sup = SuperElem::new(link).pack().spanned(elem.span());
-//     Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
-// };
-
 const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
-    let sep = elem.get_separator(
-        // This unwrap() is safe, as there's at least one footnote.
-        elem.children.first().unwrap().numbering.get_cloned(styles),
-        styles,
-    );
-    let mut sups = Vec::<Content>::new();
-    for (i, note) in elem.children.iter().enumerate() {
-        if let Some(sep) = &sep
-            && i != 0
-        {
-            // TODO: Use `Iterator::intersperse` when stabilized.
-            sups.push(sep.clone());
-        }
-        let (dest, num) = note.realize(engine, styles)?;
-        let alt = FootnoteElem::alt_text(styles, &num.plain_text());
-        let sup = SuperElem::new(num)
-            .pack()
-            .spanned(note.span())
-            .linked(dest, Some(alt));
-        sups.push(sup);
-    }
-    if styles.resolve(TextElem::dir) == Dir::RTL {
-        sups.reverse();
-    }
-    let content = SuperElem::new(SequenceElem::new(sups).pack())
-        .pack()
-        .spanned(elem.span());
-    Ok(HElem::hole().clone() + PdfMarkerTag::Label(content))
+    elem.realize_with(engine, styles, |_, sup| PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {

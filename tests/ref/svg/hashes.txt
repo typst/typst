@@ -262,7 +262,7 @@ c52ecd7b30dc141f38f8113f7fd1a6a9 fold-vec-order-text-decos
 5c064dbc85bdcc6e7e21501ac3c28c4e fold-vec-order-text-features
 54fbdba7a0218136416a3575bf223995 footnote-basic
 d622944c646e1e4350f7ce068ffdb3ee footnote-block-at-end
-15b8377c4f612802473766eede6d70ae footnote-block-fr
+3112287396501c7dc46811d4b51a8c12 footnote-block-fr
 af4f6a6db7603815b30b9813c0fc0a7b footnote-break-across-pages
 67d7f5c00a189825b9f27768bd0da530 footnote-break-across-pages-block
 a70c306e25e22811c321e7fc193d0018 footnote-break-across-pages-float
@@ -270,6 +270,9 @@ a70c306e25e22811c321e7fc193d0018 footnote-break-across-pages-float
 89b921c924b0fbe804d24f77fe0c00b9 footnote-duplicate
 23596c0139ec6b417814ef9464c21c2b footnote-entry
 fd413b0f52bf8a8a603b19fc95320152 footnote-float-priority
+abcab709cb61d9abf7e0bda79fde4890 footnote-group
+cd02319fd043e040127883c3068b1ee3 footnote-group-separator-auto
+41e9e0b0193bc034167cba0b46100592 footnote-group-separator-set
 77c61d0e3774d347b79c11f196e04426 footnote-in-caption
 02593a25dc7619d2221bc31147577152 footnote-in-columns
 777ee64fb47d63a1452c59dbdc15eb18 footnote-in-list
