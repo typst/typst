@@ -473,9 +473,9 @@ impl<'a> Runner<'a> {
     /// Run test for a specific output format, and save the live output to disk.
     fn run_test<T: OutputType>(&mut self, doc: Option<&T::Doc>) -> Option<T::Live> {
         let doc = doc?;
-        let live = T::make_live(self.test, doc);
+        let Warned { output, warnings } = T::make_live(doc);
 
-        if let Err(errors) = &live {
+        if let Err(errors) = &output {
             if errors.is_empty() {
                 log!(self, "no document, but also no errors");
             }
@@ -485,7 +485,11 @@ impl<'a> Runner<'a> {
             }
         }
 
-        live.ok()
+        for warning in &warnings {
+            self.check_diagnostic(NoteKind::Warning, warning, T::OUTPUT);
+        }
+
+        output.ok()
     }
 
     fn save_live<'d, T: OutputType>(

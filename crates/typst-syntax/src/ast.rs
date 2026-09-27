@@ -237,7 +237,11 @@ impl<'a> Markup<'a> {
             .filter(move |node| {
                 // Ignore newline directly after statements without semicolons.
                 let kind = node.kind();
-                let keep = !was_stmt || node.kind() != SyntaxKind::Space;
+                let is_space = matches!(
+                    node.kind(),
+                    SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline
+                );
+                let keep = !was_stmt || !is_space;
                 was_stmt = kind.is_stmt();
                 keep
             })
@@ -255,7 +259,8 @@ pub enum Expr<'a> {
     Space(Space<'a>),
     /// A forced line break: `\`.
     Linebreak(Linebreak<'a>),
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     Parbreak(Parbreak<'a>),
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(Escape<'a>),
@@ -377,7 +382,9 @@ pub enum Expr<'a> {
 impl<'a> Expr<'a> {
     fn cast_with_space(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space => Some(Self::Space(Space(node))),
+            SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => {
+                Some(Self::Space(Space(node)))
+            }
             _ => Self::from_untyped(node),
         }
     }
@@ -386,7 +393,7 @@ impl<'a> Expr<'a> {
 impl<'a> AstNode<'a> for Expr<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space => Option::None, // Skipped unless using `cast_with_space`.
+            // Spaces are skipped unless using `cast_with_space`.
             SyntaxKind::Linebreak => Some(Self::Linebreak(Linebreak(node))),
             SyntaxKind::Parbreak => Some(Self::Parbreak(Parbreak(node))),
             SyntaxKind::Text => Some(Self::Text(Text(node))),
@@ -590,10 +597,35 @@ impl<'a> Text<'a> {
     }
 }
 
-node! {
-    /// Whitespace in markup or math. Has at most one newline in markup, as more
-    /// indicate a paragraph break.
-    struct Space
+/// Whitespace in markup or math. Has at most one newline in markup, as more
+/// indicate a paragraph break.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Space<'a>(&'a SyntaxNode);
+
+impl Space<'_> {
+    /// Whether the Space contains a newline.
+    pub fn had_newline(self) -> bool {
+        self.0.kind() == SyntaxKind::SpaceWithNewline
+    }
+}
+
+impl<'a> AstNode<'a> for Space<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => Some(Self(node)),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        self.0
+    }
+
+    fn placeholder() -> Self {
+        static PLACEHOLDER: SyntaxNode =
+            SyntaxNode::placeholder(SyntaxKind::SpaceNoNewline);
+        Self(&PLACEHOLDER)
+    }
 }
 
 node! {
@@ -602,7 +634,8 @@ node! {
 }
 
 node! {
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     struct Parbreak
 }
 
@@ -873,7 +906,10 @@ impl<'a> Equation<'a> {
     /// Whether the equation should be displayed as a separate block.
     pub fn block(self) -> bool {
         let is_space = |node: Option<&SyntaxNode>| {
-            node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
+            matches!(
+                node.map(SyntaxNode::kind),
+                Some(SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline)
+            )
         };
         is_space(self.0.children().nth(1)) && is_space(self.0.children().nth_back(1))
     }
@@ -1152,7 +1188,9 @@ impl<'a> MathArgs<'a> {
                 let semicolon_ends_code = prev_hash;
                 prev_hash = false;
                 let item = match node.kind() {
-                    SyntaxKind::Space => MathArgItem::Space(Space(node)),
+                    SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => {
+                        MathArgItem::Space(Space(node))
+                    }
                     SyntaxKind::Comma => MathArgItem::Comma(',', node),
                     SyntaxKind::LeftParen => MathArgItem::LeftParen('(', node),
                     SyntaxKind::RightParen => MathArgItem::RightParen(')', node),

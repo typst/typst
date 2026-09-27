@@ -156,6 +156,22 @@
 	square(radius: (top-left: 0pt, rest: 100pt)),
 )
 
+--- stroke-repr eval ---
+#let cases = (
+  stroke(),
+  stroke(2pt),
+  stroke(red),
+  stroke(2pt + red),
+  stroke(cap: "round"),
+  stroke(paint: blue, thickness: 2pt, dash: "dashed", miter-limit: 5.0)
+)
+
+// While repr isn't guaranteed to roundtrip with eval, we make an effort and if
+// we cast with the `stroke` constructor, it should work for all cases.
+#for case in cases {
+  test(case, stroke(eval(repr(case))))
+}
+
 --- issue-3700-deformed-stroke paged ---
 // Test shape fill & stroke for specific values that used to make the stroke
 // deformed.

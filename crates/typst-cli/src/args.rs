@@ -13,10 +13,10 @@ use std::str::FromStr;
 use clap::builder::styling::{AnsiColor, Effects};
 use clap::builder::{Styles, TypedValueParser, ValueParser};
 use clap::{ArgAction, Args, ColorChoice, Parser, Subcommand, ValueEnum, ValueHint};
-use clap_complete::Shell;
+use clap_complete::Generator;
 use semver::Version;
 use serde::Serialize;
-use typst_utils::display_possible_values;
+use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// The character typically used to separate path components
 /// in environment variables.
@@ -279,6 +279,43 @@ pub struct CompletionsCommand {
     pub shell: Shell,
 }
 
+/// Which shell to generate completions for.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+#[clap(rename_all = "lowercase")]
+#[expect(clippy::enum_variant_names)]
+pub enum Shell {
+    Bash,
+    Elvish,
+    Fish,
+    Nushell,
+    PowerShell,
+    Zsh,
+}
+
+impl Generator for Shell {
+    fn file_name(&self, name: &str) -> String {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.file_name(name),
+            Shell::Elvish => clap_complete::shells::Elvish.file_name(name),
+            Shell::Fish => clap_complete::shells::Fish.file_name(name),
+            Shell::Nushell => clap_complete_nushell::Nushell.file_name(name),
+            Shell::PowerShell => clap_complete::shells::PowerShell.file_name(name),
+            Shell::Zsh => clap_complete::shells::Zsh.file_name(name),
+        }
+    }
+
+    fn generate(&self, cmd: &clap::Command, buf: &mut dyn Write) {
+        match self {
+            Shell::Bash => clap_complete::shells::Bash.generate(cmd, buf),
+            Shell::Elvish => clap_complete::shells::Elvish.generate(cmd, buf),
+            Shell::Fish => clap_complete::shells::Fish.generate(cmd, buf),
+            Shell::Nushell => clap_complete_nushell::Nushell.generate(cmd, buf),
+            Shell::PowerShell => clap_complete::shells::PowerShell.generate(cmd, buf),
+            Shell::Zsh => clap_complete::shells::Zsh.generate(cmd, buf),
+        }
+    }
+}
+
 /// Displays environment variables and default values Typst uses.
 #[derive(Debug, Clone, Parser)]
 pub struct InfoCommand {
@@ -331,8 +368,13 @@ pub struct CompileArgs {
     /// This formats the output in a more human-readable, but less
     /// space-efficient way. Affects HTML, SVG, and PDF export, but not PNG
     /// export.
-    #[arg(long = "pretty")]
-    pub pretty: bool,
+    #[arg(
+        long = "pretty",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pretty: Option<bool>,
 
     /// Which pages to export. When unspecified, all pages are exported.
     ///
@@ -356,12 +398,29 @@ pub struct CompileArgs {
     /// document is written to provide a baseline of accessibility. In some
     /// circumstances (for example when trying to reduce the size of a document)
     /// it can be desirable to disable tagged PDF.
-    #[arg(long = "no-pdf-tags")]
+    // TODO: Remove deprecated flag in the 0.17 release cycle.
+    #[arg(long = "no-pdf-tags", hide = true)]
     pub no_pdf_tags: bool,
 
+    /// Enables or disables PDF tagging.
+    ///
+    /// By default, even when not producing a `PDF/UA-1` document, a tagged PDF
+    /// document is written to provide a baseline of accessibility. In some
+    /// circumstances (for example when trying to reduce the size of a document)
+    /// it can be desirable to disable PDF tags.
+    #[arg(
+        long = "pdf-tagged",
+        default_missing_value = "true",
+        num_args = 0..=1,
+        require_equals = true,
+    )]
+    pub pdf_tagged: Option<bool>,
+
     /// The PPI (pixels per inch) to use for PNG export.
-    #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f64,
+    ///
+    /// [default: 144]
+    #[arg(long = "ppi")]
+    pub ppi: Option<f64>,
 
     /// File path to which a Makefile with the current compilation's
     /// dependencies will be written.
@@ -413,6 +472,7 @@ pub struct WorldArgs {
 
     /// Add a string key-value pair visible through `sys.inputs`.
     #[clap(
+        short = 'i',
         long = "input",
         value_name = "key=value",
         action = ArgAction::Append,
@@ -485,8 +545,9 @@ pub struct FontArgs {
         env = "TYPST_FONT_PATHS",
         value_name = "DIR",
         value_delimiter = ENV_PATH_SEP,
+        value_parser = font_path_value_parser(),
     )]
-    pub font_paths: Vec<PathBuf>,
+    pub font_paths: Vec<Option<PathBuf>>,
 
     /// Ensures system fonts won't be searched, unless explicitly included via
     /// `--font-path`.
@@ -758,24 +819,24 @@ impl FromStr for Pages {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value.split('-').map(str::trim).collect::<Vec<_>>().as_slice() {
-            [] | [""] => Err("page export range must not be empty"),
+            [] | [""] => Err("page range must not be empty"),
             [single_page] => {
                 let page_number = parse_page_number(single_page)?;
                 Ok(Pages(Some(page_number)..=Some(page_number)))
             }
-            ["", ""] => Err("page export range must have start or end"),
+            ["", ""] => Err("page range must have start or end"),
             [start, ""] => Ok(Pages(Some(parse_page_number(start)?)..=None)),
             ["", end] => Ok(Pages(None..=Some(parse_page_number(end)?))),
             [start, end] => {
                 let start = parse_page_number(start)?;
                 let end = parse_page_number(end)?;
                 if start > end {
-                    Err("page export range must end at a page after the start")
+                    Err("page range must end at a page after the start")
                 } else {
                     Ok(Pages(Some(start)..=Some(end)))
                 }
             }
-            [_, _, _, ..] => Err("page export range must have a single hyphen"),
+            [_, _, _, ..] => Err("page range must have a single hyphen"),
         }
     }
 }
@@ -816,18 +877,9 @@ fn output_value_parser() -> impl TypedValueParser<Value = Output> {
     })
 }
 
-/// Parses key/value pairs split by the first equal sign.
-///
-/// This function will return an error if the argument contains no equals sign
-/// or contains the key (before the equals sign) is empty.
-fn parse_sys_input_pair(raw: &str) -> Result<(String, String), String> {
-    let (key, val) = raw
-        .split_once('=')
-        .ok_or("input must be a key and a value separated by an equal sign")?;
-    let key = key.trim().to_owned();
-    if key.is_empty() {
-        return Err("the key was missing or empty".to_owned());
-    }
-    let val = val.trim().to_owned();
-    Ok((key, val))
+/// Allows empty paths (so that `--font-path ""` works) and turns them into
+/// `None`. There is no simple way to filter these out in the arg parsing layer,
+/// so we do so later.
+fn font_path_value_parser() -> impl TypedValueParser<Value = Option<PathBuf>> {
+    clap::builder::OsStringValueParser::new().map(|s| (!s.is_empty()).then(|| s.into()))
 }

@@ -123,7 +123,11 @@ pub fn scr(
 /// ```example
 /// $ frak(P) $
 /// ```
-#[func(title = "Fraktur", since = "forever", keywords = ["mathfrak"])]
+#[func(
+    title = "Fraktur",
+    since = "forever",
+    keywords = ["mathfrak", "blackletter", "gothic"],
+)]
 pub fn frak(
     /// The content to style.
     body: Content,

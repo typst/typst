@@ -28,10 +28,11 @@ typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
+clap_complete_nushell = { workspace = true }
 codespan-reporting = { workspace = true }
 color-print = { workspace = true }
 comemo = { workspace = true }
@@ -79,6 +80,7 @@ tempfile = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
+clap_complete_nushell = { workspace = true }
 clap_mangen = { workspace = true }
 color-print = { workspace = true }
 semver = { workspace = true }

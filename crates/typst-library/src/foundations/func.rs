@@ -189,7 +189,7 @@ impl Func {
     /// The version of Typst the function was introduced in.
     pub fn since(&self) -> Option<Since> {
         match &self.inner {
-            FuncInner::Native(native) => native.since.clone(),
+            FuncInner::Native(native) => native.since,
             FuncInner::Element(elem) => elem.since(),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
@@ -310,6 +310,14 @@ impl Func {
     pub fn to_element(&self) -> Option<Element> {
         match self.inner {
             FuncInner::Element(func) => Some(func),
+            _ => None,
+        }
+    }
+
+    /// Extract the native function data, if this is a native function.
+    pub fn to_native(&self) -> Option<&'static NativeFuncData> {
+        match self.inner {
+            FuncInner::Native(func) => Some(func.0),
             _ => None,
         }
     }

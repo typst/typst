@@ -44,7 +44,7 @@ impl Element {
 
     /// The version of Typst the element was introduced in.
     pub fn since(&self) -> Option<Since> {
-        self.vtable().since.clone()
+        self.vtable().since
     }
 
     /// Documentation for the element (as Markdown).

@@ -1,6 +1,6 @@
 use krilla::tagging as kt;
 use krilla::tagging::{ArtifactType, NaiveRgbColor};
-use typst_library::pdf::{ArtifactKind, TableHeaderScope};
+use typst_library::model::{ArtifactKind, TableHeaderScope};
 use typst_library::text::Locale;
 use typst_library::visualize::Paint;
 

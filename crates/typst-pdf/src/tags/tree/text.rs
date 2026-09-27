@@ -1,5 +1,6 @@
 use krilla::tagging::{LineHeight, NaiveRgbColor, TextDecorationType};
 use typst_library::diag::{SourceDiagnostic, error};
+use typst_library::format::Complete;
 use typst_library::foundations::{Content, Packed, Smart};
 use typst_library::layout::Length;
 use typst_library::text::{
@@ -125,7 +126,7 @@ impl TextParams {
 
 pub fn resolve_text_attrs(
     tree: &mut Tree,
-    options: &PdfOptions,
+    options: &PdfOptions<Complete>,
     text: &TextItem,
 ) -> ResolvedTextAttrs {
     let params = TextParams::new(text);
@@ -144,7 +145,7 @@ pub fn resolve_text_attrs(
 }
 
 fn compute_attrs(
-    options: &PdfOptions,
+    options: &PdfOptions<Complete>,
     items: &[(GroupId, TextAttr)],
     text: &TextItem,
 ) -> (ResolvedTextAttrs, Option<SourceDiagnostic>) {
@@ -245,7 +246,7 @@ fn compute_script(
 fn compute_deco<'a>(
     resolved: &mut Option<(&'a Content, ResolvedTextDeco)>,
     err: &mut Option<SourceDiagnostic>,
-    options: &PdfOptions,
+    options: &PdfOptions<Complete>,
     text: &TextItem,
     elem: &'a Content,
     kind: TextDecoKind,
@@ -257,7 +258,7 @@ fn compute_deco<'a>(
             // If PDF/UA-1 is enforced, throw an error.
             if err.is_none()
                 && deco.kind != kind
-                && let Some(accessibility) = options.accessibility_validator()
+                && let Some(accessibility) = options.validators().accessibility()
             {
                 let validator = accessibility.as_str();
                 let span = elem.span();

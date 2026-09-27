@@ -4,13 +4,14 @@ use std::num::NonZeroUsize;
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
 use typst_syntax::{Span, VirtualPath};
-use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
-use crate::foundations::{Content, IntoValue, Repr, Selector, func, repr, scope, ty};
+use crate::foundations::{
+    Content, Dict, IntoValue, Repr, Selector, func, repr, scope, ty,
+};
 use crate::introspection::{
-    DocumentPosition, History, Introspect, Introspector, PagedPosition,
+    DocumentPosition, History, InnerHtmlPosition, Introspect, Introspector,
 };
 use crate::layout::Abs;
 use crate::model::Numbering;
@@ -79,13 +80,15 @@ impl Location {
     /// Returns the page number for this location.
     ///
     /// Note that this does not return the value of the @counter[page counter]
-    /// at this location, but the true page number (starting from one).
-    ///
-    /// If you want to know the value of the page counter, use
+    /// at this location, but the true page number (starting from one). If you
+    /// want to know the value of the page counter, use
     /// `{counter(page).at(loc)}` instead.
     ///
-    /// Can be used with @here to retrieve the physical page position of the
-    /// current context:
+    /// In an HTML document, Typst cannot know where content will end up, so
+    /// this function returns `{none}`.
+    ///
+    /// This method can be used in combination with @here to retrieve the
+    /// physical page position of the current context:
     ///
     /// ```example
     /// #context [
@@ -94,19 +97,8 @@ impl Location {
     /// ]
     /// ```
     #[func(since = "forever")]
-    pub fn page(self, engine: &mut Engine, span: Span) -> NonZeroUsize {
+    pub fn page(self, engine: &mut Engine, span: Span) -> Option<NonZeroUsize> {
         engine.introspect(PageIntrospection(self, span))
-    }
-
-    /// Returns a dictionary with the page number and the x, y position for this
-    /// location. The page number starts at one and the coordinates are measured
-    /// from the top-left of the page.
-    ///
-    /// If you only need the page number, use `page()` instead as it allows
-    /// Typst to skip unnecessary work.
-    #[func(since = "forever")]
-    pub fn position(self, engine: &mut Engine, span: Span) -> PagedPosition {
-        engine.introspect(PositionIntrospection(self, span))
     }
 
     /// Returns the page numbering pattern of the page at this location. This
@@ -119,6 +111,25 @@ impl Location {
     #[func(since = "forever")]
     pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
         engine.introspect(PageNumberingIntrospection(self, span))
+    }
+
+    /// Returns a dictionary with the page number and the x, y position for this
+    /// location. The page number starts at one and the coordinates are measured
+    /// from the top-left of the page.
+    ///
+    /// If you only need the page number, use @location.page[`page()`] instead
+    /// as it allows Typst to skip unnecessary work.
+    ///
+    /// In an HTML document, Typst cannot know where content will end up, so
+    /// this function returns `{none}`. The contents of an @html.frame form an
+    /// exception as these are laid out using Typst's layout engine. For
+    /// locations within such frames, this function returns a dictionary with
+    /// just the `x` and `y` coordinates within the frame, but no `page` key.
+    #[func(since = "forever")]
+    pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
+        engine
+            .introspect(PositionIntrospection(self, span))
+            .and_then(DocumentPosition::into_dict)
     }
 }
 
@@ -169,18 +180,17 @@ impl From<Location> for LocationKey {
 pub struct PositionIntrospection(pub Location, pub Span);
 
 impl Introspect for PositionIntrospection {
-    type Output = PagedPosition;
+    type Output = Option<DocumentPosition>;
 
     fn introspect(
         &self,
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        match introspector.position(self.0) {
-            Some(DocumentPosition::Paged(pos)) => pos,
-            // Maybe error here instead?
-            Some(DocumentPosition::Html(_)) | None => PagedPosition::ORIGIN,
-        }
+        // A location that is not part of the document has no position. This
+        // notably includes every location in the first iteration, before there
+        // is a document to introspect.
+        introspector.position(self.0)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -192,12 +202,21 @@ impl Introspect for PositionIntrospection {
             |element| eco_format!("{element} position"),
             |pos| {
                 let coord = |v: Abs| repr::format_float(v.to_pt(), Some(0), false, "pt");
-                eco_format!(
-                    "page {} at ({}, {})",
-                    pos.page,
-                    coord(pos.point.x),
-                    coord(pos.point.y)
-                )
+                match pos {
+                    Some(DocumentPosition::Paged(pos)) => eco_format!(
+                        "page {} at ({}, {})",
+                        pos.page,
+                        coord(pos.point.x),
+                        coord(pos.point.y)
+                    ),
+                    Some(DocumentPosition::Html(pos)) => match pos.details() {
+                        Some(&InnerHtmlPosition::Frame(point)) => {
+                            eco_format!("({}, {})", coord(point.x), coord(point.y))
+                        }
+                        _ => "none".into(),
+                    },
+                    None => "none".into(),
+                }
             },
         )
     }
@@ -208,15 +227,14 @@ impl Introspect for PositionIntrospection {
 pub struct PageIntrospection(pub Location, pub Span);
 
 impl Introspect for PageIntrospection {
-    type Output = NonZeroUsize;
+    type Output = Option<NonZeroUsize>;
 
     fn introspect(
         &self,
         _: &mut Engine,
         introspector: Tracked<dyn Introspector + '_>,
     ) -> Self::Output {
-        // Maybe error here instead of calling `unwrap_or`?
-        introspector.page(self.0).unwrap_or(NonZeroUsize::ONE)
+        introspector.page(self.0)
     }
 
     fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
@@ -226,7 +244,10 @@ impl Introspect for PageIntrospection {
             history,
             "page numbers",
             |element| eco_format!("page number of the {element}"),
-            |n| eco_format!("page {n}"),
+            |n| match n {
+                Some(n) => eco_format!("page {n}"),
+                None => "none".into(),
+            },
         )
     }
 }

@@ -34,6 +34,7 @@ struct SourceInner {
 impl Source {
     /// Create a new source file.
     pub fn new(id: FileId, text: String) -> Self {
+        #[cfg(feature = "timing")]
         let _scope = typst_timing::TimingScope::new("create source");
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
@@ -83,6 +84,7 @@ impl Source {
     ///
     /// Returns the range in the new source that was ultimately reparsed.
     pub fn replace(&mut self, new: &str) -> Range<usize> {
+        #[cfg(feature = "timing")]
         let _scope = typst_timing::TimingScope::new("replace source");
 
         let Some((prefix, suffix)) = self.0.lines.replacement_range(new) else {
