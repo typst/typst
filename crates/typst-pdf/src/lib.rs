@@ -83,6 +83,9 @@ pub struct PdfOptions<F: Fields = Partial> {
     /// Configures the `/Creator` metadata in the resulting PDF. When set to
     /// `Smart::Auto`, defaults to `Typst $version`.
     pub creator: Smart<Option<String>>,
+    /// Configures the `/Producer` metadata in the resulting PDF. When set to
+    /// `Smart::Auto`, defaults to `Typst $version`.
+    pub producer: Smart<Option<String>>,
     /// If not `None`, shall be the creation timestamp of the document. It will
     /// only be used if `set document(date: ..)` is `auto`.
     pub timestamp: Option<Timestamp>,
@@ -145,6 +148,7 @@ impl PdfOptions {
         Ok(PdfOptions {
             ident: self.ident.clone(),
             creator: self.creator.clone(),
+            producer: self.producer.clone(),
             timestamp: self.timestamp,
             format,
         })

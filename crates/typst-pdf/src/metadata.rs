@@ -31,6 +31,15 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
         metadata = metadata.creator(creator);
     }
 
+    if let Some(producer) = gc
+        .options
+        .producer
+        .clone()
+        .unwrap_or_else(|| Some(format!("Typst {}", typst_utils::version().raw())))
+    {
+        metadata = metadata.producer(producer);
+    }
+
     if let Some(title) = &gc.document.info().title {
         metadata = metadata.title(title.to_string());
     }

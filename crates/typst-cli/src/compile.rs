@@ -661,6 +661,7 @@ fn pdf_options(config: &CompileConfig) -> PdfOptions {
     PdfOptions {
         ident: Smart::Auto,
         creator: Smart::Auto,
+        producer: Smart::Auto,
         timestamp,
         format: PdfFormatOptions {
             pages: config.pages.clone().map(Some),
