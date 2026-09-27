@@ -297,29 +297,29 @@ Ref @fn
 
 --- footnote-group paged html ---
 // Test that footnotes are organized in a footnote group.
-Hi#footnote[1]#footnote[2]#footnote[3], footnotes#footnote[4].
+Hi#footnote[1]#footnote[2]#footnote[3], footnotes#footnote[4]
 
---- footnote-group-separator-set paged html ---
-// Test that the explicit separator is set to custom or none.
 #set footnote(separator: "&")
-Hi#footnote[1]#footnote[2]#footnote[3]
+Hi#footnote[5]#footnote[6]
 
-#set footnote(separator: ",")
-Hi#footnote[4]#footnote[5]#footnote[6]
+#set footnote(separator: none)
+Hi#footnote[7]#footnote[8]
 
---- footnote-group-separator-auto paged ---
+--- footnote-group-numbering-dependent paged ---
 // Test that the default separator between footnotes are chosen appropriately.
 #set page(width: 2cm)
-A#footnote[1]#footnote[2]
 
 #set footnote(numbering: "*")
+A#footnote[1]#footnote[2] // No separator
+
+#set footnote(numbering: "①")
 A#footnote[3]#footnote[4] // No separator
 
 #set footnote(numbering: "一")
 文#footnote[5]#footnote[6] // Separator is ","
 
-#set footnote(numbering: "①")
-A#footnote[7]#footnote[8] // No separator
+#set footnote(numbering: "一", separator: "、")
+文#footnote[7]#footnote[8] // Separator is "、"
 
 #set footnote(numbering: "#1")
 A#footnote[9]#footnote[10] // No separator

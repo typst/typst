@@ -1089,7 +1089,7 @@ static PAR: GroupingRule = GroupingRule {
     finish: finish_par,
 };
 
-/// Collects `CiteElem`s into `CiteGroup`s.
+/// Collects [`CiteElem`]s into [`CiteGroup`]s.
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
@@ -1241,7 +1241,7 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the `CiteGroup` from `CiteElem`s.
+/// Builds the [`CiteGroup`] from [`CiteElem`]s.
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();

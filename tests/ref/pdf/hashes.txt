@@ -272,9 +272,8 @@ e65f7260d6fb8e4f572997519c0861e9 footnote-break-across-pages-float
 50e341e0f5aff18a0846af5dca858d84 footnote-duplicate
 d323e5c6fc0c7f7f156c382289ba853b footnote-entry
 5fe520e0f8d879454a39adb58f48fd94 footnote-float-priority
-36468631717195ca4968ee1b57f1034e footnote-group
-8c8f9e39bd24113970ecafed02c468d5 footnote-group-separator-auto
-ff8e0ed25061137b4a306441631b9b49 footnote-group-separator-set
+1034d424d55b9ce3d01fc80f02a8b731 footnote-group
+7d6862e7c971d2785855cd1a1e95fa4f footnote-group-numbering-dependent
 92cefcf8f0818008b8a6f987a33b54fa footnote-in-caption
 f23f7a0a0411586163a27c7aff1cb297 footnote-in-columns
 0f7522349614a9ddd523f13ddd58c0af footnote-in-list
