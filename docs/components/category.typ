@@ -964,7 +964,7 @@
       ))
       .map(((k, v)) => ("direct", k, v, stdx.describe(v)))
 
-    // Manual ddditions.
+    // Manual additions.
     scope-additions.pairs().map(((k, v)) => ("addition", k, v, stdx.describe(v)))
 
     // Grouped definitions.
