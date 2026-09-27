@@ -206,8 +206,9 @@ fn convert_raster(
             interpolate,
         )
     } else if let RasterFormat::Exchange(ExchangeFormat::Png) = raster.format() {
-        let image_data = krilla::Data::from(raster.data().to_vec());
-        krilla::image::Image::from_png(image_data, interpolate)
+        let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+            Arc::new(raster.data().clone());
+        krilla::image::Image::from_png(image_data.into(), interpolate)
     } else {
         krilla::image::Image::from_custom(PdfRasterImage::new(raster), interpolate)
     }
