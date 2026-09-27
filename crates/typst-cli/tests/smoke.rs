@@ -38,7 +38,8 @@ fn test_compile_pdf_version() {
     exec().arg("compile").arg(&hello).must_succeed();
     project
         .read("hello.pdf")
-        .must_contain(format!("/Creator(Typst {version})").as_bytes());
+        .must_contain(format!("/Creator(Typst {version})").as_bytes())
+        .must_contain(format!("/Producer(Typst {version}").as_bytes());
 }
 
 #[test]
