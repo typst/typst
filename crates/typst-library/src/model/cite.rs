@@ -125,6 +125,10 @@ impl Synthesize for Packed<CiteElem> {
         let elem = self.as_mut();
         elem.lang = Some(styles.get(TextElem::lang));
         elem.region = Some(styles.get(TextElem::region));
+        // Materialize the fully-folded supplement value so it's available
+        // when the bibliography pipeline reads it with StyleChain::default().
+        let folded = elem.supplement.get_cloned(styles);
+        elem.supplement.set(folded);
         Ok(())
     }
 }
@@ -145,7 +149,7 @@ impl Fold for CitationSupplement {
     fn fold(self, outer: Self) -> Self {
         Self {
             kind: self.kind.or(outer.kind),
-            content: self.content,
+            content: self.content.or(outer.content),
         }
     }
 }
