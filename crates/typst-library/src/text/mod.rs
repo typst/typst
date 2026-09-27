@@ -873,16 +873,11 @@ pub struct TextElem {
     /// constructor accepts arbitrary content as its body (see @text.body).
     ///
     /// ```example
-    /// #repr([This is just text].text)
+    /// #show regex("i.+n"): it => {
+    ///   "i" + str(it.text.len() - 2) + "n"
+    /// }
+    /// internationalization
     /// ```
-    ///
-    /// #example(
-    ///   title: [With text show rule],
-    ///   ```
-    ///   #show "world": it => it.text.len()
-    ///   Hello world
-    ///   ```
-    /// )
     #[required]
     pub text: EcoString,
 
