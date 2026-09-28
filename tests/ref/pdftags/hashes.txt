@@ -105,4 +105,5 @@ fe293e846c491aa08f5bb6073649b523 table-tags-show-rule
 8f55bdb9a5fedb916b5c219b96cf2342 text-lang
 3e725717389b2cabeb6957a717200e87 text-lang-region
 a53fba13c95b8e72750f7411508563dd text-lang-unknown-region
+7e6da4cf49c632c1cc8614ebdba02d2d text-unselectable
 eb79dc52157378c3db1a6e7f99a7190f title
