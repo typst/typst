@@ -23,6 +23,8 @@ pub struct TextItem {
     pub lang: Lang,
     /// The region of the text.
     pub region: Option<Region>,
+    /// Should the text be selectable.
+    pub selectable: bool,
     /// The item's plain text.
     pub text: EcoString,
     /// The glyphs. The number of glyphs may be different from the number of
