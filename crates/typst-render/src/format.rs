@@ -1,8 +1,6 @@
 use typst_library::diag::{SourceResult, bail};
 use typst_library::engine::Engine;
-use typst_library::format::{
-    Complete, Fields, Format, FormatElement, Partial, Populate, SpannedValue,
-};
+use typst_library::format::{Complete, Fields, Format, FormatElement, Partial, Populate};
 use typst_library::foundations::{Args, Construct, Content, StyleChain};
 use typst_macros::elem;
 use typst_syntax::Spanned;
@@ -99,26 +97,20 @@ impl Construct for PngFormat {
 /// Document settings for PNG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct PngFormatOptions<F: Fields = Complete> {
-    /// The number of pixels per point to render at when exporting a PNG.
-    ///
-    /// Note that the user-facing [`PngFormat::ppi`] field is specified in PPI
-    /// (pixels per inch), while this internal field is in pixels per point.
-    pub pixel_per_pt: F::Value<PngFormat, { PngFormat::ppi.index() }>,
+    /// The PPI (pixels per inch) to render at when exporting a PNG.
+    pub ppi: F::Value<PngFormat, { PngFormat::ppi.index() }>,
 }
 
 impl Populate for PngFormatOptions {
     fn populate(&mut self, styles: Spanned<StyleChain>) {
         // VOLATILE: This must be updated when adding more fields.
-        let ppi = styles.v.get(PngFormat::ppi);
-        self.pixel_per_pt = SpannedValue::new(ppi / 72.0, styles.span);
+        self.ppi.populate(styles);
     }
 }
 
 impl PngFormatOptions<Partial> {
     /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
     pub fn resolve(&self, default: &PngFormatOptions) -> PngFormatOptions {
-        PngFormatOptions {
-            pixel_per_pt: Partial::resolve(self.pixel_per_pt, default.pixel_per_pt),
-        }
+        PngFormatOptions { ppi: Partial::resolve(self.ppi, default.ppi) }
     }
 }
