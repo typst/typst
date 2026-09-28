@@ -301,7 +301,7 @@ fn find_closing_tag(text: &str, tag: HtmlTag) -> Option<&str> {
     let s = tag.resolve();
     let len = s.len();
     text.match_indices("</").find_map(|(i, _)| {
-        let rest = &text[i + 2..];
+        let rest = &text[i + 2..len];
         let disallowed = rest.len() >= len
             && rest[..len].eq_ignore_ascii_case(&s)
             && rest[len..].starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
