@@ -575,7 +575,7 @@ impl Lexer<'_> {
 
     fn ref_marker(&mut self) -> SyntaxKind {
         let start = self.s.cursor();
-        self.s.eat_while(is_valid_in_label_path);
+        self.s.eat_while(is_valid_in_label_or_selector_literal);
 
         // Don't include the trailing characters likely to be part of text.
         while matches!(self.s.scout(-1), Some('.' | ':')) {
@@ -583,21 +583,21 @@ impl Lexer<'_> {
         }
 
         let target = self.s.from(start);
-        if has_empty_label_path_component(target) {
-            return self.error("label path cannot contain empty components");
+        if has_empty_selector_component(target) {
+            return self.error("selector cannot contain empty components");
         }
 
         SyntaxKind::RefMarker
     }
 
     fn label(&mut self) -> SyntaxKind {
-        let label = self.s.eat_while(is_valid_in_label_path);
+        let label = self.s.eat_while(is_valid_in_label_or_selector_literal);
         if label.is_empty() {
             return self.error("label cannot be empty");
         }
 
-        if has_empty_label_path_component(label) {
-            return self.error("label path cannot contain empty components");
+        if has_empty_selector_component(label) {
+            return self.error("selector cannot contain empty components");
         }
 
         if !self.s.eat_if('>') {
@@ -1281,21 +1281,19 @@ fn is_valid_in_label_literal(c: char) -> bool {
     is_id_continue(c) || matches!(c, ':' | '.')
 }
 
-/// Whether a character can be part of a label or reference path literal.
+/// Whether a character can be part of a label or selector literal.
 #[inline]
-fn is_valid_in_label_path(c: char) -> bool {
+fn is_valid_in_label_or_selector_literal(c: char) -> bool {
     is_valid_in_label_literal(c) || c == '/'
 }
 
-/// Whether a label path contains an empty component.
+/// Whether a selector written as a label with slashes contains an empty component.
 #[inline]
-fn has_empty_label_path_component(path: &str) -> bool {
+fn has_empty_selector_component(path: &str) -> bool {
     path.starts_with('/') || path.ends_with('/') || path.contains("//")
 }
 
 /// Returns true if this string is valid in a label literal.
 pub fn is_valid_label_literal_id(id: &str) -> bool {
-    !id.is_empty()
-        && id.chars().all(is_valid_in_label_path)
-        && !has_empty_label_path_component(id)
+    !id.is_empty() && id.chars().all(is_valid_in_label_literal)
 }

@@ -6,7 +6,7 @@ use super::{History, Introspect};
 use crate::diag::{HintedStrResult, SourceDiagnostic, StrResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Content, Context, Label, LocatableSelector, Repr, Selector, Value, func,
+    Array, Content, Context, LocatableSelector, Repr, Selector, Value, func,
 };
 use crate::introspection::Introspector;
 
@@ -247,28 +247,6 @@ impl Introspect for QueryUniqueIntrospection {
         let thing = format_selector(&self.0, "element");
         let what = eco_format!("query for a unique {thing}");
         format_convergence_warning(self.1, &lengths, &what)
-    }
-}
-
-/// Retrieves the only occurrence of a label in the document.
-///
-/// Fails if there are multiple occurrences.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub struct QueryLabelIntrospection(pub Label, pub Span);
-
-impl Introspect for QueryLabelIntrospection {
-    type Output = StrResult<Content>;
-
-    fn introspect(
-        &self,
-        _: &mut Engine,
-        introspector: Tracked<dyn Introspector + '_>,
-    ) -> Self::Output {
-        introspector.query_label(self.0)
-    }
-
-    fn diagnose(&self, history: &History<Self::Output>) -> SourceDiagnostic {
-        QueryUniqueIntrospection(Selector::label_path(self.0), self.1).diagnose(history)
     }
 }
 

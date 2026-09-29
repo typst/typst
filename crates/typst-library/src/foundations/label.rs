@@ -31,6 +31,12 @@ use crate::foundations::{Repr, Str, bail, func, scope, ty};
 /// name can contain letters, numbers, `_`, `-`, `:`, and `.`. A label cannot be
 /// empty.
 ///
+/// Separating multiple labels with slashes creates a @selector instead. The
+/// syntaxes `{<chapter/result>}` and `{<chapter> / <result>}` are equivalent to
+/// `{selector(<result>).within(<chapter>)}`. Longer chains nest from left to
+/// right: `{<a/b/c>}` is equivalent to
+/// `{selector(<c>).within(selector(<b>).within(<a>))}`.
+///
 /// Note that there is a syntactical difference when using the dedicated syntax
 /// for this function. In the code below, the `[<a>]` terminates the heading and
 /// thus attaches to the heading itself, whereas the `[#label("b")]` is part of

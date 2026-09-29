@@ -209,7 +209,7 @@ See #metadata(none) <t8>
 #html.frame[@intro]
 = Introduction <intro>
 
---- link-label-path html ---
+--- link-within-selector html ---
 #link(<scope/target>)[Go to target]
 #[= Target <target>] <scope>
 

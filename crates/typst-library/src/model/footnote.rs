@@ -7,11 +7,11 @@ use typst_utils::{NonZeroExt, singleton};
 use crate::diag::{At, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Content, Label, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, cast,
-    elem, scope,
+    Content, Label, LocatableSelector, NativeElement, Packed, Selector, ShowSet, Smart,
+    StyleChain, Styles, cast, elem, scope,
 };
 use crate::introspection::{
-    Count, Counter, CounterUpdate, Location, QueryLabelIntrospection,
+    Count, Counter, CounterUpdate, Location, QueryUniqueIntrospection,
 };
 use crate::layout::{Em, Length, Ratio};
 use crate::model::{DirectLinkElem, Numbering, NumberingPattern, ParElem};
@@ -79,8 +79,8 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
-    /// The content to put into the footnote. Can also be the label of another
-    /// footnote this one should point to.
+    /// The content to put into the footnote. Can also be a label or selector
+    /// for another footnote this one should point to.
     #[required]
     pub body: FootnoteBody,
 }
@@ -108,14 +108,14 @@ impl FootnoteElem {
 
     /// Creates a new footnote referencing the footnote with the specified label.
     pub fn with_label(label: Label) -> Self {
-        Self::new(FootnoteBody::Reference(label))
+        Self::new(FootnoteBody::Reference(Selector::Label(label)))
     }
 
-    /// Creates a new footnote referencing the footnote with the specified label,
-    /// with the other fields from the current footnote cloned.
-    pub fn into_ref(&self, label: Label) -> Self {
+    /// Creates a new footnote referencing the selected footnote, with the other
+    /// fields from the current footnote cloned.
+    pub fn into_ref(&self, target: LocatableSelector) -> Self {
         Self {
-            body: FootnoteBody::Reference(label),
+            body: FootnoteBody::Reference(target.0),
             ..self.clone()
         }
     }
@@ -155,9 +155,11 @@ impl Packed<FootnoteElem> {
     /// Returns the location of the definition of this footnote.
     pub fn declaration_location(&self, engine: &mut Engine) -> StrResult<Location> {
         match self.body {
-            FootnoteBody::Reference(label) => {
-                let element =
-                    engine.introspect(QueryLabelIntrospection(label, self.span()))?;
+            FootnoteBody::Reference(ref selector) => {
+                let element = engine.introspect(QueryUniqueIntrospection(
+                    selector.clone(),
+                    self.span(),
+                ))?;
                 let footnote = element
                     .to_packed::<FootnoteElem>()
                     .ok_or("referenced element should be a footnote")?;
@@ -177,12 +179,12 @@ impl Count for Packed<FootnoteElem> {
     }
 }
 
-/// The body of a footnote can be either some content or a label referencing
+/// The body of a footnote can be either some content or a selector referencing
 /// another footnote.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum FootnoteBody {
     Content(Content),
-    Reference(Label),
+    Reference(Selector),
 }
 
 cast! {
@@ -192,7 +194,7 @@ cast! {
         Self::Reference(v) => v.into_value(),
     },
     v: Content => Self::Content(v),
-    v: Label => Self::Reference(v),
+    v: LocatableSelector => Self::Reference(v.0),
 }
 
 /// An entry in a footnote list.

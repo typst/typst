@@ -5,7 +5,6 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::SmallVec;
 use typst_syntax::Span;
-use typst_utils::PicoStr;
 
 use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
@@ -45,6 +44,9 @@ pub use crate::__select_where as select_where;
 /// - filter for an element function with @function.where[specific fields]
 /// - use a @str[string] or @regex[regular expression]
 /// - use a @label[`{<label>}`]
+/// - divide labels (`{<chapter> / <result>}`) or write `{<chapter/result>}` to
+///   select one label within another; both are equivalent to
+///   `{selector(<result>).within(<chapter>)}`
 /// - use a @location
 /// - call the @selector constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
@@ -105,27 +107,11 @@ pub enum Selector {
 }
 
 impl Selector {
-    /// Converts a slash-separated label path into nested within selectors.
-    pub fn label_path(label: Label) -> Self {
-        let resolved = label.resolve();
-        let path = resolved.as_str();
-        if !path.contains('/') || path.split('/').any(str::is_empty) {
-            return Self::Label(label);
-        }
-
-        let mut pieces = path.rsplit('/');
-        let target = pieces.next().unwrap();
-        let ancestor = pieces
-            .map(|piece| Self::Label(Label::new(PicoStr::intern(piece)).unwrap()))
-            .reduce(|selector, ancestor| Self::Within {
-                selector: Arc::new(selector),
-                ancestor: Arc::new(ancestor),
-            })
-            .unwrap();
-
-        Self::Within {
-            selector: Arc::new(Self::Label(Label::new(PicoStr::intern(target)).unwrap())),
-            ancestor: Arc::new(ancestor),
+    /// Returns the selected label if this is a label selector.
+    pub(crate) fn as_label(&self) -> Option<Label> {
+        match self {
+            Self::Label(label) => Some(*label),
+            _ => None,
         }
     }
 
@@ -383,7 +369,7 @@ cast! {
         .to_element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
-    label: Label => Self::label_path(label),
+    label: Label => Self::Label(label),
     regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }

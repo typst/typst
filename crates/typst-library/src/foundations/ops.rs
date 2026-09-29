@@ -3,11 +3,12 @@
 use std::cmp::Ordering;
 
 use ecow::eco_format;
-use typst_utils::{Numeric, PicoStr};
+use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, Regex, Repr, SymbolElem, Value, format_str,
+    Datetime, IntoValue, LocatableSelector, Regex, Repr, Selector, SymbolElem, Value,
+    format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
@@ -293,11 +294,16 @@ pub fn div(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
     }
 
     Ok(match (lhs, rhs) {
-        (Label(a), Label(b)) => {
-            let path = eco_format!("{}/{}", a.resolve().as_str(), b.resolve().as_str());
-            Label(crate::foundations::Label::new(PicoStr::intern(&path)).unwrap())
+        (Label(ancestor), Label(target)) => Selector::Label(target)
+            .within(LocatableSelector(Selector::Label(ancestor)))
+            .into_value(),
+        (Dyn(ancestor), Label(target)) if ancestor.is::<Selector>() => {
+            Selector::Label(target)
+                .within(LocatableSelector(
+                    ancestor.downcast::<Selector>().unwrap().clone(),
+                ))
+                .into_value()
         }
-
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),

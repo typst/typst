@@ -20,7 +20,7 @@ As seen in @intro, we proceed.
 // Error: 1-5 label `<foo>` occurs multiple times in the document
 @foo
 
---- ref-within-label-path bundle ---
+--- ref-within-selector bundle ---
 #set heading(numbering: "1.")
 
 #[
@@ -39,15 +39,21 @@ As seen in @intro, we proceed.
   @doc-1/subheading
   @subscope-1/subheading
   @doc-1/subscope-1/subheading
-  #ref(<doc-1/subscope-1/subheading>)
   #ref(<doc-1>/<subscope-1>/<subheading>)
+  #ref(selector(<subheading>).within(
+    selector(<subscope-1>).within(<doc-1>),
+  ))
 
-  #context test(str(<doc-1>/<subscope-1>), "doc-1/subscope-1")
+  #context test(type(<doc-1/subscope-1>), selector)
+  #context test(
+    repr(<doc-1>/<subscope-1>),
+    "<subscope-1>.within(<doc-1>)",
+  )
   #context test(query(<doc-1/subscope-1/subheading>).len(), 1)
   #context test(query(<subscope-1/doc-1/subheading>).len(), 0)
 ]
 
---- ref-within-label-path-ambiguous bundle ---
+--- ref-within-selector-ambiguous bundle ---
 #set heading(numbering: "1.")
 
 #[
@@ -66,14 +72,14 @@ As seen in @intro, we proceed.
   // Error: 3-14 label `<subheading>` occurs multiple times in the document
   @subheading
 
-  // Error: 3-20 label `<scope/subheading>` occurs multiple times in the document
+  // Error: 3-20 selector matches multiple elements
   @scope/subheading
 
-  // Error: 3-17 label `<doc-1/missing>` does not exist in the document
+  // Error: 3-17 selector does not match any element
   @doc-1/missing
 ]
 
---- ref-within-label-path-repeat bundle ---
+--- ref-within-selector-repeat bundle ---
 #set heading(numbering: "1.")
 #set math.equation(numbering: "(1)")
 
@@ -86,10 +92,12 @@ As seen in @intro, we proceed.
   - Also look at @doc-a/eq1 and @doc-b/eq1.
 ]
 
-#let prefix-reference(it, prefix: "") = if not str(it.target).contains("doc-") {
-  ref(label(prefix + "/" + str(it.target)))
-} else {
-  it
+#let prefix-reference(it, prefix: "") = {
+  if not repr(it.target).contains("<doc-") {
+    ref(it.target.within(label(prefix)))
+  } else {
+    it
+  }
 }
 
 #document("a.pdf")[
@@ -105,16 +113,12 @@ As seen in @intro, we proceed.
   #ct
 ] <doc-b>
 
---- ref-label-contains-paths eval ---
-// Error: 11-27 label paths cannot be used to label content
-= Heading <heading/syntax>
-
---- ref-label-path-empty-middle eval ---
-// Error: 1-6 label path cannot contain empty components
+--- ref-selector-empty-middle eval ---
+// Error: 1-6 selector cannot contain empty components
 @a//b
 
---- ref-label-path-empty-trailing eval ---
-// Error: 1-6 label path cannot contain empty components
+--- ref-selector-empty-trailing eval ---
+// Error: 1-6 selector cannot contain empty components
 @a/b/
 
 --- ref-supplements paged ---

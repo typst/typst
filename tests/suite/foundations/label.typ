@@ -60,15 +60,21 @@ _Visible_
 #test(str(<hey>), "hey")
 #test(str(label("hey")), "hey")
 #test(str([Hmm<hey>].label), "hey")
-#test(repr(<a/b-c>), "<a/b-c>")
-#test(repr(label("a/b-c")), "<a/b-c>")
+#test(type(<a/b-c>), selector)
+#test(repr(<a/b-c>), "<b-c>.within(<a>)")
+#test(repr(<a>/<b-c>), "<b-c>.within(<a>)")
+#test(repr(<a> / <b>), "<b>.within(<a>)")
+#test(repr(<a> / <b> / <c>), "<c>.within(<b>.within(<a>))")
+#test([<a/b>], raw("<b>.within(<a>)", block: false, lang: "typc"))
+#test(type(label("a/b-c")), label)
+#test(repr(label("a/b-c")), "label(\"a/b-c\")")
 
---- label-path-empty-middle eval ---
-// Error: 1-6 label path cannot contain empty components
+--- selector-literal-empty-middle eval ---
+// Error: 1-6 selector cannot contain empty components
 <a//b>
 
---- label-path-empty-trailing eval ---
-// Error: 1-6 label path cannot contain empty components
+--- selector-literal-empty-trailing eval ---
+// Error: 1-6 selector cannot contain empty components
 <a/b/>
 
 --- label-in-code-mode-hint eval ---

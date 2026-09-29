@@ -10,12 +10,12 @@ use typst_utils::PicoStr;
 use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Construct, Content, Label, NativeElement, Packed, Repr, Selector, ShowSet,
-    Smart, StyleChain, Styles, cast, elem,
+    Args, Construct, Content, Label, LocatableSelector, NativeElement, Packed, Repr,
+    Selector, ShowSet, Smart, StyleChain, Styles, cast, elem,
 };
 use crate::introspection::{
     Counter, CounterKey, History, Introspect, Introspector, Location, PagedPosition,
-    PathIntrospection, QueryFirstIntrospection, QueryLabelIntrospection,
+    PathIntrospection, QueryFirstIntrospection, QueryUniqueIntrospection,
 };
 use crate::layout::PageElem;
 use crate::model::{NumberingPattern, Refable};
@@ -155,9 +155,9 @@ pub struct LinkElem {
     ///
     /// - To link to another part of the document, `dest` can take one of three
     ///   forms:
-    ///   - A @label[label] attached to an element. If you also want automatic
-    ///     text for the link based on the element, consider using a
-    ///     @ref[reference] instead.
+    ///   - A @label[label] attached to an element or a @selector[selector] with
+    ///     a unique match. If you also want automatic text for the link based
+    ///     on the element, consider using a @ref[reference] instead.
     ///
     ///   - A @location (typically retrieved from @here, @locate or @query).
     ///
@@ -239,7 +239,7 @@ pub(crate) fn body_from_url(url: &Url) -> Content {
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub enum LinkTarget {
     Dest(Destination),
-    Label(Label),
+    Selector(Selector),
 }
 
 impl LinkTarget {
@@ -251,9 +251,10 @@ impl LinkTarget {
     ) -> SourceResult<Destination> {
         Ok(match self {
             LinkTarget::Dest(dest) => dest.clone(),
-            LinkTarget::Label(label) => {
-                let elem =
-                    engine.introspect(QueryLabelIntrospection(*label, span)).at(span)?;
+            LinkTarget::Selector(selector) => {
+                let elem = engine
+                    .introspect(QueryUniqueIntrospection(selector.clone(), span))
+                    .at(span)?;
                 Destination::Location(elem.location().unwrap())
             }
         })
@@ -266,8 +267,8 @@ impl LinkTarget {
     ) -> StrResult<Destination> {
         Ok(match self {
             LinkTarget::Dest(dest) => dest.clone(),
-            LinkTarget::Label(label) => {
-                let elem = introspector.query_label(*label)?;
+            LinkTarget::Selector(selector) => {
+                let elem = introspector.query_unique(selector)?;
                 Destination::Location(elem.location().unwrap())
             }
         })
@@ -278,10 +279,10 @@ cast! {
     LinkTarget,
     self => match self {
         Self::Dest(v) => v.into_value(),
-        Self::Label(v) => v.into_value(),
+        Self::Selector(v) => v.into_value(),
     },
     v: Destination => Self::Dest(v),
-    v: Label => Self::Label(v),
+    v: LocatableSelector => Self::Selector(v.0),
 }
 
 impl From<Destination> for LinkTarget {

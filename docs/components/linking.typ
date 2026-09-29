@@ -71,17 +71,21 @@
 //
 // Returns a pair of a destination and a title. Requires context.
 #let def-metadata(def-target) = {
-  let def-label = def-label(def-target)
-  let targets = query(selector.and(metadata, def-label))
+  let target = if type(def-target) == selector {
+    def-target
+  } else {
+    def-label(def-target)
+  }
+  let targets = query(selector.and(metadata, target))
   let len = targets.len()
   if len == 1 {
     targets.first().value
   } else if len == 0 {
-    panic("found no definition for: " + repr(def-label))
+    panic("found no definition for: " + repr(target))
   } else {
     panic({
       "found multiple definitions for: "
-      repr(def-label)
+      repr(target)
       " ("
       targets
         .map(m => if type(m.value) == str { m.value } else { repr(m.value) })
