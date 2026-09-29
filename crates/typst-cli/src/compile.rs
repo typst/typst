@@ -683,9 +683,7 @@ fn svg_options(config: &CompileConfig) -> SvgOptions {
 fn png_options(config: &CompileConfig) -> RenderOptions {
     RenderOptions {
         render_bleed: false,
-        format: PngFormatOptions {
-            pixel_per_pt: config.ppi.map(|ppi| Scalar::new(ppi / 72.0)),
-        },
+        format: PngFormatOptions { ppi: config.ppi.map(Scalar::new) },
     }
 }
 
