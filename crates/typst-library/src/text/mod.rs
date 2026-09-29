@@ -898,6 +898,18 @@ pub struct TextElem {
     #[internal]
     #[ghost]
     pub shift_settings: Option<ShiftSettings>,
+
+    /// Whether to make text selectable, copyable, and searchable by users.
+    ///
+    /// When set to `false`, the text is converted into outlined paths. The
+    /// text content is still embedded in the PDF as replacement text, which
+    /// some viewers may use for accessibility.
+    ///
+    /// _Note:_ Currently, selectable text in SVG exports is not supported;
+    /// unselectable text is not supported in HTML exports.
+    #[default(true)]
+    #[ghost]
+    pub selectable: bool,
 }
 
 impl TextElem {

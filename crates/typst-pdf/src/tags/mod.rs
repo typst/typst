@@ -218,8 +218,11 @@ pub fn text<'a, 'b>(
     let lang_str = lang.map(Locale::rfc_3066);
     let content = ContentTag::Span(SpanTag::empty().with_lang(lang_str.as_deref()));
     let id = surface.start_tagged(content);
+    let actual_text = (!text.selectable).then(|| text.text.clone());
 
-    gc.tags.push_text(attrs, id);
+    // We set `/ActualText` on the structure element rather than marked content.
+    // This improves viewer support.
+    gc.tags.push_text(attrs, tree::TextRun { id, actual_text });
 
     TagHandle { surface, started: true }
 }
