@@ -7,8 +7,8 @@ use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    BindingGuard, Datetime, IntoValue, LocatableSelector, Regex, Repr, Selector, SymbolElem, Value,
-    format_str,
+    BindingGuard, Datetime, IntoValue, LocatableSelector, Regex, Repr, Selector,
+    SymbolElem, Value, format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
 use crate::text::TextElem;
