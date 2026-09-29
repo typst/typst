@@ -82,6 +82,7 @@ As seen in @intro, we proceed.
 --- ref-within-selector-repeat bundle ---
 #set heading(numbering: "1.")
 #set math.equation(numbering: "(1)")
+#let revoke = metadata("prefixed-reference")
 
 #let ct = [
   $ E = m c^2 $ <eq1>
@@ -89,9 +90,12 @@ As seen in @intro, we proceed.
   #[= #lorem(2) <head>] <scope1>
   #[= #lorem(2) <head>] <scope2>
   - See @eq1, @eq2, @scope1/head, @scope2/head
+  - #[
+      #set bibliography(title: revoke)
+      Furthermore, @doc-a/eq1 and @doc-b/eq1.
+    ]
 ]
 
-#let revoke = metadata("prefixed-reference")
 #let prefix-reference(it, scope: none) = {
   if bibliography.title == revoke { return it }
   set bibliography(title: revoke)
@@ -103,7 +107,6 @@ As seen in @intro, we proceed.
     #show ref: prefix-reference.with(scope: <doc-a>)
     #ct
   ]
-  Furthermore, @doc-a/eq1 and @doc-b/eq1.
 ] <doc-a>
 
 #counter(heading).update(0)
@@ -114,7 +117,6 @@ As seen in @intro, we proceed.
     #show ref: prefix-reference.with(scope: <doc-b>)
     #ct
   ]
-  Furthermore, @doc-a/eq1 and @doc-b/eq1.
 ] <doc-b>
 
 --- ref-selector-empty-middle eval ---
