@@ -90,14 +90,11 @@ As seen in @intro, we proceed.
   #[= #lorem(2) <head>] <scope1>
   #[= #lorem(2) <head>] <scope2>
   - See @eq1, @eq2, @scope1/head, @scope2/head
-  - #[
-      #set bibliography(title: revoke)
-      Furthermore, @doc-a/eq1 and @doc-b/eq1.
-    ]
+  - Furthermore, @doc-a/eq1 and @doc-b/eq1.
 ]
 
 #let prefix-reference(it, scope: none) = {
-  if bibliography.title == revoke { return it }
+  if bibliography.title == revoke or it.element != none { return it }
   set bibliography(title: revoke)
   ref(it.target.within(scope))
 }
