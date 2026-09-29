@@ -59,7 +59,7 @@ use crate::FileId;
 /// the span numbers for node A and _all of A's children_ are less than node B's
 /// span number, and the numbers for node C and all of C's children are greater
 /// than B's span number.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
 /// The unique number of a span within its [`Source`](crate::Source). Known to
@@ -204,6 +204,13 @@ impl Span {
     }
 }
 
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Output the `SpanKind` for more useful debugging.
+        f.debug_tuple("Span").field(&self.get()).finish()
+    }
+}
+
 /// The span of a diagnostic message. Either from a Typst source file or from a
 /// loaded external file.
 ///
@@ -215,7 +222,7 @@ impl Span {
 ///
 /// This type is stored compactly in 16 bytes and null-optimized, but can be
 /// expanded for easier usage as the [`DiagSpanKind`] enum via [`Self::get()`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct DiagSpan {
     span: Span,
     extra: u64,
@@ -321,6 +328,13 @@ impl DiagSpan {
 impl From<Span> for DiagSpan {
     fn from(span: Span) -> Self {
         Self::from_span(span, None)
+    }
+}
+
+impl Debug for DiagSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Output the `DiagSpanKind` for more useful debugging.
+        f.debug_tuple("DiagSpan").field(&self.get()).finish()
     }
 }
 
