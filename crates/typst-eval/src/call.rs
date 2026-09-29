@@ -6,8 +6,8 @@ use typst_library::diag::{
 };
 use typst_library::engine::{Engine, Sink, Traced};
 use typst_library::foundations::{
-    Arg, Args, Binding, Capturer, Closure, ClosureNode, Content, Context, Func,
-    NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
+    Arg, Args, Binding, BindingAccess, Capturer, Closure, ClosureNode, Content, Context,
+    Func, NativeElement, Scope, Scopes, SequenceElem, SymbolElem, Value,
 };
 use typst_library::introspection::Introspector;
 use typst_library::math::LrElem;
@@ -245,24 +245,33 @@ fn eval_field_callee(
     target: Value,
     in_math: bool,
 ) -> SourceResult<FieldCallee> {
-    let sink = (&mut vm.engine, field_span);
+    let guard = vm.engine.binding_guard(field_span);
 
     let mut is_method_call = false;
     let callee_value = if let Some(method) = target.ty().scope().get(field) {
         is_method_call = true;
-        method.read_checked(sink).clone()
+        let ty = target.ty().short_name();
+        method
+            .read(guard)
+            .or_cannot(format_args!("call method `{field}` on {ty}"))
+            .at(field_span)?
+            .clone()
     } else if let Value::Content(content) = &target
         && let Some(method) = content.elem().scope().get(field)
     {
         is_method_call = true;
-        method.read_checked(sink).clone()
+        method
+            .read(guard)
+            .or_cannot(format_args!("call method `{field}` on content"))
+            .at(field_span)?
+            .clone()
     } else if matches!(target, Value::Symbol(_) | Value::Type(_) | Value::Module(_)) {
         // These types are allowed to use field call syntax on non-methods.
-        target.field(field, sink).at(field_span)?
+        target.field(field, guard).at(field_span)?
     } else if let Value::Func(func) = &target {
         // Functions can also use field call syntax on non-methods, but not for
         // settable fields accessed from context.
-        match target.field(field, sink).at(field_span) {
+        match target.field(field, guard).at(field_span) {
             Ok(callee_value) => callee_value,
             Err(err) => {
                 if let Some(element) = func.to_element()
@@ -284,7 +293,7 @@ fn eval_field_callee(
         }
     } else {
         // Otherwise we are not allowed to call the field and produce an error.
-        match target.field(field, sink) {
+        match target.field(field, guard) {
             // The field does exist.
             Ok(callee_value) => {
                 bail!(disallowed_field_call_error(
@@ -773,9 +782,11 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident.get(), Scopes::get),
+            Some(ast::Expr::Ident(ident)) => {
+                self.capture(ident.get(), Scopes::get_binding);
+            }
             Some(ast::Expr::MathIdent(ident)) => {
-                self.capture(ident.get(), Scopes::get_in_math);
+                self.capture(ident.get(), Scopes::get_binding_in_math);
             }
 
             // Code and content blocks create a scope.
@@ -899,7 +910,13 @@ impl<'a> CapturesVisitor<'a> {
         ident: &EcoString,
         getter: impl FnOnce(&'a Scopes<'a>, &str) -> HintedStrResult<&'a Binding>,
     ) {
-        if self.internal.get(ident).is_ok() {
+        if self.internal.get_binding(ident).is_ok() {
+            return;
+        }
+
+        // If the variable has already been captured, there is no need to look
+        // it up again, since the external scopes don't change.
+        if self.captures.get(ident).is_some() {
             return;
         }
 

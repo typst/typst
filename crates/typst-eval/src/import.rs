@@ -5,7 +5,9 @@ use typst_library::diag::{
     At, FileError, SourceResult, Trace, Tracepoint, bail, error, warning,
 };
 use typst_library::engine::Engine;
-use typst_library::foundations::{Binding, Content, Module, PathOrStr, Reflect, Value};
+use typst_library::foundations::{
+    Binding, BindingAccess, Content, Module, PathOrStr, Reflect, Value, WorldBindingExt,
+};
 use typst_syntax::ast::{self, AstNode, BareImportError};
 use typst_syntax::package::{PackageManifest, PackageSpec};
 use typst_syntax::{FileId, RootedPath, Span, VirtualPath, VirtualRoot};
@@ -107,7 +109,11 @@ impl Eval for ast::ModuleImport<'_> {
             }
             Some(ast::Imports::Wildcard) => {
                 for (var, binding) in scope.iter() {
-                    vm.scopes.top.bind(var.clone(), binding.clone());
+                    // Filter out values that are in feature gated bindings and
+                    // ignore any deprecation warnings that are emitted.
+                    if binding.read(vm.engine.world.silent_binding_guard()).is_ok() {
+                        vm.scopes.top.bind(var.clone(), binding.clone());
+                    }
                 }
             }
             Some(ast::Imports::Items(items)) => {
@@ -117,15 +123,20 @@ impl Eval for ast::ModuleImport<'_> {
                     let mut scope = scope;
 
                     while let Some(component) = &path.next() {
-                        let Some(binding) = scope.get(component) else {
+                        let field = component.as_str();
+                        let Some(binding) = scope.get(field) else {
                             errors.push(error!(component.span(), "unresolved import"));
                             break;
                         };
 
+                        let value = binding
+                            .read(vm.engine.binding_guard(component.span()))
+                            .or_cannot(format_args!("import `{field}`"))
+                            .at(component.span())?;
+
                         if path.peek().is_some() {
                             // Nested import, as this is not the last component.
                             // This must be a submodule.
-                            let value = binding.read();
                             let Some(submodule) = value.scope() else {
                                 let error = if matches!(value, Value::Func(function) if function.scope().is_none())
                                 {

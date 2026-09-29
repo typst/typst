@@ -4,6 +4,8 @@ use std::sync::{Arc, LazyLock};
 
 use comemo::Tracked;
 use ecow::{EcoString, EcoVec};
+use icu_collator::options::CollatorOptions;
+use icu_collator::{Collator, CollatorPreferences};
 use syntect::highlighting as synt;
 use syntect::parsing::{ParseSyntaxError, SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst_syntax::{LinkedNode, Span, Spanned, split_newlines};
@@ -230,7 +232,7 @@ use crate::visualize::Color;
 /// first character not valid for an identifier will be interpreted as starting
 /// the raw text.
 ///
-/// For example, in the current verion of Typst, if a raw block starts with
+/// For example, in the current version of Typst, if a raw block starts with
 /// `C++`, the identifier `C` will be the language tag, and the raw text will
 /// start with `++`. If a raw block starts with `++C`, it will have no language
 /// tag and the raw text will start with `++C`.
@@ -332,6 +334,23 @@ pub struct RawElem {
     /// @reference:syntax:code[Typst code], and
     /// @reference:syntax:math[Typst math], respectively.
     ///
+    /// #folding-details(
+    ///   title: [Available syntaxes],
+    ///   docs-table(
+    ///     table.header[Name][Tags],
+    ///     ..stdx.raw-langs.map(((name, tokens)) => (
+    ///       name,
+    ///       // Some tokens start with `.`. For example, `.env`. The Unicode
+    ///       // Line Breaking Algorithm forbids breaking before `.`, even after
+    ///       // spaces. Therefore, we add zero-width spaces to provide
+    ///       // additional break opportunities. Note that
+    ///       // https://github.com/typst/typst/issues/5317 might change the
+    ///       // situation.
+    ///       tokens.map(raw).join[, #sym.zws],
+    ///     )).flatten()
+    ///   )
+    /// )
+    ///
     /// ````example
     /// ```typ
     /// This is *Typst!*
@@ -371,6 +390,9 @@ pub struct RawElem {
     /// - A path string or @path to load a syntax file from.
     /// - Raw bytes from which the syntax should be decoded.
     /// - An array where each item is one of the above.
+    ///
+    /// For a list of built-in syntaxes, see the documentation of the
+    /// @raw.lang[`lang` parameter].
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
@@ -463,21 +485,29 @@ impl RawElem {
 impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
-        RAW_SYNTAXES
+        let typst = [
+            ("Typst", vec!["typ", "typst"]),
+            ("Typst (code)", vec!["typc"]),
+            ("Typst (math)", vec!["typm"]),
+        ];
+
+        let other = RAW_SYNTAXES
             .syntaxes()
             .iter()
+            .filter(|syntax| !syntax.file_extensions.is_empty())
             .map(|syntax| {
-                (
-                    syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
-                )
-            })
-            .chain([
-                ("Typst", vec!["typ"]),
-                ("Typst (code)", vec!["typc"]),
-                ("Typst (math)", vec!["typm"]),
-            ])
-            .collect()
+                let name = syntax.name.as_str();
+                let exts = syntax.file_extensions.iter().map(|s| s.as_str()).collect();
+                (name, exts)
+            });
+
+        let front = typst.len();
+        let mut syntaxes: Vec<_> = typst.into_iter().chain(other).collect();
+        let collator =
+            Collator::try_new(CollatorPreferences::default(), CollatorOptions::default())
+                .unwrap();
+        syntaxes[front..].sort_by(|&(a, _), &(b, _)| collator.compare(a, b));
+        syntaxes
     }
 }
 

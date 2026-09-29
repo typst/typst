@@ -3,7 +3,8 @@
 --- enum-function-call paged ---
 #enum[Embrace][Extend][Extinguish]
 
---- enum-number-override-nested paged pdftags pdfstandard(ua-1) ---
+--- enum-number-override-nested paged pdftags ---
+#set pdf(standard: "ua-1")
 0. Before first!
 1. First.
    2. Indented

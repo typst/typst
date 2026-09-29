@@ -57,11 +57,40 @@ impl Diff {
         }
     }
 
+    pub fn kind(&self) -> DiffKind {
+        match self {
+            Self::Text(_) => DiffKind::Text,
+            Self::Image(_) => DiffKind::Image,
+            Self::Html(_) => DiffKind::Html,
+        }
+    }
+
     pub fn mode(&self) -> DiffMode {
         match self {
             Diff::Text(_) => DiffMode::Text,
             Diff::Image(_) | Diff::Html(_) => DiffMode::Visual,
         }
+    }
+
+    pub fn is_image(&self) -> bool {
+        matches!(self, Self::Image(..))
+    }
+}
+
+#[derive(Copy, Clone)]
+pub enum DiffKind {
+    Text,
+    Image,
+    Html,
+}
+
+impl Display for DiffKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            DiffKind::Text => "text",
+            DiffKind::Image => "image",
+            DiffKind::Html => "html",
+        })
     }
 }
 

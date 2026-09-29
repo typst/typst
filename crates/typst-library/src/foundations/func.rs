@@ -11,11 +11,11 @@ use either::Either;
 use typst_syntax::{Span, Spanned, SyntaxNode, ast};
 use typst_utils::{DefSite, LazyHash, Static, singleton};
 
-use crate::diag::{At, SourceResult, StrResult, WarningSink, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Bytes, CastInfo, Content, Context, Element, IntoArgs, PluginFunc, Repr, Scope,
-    Selector, Since, Type, Value, cast, scope, ty,
+    Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
+    IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -189,7 +189,7 @@ impl Func {
     /// The version of Typst the function was introduced in.
     pub fn since(&self) -> Option<Since> {
         match &self.inner {
-            FuncInner::Native(native) => native.since.clone(),
+            FuncInner::Native(native) => native.since,
             FuncInner::Element(elem) => elem.since(),
             FuncInner::Closure(_) => None,
             FuncInner::Plugin(_) => None,
@@ -291,12 +291,14 @@ impl Func {
     pub fn field(
         &self,
         field: &str,
-        sink: impl WarningSink,
-    ) -> StrResult<&'static Value> {
+        guard: impl BindingGuard,
+    ) -> HintedStrResult<&'static Value> {
         let scope =
             self.scope().ok_or("cannot access fields on user-defined functions")?;
         match scope.get(field) {
-            Some(binding) => Ok(binding.read_checked(sink)),
+            Some(binding) => {
+                binding.read(guard).or_cannot(format_args!("access field `{field}`"))
+            }
             None => match self.name() {
                 Some(name) => bail!("function `{name}` does not contain field `{field}`"),
                 None => bail!("function does not contain field `{field}`"),
@@ -308,6 +310,14 @@ impl Func {
     pub fn to_element(&self) -> Option<Element> {
         match self.inner {
             FuncInner::Element(func) => Some(func),
+            _ => None,
+        }
+    }
+
+    /// Extract the native function data, if this is a native function.
+    pub fn to_native(&self) -> Option<&'static NativeFuncData> {
+        match self.inner {
+            FuncInner::Native(func) => Some(func.0),
             _ => None,
         }
     }

@@ -49,9 +49,8 @@ impl Eval for ast::MathIdent<'_> {
         let span = self.span();
         Ok(vm
             .scopes
-            .get_in_math(&self)
+            .get_in_math(&self, vm.engine.binding_guard(span))
             .at(span)?
-            .read_checked((&mut vm.engine, span))
             .clone())
     }
 }

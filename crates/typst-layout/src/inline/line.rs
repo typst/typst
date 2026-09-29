@@ -1,16 +1,17 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
+use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
 use typst_library::model::ParLineMarker;
-use typst_library::text::{Lang, TextElem, families, variant};
+use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
 use super::*;
 use crate::inline::linebreak::Trim;
-use crate::inline::shaping::Adjustability;
+use crate::inline::shaping::{Adjustability, ShapedGlyph};
 use crate::modifiers::layout_and_modify;
 
 const SHY: char = '\u{ad}';
@@ -155,26 +156,27 @@ pub fn line<'a>(
     // Collect the items for the line.
     let mut items = Items::new();
 
+    collect_items(&mut items, engine, p, range, &trim);
+
     // Add a hyphen at the line start, if a previous dash should be repeated.
     if let Some(pred) = pred
         && pred.dash == Some(Dash::Hard)
-        && let Some(base) = pred.items.trailing_text()
-        && should_repeat_hyphen(base.lang, full)
+        && let Some(pred_text) = pred.items.trailing_text()
+        && should_repeat_hyphen(pred_text.lang, full)
+        && let Some((base_idx, base)) = items.leading_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, false)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::START_HYPHEN);
+        items.prepend(Item::Text(hyphen), base_idx.before());
     }
-
-    collect_items(&mut items, engine, p, range, &trim);
 
     // Add a hyphen at the line end, if we ended on a soft hyphen.
     if dash == Some(Dash::Soft)
-        && let Some(base) = items.trailing_text()
+        && let Some((base_idx, base)) = items.trailing_text_indexed()
         && let Some(hyphen) =
             ShapedText::hyphen(engine, p.config.fallback, base, trim.shaping, true)
     {
-        items.push(Item::Text(hyphen), LogicalIndex::END_HYPHEN);
+        items.push(Item::Text(hyphen), base_idx.after());
     }
 
     // Ensure that there is no weak spacing at the start and end of the line.
@@ -508,7 +510,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         offset -= amount;
         remaining += amount;
     }
@@ -520,7 +522,7 @@ pub fn commit(
         && text.styles.get(TextElem::overhang)
         && (line.items.len() > 1 || text.glyphs.len() > 1)
     {
-        let amount = overhang(glyph.c) * glyph.x_advance.at(glyph.size);
+        let amount = overhang(glyph);
         remaining += amount;
     }
 
@@ -559,7 +561,7 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
-    for &(idx, ref item) in line.items.indexed_iter() {
+    for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
@@ -671,26 +673,49 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
+/// How much a glyph should hang into the end margin.
+fn overhang(glyph: &ShapedGlyph) -> Abs {
+    // Note: Binary search is not currently worth it, but can be used if this
+    // grows larger.
+    font_overhang_table(&glyph.font)
+        .iter()
+        .find(|(id, _)| *id == glyph.glyph_id)
+        .map_or(Abs::zero(), |&(_, factor)| factor * glyph.x_advance.at(glyph.size))
+}
+
+/// Generates a sorted table with overhang ratios indexed by glyph ID for a
+/// particular font.
+#[comemo::memoize]
+fn font_overhang_table(font: &FontInstance) -> EcoVec<(u16, f64)> {
+    let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
+    for &(c, factor) in DEFAULT_OVERHANG_TABLE {
+        if let Some(id) = font.ttf().glyph_index(c) {
+            table.push((id.0, factor));
+        }
+    }
+    table.make_mut().sort_unstable_by_key(|(id, _)| *id);
+    table
+}
+
 /// How much a character should hang into the end margin.
 ///
 /// For more discussion, see:
 /// <https://recoveringphysicist.com/21/>
-fn overhang(c: char) -> f64 {
-    match c {
-        // Dashes.
-        '–' | '—' => 0.2,
-        '-' | '\u{ad}' => 0.55,
-
-        // Punctuation.
-        '.' | ',' => 0.8,
-        ':' | ';' => 0.3,
-
-        // Arabic
-        '\u{60C}' | '\u{6D4}' => 0.4,
-
-        _ => 0.0,
-    }
-}
+const DEFAULT_OVERHANG_TABLE: &[(char, f64)] = &[
+    // Dashes.
+    ('–', 0.2),
+    ('—', 0.2),
+    ('-', 0.55),
+    ('\u{ad}', 0.55),
+    // Punctuation.
+    ('.', 0.8),
+    (',', 0.8),
+    (';', 0.3),
+    (':', 0.3),
+    // Arabic
+    ('\u{60C}', 0.4),
+    ('\u{6D4}', 0.4),
+];
 
 /// A collection of owned or borrowed inline items.
 pub struct Items<'a>(Vec<(LogicalIndex, ItemEntry<'a>)>);
@@ -706,6 +731,11 @@ impl<'a> Items<'a> {
         self.0.push((idx, entry.into()));
     }
 
+    /// Insert a new item at the start of the line.
+    pub fn prepend(&mut self, entry: impl Into<ItemEntry<'a>>, idx: LogicalIndex) {
+        self.0.insert(0, (idx, entry.into()));
+    }
+
     /// Iterate over the items.
     pub fn iter(&self) -> impl DoubleEndedIterator<Item = &Item<'a>> {
         self.0.iter().map(|(_, item)| &**item)
@@ -716,30 +746,46 @@ impl<'a> Items<'a> {
     ///
     /// Note that this is different from `.iter().enumerate()` which would
     /// provide the indices in visual order!
-    pub fn indexed_iter(
+    pub fn iter_indexed(
         &self,
     ) -> impl DoubleEndedIterator<Item = &(LogicalIndex, ItemEntry<'a>)> {
         self.0.iter()
     }
 
-    /// Access the first item (skipping tags), if it is text.
+    /// Access the first unskippable item, if it is text.
     pub fn leading_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the first item (skipping tags) mutably, if it is text.
+    /// Access the first unskippable item alongside its index, if it is text.
+    pub fn leading_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        let (idx, item) = self.0.iter().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
+    }
+
+    /// Access the first unskippable item mutably, if it is text.
     pub fn leading_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
-    /// Access the last item (skipping tags), if it is text.
+    /// Access the last unskippable item, if it is text.
     pub fn trailing_text(&self) -> Option<&ShapedText<'a>> {
-        self.0.iter().rev().find(|(_, item)| !item.is_tag())?.1.text()
+        self.iter().rev().find(|item| !item.is_skippable())?.text()
     }
 
-    /// Access the last item (skipping tags) mutably, if it is text.
+    /// Access the last unskippable item alongside its index, if it is text.
+    pub fn trailing_text_indexed(&self) -> Option<(LogicalIndex, &ShapedText<'a>)> {
+        let (idx, item) = self.0.iter().rev().find(|(_, item)| !item.is_skippable())?;
+        let text = item.text()?;
+        Some((*idx, text))
+    }
+
+    /// Access the last unskippable item mutably, if it is text.
     pub fn trailing_text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
-        self.0.iter_mut().rev().find(|(_, item)| !item.is_tag())?.1.text_mut()
+        let (_, item) = self.0.iter_mut().rev().find(|(_, item)| !item.is_skippable())?;
+        item.text_mut()
     }
 
     /// Reorder the items starting at the given index to RTL.
@@ -784,14 +830,42 @@ impl Debug for Items<'_> {
 pub struct LogicalIndex(usize);
 
 impl LogicalIndex {
-    const START_HYPHEN: Self = Self(0);
-    const END_HYPHEN: Self = Self(usize::MAX);
-
     /// Create a logical index from the index of an item in the [`p.items`](Preparation::items).
     const fn from_item_index(i: usize) -> Self {
         // This won't overflow because the `idx` comes from a vector which is
         // limited to `isize::MAX` elements.
-        Self(i + 1)
+        // Create indices in a way that there is always a space before the
+        // first, between two and (most likely) after the last one. This allows
+        // generating logical indices for soft hyphens. One space is enough
+        // because there is at most a single leading and trailing item
+        // before/after the first/last text item in the line.
+        Self(2 * i + 1)
+    }
+
+    /// Create a new logical index directly before this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn before(self) -> Self {
+        Self(
+            self.0
+                .checked_sub(1)
+                .expect("can't create logical index before this one"),
+        )
+    }
+
+    /// Create a new logical index directly after this one.
+    ///
+    /// Should only be called on a "real" logical index, not one that was
+    /// created using [`Self::before`] or [`Self::after`], because there is only
+    /// room for a single additional logical index between two items.
+    const fn after(self) -> Self {
+        Self(
+            self.0
+                .checked_add(1)
+                .expect("can't create logical index after this one"),
+        )
     }
 }
 

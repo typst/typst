@@ -42,6 +42,25 @@ use crate::text::{LocalName, TextElem};
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///
+/// To avoid automatic creation of a link, you can put the text in a
+/// @str[string]. To embed the string in markup, prefix it with a hash.
+/// Alternatively, if the link-like text is computer code, you may also put it
+/// in a @raw[`raw` element]. Note that, in both cases, the text may remain
+/// clickable in PDF because some PDF readers auto-detect links.
+///
+/// ```example
+/// #show link: set text(blue)
+///
+/// // Automatic link
+/// https://example.com
+///
+/// // String, not a link
+/// #"https://example.com"
+///
+/// // Raw, not a link
+/// `https://*.com`
+/// ```
+///
 /// = Hyphenation <hyphenation>
 /// If you enable hyphenation or justification, by default, it will not apply to
 /// links to prevent unwanted hyphenation in URLs. You can opt out of this
@@ -102,7 +121,7 @@ use crate::text::{LocalName, TextElem};
 ///   generated.
 ///
 /// = Links in bundle export <links-in-bundle-export>
-/// In @reference:bundle[bundle export], linking still works as usual. For
+/// In @format.bundle[bundle export], linking still works as usual. For
 /// instance, if you attach a label to an element in one document, links in
 /// other documents can reference that label. In addition, documents and assets
 /// are also directly linkable. To link to a full document or asset, you can

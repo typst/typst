@@ -969,21 +969,48 @@ fn string_is_empty() -> EcoString {
 
 /// A regular expression.
 ///
-/// Can be used as a @reference:styling:show-rules[show rule selector] and with
-/// @str[string methods] like `find`, `split`, `replace`, and `match`.
+/// Can be used as a @reference:styling:show-rules[show rule selector] or with
+/// @str[string methods].
 ///
-/// #link("https://docs.rs/regex/latest/regex/#syntax")[See here] for a
-/// specification of the supported syntax.
+/// Visit #link("https://docs.rs/regex/latest/regex/#syntax")[this website] for
+/// a complete specification of the supported syntax.
 ///
-/// = Example <example>
+/// = With string methods <string-methods>
+/// Regular expressions can be used with string methods like @str.find[`find`],
+/// @str.split[`split`], @str.replace[`replace`], @str.match[`match`], or
+/// @str.matches[`matches`]. See the documentation of these methods for more
+/// details.
+///
 /// ```example
-/// // Works with string methods.
 /// #"a,b;c".split(regex("[,;]"))
+/// ```
 ///
-/// // Works with show rules.
+/// = With show rules <show-rules>
+/// Regular expressions can also be used with
+/// @reference:styling:show-rules[show rules] to match on and transform text in
+/// the document. For example, below, we are turning all numbers red.
+///
+/// ```example
 /// #show regex("\\d+"): set text(red)
 ///
 /// The numbers 1 to 10.
+/// ```
+///
+/// Sometimes, you may also want to combine both uses, by first matching on text
+/// with a show rule and then rematching on the text to extract a specific
+/// #link("https://docs.rs/regex/latest/regex/#grouping-and-flags")[capture group].
+/// In this case, it can be convenient to store the regular expression in a
+/// variable instead of repeating it twice.
+///
+/// ```example
+/// #let pattern = regex("\|([^|]*)\|")
+/// #show pattern: it => {
+///   let m = it.text.match(pattern)
+///   let inner = m.captures.first()
+///   highlight(inner)
+/// }
+///
+/// A |handy-dandy| highlighter!
 /// ```
 #[ty(scope, since = "forever")]
 #[derive(Debug, Clone)]

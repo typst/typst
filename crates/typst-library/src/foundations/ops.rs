@@ -7,7 +7,7 @@ use typst_utils::Numeric;
 
 use crate::diag::{HintedStrResult, StrResult, bail};
 use crate::foundations::{
-    Datetime, IntoValue, LocatableSelector, Regex, Repr, Selector, SymbolElem, Value,
+    BindingGuard, Datetime, IntoValue, LocatableSelector, Regex, Repr, Selector, SymbolElem, Value,
     format_str,
 };
 use crate::layout::{Alignment, Length, Rel};
@@ -545,8 +545,8 @@ fn try_cmp_arrays(a: &[Value], b: &[Value]) -> StrResult<Ordering> {
 }
 
 /// Test whether one value is "in" another one.
-pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn in_(guard: impl BindingGuard, lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+    if let Some(b) = contains(guard, &lhs, &rhs) {
         Ok(Value::Bool(b))
     } else {
         mismatch!("cannot apply 'in' to {} and {}", lhs, rhs)
@@ -554,8 +554,12 @@ pub fn in_(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 }
 
 /// Test whether one value is "not in" another one.
-pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
-    if let Some(b) = contains(&lhs, &rhs) {
+pub fn not_in(
+    guard: impl BindingGuard,
+    lhs: Value,
+    rhs: Value,
+) -> HintedStrResult<Value> {
+    if let Some(b) = contains(guard, &lhs, &rhs) {
         Ok(Value::Bool(!b))
     } else {
         mismatch!("cannot apply 'not in' to {} and {}", lhs, rhs)
@@ -563,13 +567,15 @@ pub fn not_in(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
 }
 
 /// Test for containment.
-pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
+pub fn contains(guard: impl BindingGuard, lhs: &Value, rhs: &Value) -> Option<bool> {
     use Value::*;
     match (lhs, rhs) {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
-        (Str(a), Module(b)) => Some(b.scope().get(a).is_some()),
+        (Str(a), Module(b)) => {
+            Some(b.scope().get(a).is_some_and(|b| b.read(guard).is_ok()))
+        }
         (a, Array(b)) => Some(b.contains(a.clone())),
 
         _ => Option::None,

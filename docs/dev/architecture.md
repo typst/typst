@@ -27,9 +27,8 @@ Let's start with a broad overview of the directories in this repository:
 - `crates/typst-timing`: Performance timing for Typst.
 - `crates/typst-utils`: Utilities for Typst.
 - `docs`: Generates the content of the official
-  [documentation][docs] from markdown files and the inline
-  Rust documentation. Only generates the content and structure, not the concrete
-  HTML (that part is currently closed source).
+  [documentation][docs] from Typst files and the inline
+  Rust documentation.
 - `tests`: Integration tests for Typst compilation.
 - `tools`: Tooling for development.
 

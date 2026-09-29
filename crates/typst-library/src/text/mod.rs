@@ -707,10 +707,10 @@ pub struct TextElem {
     /// ```example
     /// #set text(font: "Noto Sans", 20pt)
     /// #set text(number-type: "lining")
-    /// Number 9.
+    /// Lining: 0123456789.
     ///
     /// #set text(number-type: "old-style")
-    /// Number 9.
+    /// Old style: 0123456789.
     /// ```
     #[ghost]
     pub number_type: Smart<NumberType>,

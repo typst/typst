@@ -64,30 +64,72 @@ pub struct ColumnsElem {
 
     /// The size of the gutter space between each column.
     ///
-    /// #example(
-    /// ```
+    /// ```example
     /// #set page(columns: 2, height: 5cm)
     /// #set par(justify: true)
     /// #set columns(gutter: 15mm)
     /// #lorem(30)
     /// ```
-    /// )
     #[default(Ratio::new(0.04).into())]
     pub gutter: Rel<Length>,
 
     /// Whether to equalize the height of columns by breaking columns early.
     ///
-    /// #example(
-    /// ```
+    /// ```example
     /// #set page(columns: 2, height: 5cm)
     /// #set par(justify: true)
     /// >>> #set columns(gutter: 15pt)
     /// #set columns(balanced: true)
     /// #lorem(30)
     /// ```
-    /// )
     #[default(false)]
     pub balanced: bool,
+
+    /// The separator to place between each pair of non-empty columns.
+    ///
+    /// By default, the content is centered and @line[lines] use a length of
+    /// `{100%}` and an angle of `{90deg}` unless specified otherwise.
+    ///
+    /// ```example
+    /// #set page(columns: 2, height: 5cm)
+    /// #set par(justify: true)
+    /// #set columns(
+    ///   gutter: 2em,
+    ///   separator: line(),
+    /// )
+    /// #lorem(35)
+    /// ```
+    ///
+    /// #example(
+    ///   title: "Separator with extended, dotted line",
+    ///   ```
+    ///   #set page(columns: 2, height: 5cm)
+    ///   #set par(justify: true)
+    ///   #set columns(
+    ///     gutter: 2em,
+    ///     separator: line(
+    ///       stroke: (dash: "dotted"),
+    ///       length: 100% + 2 * 4pt,
+    ///     ),
+    ///   )
+    ///   #lorem(35)
+    ///   ```
+    /// )
+    ///
+    /// #example(
+    ///   title: "Custom separator ornament",
+    ///   ```
+    ///   #set page(columns: 3, width: 15cm, height: 3cm)
+    ///   #set par(justify: true)
+    ///   #set columns(
+    ///     gutter: 30pt,
+    ///     separator: curve(curve.cubic((-8pt, 0%), (8pt, 50%), (0pt, 50%))
+    ///   ))
+    ///   #lorem(36)
+    ///   ```
+    /// )
+    #[default]
+    pub separator: Option<Content>,
 
     /// The content that should be layouted into the columns.
     #[required]

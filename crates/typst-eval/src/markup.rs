@@ -99,7 +99,11 @@ impl Eval for ast::Space<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(SpaceElem::shared().clone())
+        if self.had_newline() {
+            Ok(SpaceElem::shared_with_newline().clone())
+        } else {
+            Ok(SpaceElem::shared().clone())
+        }
     }
 }
 

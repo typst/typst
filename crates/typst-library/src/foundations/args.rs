@@ -160,8 +160,9 @@ impl Args {
     /// The error message for missing arguments.
     fn missing_argument(&self, what: &str) -> SourceDiagnostic {
         for item in &self.items {
-            let Some(name) = item.name.as_deref() else { continue };
-            if name == what {
+            if let Some(name) = item.name.as_deref()
+                && name == what
+            {
                 return error!(
                     item.span,
                     "the argument `{what}` is positional";

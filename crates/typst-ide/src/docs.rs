@@ -76,7 +76,12 @@ impl Docs {
                 lines.push(text.strip_prefix('/').unwrap_or(text));
             } else if let Some(comment) = prev.get().cast::<ast::BlockComment>() {
                 lines.push(comment.text());
-            } else if !matches!(prev.kind(), SyntaxKind::Space | SyntaxKind::Hash) {
+            } else if !matches!(
+                prev.kind(),
+                SyntaxKind::SpaceNoNewline
+                    | SyntaxKind::SpaceWithNewline
+                    | SyntaxKind::Hash
+            ) {
                 break;
             }
             current = prev;

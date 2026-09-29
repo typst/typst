@@ -1,7 +1,9 @@
---- table-tags-empty pdftags pdfstandard(ua-1) ---
+--- table-tags-empty pdftags ---
+#set pdf(standard: "ua-1")
 #table()
 
---- table-tags-basic pdftags pdfstandard(ua-1) ---
+--- table-tags-basic pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 3,
   table.header([H1], [H2], [H3]),
@@ -9,7 +11,8 @@
   [b1], [b2], [b3],
 )
 
---- table-tags-column-and-row-header pdftags pdfstandard(ua-1) ---
+--- table-tags-column-and-row-header pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 3,
   table.header([H1], [H2], [H3]),
@@ -17,7 +20,8 @@
   pdf.header-cell(scope: "row")[12:30], [b2], [b3],
 )
 
---- table-tags-missing-cells pdftags pdfstandard(ua-1) ---
+--- table-tags-missing-cells pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 3,
   table.header(level: 1, [H1], [H1], [H1]),
@@ -39,7 +43,8 @@
   ),
 )
 
---- table-tags-explicit-lines pdftags pdfstandard(ua-1) ---
+--- table-tags-explicit-lines pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 2,
   [a], table.vline(stroke: green), [b],
@@ -48,7 +53,8 @@
   table.hline(stroke: blue),
 )
 
---- table-tags-unset-bottom-line pdftags pdfstandard(ua-1) ---
+--- table-tags-unset-bottom-line pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 2,
   [a], [b],
@@ -56,7 +62,8 @@
   table.hline(stroke: none),
 )
 
---- table-tags-different-default-border pdftags pdfstandard(ua-1) ---
+--- table-tags-different-default-border pdftags ---
+#set pdf(standard: "ua-1")
 #table(
   columns: 2,
   stroke: red + 2pt,
@@ -67,7 +74,8 @@
   table.hline(stroke: black),
 )
 
---- table-tags-show-rule-error pdftags pdfstandard(ua-1) ---
+--- table-tags-show-rule-error pdftags ---
+#set pdf(standard: "ua-1")
 #set table(columns: (10pt, auto))
 // Error: 2-30 PDF/UA-1 error: invalid table (Table) structure
 // Hint: 2-30 table (Table) may not contain raw text (Code)
@@ -80,7 +88,8 @@
 #show table: it => it.columns
 #table[A][B][C][D]
 
---- table-tags-rowspan-split-1 pdftags pdfstandard(ua-1) ---
+--- table-tags-rowspan-split-1 pdftags ---
+#set pdf(standard: "ua-1")
 #set page(height: 6em)
 #table(
   rows: (4em, auto, 4em),
@@ -89,7 +98,8 @@
   [b], [c], [d],
 )
 
---- table-tags-rowspan-split-2 pdftags pdfstandard(ua-1) ---
+--- table-tags-rowspan-split-2 pdftags ---
+#set pdf(standard: "ua-1")
 #set page(height: 6em)
 #table(
   rows: (4em, auto, 4em),
@@ -99,7 +109,8 @@
   [a3], [c3],
 )
 
---- table-tags-citation-in-repeated-header pdftags pdfstandard(ua-1) ---
+--- table-tags-citation-in-repeated-header pdftags ---
+#set pdf(standard: "ua-1")
 #set page(height: 60pt)
 #table(
   // Error: 16-23 PDF/UA-1 error: PDF artifacts may not contain links
@@ -112,18 +123,21 @@
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
 
---- table-tags-private-table-summary eval pdfstandard(ua-1) ---
+--- table-tags-private-table-summary eval ---
+#set pdf(standard: "ua-1")
 #table(
   // Error: 3-18 unexpected argument: summary
   summary: "nope",
   [A],
 )
 
---- table-tags-private-cell-kind eval pdfstandard(ua-1) ---
+--- table-tags-private-cell-kind eval ---
+#set pdf(standard: "ua-1")
 // Error: 13-25 unexpected argument: kind
 #table.cell(kind: "nope")[A]
 
---- table-tags-unstable-functions pdftags pdfstandard(ua-1) ---
+--- table-tags-unstable-functions pdftags ---
+#set pdf(standard: "ua-1")
 #pdf.table-summary(
   summary: "The table summary",
   table(

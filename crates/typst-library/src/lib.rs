@@ -14,25 +14,28 @@ extern crate self as typst_library;
 
 pub mod diag;
 pub mod engine;
+pub mod format;
 pub mod foundations;
 pub mod introspection;
 pub mod layout;
 pub mod loading;
 pub mod math;
 pub mod model;
-pub mod pdf;
 pub mod routines;
 pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use std::fmt::Display;
 use std::ops::{Deref, Range};
+use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 use typst_syntax::{DiagSpan, DiagSpanKind, FileId, Source};
 use typst_utils::{LazyHash, SmallBitSet};
 
 use crate::diag::FileResult;
+use crate::format::Format;
 use crate::foundations::{
     Array, Binding, Bytes, Datetime, Dict, Duration, Module, NativeRuleMap, Scope, Styles,
 };
@@ -180,6 +183,8 @@ pub struct Library {
     pub std: Binding,
     /// In-development features that were enabled.
     pub features: Features,
+    /// Registered [export formats](crate::format).
+    pub formats: Vec<Format>,
 }
 
 /// Configurable builder for the standard library.
@@ -190,16 +195,21 @@ pub struct LibraryBuilder {
     routines: &'static Routines,
     inputs: Option<Dict>,
     features: Features,
+    formats: Vec<Format>,
 }
 
 impl LibraryBuilder {
     /// Creates a new builder.
     #[doc(hidden)]
-    pub fn from_routines(routines: &'static Routines) -> Self {
+    pub fn from_routines(
+        routines: &'static Routines,
+        formats: impl IntoIterator<Item = Format>,
+    ) -> Self {
         Self {
             routines,
             inputs: None,
             features: Features::default(),
+            formats: formats.into_iter().collect(),
         }
     }
 
@@ -221,15 +231,20 @@ impl LibraryBuilder {
     pub fn build(self) -> Library {
         let math = math::module();
         let inputs = self.inputs.unwrap_or_default();
-        let global = global(self.routines, math.clone(), inputs, &self.features);
+        let global = global(&self.formats, math.clone(), inputs);
+        let mut rules = (self.routines.rules)();
+        for format in &self.formats {
+            format.register_rules(&mut rules);
+        }
         Library {
             routines: self.routines,
             global: global.clone(),
             math,
             styles: Styles::new(),
-            rules: (self.routines.rules)(),
+            rules,
             std: Binding::detached(global),
             features: self.features,
+            formats: self.formats,
         }
     }
 }
@@ -237,7 +252,7 @@ impl LibraryBuilder {
 /// A selection of in-development features that should be enabled.
 ///
 /// Can be collected from an iterator of [`Feature`]s.
-#[derive(Debug, Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Features(SmallBitSet);
 
 impl Features {
@@ -283,6 +298,29 @@ impl Feature {
     }
 }
 
+impl Display for Feature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Feature::Html => "html",
+            Feature::Bundle => "bundle",
+            Feature::A11yExtras => "a11y-extras",
+        })
+    }
+}
+
+impl FromStr for Feature {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "html" => Ok(Self::Html),
+            "bundle" => Ok(Self::Bundle),
+            "a11y-extras" => Ok(Self::A11yExtras),
+            _ => Err(()),
+        }
+    }
+}
+
 /// A group of related standard library definitions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -296,6 +334,7 @@ pub enum Category {
     Symbols,
     Text,
     Visualize,
+    Format,
     Pdf,
     Html,
     Svg,
@@ -316,6 +355,7 @@ impl Category {
             Self::Symbols => "symbols",
             Self::Text => "text",
             Self::Visualize => "visualize",
+            Self::Format => "format",
             Self::Pdf => "pdf",
             Self::Html => "html",
             Self::Svg => "svg",
@@ -326,28 +366,19 @@ impl Category {
 }
 
 /// Construct the module with global definitions.
-fn global(
-    routines: &Routines,
-    math: Module,
-    inputs: Dict,
-    features: &Features,
-) -> Module {
+fn global(formats: &[Format], math: Module, inputs: Dict) -> Module {
     let mut global = Scope::deduplicating();
 
     self::foundations::define(&mut global, inputs);
-    self::model::define(&mut global, features);
+    self::model::define(&mut global);
     self::text::define(&mut global);
     self::layout::define(&mut global);
     self::visualize::define(&mut global);
     self::introspection::define(&mut global);
     self::loading::define(&mut global);
     self::symbols::define(&mut global);
-
+    global.define("format", self::format::module(formats));
     global.define("math", math);
-    global.define("pdf", self::pdf::module(features));
-    if features.is_enabled(Feature::Html) {
-        global.define("html", (routines.html_module)());
-    }
 
     prelude(&mut global);
 
@@ -392,4 +423,9 @@ fn prelude(global: &mut Scope) {
     global.define("top", Alignment::TOP);
     global.define("horizon", Alignment::HORIZON);
     global.define("bottom", Alignment::BOTTOM);
+
+    // If available, add some items to the global prelude.
+    global.prelude_path(["format", "html"]);
+    global.prelude_path(["format", "pdf"]);
+    global.prelude_path(["format", "bundle", "asset"]);
 }

@@ -13,16 +13,31 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-once_cell = { workspace = true }
 portable-atomic = { workspace = true }
-rayon = { workspace = true }
 rustc-hash = { workspace = true }
 semver = { workspace = true }
 siphasher = { workspace = true }
-smallvec = { workspace = true }
-thin-vec = { workspace = true }
 unicode-math-class = { workspace = true }
-libm = { workspace = true }
+libm = { workspace = true, optional = true }
+once_cell = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
+smallvec = { workspace = true, optional = true }
+thin-vec = { workspace = true, optional = true }
 
 [lints]
 workspace = true
+
+[features]
+default = ["full"]
+
+# Without the `full` feature, we only pull in dependencies needed for utilities
+# that are used in `typst-syntax` and `typst-cli`'s `args.rs`. `typst-syntax`
+# can be useful independently from the remaining compiler, so we want to keep it
+# reasonably lean.
+full = [
+    "dep:libm",
+    "dep:once_cell",
+    "dep:rayon",
+    "dep:smallvec",
+    "dep:thin-vec",
+]

@@ -329,7 +329,7 @@ $ vec(#1) $
 #test($sin(1)$, $sin(#1)$)
 
 --- issue-2885-math-var-only-in-global eval ---
-// Error: 7-10 unknown variable: rgb
+// Error: 7-10 unknown variable `rgb`
 // Hint: 7-10 `rgb` is not available directly in math, but is in the standard library
 // Hint: 7-10 to access `rgb` in code mode you can add a hash: `#rgb`
 // Hint: 7-10 or access `rgb` in math mode by using the `std` module: `std.rgb`

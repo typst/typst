@@ -14,6 +14,7 @@ const MAX_DEPTH: u32 = 256;
 
 /// Parses a source file as top-level markup.
 pub fn parse(text: &str) -> SyntaxNode {
+    #[cfg(feature = "timing")]
     let _scope = typst_timing::TimingScope::new("parse");
     let mut p = Parser::new(text, 0, SyntaxMode::Markup);
     markup_exprs(&mut p, true, syntax_set!(End));
@@ -22,6 +23,7 @@ pub fn parse(text: &str) -> SyntaxNode {
 
 /// Parses top-level code.
 pub fn parse_code(text: &str) -> SyntaxNode {
+    #[cfg(feature = "timing")]
     let _scope = typst_timing::TimingScope::new("parse code");
     let mut p = Parser::new(text, 0, SyntaxMode::Code);
     code_exprs(&mut p, syntax_set!(End));
@@ -30,6 +32,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
 
 /// Parses top-level math.
 pub fn parse_math(text: &str) -> SyntaxNode {
+    #[cfg(feature = "timing")]
     let _scope = typst_timing::TimingScope::new("parse math");
     let mut p = Parser::new(text, 0, SyntaxMode::Math);
     math_exprs(&mut p, syntax_set!(End));
@@ -1856,11 +1859,11 @@ impl<'s> Parser<'s> {
         let mut start = prev_end;
         let (mut kind, mut node) = lexer.next();
         let mut n_trivia = 0;
-        let mut had_newline = false;
+        let mut space_with_newline = false;
         let mut parbreak = false;
 
         while kind.is_trivia() {
-            had_newline |= lexer.newline(); // Newlines are always trivia.
+            space_with_newline |= kind == SyntaxKind::SpaceWithNewline;
             parbreak |= kind == SyntaxKind::Parbreak;
             n_trivia += 1;
             nodes.push(node);
@@ -1868,7 +1871,7 @@ impl<'s> Parser<'s> {
             (kind, node) = lexer.next();
         }
 
-        let newline = if had_newline {
+        let newline = if space_with_newline || parbreak {
             let column =
                 (lexer.mode() == SyntaxMode::Markup).then(|| lexer.column(start));
             let newline = Newline { column, parbreak };
