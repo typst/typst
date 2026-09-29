@@ -89,28 +89,32 @@ As seen in @intro, we proceed.
   #[= #lorem(2) <head>] <scope1>
   #[= #lorem(2) <head>] <scope2>
   - See @eq1, @eq2, @scope1/head, @scope2/head
-  - Also look at @doc-a/eq1 and @doc-b/eq1.
 ]
 
-#let prefix-reference(it, prefix: "") = {
-  if not repr(it.target).contains("<doc-") {
-    ref(it.target.within(label(prefix)))
-  } else {
-    it
-  }
+#let revoke = metadata("prefixed-reference")
+#let prefix-reference(it, scope: none) = {
+  if bibliography.title == revoke { return it }
+  set bibliography(title: revoke)
+  ref(it.target.within(scope))
 }
 
 #document("a.pdf")[
-  #show ref: prefix-reference.with(prefix: "doc-a")
-  #ct
+  #[
+    #show ref: prefix-reference.with(scope: <doc-a>)
+    #ct
+  ]
+  Furthermore, @doc-a/eq1 and @doc-b/eq1.
 ] <doc-a>
 
 #counter(heading).update(0)
 #counter(math.equation).update(0)
 
 #document("b.pdf")[
-  #show ref: prefix-reference.with(prefix: "doc-b")
-  #ct
+  #[
+    #show ref: prefix-reference.with(scope: <doc-b>)
+    #ct
+  ]
+  Furthermore, @doc-a/eq1 and @doc-b/eq1.
 ] <doc-b>
 
 --- ref-selector-empty-middle eval ---
