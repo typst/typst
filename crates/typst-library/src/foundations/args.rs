@@ -7,7 +7,7 @@ use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{
-    At, CallTraced, SourceDiagnostic, SourceResult, StrResult, bail, error,
+    At, CallSpanned, SourceDiagnostic, SourceResult, StrResult, bail, error,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -409,11 +409,7 @@ impl Args {
         /// The function to apply to each value. Must return a boolean.
         test: Spanned<Func>,
     ) -> SourceResult<Args> {
-        let mut run_test = |v: &Value| {
-            test.call_traced(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span)
-        };
+        let mut run_test = |v: &Value| test.call::<bool>(engine, context, [v.clone()]);
         self.into_iter()
             .filter_map(|arg| {
                 run_test(&arg.value.v).map(|b| b.then_some(arg)).transpose()
@@ -440,7 +436,7 @@ impl Args {
     ) -> SourceResult<Args> {
         self.into_iter()
             .map(|arg| {
-                let mapped_value = mapper.call_traced(engine, context, [arg.value.v])?;
+                let mapped_value = mapper.call(engine, context, [arg.value.v])?;
                 Ok(Arg {
                     span: arg.span,
                     name: arg.name,

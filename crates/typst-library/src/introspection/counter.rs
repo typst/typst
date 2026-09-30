@@ -608,15 +608,12 @@ impl CounterState {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
-                *self = func
-                    .call_traced(
-                        engine,
-                        Context::none().track(),
-                        self.0.iter().copied(),
-                        update.span,
-                    )?
-                    .cast()
-                    .at(update.span)?;
+                *self = func.call(
+                    engine,
+                    Context::none().track(),
+                    self.0.iter().copied(),
+                    update.span,
+                )?;
             }
         }
         Ok(())

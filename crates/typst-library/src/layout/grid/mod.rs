@@ -8,7 +8,7 @@ use smallvec::{SmallVec, smallvec};
 use typst_syntax::{Span, Spanned};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
@@ -910,15 +910,9 @@ impl<T: Default + Clone + FromValue> Celled<T> {
     ) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => func
-                .call_traced(
-                    engine,
-                    Context::new(None, Some(styles)).track(),
-                    [x, y],
-                    span,
-                )?
-                .cast()
-                .at(span)?,
+            Self::Func(func) => {
+                func.call(engine, Context::new(None, Some(styles)).track(), [x, y], span)?
+            }
             Self::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))
@@ -1018,14 +1012,12 @@ where
         Ok(match &self.0 {
             Celled::Value(value) => value.clone(),
             Celled::Func(func) => func
-                .call_traced(
+                .call::<T>(
                     engine,
                     Context::new(None, Some(styles)).track(),
                     [x, y],
                     span,
                 )?
-                .cast::<T>()
-                .at(span)?
                 .resolve(styles),
             Celled::Array(array) => x
                 .checked_rem(array.len())

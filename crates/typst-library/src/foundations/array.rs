@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{
-    At, CallTraced, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
+    At, CallSpanned, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
     StrResult, bail,
 };
 use crate::engine::Engine;
@@ -324,11 +324,7 @@ impl Array {
         searcher: Spanned<Func>,
     ) -> SourceResult<Option<Value>> {
         for item in self {
-            if searcher
-                .call_traced(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(searcher.span)?
-            {
+            if searcher.call::<bool>(engine, context, [item.clone()])? {
                 return Ok(Some(item.clone()));
             }
         }
@@ -353,11 +349,7 @@ impl Array {
         searcher: Spanned<Func>,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
-            if searcher
-                .call_traced(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(searcher.span)?
-            {
+            if searcher.call::<bool>(engine, context, [item.clone()])? {
                 return Ok(Some(i as i64));
             }
         }
@@ -455,11 +447,7 @@ impl Array {
     ) -> SourceResult<Array> {
         let mut kept = EcoVec::new();
         for item in self {
-            if test
-                .call_traced(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(test.span)?
-            {
+            if test.call::<bool>(engine, context, [item.clone()])? {
                 kept.push(item.clone());
             }
         }
@@ -477,7 +465,7 @@ impl Array {
         mapper: Spanned<Func>,
     ) -> SourceResult<Array> {
         self.into_iter()
-            .map(|item| mapper.call_traced(engine, context, [item]))
+            .map(|item| mapper.call(engine, context, [item]))
             .collect()
     }
 
@@ -632,7 +620,7 @@ impl Array {
     ) -> SourceResult<Value> {
         let mut acc = init;
         for item in self {
-            acc = folder.call_traced(engine, context, [acc, item])?;
+            acc = folder.call(engine, context, [acc, item])?;
         }
         Ok(acc)
     }
@@ -688,11 +676,7 @@ impl Array {
         test: Spanned<Func>,
     ) -> SourceResult<bool> {
         for item in self {
-            if test
-                .call_traced(engine, context, [item])?
-                .cast::<bool>()
-                .at(test.span)?
-            {
+            if test.call::<bool>(engine, context, [item])? {
                 return Ok(true);
             }
         }
@@ -710,11 +694,7 @@ impl Array {
         test: Spanned<Func>,
     ) -> SourceResult<bool> {
         for item in self {
-            if !test
-                .call_traced(engine, context, [item])?
-                .cast::<bool>()
-                .at(test.span)?
-            {
+            if !test.call::<bool>(engine, context, [item])? {
                 return Ok(false);
             }
         }
@@ -955,10 +935,10 @@ impl Array {
                     if let Some(f) = &key {
                         // We rely on `comemo`'s memoization of function
                         // evaluation to not excessively reevaluate the key.
-                        x = f.call_traced(engine, context, [x])?;
-                        y = f.call_traced(engine, context, [y])?;
+                        x = f.call(engine, context, [x])?;
+                        y = f.call(engine, context, [y])?;
                     }
-                    match by.call_traced(engine, context, [x, y])? {
+                    match by.call(engine, context, [x, y])? {
                         Value::Bool(b) => Ok(b),
                         x => {
                             bail!(
@@ -1021,7 +1001,7 @@ impl Array {
                 let mut key_of = |x: Value| match &key {
                     // We rely on `comemo`'s memoization of function evaluation
                     // to not excessively reevaluate the key.
-                    Some(f) => f.call_traced(engine, context, [x]),
+                    Some(f) => f.call(engine, context, [x]),
                     None => Ok(x),
                 };
 
@@ -1085,7 +1065,7 @@ impl Array {
         let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
-            Some(f) => f.call_traced(engine, context, [x]),
+            Some(f) => f.call(engine, context, [x]),
             None => Ok(x),
         };
 
@@ -1172,7 +1152,7 @@ impl Array {
         let mut iter = self.into_iter();
         let mut acc = iter.next().unwrap_or_default();
         for item in iter {
-            acc = reducer.call_traced(engine, context, [acc, item])?;
+            acc = reducer.call(engine, context, [acc, item])?;
         }
         Ok(acc)
     }

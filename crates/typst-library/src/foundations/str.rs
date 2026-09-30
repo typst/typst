@@ -531,10 +531,8 @@ impl Str {
             match &replacement.v {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let piece = func
-                        .call_traced(engine, context, [dict], replacement.span)?
-                        .cast::<Str>()
-                        .at(replacement.span)?;
+                    let piece =
+                        func.call::<Str>(engine, context, [dict], replacement.span)?;
                     output.push_str(&piece);
                 }
             }

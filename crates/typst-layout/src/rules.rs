@@ -4,7 +4,7 @@ use smallvec::smallvec;
 use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, dict,
+    StyleChain, Synthesize, Target, Value, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -756,15 +756,10 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             let Size { x, y } = regions.base();
             let loc = elem.location().unwrap();
             let context = Context::new(Some(loc), Some(styles));
-
+            let size = dict! { "width" => x, "height" => y };
             let result = elem
                 .func
-                .call_traced(
-                    engine,
-                    context.track(),
-                    [dict! { "width" => x, "height" => y }],
-                    elem.span(),
-                )?
+                .call::<Value>(engine, context.track(), [size], elem.span())?
                 .display();
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },

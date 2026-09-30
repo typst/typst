@@ -1,6 +1,6 @@
 use comemo::Track;
 
-use crate::diag::{Hint, HintedStrResult, SourceResult, Trace, Tracepoint, bail};
+use crate::diag::{Hint, HintedStrResult, SourceResult, Tracepoint, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Args, Construct, Content, Func, ShowFn, StyleChain, Value, elem,
@@ -79,9 +79,9 @@ pub const CONTEXT_RULE: ShowFn<ContextElem> = |elem, engine, styles| {
     let loc = elem.location().unwrap();
     let context = Context::new(Some(loc), Some(styles));
     let point = || Tracepoint::Context;
+    let args: [Value; 0] = [];
     Ok(elem
         .func
-        .call::<[Value; 0]>(engine, context.track(), [])
-        .trace(engine.world, point, elem.span())?
+        .call_traced(engine, context.track(), args, point, elem.span())?
         .display())
 };

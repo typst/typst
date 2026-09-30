@@ -433,9 +433,7 @@ impl OutlineIndent {
         let depth = level.get() - 1;
         match self {
             Self::Rel(length) => Ok(*length * depth as f64),
-            Self::Func(func) => {
-                func.call_traced(engine, context, [depth], span)?.cast().at(span)
-            }
+            Self::Func(func) => func.call(engine, context, [depth], span),
         }
     }
 }

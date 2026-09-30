@@ -10,7 +10,7 @@ use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Spanned, is_ident};
 
-use crate::diag::{At, CallTraced, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{CallSpanned, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Func, Module, Repr, Str, Value, WorldBindingExt, array, cast, func,
@@ -320,11 +320,7 @@ impl Dict {
         /// The function to apply to each value. Must return a boolean.
         test: Spanned<Func>,
     ) -> SourceResult<Dict> {
-        let mut run_test = |v: &Value| {
-            test.call_traced(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span)
-        };
+        let mut run_test = |v: &Value| test.call::<bool>(engine, context, [v.clone()]);
         self.into_iter()
             .filter_map(|(k, v)| run_test(&v).map(|b| b.then_some((k, v))).transpose())
             .collect()
@@ -346,7 +342,7 @@ impl Dict {
     ) -> SourceResult<Dict> {
         self.into_iter()
             .map(|(k, v)| {
-                let mapped_value = mapper.call_traced(engine, context, [v])?;
+                let mapped_value = mapper.call(engine, context, [v])?;
                 Ok((k, mapped_value))
             })
             .collect()

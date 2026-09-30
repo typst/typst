@@ -23,7 +23,7 @@ use typst_syntax::{
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
-use crate::foundations::{Context, Func, IntoArgs, NativeElement, Value};
+use crate::foundations::{Context, FromValue, Func, IntoArgs, NativeElement};
 use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
@@ -621,25 +621,26 @@ impl<T> Trace<T> for SourceResult<T> {
     }
 }
 
-/// Conveniently call [`Func::call_traced`].
-pub trait CallTraced {
-    /// Convenience wrapper method for calling [`Func::call_traced`].
-    fn call_traced<A: IntoArgs>(
+/// Conveniently call [`Func::call`] on [`Spanned<Func>`] with the spanned's
+/// span.
+pub trait CallSpanned {
+    /// Convenience wrapper method for calling [`Func::call`].
+    fn call<T: FromValue>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        args: A,
-    ) -> SourceResult<Value>;
+        args: impl IntoArgs,
+    ) -> SourceResult<T>;
 }
 
-impl CallTraced for Spanned<Func> {
-    fn call_traced<A: IntoArgs>(
+impl CallSpanned for Spanned<Func> {
+    fn call<T: FromValue>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
-        args: A,
-    ) -> SourceResult<Value> {
-        self.v.call_traced(engine, context, args, self.span)
+        args: impl IntoArgs,
+    ) -> SourceResult<T> {
+        self.v.call(engine, context, args, self.span)
     }
 }
 

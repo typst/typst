@@ -6,7 +6,7 @@ use crate::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
-    StyleChain, Synthesize, cast, elem,
+    StyleChain, Synthesize, Value, cast, elem,
 };
 use crate::introspection::{
     Counter, CounterKey, PageNumberingIntrospection, PageSupplementIntrospection,
@@ -400,14 +400,10 @@ impl Supplement {
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
-            Supplement::Func(func) => func
-                .call_traced(
-                    engine,
-                    Context::new(None, Some(styles)).track(),
-                    args,
-                    span,
-                )?
-                .display(),
+            Supplement::Func(func) => {
+                let context = Context::new(None, Some(styles));
+                func.call::<Value>(engine, context.track(), args, span)?.display()
+            }
         })
     }
 }

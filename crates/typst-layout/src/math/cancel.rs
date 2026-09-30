@@ -1,5 +1,5 @@
 use comemo::Track;
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Context, Smart, StyleChain};
 use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Transform};
@@ -97,15 +97,12 @@ fn draw_cancel_line(
             // This specifies the absolute angle w.r.t y-axis clockwise.
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
-            CancelAngle::Func(func) => func
-                .call_traced(
-                    engine,
-                    Context::new(None, Some(styles)).track(),
-                    [default],
-                    angle.span,
-                )?
-                .cast()
-                .at(span)?,
+            CancelAngle::Func(func) => func.call(
+                engine,
+                Context::new(None, Some(styles)).track(),
+                [default],
+                angle.span,
+            )?,
         },
     };
 
