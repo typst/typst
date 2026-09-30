@@ -117,8 +117,8 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     "IBMPlexSerif-TextItalic" => E.family("IBM Plex Serif"),
 
     // KpMath
-    "KpMath-Sans" => E.family("KpMathSans"),
-    "KpMath-SansBold" => E.family("KpMathSans"),
+    "KpMath-Sans" => E.family("KpMath Sans"),
+    "KpMath-SansBold" => E.family("KpMath Sans"),
 
     // Latin Modern
     "LMMono8-Regular" => E.family("Latin Modern Mono 8"),
