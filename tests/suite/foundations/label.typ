@@ -60,6 +60,22 @@ _Visible_
 #test(str(<hey>), "hey")
 #test(str(label("hey")), "hey")
 #test(str([Hmm<hey>].label), "hey")
+#test(type(<a/b-c>), selector)
+#test(repr(<a/b-c>), "<b-c>.within(<a>)")
+#test(repr(<a>/<b-c>), "<b-c>.within(<a>)")
+#test(repr(<a> / <b>), "<b>.within(<a>)")
+#test(repr(<a> / <b> / <c>), "<c>.within(<b>.within(<a>))")
+#test([<a/b>], raw("<b>.within(<a>)", block: false, lang: "typc"))
+#test(type(label("a/b-c")), label)
+#test(repr(label("a/b-c")), "label(\"a/b-c\")")
+
+--- selector-literal-empty-middle eval ---
+// Error: 1-6 selector cannot contain empty components
+<a//b>
+
+--- selector-literal-empty-trailing eval ---
+// Error: 1-6 selector cannot contain empty components
+<a/b/>
 
 --- label-in-code-mode-hint eval ---
 // Error: 7-7 expected semicolon or line break

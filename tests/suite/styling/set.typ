@@ -51,8 +51,8 @@ Hello *#x*
 --- set-if paged ---
 // Test conditional set.
 #show ref: it => {
-  set text(red) if it.target == <unknown>
-  "@" + str(it.target)
+  set text(red) if it.target == selector(<unknown>)
+  "@" + repr(it.target).slice(1, -1)
 }
 
 @hello from the @unknown

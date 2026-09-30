@@ -1,6 +1,7 @@
 use typst_library::diag::{At, SourceResult, warning};
 use typst_library::foundations::{
-    Content, Label, NativeElement, Repr, Smart, Symbol, Unlabellable, Value,
+    Content, IntoValue, Label, LocatableSelector, NativeElement, Repr, Selector, Smart,
+    Symbol, Unlabellable, Value,
 };
 use typst_library::model::{
     EmphElem, EnumItem, HeadingElem, LinkElem, ListItem, ParbreakElem, RefElem,
@@ -190,9 +191,7 @@ impl Eval for ast::Label<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Label(
-            Label::new(PicoStr::intern(self.get())).expect("unexpected empty label"),
-        ))
+        Ok(eval_label_literal(self.get()))
     }
 }
 
@@ -200,8 +199,9 @@ impl Eval for ast::Ref<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let target = Label::new(PicoStr::intern(self.target()))
-            .expect("unexpected empty reference");
+        let target = eval_label_literal(self.target())
+            .cast::<LocatableSelector>()
+            .expect("unexpected reference target");
         let mut elem = RefElem::new(target);
         if let Some(supplement) = self.supplement() {
             elem.supplement
@@ -209,6 +209,26 @@ impl Eval for ast::Ref<'_> {
         }
         Ok(elem.pack())
     }
+}
+
+/// Evaluates a label literal and turns slash-separated labels into nested within selectors.
+fn eval_label_literal(text: &str) -> Value {
+    let mut pieces = text.split('/').map(|piece| {
+        Label::new(PicoStr::intern(piece)).expect("unexpected empty label component")
+    });
+    let first = pieces.next().expect("unexpected empty label");
+    let Some(second) = pieces.next() else {
+        return first.into_value();
+    };
+
+    pieces
+        .fold(
+            Selector::Label(second).within(LocatableSelector(Selector::Label(first))),
+            |ancestor, target| {
+                Selector::Label(target).within(LocatableSelector(ancestor))
+            },
+        )
+        .into_value()
 }
 
 impl Eval for ast::Heading<'_> {

@@ -20,6 +20,110 @@ As seen in @intro, we proceed.
 // Error: 1-5 label `<foo>` occurs multiple times in the document
 @foo
 
+--- ref-within-selector bundle ---
+#set heading(numbering: "1.")
+
+#[
+  #document("alpha.pdf")[
+    = #lorem(3) <heading-1>
+    #[
+      == #lorem(5) <subheading>
+    ] <subscope-1>
+  ] <doc-1>
+  #document("beta.pdf")[
+    = #lorem(4) <subheading>
+  ] <doc-2>
+] <scope>
+
+#document("gamma.pdf")[
+  @doc-1/subheading
+  @subscope-1/subheading
+  @doc-1/subscope-1/subheading
+  #ref(<doc-1>/<subscope-1>/<subheading>)
+  #ref(selector(<subheading>).within(
+    selector(<subscope-1>).within(<doc-1>),
+  ))
+
+  #context test(type(<doc-1/subscope-1>), selector)
+  #context test(
+    repr(<doc-1>/<subscope-1>),
+    "<subscope-1>.within(<doc-1>)",
+  )
+  #context test(query(<doc-1/subscope-1/subheading>).len(), 1)
+  #context test(query(<subscope-1/doc-1/subheading>).len(), 0)
+]
+
+--- ref-within-selector-ambiguous bundle ---
+#set heading(numbering: "1.")
+
+#[
+  #document("alpha.pdf")[
+    = #lorem(3) <heading-1>
+    #[
+      == #lorem(5) <subheading>
+    ] <subscope-1>
+  ] <doc-1>
+  #document("beta.pdf")[
+    = #lorem(4) <subheading>
+  ] <doc-2>
+] <scope>
+
+#document("gamma.pdf")[
+  // Error: 3-14 label `<subheading>` occurs multiple times in the document
+  @subheading
+
+  // Error: 3-20 selector matches multiple elements
+  @scope/subheading
+
+  // Error: 3-17 selector does not match any element
+  @doc-1/missing
+]
+
+--- ref-within-selector-repeat bundle ---
+#set heading(numbering: "1.")
+#set math.equation(numbering: "(1)")
+#let revoke = metadata("prefixed-reference")
+
+#let ct = [
+  $ E = m c^2 $ <eq1>
+  $ F = m a $ <eq2>
+  #[= #lorem(2) <head>] <scope1>
+  #[= #lorem(2) <head>] <scope2>
+  - See @eq1, @eq2, @scope1/head, @scope2/head
+  - Furthermore, @doc-a/eq1 and @doc-b/eq1.
+]
+
+#let prefix-reference(it, scope: none) = {
+  if bibliography.title == revoke or it.element != none { return it }
+  set bibliography(title: revoke)
+  ref(it.target.within(scope))
+}
+
+#document("a.pdf")[
+  #[
+    #show ref: prefix-reference.with(scope: <doc-a>)
+    #ct
+  ]
+] <doc-a>
+
+#counter(heading).update(0)
+#counter(math.equation).update(0)
+
+#document("b.pdf")[
+  #[
+    #show ref: prefix-reference.with(scope: <doc-b>)
+    #ct
+  ]
+] <doc-b>
+
+--- ref-selector-empty-middle eval ---
+// Error: 1-6 selector cannot contain empty components
+@a//b
+
+--- ref-selector-empty-trailing eval ---
+// Error: 1-6 selector cannot contain empty components
+@a/b/
+
 --- ref-supplements paged ---
 #set heading(numbering: "1.", supplement: [Chapter])
 #set math.equation(numbering: "(1)", supplement: [Eq.])

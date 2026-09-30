@@ -4,12 +4,12 @@ use ecow::eco_format;
 use crate::diag::{At, Hint, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
-    Cast, Content, Context, Func, IntoValue, Label, NativeElement, Packed, Repr, Smart,
-    StyleChain, Synthesize, cast, elem,
+    Cast, Content, Context, Func, IntoValue, Label, LocatableSelector, NativeElement,
+    Packed, Repr, Smart, StyleChain, Synthesize, cast, elem,
 };
 use crate::introspection::{
     Counter, CounterKey, PageNumberingIntrospection, PageSupplementIntrospection,
-    QueryLabelIntrospection,
+    QueryUniqueIntrospection,
 };
 use crate::math::EquationElem;
 use crate::model::{
@@ -17,10 +17,11 @@ use crate::model::{
 };
 use crate::text::TextElem;
 
-/// A reference to a label or bibliography.
+/// A reference to a document element or bibliography entry.
 ///
-/// Takes a label and cross-references it. There are two kind of references,
-/// determined by its @ref.form[`form`]: `{"normal"}` and `{"page"}`.
+/// Takes a label or selector and cross-references its unique match. There are two
+/// kinds of references, determined by its @ref.form[`form`]: `{"normal"}` and
+/// `{"page"}`.
 ///
 /// The default, a `{"normal"}` reference, produces a textual reference to a
 /// label. For example, a reference to a heading will yield an appropriate
@@ -78,6 +79,28 @@ use crate::text::TextElem;
 /// This function also has dedicated syntax: A `{"normal"}` reference to a label
 /// can be created by typing an `[@]` followed by the name of the label (e.g.
 /// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
+///
+/// A slash-separated reference like `[@chapter/result]` references `result`
+/// within content labelled `chapter`. Longer references narrow the scope from
+/// left to right.
+///
+/// This lets the same label be reused in different labelled scopes:
+///
+/// ```example
+/// #set heading(numbering: "1.")
+///
+/// #[
+///   = Observations
+///   == Conclusion <conclusion>
+/// ] <observations>
+///
+/// #[
+///   = Calculations
+///   == Conclusion <conclusion>
+/// ] <calculations>
+///
+/// See @observations/conclusion and @calculations/conclusion.
+/// ```
 ///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
@@ -137,13 +160,13 @@ use crate::text::TextElem;
 /// ```
 #[elem(title = "Reference", since = "forever", Locatable, Tagged, Synthesize)]
 pub struct RefElem {
-    /// The target label that should be referenced.
+    /// The target that should be referenced.
     ///
-    /// Can be a label that is defined in the document or, if the
-    /// @ref.form[`form`] is set to `["normal"]`, an entry from the
-    /// @bibliography.
+    /// Can be a label or a selector with a unique match. A label can also refer
+    /// to an entry from the @bibliography if the @ref.form[`form`] is set to
+    /// `["normal"]`.
     #[required]
-    pub target: Label,
+    pub target: LocatableSelector,
 
     /// A supplement for the reference.
     ///
@@ -205,15 +228,25 @@ impl Synthesize for Packed<RefElem> {
         styles: StyleChain,
     ) -> SourceResult<()> {
         let span = self.span();
-        let citation = to_citation(self, engine, styles)?;
+        let citation = self
+            .target
+            .0
+            .as_label()
+            .map(|label| to_citation(self, engine, styles, label))
+            .transpose()?;
 
         let elem = self.as_mut();
-        elem.citation = Some(Some(citation));
+        elem.citation = Some(citation);
         elem.element = Some(None);
 
-        if !BibliographyElem::has(engine, elem.target, span)
+        let is_bibliography = elem
+            .target
+            .0
+            .as_label()
+            .is_some_and(|label| BibliographyElem::has(engine, label, span));
+        if !is_bibliography
             && let Ok(found) =
-                engine.introspect(QueryLabelIntrospection(elem.target, span))
+                engine.introspect(QueryUniqueIntrospection(elem.target.0.clone(), span))
         {
             elem.element = Some(Some(found));
             return Ok(());
@@ -231,7 +264,8 @@ impl Packed<RefElem> {
         styles: StyleChain,
     ) -> SourceResult<Content> {
         let span = self.span();
-        let elem = engine.introspect(QueryLabelIntrospection(self.target, span));
+        let elem =
+            engine.introspect(QueryUniqueIntrospection(self.target.0.clone(), span));
 
         let form = self.form.get(styles);
         if form == RefForm::Page {
@@ -260,25 +294,27 @@ impl Packed<RefElem> {
         }
         // RefForm::Normal
 
-        if BibliographyElem::has(engine, self.target, span) {
+        if let Some(label) = self.target.0.as_label()
+            && BibliographyElem::has(engine, label, span)
+        {
             if let Ok(elem) = elem {
                 bail!(
                     span,
                     "label `{}` occurs both in the document and a bibliography",
-                    self.target.repr();
+                    label.repr();
                     hint: "change either the {}'s label or the \
                            bibliography key to resolve the ambiguity",
                     elem.func().name();
                 );
             }
 
-            return Ok(to_citation(self, engine, styles)?.pack().spanned(span));
+            return Ok(to_citation(self, engine, styles, label)?.pack().spanned(span));
         }
 
         let elem = elem.at(span)?;
 
         if let Some(footnote) = elem.to_packed::<FootnoteElem>() {
-            return Ok(footnote.into_ref(self.target).pack().spanned(span));
+            return Ok(footnote.into_ref(self.target.clone()).pack().spanned(span));
         }
 
         let elem = elem.clone();
@@ -365,8 +401,9 @@ fn to_citation(
     reference: &Packed<RefElem>,
     engine: &mut Engine,
     styles: StyleChain,
+    target: Label,
 ) -> SourceResult<Packed<CiteElem>> {
-    let mut elem = Packed::new(CiteElem::new(reference.target).with_supplement(
+    let mut elem = Packed::new(CiteElem::new(target).with_supplement(
         match reference.supplement.get_cloned(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,

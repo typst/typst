@@ -44,6 +44,9 @@ pub use crate::__select_where as select_where;
 /// - filter for an element function with @function.where[specific fields]
 /// - use a @str[string] or @regex[regular expression]
 /// - use a @label[`{<label>}`]
+/// - divide labels (`{<chapter> / <result>}`) or write `{<chapter/result>}` to
+///   select one label within another; both are equivalent to
+///   `{selector(<result>).within(<chapter>)}`
 /// - use a @location
 /// - call the @selector constructor to convert any of the above types into a
 ///   selector value and use the methods below to refine it
@@ -104,6 +107,14 @@ pub enum Selector {
 }
 
 impl Selector {
+    /// Returns the selected label if this is a label selector.
+    pub(crate) fn as_label(&self) -> Option<Label> {
+        match self {
+            Self::Label(label) => Some(*label),
+            _ => None,
+        }
+    }
+
     /// Define a simple text selector.
     pub fn text(text: &str) -> StrResult<Self> {
         if text.is_empty() {
