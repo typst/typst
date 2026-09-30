@@ -20,7 +20,6 @@ use typst_library::visualize::{Paint, Stroke};
 use typst_syntax::{Span, Spanned};
 use typst_utils::{NonZeroExt, SmallBitSet};
 
-use crate::foundations::NativeElement;
 use crate::model::{TableCellKind, TableHeaderScope};
 
 /// Convert a grid to a cell grid.
@@ -71,7 +70,7 @@ pub fn grid_to_cellgrid(
         styles,
         elem.span(),
     )
-    .trace(engine.world, || Tracepoint::call(GridElem::ELEM.name()), elem.span())
+    .trace(engine.world, Tracepoint::process::<GridElem>, elem.span())
 }
 
 /// Convert a table to a cell grid.
@@ -122,7 +121,7 @@ pub fn table_to_cellgrid(
         styles,
         elem.span(),
     )
-    .trace(engine.world, || Tracepoint::call(TableElem::ELEM.name()), elem.span())
+    .trace(engine.world, Tracepoint::process::<TableElem>, elem.span())
 }
 
 fn grid_item_to_resolvable(

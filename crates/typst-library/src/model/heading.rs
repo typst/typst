@@ -257,7 +257,7 @@ impl Synthesize for Packed<HeadingElem> {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                let point = || Tracepoint::call(HeadingElem::ELEM.name());
+                let point = Tracepoint::process::<HeadingElem>;
                 supplement
                     .resolve(engine, styles, [self.clone().pack()], sup.span)
                     .trace(engine.world, point, self.span())?

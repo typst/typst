@@ -128,7 +128,7 @@
 // Trace: 22-29 (1) while calling `compute`
 #set outline(indent: compute)
 
-// Trace: 2-11 (2) while calling `indented`
+// Trace: 2-11 (2) while processing entry element
 #outline()
 
 = Heading

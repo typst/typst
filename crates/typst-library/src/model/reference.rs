@@ -345,7 +345,7 @@ fn realize_reference(
         Smart::Custom(None) => Content::empty(),
         Smart::Custom(Some(supplement)) => supplement
             .resolve(engine, styles, [elem], sup.span)
-            .trace(engine.world, || Tracepoint::call(RefElem::ELEM.name()), span)?,
+            .trace(engine.world, Tracepoint::process::<RefElem>, span)?,
     };
 
     let alt = {

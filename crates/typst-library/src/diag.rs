@@ -23,7 +23,7 @@ use typst_syntax::{
 use utf8_iter::ErrorReportingUtf8Chars;
 
 use crate::engine::Engine;
-use crate::foundations::{Context, Func, IntoArgs, Value};
+use crate::foundations::{Context, Func, IntoArgs, NativeElement, Value};
 use crate::loading::{LoadSource, Loaded};
 use crate::{World, WorldExt};
 
@@ -551,6 +551,10 @@ impl WarningSink for () {
 /// A part of a diagnostic's [trace](SourceDiagnostic::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {
+    /// A context expression.
+    Context,
+    /// A default show rule application or synthesis.
+    Process(&'static str),
     /// A function call.
     Call(Option<EcoString>),
     /// A show rule application.
@@ -562,6 +566,10 @@ pub enum Tracepoint {
 }
 
 impl Tracepoint {
+    pub fn process<T: NativeElement>() -> Self {
+        Self::Process(T::ELEM.name())
+    }
+
     pub fn call<T: Into<EcoString>>(name: T) -> Self {
         Self::Call(Some(name.into()))
     }
@@ -570,6 +578,8 @@ impl Tracepoint {
 impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            Tracepoint::Context => write!(f, "while evaluating contextual content"),
+            Tracepoint::Process(name) => write!(f, "while processing {name} element"),
             Tracepoint::Call(Some(name)) => write!(f, "while calling `{name}`"),
             Tracepoint::Call(None) => write!(f, "while calling function"),
             Tracepoint::Show(name) => write!(f, "while showing {name} element"),
