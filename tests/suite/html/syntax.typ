@@ -247,5 +247,5 @@ A #html.br() B
 // Error: 23-31 the character `"\u{fdd0}"` cannot be encoded in HTML
 #html.textarea[Typing \u{fdd0}]
 
---- html-multi-byte-char html ---
+--- issue-8725-html-raw-multi-byte-char html ---
 #html.elem("style", "</abcd−")
