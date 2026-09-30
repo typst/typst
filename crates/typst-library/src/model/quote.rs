@@ -68,10 +68,10 @@ pub struct QuoteElem {
     /// @text[text].
     ///
     /// - `{true}`: Wrap this quote in double quotes.
-    /// - `{false}`: Do not wrap this quote in double quotes.
-    /// - `{auto}`: Infer whether to wrap this quote in double quotes based on
-    ///   the `block` property. If `block` is `{false}`, double quotes are
-    ///   automatically added.
+    /// - `{false}`: Do not wrap this quote in double quotes. Add inline CSS to
+    ///   `<q>` tag and set the `quotes` property to `none` for HTML export.
+    /// - `{auto}`: The default. Equivalent to `{true}` for inline quotes and
+    ///   `{false}` for block quotes.
     ///
     /// ```example
     /// #set text(lang: "de")
