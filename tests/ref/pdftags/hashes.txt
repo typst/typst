@@ -52,6 +52,7 @@ f5f3604f1588538567ec71405654998a issue-7301-link-tags-empty-link-body-linebreak
 c224c9b9de88cc28465647ad99ac5c01 issue-7777-missing-link-parent
 45c9cfe17a8402f6c0869fd5267dce5e issue-7777-missing-link-parent-repeated-hyphen
 4c9538b1955e189fda33054d5f5fc50a issue-7789-list-tags-breaking
+e125dd464c92efd53afe5c5cbfd356ae issue-8703-single-page-figure-without-bbox
 a82a398895d6aa9fbf754e9bccf1fc73 lang-tags-pars-basic
 1d4724e9204407592d0ed20eeb376b51 lang-tags-propagation
 f3dffe7d5f7f86d4ac3d7a2f181602f0 layout-tags-placement-float
