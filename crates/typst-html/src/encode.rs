@@ -302,14 +302,11 @@ fn find_closing_tag(text: &str, tag: HtmlTag) -> Option<&str> {
     let len = s.len();
     text.match_indices("</").find_map(|(i, _)| {
         let rest = &text[i + 2..];
-        if let Some((left, right)) = rest.split_at_checked(len) {
-            let disallowed = rest.len() >= len
-                && left.eq_ignore_ascii_case(&s)
-                && right.starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
-            disallowed.then(|| &text[i..i + 2 + len])
-        } else {
-            None
-        }
+        let (before, after) = rest.split_at_checked(len)?;
+        let disallowed = rest.len() >= len
+            && before.eq_ignore_ascii_case(&s)
+            && after.starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
+        disallowed.then(|| &text[i..i + 2 + len])
     })
 }
 
