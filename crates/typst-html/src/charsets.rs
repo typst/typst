@@ -6,6 +6,8 @@ pub const fn is_valid_in_tag_name(c: char) -> bool {
 }
 
 /// Check whether a character is valid in an attribute name.
+///
+/// See <https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-name>
 pub const fn is_valid_in_attribute_name(c: char) -> bool {
     match c {
         // These are forbidden.
@@ -18,10 +20,21 @@ pub const fn is_valid_in_attribute_name(c: char) -> bool {
     }
 }
 
+/// Check whether a character is valid in an attribute local name.
+///
+/// See <https://dom.spec.whatwg.org/#valid-attribute-local-name>
+pub const fn is_valid_in_attribute_local_name(c: char) -> bool {
+    match c {
+        '\0' | '/' | '=' | '>' => false,
+        c if c.is_ascii_whitespace() => false,
+        _ => true,
+    }
+}
+
 /// Check whether a character can be an used in an attribute value without
 /// escaping.
 ///
-/// See <https://html.spec.whatwg.org/multipage/syntax.html#attributes-2>
+/// See <https://html.spec.whatwg.org/multipage/syntax.html#syntax-attribute-value>
 pub const fn is_valid_in_attribute_value(c: char) -> bool {
     match c {
         // Ampersands are sometimes legal (i.e. when they are not _ambiguous
@@ -61,6 +74,7 @@ pub const fn is_w3c_text_char(c: char) -> bool {
     }
 }
 
+/// See <https://infra.spec.whatwg.org/#noncharacter>
 const fn is_whatwg_non_char(c: char) -> bool {
     match c {
         '\u{fdd0}'..='\u{fdef}' => true,
@@ -70,6 +84,7 @@ const fn is_whatwg_non_char(c: char) -> bool {
     }
 }
 
+/// See <https://infra.spec.whatwg.org/#control>
 const fn is_whatwg_control_char(c: char) -> bool {
     match c {
         // C0 control characters.
