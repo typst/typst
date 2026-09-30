@@ -1741,6 +1741,291 @@ Markup: 1 [
         );
     }
 
+    /// Return a vector of the span numbers from an in-order traversal of the
+    /// tree.
+    fn span_numbers(root: &SyntaxNode) -> Vec<u64> {
+        let mut vec = vec![];
+        root.traverse(|node| {
+            vec.push(node.span().number());
+            node.children()
+        });
+        vec
+    }
+
+    /// Basic test for span numbering.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_basic() {
+        let id = FileId::new_for_test("numberize_basic");
+
+        // Simplest actual example.
+        let mut root = crate::parse("A");
+        assert_eq!(format!("{root:?}"), "Markup: 1 [Text: \"A\"]");
+        let range_numberings = [
+            (2..(2 + 02), [2, 3]), // +0, +1
+            (2..(2 + 07), [2, 3]),
+            (2..(2 + 08), [3, 5]), // +1, +2
+            (2..(2 + 11), [3, 5]),
+            (2..(2 + 12), [3, 6]),  // +1, +3
+            (2..(2 + 16), [4, 8]),  // +2, +4
+            (2..(2 + 20), [4, 9]),  // +2, +5
+            (2..(2 + 24), [5, 11]), // +3, +6
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                [0, 1].map(|i| start + stride / 2 + i * stride)
+            }),
+        ];
+        for (range, numbers) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbers);
+        }
+
+        // Two extra nodes.
+        let mut root = crate::parse(" A ");
+        assert_eq!(
+            format!("{root:?}"),
+            "Markup: 3 [SpaceNoNewline: \" \", Text: \"A\", SpaceNoNewline: \" \"]",
+        );
+        // This has a simple pattern since it has no nesting.
+        let range_numberings = [
+            (2..(2 + 04), [2, 3, 4, 5]), // +0, iter by 1
+            (2..(2 + 05), [2, 3, 4, 5]),
+            (2..(2 + 08), [2, 3, 4, 5]), // +0, iter by 1 (since 8/16==0, 8/8==1)
+            (2..(2 + 15), [2, 3, 4, 5]),
+            (2..(2 + 16), [3, 5, 7, 9]), // +1, iter by 2 (since 16/16==1, 16/8==2)
+            (2..(2 + 23), [3, 5, 7, 9]),
+            (2..(2 + 24), [3, 6, 9, 12]), // +1, iter by 3 (since 24/16==1, 24/8==3)
+            (2..(2 + 32), [4, 8, 12, 16]), // +2, iter by 4 (etc.)
+            (2..(2 + 40), [4, 9, 14, 19]), // +2, iter by 5
+            (2..(2 + 48), [5, 11, 17, 23]), // +3, iter by 6
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                [0, 1, 2, 3].map(|i| start + stride / 2 + i * stride)
+            }),
+        ];
+        for (range, numbering) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbering);
+        }
+
+        // More nesting and an empty inner node.
+        let mut root = crate::parse("1.");
+        assert_eq!(
+            format!("{root:?}"),
+            "Markup: 2 [EnumItem: 2 [EnumMarker: \"1.\", Markup: 0]]",
+        );
+        // This pattern is harder. The first node always matches the previous
+        // pattern, but the `EnumItem` node only counts 3 descendants, so starts
+        // a different stride for its children.
+        let range_numberings = [
+            (2..(2 + 04), [2, 3, 4, 5]), // Start simple
+            (2..(2 + 05), [2, 3, 4, 5]),
+            (2..(2 + 08), [2, 3, 4, 5]),
+            (2..(2 + 15), [2, 3, 4, 5]), // +1, +1, iter by 1 (15/8==1)
+            (2..(2 + 16), [3, 4, 5, 6]), // +2, +1, iter by 1 (16/8==2)
+            (2..(2 + 23), [3, 4, 5, 6]),
+            (2..(2 + 24), [3, 5, 6, 7]), // +2, +2, iter by 1 (24/8==3)
+            (2..(2 + 31), [3, 5, 6, 7]),
+            (2..(2 + 32), [4, 7, 9, 10]), // +3, +3, iter by 1 (32/8==4)
+            (2..(2 + 40), [4, 8, 10, 11]),
+            (2..(2 + 47), [4, 8, 10, 11]),
+            (2..(2 + 48), [5, 9, 12, 14]),
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                let markup_1 = start + stride / 2;
+                let enum_item = markup_1 + stride * 3 / 4; // stride/4 + stride/2
+                let enum_marker = enum_item + stride / 2;
+                let markup_2 = enum_marker + stride * 3 / 8; // stride/4 + stride/8
+                [markup_1, enum_item, enum_marker, markup_2]
+            }),
+        ];
+        for (range, numbering) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbering);
+        }
+    }
+
+    impl SyntaxNode {
+        /// Helper to call [`SyntaxNode::replace_children`] and
+        /// [`SyntaxNode::renumber_children`] more easily.
+        fn replace_and_renumber(
+            &mut self,
+            range: Range<usize>,
+            replacement: &[SyntaxNode],
+        ) -> NumberingResult {
+            let replaced_range = self.replace_children(range, replacement.to_vec());
+            self.renumber_children(replaced_range)
+        }
+    }
+
+    /// Test span numbering when replacing a single child.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_replace() {
+        let id = FileId::new_for_test("numberize_replace");
+
+        let orig_root = crate::parse("A");
+        assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
+
+        // Test replacing a single child with one or two nodes.
+        let one_node = &[SyntaxNode::leaf(SyntaxKind::Text, "B")];
+        let two_nodes = &[
+            SyntaxNode::leaf(SyntaxKind::Text, "C"),
+            SyntaxNode::leaf(SyntaxKind::Text, "D"),
+        ];
+        let range_numbering_replacements = [
+            // (1) The range of numbers, (2) the initial numbering for that
+            // range, (3) the numbering when one node replaces "A", (4) the
+            // numbering when two nodes replace "A".
+            (2..(2 + 02), [2, 3], None, None), // TODO: `Some([2, 3]), None`
+            (2..(2 + 03), [2, 3], Some([2, 3]), None), // TODO: `Some([2,3]), Some([2,3,4]`
+            (2..(2 + 04), [2, 3], Some([2, 3]), Some([2, 3, 4])),
+            (2..(2 + 07), [2, 3], Some([2, 4]), Some([2, 3, 4])), // init/one differ
+            (2..(2 + 08), [3, 5], Some([3, 5]), Some([3, 4, 5])),
+            (2..(2 + 10), [3, 5], Some([3, 6]), Some([3, 5, 7])), // init/one differ
+            (2..(2 + 16), [4, 8], Some([4, 8]), Some([4, 6, 9])),
+            (2..(2 + 19), [4, 8], Some([4, 9]), Some([4, 7, 11])), // init/one differ
+        ];
+        for (range, num_init, replace_one, replace_two) in range_numbering_replacements {
+            let mut root = orig_root.clone();
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), num_init);
+
+            // Replace with a single node.
+            let num_result = root.replace_and_renumber(0..1, one_node);
+            if let Some(expected) = replace_one {
+                assert!(num_result.is_ok(), "numbering should succeed");
+                assert_eq!(span_numbers(&root), expected);
+            } else {
+                assert!(num_result.is_err(), "numbering should fail");
+            }
+
+            // Replace with two nodes.
+            let num_result = root.replace_and_renumber(0..1, two_nodes);
+            if let Some(expected) = replace_two {
+                assert!(num_result.is_ok(), "numbering should succeed");
+                assert_eq!(span_numbers(&root), expected);
+            } else {
+                assert!(num_result.is_err(), "numbering should fail");
+            }
+        }
+    }
+
+    /// Test how many nodes we can insert at the front/back of an inner node
+    /// until we change any of the spans.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_insertion() {
+        let id = FileId::new_for_test("numberize_insertion");
+        let one_node = &[SyntaxNode::leaf(SyntaxKind::Text, "X")];
+
+        let orig_root = crate::parse("A");
+        assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
+
+        let back_insertion = [
+            // (1) The range of numbers, (2) the initial numbering for
+            // that range, (3) the numbers inserted at the _back_ until one of
+            // the spans changes.
+            (2..(2 + 02), [2, 3], &[] as &[u64]),
+            (2..(2 + 03), [2, 3], &[]),
+            (2..(2 + 04), [2, 3], &[4]),
+            (2..(2 + 07), [2, 3], &[5, 6, 7]),
+            (2..(2 + 08), [3, 5], &[7, 8]),
+            (2..(2 + 09), [3, 5], &[7, 8, 9]),
+            (2..(2 + 10), [3, 5], &[7, 9, 10]),
+            (2..(2 + 12), [3, 6], &[8, 10, 11, 12]),
+            (2..(2 + 13), [3, 6], &[9, 11, 12, 13]),
+            (2..(2 + 14), [3, 6], &[9, 11, 13, 14]),
+            (2..(2 + 15), [3, 6], &[9, 11, 13, 14, 15]),
+            (2..(2 + 16), [4, 8], &[11, 13, 15, 16]),
+        ];
+        for (range, nums_init, inserted_nums) in back_insertion {
+            let mut expected = nums_init.to_vec();
+
+            let mut back = orig_root.clone();
+            back.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&back), expected);
+
+            expected.extend_from_slice(inserted_nums);
+
+            // Insert nodes in the back one at a time until the span number of
+            // one of nodes changes.
+            let mut prev = back.clone();
+            let mut n = 1;
+            while back.replace_and_renumber(n..n, one_node).is_ok()
+                && prev
+                    .children()
+                    .zip(back.children().take(n))
+                    .all(|(a, b)| a.span() == b.span())
+            {
+                n += 1;
+                prev = back.clone();
+            }
+            assert_eq!(span_numbers(&prev), expected);
+        }
+
+        let front_insertion = [
+            // (1) The range of numbers, (2) the initial numbering for that
+            // range, (3) the numbers inserted at the _front_ until one of the
+            // spans changes.
+            (2..(2 + 02), [2, 3], &[] as &[u64]),
+            (2..(2 + 07), [2, 3], &[]),
+            (2..(2 + 08), [3, 5], &[4]),
+            (2..(2 + 09), [3, 5], &[4]),
+            (2..(2 + 10), [3, 5], &[]), // TODO: Should be `&[4]`
+            (2..(2 + 11), [3, 5], &[]), // TODO: Should be `&[4]`
+            (2..(2 + 12), [3, 6], &[4]),
+            (2..(2 + 16), [4, 8], &[5]),
+            (2..(2 + 20), [4, 9], &[5, 6]),
+            // To understand these patterns, recall that the last span number
+            // will be the first node inserted (since we insert one at a time).
+            // For example, we insert 7 between 5 and 11 because we split the
+            // range of 5 numbers (6,7,8,9,10) in half: `5 / 2 == 2` and we
+            // insert `5 + 2 == 7`. We then insert 6 because it is the only
+            // number between 5 and 7, and we stop there since another insertion
+            // would be forced to modify one of the existing numbers.
+            (2..(2 + 24), [5, 11], &[6, 7]),
+            (2..(2 + 28), [5, 12], &[6, 7]),
+            (2..(2 + 32), [6, 14], &[7, 8]),
+            (2..(2 + 40), [7, 17], &[8, 10]),
+            (2..(2 + 48), [8, 20], &[9, 11]),
+            (2..(2 + 56), [9, 23], &[10, 13]),
+            (2..(2 + 80), [12, 32], &[13, 14, 17]),
+            (2..(2 + 88), [13, 35], &[14, 15, 19]),
+            (2..(2 + 144), [20, 56], &[21, 23, 29]),
+            (2..(2 + 152), [21, 59], &[22, 24, 31]),
+            (2..(2 + 160), [22, 62], &[23, 25, 32]),
+        ];
+        for (range, num_init, inserted_nums) in front_insertion {
+            let mut expected = num_init.to_vec();
+
+            let mut front = orig_root.clone();
+            front.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&front), expected);
+
+            expected.splice(1..1, inserted_nums.iter().copied());
+
+            // Insert nodes in the front one at a time until the span number of
+            // one of nodes changes.
+            let mut prev = front.clone();
+            while front.replace_and_renumber(0..0, one_node).is_ok()
+                && prev
+                    .children()
+                    .zip(front.children().skip(1))
+                    .all(|(a, b)| a.span() == b.span())
+            {
+                prev = front.clone();
+            }
+            assert_eq!(span_numbers(&prev), expected);
+        }
+    }
+
     #[test]
     fn test_linked_node() {
         let test_id = FileId::new_for_test("test_linked_node");
