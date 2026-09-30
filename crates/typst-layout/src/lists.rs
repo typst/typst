@@ -2,9 +2,7 @@ use comemo::Track;
 use smallvec::smallvec;
 use typst_library::diag::{SourceResult, Trace, Tracepoint};
 use typst_library::engine::Engine;
-use typst_library::foundations::{
-    Content, Context, Depth, NativeElement, Packed, Resolve, StyleChain,
-};
+use typst_library::foundations::{Content, Context, Depth, Packed, Resolve, StyleChain};
 use typst_library::introspection::Locator;
 use typst_library::layout::{
     Abs, Axes, Dir, Fragment, Frame, FrameItem, Length, Point, Region, Regions, Size,
@@ -44,7 +42,7 @@ pub fn layout_list(
     let marker = marker
         .v
         .resolve(engine, styles, depth, marker.span)
-        .trace(engine.world, || Tracepoint::call(ListElem::ELEM.name()), elem.span())?
+        .trace(engine.world, Tracepoint::process::<ListElem>, elem.span())?
         .aligned(marker_align);
 
     let mut items = vec![];

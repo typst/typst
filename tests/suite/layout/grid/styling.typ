@@ -109,7 +109,7 @@ a
 // Error: 18-31 expected relative length or dictionary, found string
 #set grid(inset: compute-inset)
 
-// Trace: 1:2-5:2 (1) while calling `grid`
+// Trace: 1:2-5:2 (1) while processing grid element
 #grid(
   columns: 2,
   [A], [B],

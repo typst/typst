@@ -447,7 +447,7 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::packed(body).spanned(span)
     } else {
-        let point = || Tracepoint::call(OutlineEntry::indented_data().name);
+        let point = Tracepoint::process::<OutlineEntry>;
         elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())
             .trace(engine.world, point, span)?
     };

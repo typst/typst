@@ -267,7 +267,7 @@ $ 1 + 2 $ <eq>
 // Trace: 2-34 (1) while calling `page-count`
 #state("page").update(page-count)
 
-// Trace: 1:10-3:2 (3) while calling function
+// Trace: 1:10-3:2 (3) while evaluating contextual content
 #context {
   // Trace: 3-24 (2) while calling `final`
   state("page").final()

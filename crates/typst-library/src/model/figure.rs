@@ -396,7 +396,7 @@ impl Synthesize for Packed<FigureElem> {
                 let target = descendant.unwrap_or_else(|| Cow::Borrowed(&elem.body));
                 Some(supplement.resolve(engine, styles, [target], sup.span).trace(
                     engine.world,
-                    || Tracepoint::call(FigureElem::ELEM.name()),
+                    Tracepoint::process::<FigureElem>,
                     span,
                 )?)
             }
