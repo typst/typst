@@ -96,6 +96,7 @@ c7fdf53834e30a25e43dd1d2e08590fe issue-4828-math-number-multi-char
 42fe3442b2e9fb70eee9e95081864472 issue-8261-string-as-ellipsis
 27960fa44fa1d820637471af9026db18 issue-8261-string-as-empty
 4202c01a65f931707295df7ab2f59a23 issue-8261-string-as-non-numeric
+b89f0209b9d6083da48fe869e3c8135d issue-8725-html-raw-multi-byte-char
 58214d2c1fc3a98beab9feb2ab093bfa issue-math-realize-scripting
 44fbc75996ca7154896d82a2cc32da32 link-basic
 a401e6e8dbbfb91c6fcd9f50b0812f00 link-html-frame
