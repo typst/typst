@@ -16,7 +16,8 @@ use typst_utils::SliceExt;
 
 use crate::fragment::{html_block_fragment, html_inline_fragment, html_math_fragment};
 use crate::{
-    FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, attr, css, property, tag,
+    FrameElem, HtmlElem, HtmlElement, HtmlFrame, HtmlNode, HtmlStyleProfile, attr, css,
+    property, tag,
 };
 
 /// What and how to convert.
@@ -63,6 +64,7 @@ pub fn convert_to_nodes<'a>(
     children: impl IntoIterator<Item = Pair<'a>>,
     level: ConversionLevel,
     whitespace: Whitespace,
+    profile: Option<HtmlStyleProfile>,
 ) -> SourceResult<EcoVec<HtmlNode>> {
     let block = matches!(level, ConversionLevel::Block);
     let mut converter = Converter {
@@ -75,6 +77,7 @@ pub fn convert_to_nodes<'a>(
         whitespace,
         output: EcoVec::new(),
         trailing: None,
+        profile,
     };
 
     for (child, styles) in children {
@@ -201,6 +204,7 @@ fn handle_html_elem(
                 converter.locator.next(&elem.span()),
                 styles,
                 whitespace,
+                converter.profile,
             )?;
 
             // Block-level elements reset the inline state. This part is
@@ -216,6 +220,7 @@ fn handle_html_elem(
                 converter.quoter,
                 styles,
                 whitespace,
+                converter.profile,
             )?;
         } else {
             children = html_inline_fragment(
@@ -225,6 +230,7 @@ fn handle_html_elem(
                 converter.quoter,
                 styles,
                 whitespace,
+                converter.profile,
             )?;
         }
     }
@@ -237,7 +243,7 @@ fn handle_html_elem(
     converter.push(HtmlElement {
         tag: elem.tag,
         attrs,
-        css: elem.css.get_cloned(styles),
+        css: elem.css.get_cloned(styles).to_filtered(converter.profile),
         children,
         parent: elem.parent,
         span: elem.span(),
@@ -348,6 +354,7 @@ fn handle_box(
             converter.quoter,
             styles,
             converter.whitespace,
+            converter.profile,
         )?;
 
         if let Some(node) = to_lone_element(&mut children) {
@@ -360,7 +367,7 @@ fn handle_box(
     converter.push(
         // TODO: This is rather incomplete.
         HtmlElement::new(tag::span)
-            .with_css(css::Properties::new().with("display", "inline-block"))
+            .with_css(css::FilteredProperties::new().with("display", "inline-block"))
             .with_children(children)
             .spanned(elem.span()),
     );
@@ -417,6 +424,7 @@ fn handle_block(
             converter.locator.next(&elem.span()),
             styles,
             converter.whitespace,
+            converter.profile,
         )?;
 
         if let Some(node) = to_lone_element(&mut children)
@@ -517,6 +525,7 @@ struct Converter<'a, 'y, 'z> {
     whitespace: Whitespace,
     output: EcoVec<HtmlNode>,
     trailing: Option<TrailingWhitespace>,
+    profile: Option<HtmlStyleProfile>,
 }
 
 /// Keeps track of a trailing whitespace in the output.
@@ -675,7 +684,7 @@ fn protect_space(node: &mut HtmlNode) {
 fn pre_wrap(nodes: EcoVec<HtmlNode>) -> HtmlElement {
     let span = Span::find(nodes.iter().map(|c| c.span()));
     let mut elem = HtmlElement::new(tag::span)
-        .with_css(css::Properties::new().with("white-space", "pre-wrap"))
+        .with_css(css::FilteredProperties::new().with("white-space", "pre-wrap"))
         .with_children(nodes)
         .spanned(span);
     elem.pre_span = true;

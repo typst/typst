@@ -15,6 +15,7 @@ use typst_library::text::TextElem;
 use typst_syntax::Span;
 use typst_utils::{PicoStr, ResolvedPicoStr};
 
+use crate::css::ExternalCss;
 use crate::document::HtmlOutput;
 use crate::{HtmlIntrospector, charsets, css};
 
@@ -26,6 +27,7 @@ use crate::{HtmlIntrospector, charsets, css};
 #[derive(Debug, Clone)]
 pub struct HtmlDocument {
     output: HtmlOutput,
+    external_css: Option<ExternalCss>,
     info: DocumentInfo,
     options: DocumentFormatOptions,
     introspector: Arc<HtmlIntrospector>,
@@ -37,12 +39,14 @@ impl HtmlDocument {
     /// Internally builds the introspector.
     pub fn new(
         output: HtmlOutput,
+        external_css: Option<ExternalCss>,
         info: DocumentInfo,
         options: DocumentFormatOptions,
     ) -> Self {
         let introspector = HtmlIntrospector::new(output.nodes());
         Self {
             output,
+            external_css,
             info,
             options,
             introspector: Arc::new(introspector),
@@ -65,6 +69,10 @@ impl HtmlDocument {
     /// The document's root HTML element, in its containing node wrapper.
     pub fn root_node(&self) -> &HtmlNode {
         self.output.root_node()
+    }
+
+    pub fn external_css(&self) -> Option<&ExternalCss> {
+        self.external_css.as_ref()
     }
 
     /// Details about the document, mutably.
@@ -202,7 +210,7 @@ pub struct HtmlElement {
     /// The element's attributes.
     pub attrs: HtmlAttrs,
     /// The element's CSS properties. Currently only used for generated styles.
-    pub css: css::Properties,
+    pub css: css::FilteredProperties,
     /// The element's children.
     pub children: EcoVec<HtmlNode>,
     /// The element's logical parent. For introspection purposes, this element
@@ -226,7 +234,7 @@ impl HtmlElement {
         Self {
             tag,
             attrs: HtmlAttrs::default(),
-            css: css::Properties::default(),
+            css: css::FilteredProperties::new(),
             children: EcoVec::new(),
             parent: None,
             span: Span::detached(),
@@ -249,7 +257,7 @@ impl HtmlElement {
     }
 
     /// Adds CSS styles to an element.
-    pub(crate) fn with_css(mut self, css: css::Properties) -> Self {
+    pub(crate) fn with_css(mut self, css: css::FilteredProperties) -> Self {
         self.css = css;
         self
     }
@@ -528,7 +536,7 @@ pub struct HtmlFrame {
     /// An ID to assign to the SVG itself.
     pub id: Option<EcoString>,
     /// The element's CSS properties.
-    pub css: css::Properties,
+    pub css: css::FilteredProperties,
     /// IDs to assign to destination jump points within the SVG.
     pub anchors: EcoVec<(Point, EcoString)>,
     /// The span from which the frame originated.
@@ -542,7 +550,7 @@ impl HtmlFrame {
             inner,
             text_size: styles.resolve(TextElem::size),
             id: None,
-            css: css::Properties::new(),
+            css: css::FilteredProperties::new(),
             anchors: EcoVec::new(),
             span,
         }

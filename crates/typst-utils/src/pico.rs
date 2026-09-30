@@ -134,6 +134,11 @@ impl PicoStr {
 
         ResolvedPicoStr(ResolvedPicoStrInner::Static(string))
     }
+
+    /// The internal key of the string that uniquely identifies it.
+    pub const fn opaque_key(self) -> NonZeroU64 {
+        self.0
+    }
 }
 
 impl Debug for PicoStr {
