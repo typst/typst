@@ -1,6 +1,6 @@
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
-use typst_library::model::{Destination, LinkElem, ParElem};
+use typst_library::model::{Destination, LinkElem};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -22,14 +22,18 @@ pub struct FrameModifiers {
     /// A destination to link to.
     dest: Option<Destination>,
     /// Whether the contents of the frame should be hidden.
-    hidden: bool,
+    pub(crate) hidden: bool,
 }
 
 impl FrameModifiers {
+    pub(super) fn with_dest(dest: Destination) -> Self {
+        Self { dest: Some(dest), hidden: false }
+    }
+
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: styles.get_cloned(LinkElem::current),
+            dest: styles.get_cloned(LinkElem::current).map(|(dest, _)| dest),
             hidden: styles.get(HideElem::hidden),
         }
     }
@@ -77,19 +81,27 @@ where
 
 pub trait FrameModifyText {
     /// Resolve and apply [`FrameModifiers`] for this text frame.
-    fn modify_text(&mut self, styles: StyleChain);
+    fn modify_text(&mut self, modifiers: &FrameModifiers, leading: Abs);
+
+    /// Resolve and apply [`FrameModifiers`] for this text frame, except for
+    /// the current link (which is handled by the paragraph itself).
+    fn modify_text_without_links(&mut self, styles: StyleChain);
 }
 
 impl FrameModifyText for Frame {
-    fn modify_text(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers::get_in(styles);
-        let expand_y = 0.5 * styles.resolve(ParElem::leading);
+    fn modify_text(&mut self, modifiers: &FrameModifiers, leading: Abs) {
+        let expand_y = 0.5 * leading;
         let outset = Sides::new(Abs::zero(), expand_y, Abs::zero(), expand_y);
-        modify_frame(self, &modifiers, Some(outset));
+        modify_frame(self, modifiers, Some(outset));
+    }
+
+    fn modify_text_without_links(&mut self, styles: StyleChain) {
+        let modifiers = FrameModifiers { dest: None, ..FrameModifiers::get_in(styles) };
+        modify_frame(self, &modifiers, None);
     }
 }
 
-fn modify_frame(
+pub(super) fn modify_frame(
     frame: &mut Frame,
     modifiers: &FrameModifiers,
     link_box_outset: Option<Sides<Abs>>,
@@ -122,7 +134,33 @@ where
     R: FrameModify,
 {
     let modifiers = FrameModifiers::get_in(styles);
+    layout_and_modify_internal(modifiers, styles, layout, true)
+}
 
+/// Performs layout and modification in one step, except for links, which are handled by other parts of layout.
+pub fn layout_and_modify_without_links<F, R>(styles: StyleChain<'_>, layout: F) -> R
+where
+    F: FnOnce(StyleChain) -> R,
+    R: FrameModify,
+{
+    let modifiers = FrameModifiers::get_in(styles);
+
+    // While we could set 'modifiers.dest = None' directly here, a boolean
+    // argument is used so the function remembers to reset the link in the
+    // stylechain before removing it from modifiers.
+    layout_and_modify_internal(modifiers, styles, layout, false)
+}
+
+fn layout_and_modify_internal<F, R>(
+    mut modifiers: FrameModifiers,
+    styles: StyleChain,
+    layout: F,
+    allow_links: bool,
+) -> R
+where
+    F: FnOnce(StyleChain) -> R,
+    R: FrameModify,
+{
     // Disable the current link internally since it's already applied at this
     // level of layout. This means we don't generate redundant nested links,
     // which may bloat the output considerably.
@@ -132,6 +170,10 @@ where
     if modifiers.dest.is_some() {
         reset = LinkElem::current.set(None).wrap();
         styles = outer.chain(&reset);
+    }
+
+    if !allow_links {
+        modifiers.dest = None;
     }
 
     layout(styles).modified(&modifiers)
