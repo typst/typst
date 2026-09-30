@@ -197,12 +197,7 @@ impl ListMarker {
                 list.get(depth % list.len()).cloned().unwrap_or_default()
             }
             Self::Func(func) => func
-                .call_traced(
-                    engine,
-                    Context::new(None, Some(styles)).track(),
-                    [depth],
-                    span,
-                )?
+                .call(engine, Context::new(None, Some(styles)).track(), [depth], span)?
                 .display(),
         })
     }

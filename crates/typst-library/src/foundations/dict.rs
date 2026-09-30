@@ -321,9 +321,7 @@ impl Dict {
         test: Spanned<Func>,
     ) -> SourceResult<Dict> {
         let mut run_test = |v: &Value| {
-            test.call_traced(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span)
+            test.call(engine, context, [v.clone()])?.cast::<bool>().at(test.span)
         };
         self.into_iter()
             .filter_map(|(k, v)| run_test(&v).map(|b| b.then_some((k, v))).transpose())
@@ -346,7 +344,7 @@ impl Dict {
     ) -> SourceResult<Dict> {
         self.into_iter()
             .map(|(k, v)| {
-                let mapped_value = mapper.call_traced(engine, context, [v])?;
+                let mapped_value = mapper.call(engine, context, [v])?;
                 Ok((k, mapped_value))
             })
             .collect()

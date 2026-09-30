@@ -17,7 +17,8 @@ use crate::diag::{
 use crate::engine::Engine;
 use crate::foundations::{
     Args, BindingAccess, BindingGuard, Bytes, CastInfo, Content, Context, Element,
-    IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast, scope, ty,
+    FromValue, IntoArgs, PluginFunc, Repr, Scope, Selector, Since, Type, Value, cast,
+    scope, ty,
 };
 
 /// A mapping from argument values to a return value.
@@ -361,7 +362,19 @@ impl Func {
 
     /// Call the function with the given context and arguments, adding a call
     /// tracepoint at the span.
-    pub fn call_traced<A: IntoArgs>(
+    pub fn call_cast<T: FromValue>(
+        &self,
+        engine: &mut Engine,
+        context: Tracked<Context>,
+        args: impl IntoArgs,
+        span: Span,
+    ) -> SourceResult<T> {
+        self.call(engine, context, args, span)?.cast().at(span)
+    }
+
+    /// Call the function with the given context and arguments, adding a call
+    /// tracepoint at the span.
+    pub fn call<A: IntoArgs>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
@@ -369,17 +382,20 @@ impl Func {
         span: Span,
     ) -> SourceResult<Value> {
         let point = || Tracepoint::Call(self.name().map(Into::into));
-        self.call(engine, context, args).trace(engine.world, point, span)
+        self.call_traced(engine, context, args, point, span)
     }
 
     /// Call the function with the given context and arguments.
-    pub fn call<A: IntoArgs>(
+    pub fn call_traced<A: IntoArgs>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
         args: A,
+        make_point: impl Fn() -> Tracepoint,
+        span: Span,
     ) -> SourceResult<Value> {
         self.call_impl(engine, context, args.into_args(self.params_span()))
+            .trace(engine.world, make_point, span)
     }
 
     /// Non-generic implementation of `call`.
@@ -421,7 +437,7 @@ impl Func {
             }
             FuncInner::With(with) => {
                 args.items = with.args.items.iter().cloned().chain(args.items).collect();
-                with.func.call(engine, context, args)
+                with.func.call_impl(engine, context, args)
             }
         }
     }

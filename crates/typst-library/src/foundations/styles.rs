@@ -504,8 +504,7 @@ impl Recipe {
             Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
                 // Add the definition site of the show rule to the trace.
-                let mut result =
-                    func.call_traced(engine, context, [content.clone()], self.span);
+                let mut result = func.call(engine, context, [content.clone()], self.span);
 
                 // Add application site of the show rule to the trace.
                 if self.selector.is_some() {

@@ -759,7 +759,7 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
 
             let result = elem
                 .func
-                .call_traced(
+                .call(
                     engine,
                     context.track(),
                     [dict! { "width" => x, "height" => y }],

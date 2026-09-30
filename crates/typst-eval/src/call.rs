@@ -166,7 +166,7 @@ fn eval_math_call(vm: &mut Vm, math_call: ast::MathCall) -> SourceResult<Value> 
 /// Call a function.
 fn call_func(vm: &mut Vm, func: Func, args: Args, span: Span) -> SourceResult<Value> {
     let func = func.spanned(span);
-    let f = || func.call_traced(&mut vm.engine, vm.context, args, span);
+    let f = || func.call(&mut vm.engine, vm.context, args, span);
 
     // Stacker is broken on WASM.
     #[cfg(target_arch = "wasm32")]

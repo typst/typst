@@ -401,12 +401,7 @@ impl Supplement {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
             Supplement::Func(func) => func
-                .call_traced(
-                    engine,
-                    Context::new(None, Some(styles)).track(),
-                    args,
-                    span,
-                )?
+                .call(engine, Context::new(None, Some(styles)).track(), args, span)?
                 .display(),
         })
     }

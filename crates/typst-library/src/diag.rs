@@ -624,7 +624,7 @@ impl<T> Trace<T> for SourceResult<T> {
 /// Conveniently call [`Func::call_traced`].
 pub trait CallTraced {
     /// Convenience wrapper method for calling [`Func::call_traced`].
-    fn call_traced<A: IntoArgs>(
+    fn call<A: IntoArgs>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
@@ -633,13 +633,13 @@ pub trait CallTraced {
 }
 
 impl CallTraced for Spanned<Func> {
-    fn call_traced<A: IntoArgs>(
+    fn call<A: IntoArgs>(
         &self,
         engine: &mut Engine,
         context: Tracked<Context>,
         args: A,
     ) -> SourceResult<Value> {
-        self.v.call_traced(engine, context, args, self.span)
+        self.v.call(engine, context, args, self.span)
     }
 }
 

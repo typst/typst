@@ -410,9 +410,7 @@ impl Args {
         test: Spanned<Func>,
     ) -> SourceResult<Args> {
         let mut run_test = |v: &Value| {
-            test.call_traced(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span)
+            test.call(engine, context, [v.clone()])?.cast::<bool>().at(test.span)
         };
         self.into_iter()
             .filter_map(|arg| {
@@ -440,7 +438,7 @@ impl Args {
     ) -> SourceResult<Args> {
         self.into_iter()
             .map(|arg| {
-                let mapped_value = mapper.call_traced(engine, context, [arg.value.v])?;
+                let mapped_value = mapper.call(engine, context, [arg.value.v])?;
                 Ok(Arg {
                     span: arg.span,
                     name: arg.name,
