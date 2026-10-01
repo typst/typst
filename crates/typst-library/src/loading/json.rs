@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 
 use crate::diag::{At, LineCol, LoadError, LoadedWithin, SourceResult, bail};
 use crate::engine::Engine;
-use crate::foundations::{Str, Value, func, scope};
+use crate::foundations::{Array, Str, Value, func, scope};
 use crate::loading::{DataSource, Load};
 
 /// Reads structured data from a JSON file.
@@ -102,6 +102,12 @@ pub fn json(
     engine: &mut Engine,
     /// A path to a JSON file or raw JSON bytes.
     source: Spanned<DataSource>,
+    /// Whether to read the source as
+    /// #link("https://jsonlines.org/")[JSON Lines]: one JSON value per line,
+    /// collected into an array.
+    #[named]
+    #[default(false)]
+    lines: bool,
 ) -> SourceResult<Value> {
     let loaded = source.load(engine.world)?;
     let raw = loaded.data.as_slice();
@@ -119,12 +125,21 @@ pub fn json(
         );
     }
 
-    serde_json::from_slice(raw)
-        .map_err(|err| {
-            let pos = LineCol::one_based(err.line(), err.column());
-            LoadError::text(pos, "failed to parse JSON", err)
-        })
-        .within(&loaded)
+    let format_err = |err: serde_json::Error| {
+        let pos = LineCol::one_based(err.line(), err.column());
+        LoadError::text(pos, "failed to parse JSON", err)
+    };
+
+    if lines {
+        serde_json::Deserializer::from_slice(raw)
+            .into_iter()
+            .map(|result| result.map_err(format_err))
+            .collect::<Result<Array, _>>()
+            .map(Value::Array)
+            .within(&loaded)
+    } else {
+        serde_json::from_slice(raw).map_err(format_err).within(&loaded)
+    }
 }
 
 #[scope]

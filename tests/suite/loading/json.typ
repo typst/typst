@@ -51,3 +51,12 @@
     json.encode(repr(value)),
   )
 }
+
+--- json-lines eval ---
+#let source = bytes("{\"a\": 1}\r\n[1, 2]\n\"a\\nb\"\n1.5\ntrue\nnull\n")
+#test(json(source, lines: true), ((a: 1), (1, 2), "a\nb", 1.5, true, none))
+#test(json(bytes(""), lines: true), ())
+
+--- json-lines-invalid eval ---
+// Error: 7-30 failed to parse JSON (expected value at line 2 column 6 at 2:6)
+#json(bytes("null\n{\"a\":}"), lines: true)
