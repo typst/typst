@@ -869,6 +869,12 @@ e757b359586c26a3453ab45df86c1591 issue-8261-string-as-non-numeric
 c09d6d3c63dcd6a04c2daea43e75e0cb issue-852-mat-type
 d2c75477a39f501e64b586e9154160c4 issue-8520-script-stylistic-set
 32f5c5d2ec1fa8f20c77ac7552e25131 issue-8648-enum-gap
+b4be2becc1d77f9bc291eeabe263c873 issue-8790-list-overflow
+b4fdd032c9dee87aff908a112037b8f7 issue-8790-stack-exact-fit
+462957ed8bf058acf25bde4d418b7744 issue-8790-stack-overflow-btt
+1eee87e67c8548c81416b37df5b13d31 issue-8790-stack-overflow-spacing
+8e0ebfc6db199c91872c23fdff763a5e issue-8790-stack-overflow-ttb
+818b084f18b2a6c9928064a4ffbf3cdc issue-8790-stack-overflow-visible-btt
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
 4c01dfc0d145e59abdb4413234dfd836 issue-columns-heading
