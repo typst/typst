@@ -71,8 +71,8 @@
 // The folding navigation on the left of the docs.
 #let nav-folding(current) = html.nav(class: "folding", context {
   html.button(class: "close", icon(16, "close", "Close"))
-  search-box(id: "docs-search", placeholder: "Search (S)")
-  html.ul(id: "search-results", class: "search-results hidden")
+  search-box(id: "docs-search", placeholder: "Search (S)", role: "combobox", aria-controls: "search-results", aria-autocomplete: "list", aria-expanded: false)
+  html.ul(id: "search-results", class: "search-results hidden", role: "listbox")
   let items = query(selector.or(
     <metadata-page>,
     <metadata-nav-separation>,
