@@ -38,7 +38,7 @@ use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    HeadingElem, LinkElem, ParElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -98,6 +98,24 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///   [Physics],
 ///   [`{"american-physics-society"}`],
 /// )
+/// = Hanging indent <hanging-indent>
+/// By default, bibliography entries use a hanging indent of `{1.5em}`,
+/// applied through a built-in show-set rule on `{par.hanging-indent}`.
+/// Because show-set rules take precedence over prior `set` rules, a plain
+/// `{set par(hanging-indent: ...)}` elsewhere in your document will have no
+/// effect on the bibliography. To change or disable this indent, target the
+/// bibliography's own show rule instead:
+///
+/// ```example
+/// #set bibliography(style: "apa")
+/// Multiple sources say... @arrgh @netwok
+///
+/// #bibliography("works.bib")
+/// #show bibliography: set par(hanging-indent: 3em)
+///
+/// Might be a pirate. @netwok
+/// #bibliography("works.bib")
+/// ```
 ///
 /// = Multiple bibliographies <multiple-bibliographies>
 /// When a Typst document contains multiple bibliographies, each citation is
@@ -339,6 +357,7 @@ impl ShowSet for Packed<BibliographyElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::numbering, None);
         out.set(PadElem::left, INDENT.into());
+        out.set(ParElem::hanging_indent, Em::new(1.5).into());
         out
     }
 }
