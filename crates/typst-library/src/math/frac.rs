@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 use crate::diag::bail;
 use crate::foundations::{Cast, Content, Value, elem};
 use crate::layout::Em;
-use crate::math::Mathy;
+use crate::math::{DelimiterPair, Mathy};
 
 /// How much padding to add around each side of a fraction.
 pub const FRAC_PADDING: Em = Em::new(0.1);
@@ -132,6 +132,19 @@ pub enum FracStyle {
 /// ```
 #[elem(title = "Binomial", since = "forever", Mathy)]
 pub struct BinomElem {
+    /// The delimiter to use.
+    ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
+    /// ```example
+    /// #set math.binom(delim: "[")
+    /// $ binom(1, 2) $
+    /// ```
+    #[default(DelimiterPair::PAREN)]
+    pub delim: DelimiterPair,
+
     /// The binomial's upper index.
     #[required]
     pub upper: Content,
