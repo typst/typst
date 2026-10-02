@@ -214,28 +214,18 @@ impl<'a> Collector<'a, '_, '_> {
             // - all lines if it's just three
             // - the first two lines if we're at the first line
             // - the last two lines if we're at the second to last line
-            let (need, sticky_need) = if prevent_all && i == 0 {
-                let all = front_1 + leading + front_2 + leading + back_1;
-                (all, Some(all))
-            } else if prevent_all && i + 2 == len {
-                let all = front_1 + leading + front_2 + leading + back_1;
-                (frame.height(), Some(all))
+            let need = if prevent_all && i <= 1 {
+                Some(front_1 + leading + front_2 + leading + back_1)
             } else if prevent_orphans && i == 0 {
-                let first_two = front_1 + leading + front_2;
-                (first_two, Some(first_two))
+                Some(front_1 + leading + front_2)
             } else if prevent_widows && i >= 2 && i + 2 == len {
-                let last_two = back_2 + leading + back_1;
-                (last_two, Some(last_two))
+                Some(back_2 + leading + back_1)
             } else {
-                (frame.height(), None)
+                None
             };
 
-            self.output.push(Child::Line(self.boxed(LineChild {
-                frame,
-                align,
-                need,
-                sticky_need,
-            })));
+            self.output
+                .push(Child::Line(self.boxed(LineChild { frame, align, need })));
         }
     }
 
@@ -380,8 +370,7 @@ pub enum Child<'a> {
 pub struct LineChild {
     pub frame: Frame,
     pub align: Axes<FixedAlignment>,
-    pub need: Abs,
-    pub sticky_need: Option<Abs>,
+    pub need: Option<Abs>,
 }
 
 /// A child that encapsulates a prepared unbreakable block.
