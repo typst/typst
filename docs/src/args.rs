@@ -87,7 +87,7 @@ pub struct CompileArgs {
         value_parser = ValueParser::new(parse_sys_input_pair),
     )]
     pub inputs: Vec<(String, String)>,
-    /// Do not add the "development version" warning to the generated PDF.
+    /// Do not add the "development version" warning to the generated files.
     #[arg(long)]
     pub release: bool,
     /// Produces performance timings of the compilation process.
