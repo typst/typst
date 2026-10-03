@@ -768,7 +768,7 @@ async function setUpGlobalSearch() {
       a.href = url;
 
       let title;
-      if (item.path != null) {
+      if ("path" in item) {
         title = document.createElement("code");
         let first = true;
         for (const part of item.path.split(".")) {
@@ -935,6 +935,7 @@ function scoreItem(item, query) {
     f *
     Math.max(
       scoreText(item.title, query),
+      "path" in item ? scoreText(item.path, query) : 0,
       ...(item.keywords || []).map((keyword) => scoreText(keyword, query)),
     )
   );

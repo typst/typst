@@ -47,6 +47,7 @@ pub struct IndexItem {
     /// The title-case name of the item. Shown as the match.
     pub title: EcoString,
     /// The canonical path for this item, if any. Shown below the match.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<EcoString>,
     /// The full route to the matching page. May include a fragment.
     pub route: EcoString,
