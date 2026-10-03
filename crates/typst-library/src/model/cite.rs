@@ -1,9 +1,12 @@
+use ecow::EcoString;
+use hayagriva::citationberg::taxonomy::Locator;
 use typst_syntax::Spanned;
 
-use crate::diag::SourceResult;
+use crate::diag::{HintedStrResult, SourceResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Cast, Content, Derived, Label, Packed, Smart, StyleChain, Synthesize, cast, elem,
+    Cast, Content, Derived, Dict, Fold, FromValue, IntoValue, Label, Packed, Repr, Smart,
+    StyleChain, Synthesize, Value, cast, elem,
 };
 use crate::model::bibliography::Works;
 use crate::model::{CslSource, CslStyle};
@@ -65,7 +68,8 @@ pub struct CiteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
-    pub supplement: Option<Content>,
+    #[fold]
+    pub supplement: CitationSupplement,
 
     /// The kind of citation to produce. Different forms are useful in different
     /// scenarios: A normal citation is useful as a source at the end of a
@@ -121,6 +125,10 @@ impl Synthesize for Packed<CiteElem> {
         let elem = self.as_mut();
         elem.lang = Some(styles.get(TextElem::lang));
         elem.region = Some(styles.get(TextElem::region));
+        // Materialize the fully-folded supplement value so it's available
+        // when the bibliography pipeline reads it with StyleChain::default().
+        let folded = elem.supplement.get_cloned(styles);
+        elem.supplement.set(folded);
         Ok(())
     }
 }
@@ -128,6 +136,126 @@ impl Synthesize for Packed<CiteElem> {
 cast! {
     CiteElem,
     v: Content => v.unpack::<Self>().map_err(|_| "expected citation")?,
+}
+
+/// The supplement of the citation.
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
+pub struct CitationSupplement {
+    pub kind: Option<Locator>,
+    pub content: Option<Content>,
+}
+
+impl Fold for CitationSupplement {
+    fn fold(self, outer: Self) -> Self {
+        Self {
+            kind: self.kind.or(outer.kind),
+            content: self.content.or(outer.content),
+        }
+    }
+}
+
+cast! {
+    CitationSupplement,
+    self => Value::Dict(self.into()),
+    content: Content => Self {
+        kind: None,
+        content: Some(content),
+    },
+    mut dict: Dict => {
+        // Get a value by key, accepting either non-existence or something
+        // convertible to type T.
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> HintedStrResult<Option<T>> {
+            dict.take(key).ok().map(|v| v.cast()).transpose()
+        }
+        let kind = take(&mut dict, "kind")?;
+        let content = take(&mut dict, "value")?;
+        dict.finish(&["kind", "value"])?;
+        Self { kind, content }
+    }
+}
+
+impl From<CitationSupplement> for Dict {
+    fn from(value: CitationSupplement) -> Self {
+        let mut dict = Dict::new();
+        if let Some(locator) = value.kind {
+            dict.insert("kind".into(), locator.into_value());
+        }
+        dict.insert("value".into(), value.content.into_value());
+        dict
+    }
+}
+
+impl Repr for Locator {
+    fn repr(&self) -> EcoString {
+        match self {
+            Locator::Act => "act".into(),
+            Locator::Appendix => "appendix".into(),
+            Locator::ArticleLocator => "article-locator".into(),
+            Locator::Book => "book".into(),
+            Locator::Canon => "canon".into(),
+            Locator::Chapter => "chapter".into(),
+            Locator::Column => "column".into(),
+            Locator::Elocation => "elocation".into(),
+            Locator::Equation => "equation".into(),
+            Locator::Figure => "figure".into(),
+            Locator::Folio => "folio".into(),
+            Locator::Issue => "issue".into(),
+            Locator::Line => "line".into(),
+            Locator::Note => "note".into(),
+            Locator::Opus => "opus".into(),
+            Locator::Page => "page".into(),
+            Locator::Paragraph => "paragraph".into(),
+            Locator::Part => "part".into(),
+            Locator::Rule => "rule".into(),
+            Locator::Scene => "scene".into(),
+            Locator::Section => "section".into(),
+            Locator::SubVerbo => "sub verbo".into(),
+            Locator::Supplement => "supplement".into(),
+            Locator::Table => "table".into(),
+            Locator::Timestamp => "timestamp".into(),
+            Locator::Title => "title".into(),
+            Locator::TitleLocator => "title-locator".into(),
+            Locator::Verse => "verse".into(),
+            Locator::Volume => "volume".into(),
+            Locator::Custom => "custom".into(),
+        }
+    }
+}
+
+cast! {
+    Locator,
+    self => self.repr().into_value(),
+    "act" => Locator::Act,
+    "appendix" => Locator::Appendix,
+    "article-locator" => Locator::ArticleLocator,
+    "book" => Locator::Book,
+    "canon" => Locator::Canon,
+    "chapter" => Locator::Chapter,
+    "column" => Locator::Column,
+    "elocation" => Locator::Elocation,
+    "equation" => Locator::Equation,
+    "figure" => Locator::Figure,
+    "folio" => Locator::Folio,
+    "issue" => Locator::Issue,
+    "line" => Locator::Line,
+    "note" => Locator::Note,
+    "opus" => Locator::Opus,
+    "page" => Locator::Page,
+    "paragraph" => Locator::Paragraph,
+    "part" => Locator::Part,
+    "rule" => Locator::Rule,
+    "scene" => Locator::Scene,
+    "section" => Locator::Section,
+    "sub verbo" => Locator::SubVerbo,
+    "sub-verbo" => Locator::SubVerbo,
+    "supplement" => Locator::Supplement,
+    "table" => Locator::Table,
+    "timestamp" => Locator::Timestamp,
+    "title" => Locator::Title,
+    "title-locator" => Locator::TitleLocator,
+    "verse" => Locator::Verse,
+    "volume" => Locator::Volume,
+    "custom" => Locator::Custom,
 }
 
 /// The form of the citation.
