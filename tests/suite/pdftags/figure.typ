@@ -92,6 +92,25 @@ Ein Paragraph.
   #rect(fill: red)
 ]
 
+--- figure-tags-only-marked-content-with-alt pdftags ---
+#figure(
+  rect(fill: red),
+  alt: "A red rectangle",
+)
+
+--- figure-tags-equation-only-marked-content-with-alt pdftags ---
+#math.equation(
+  rect(fill: red),
+  alt: "A red rectangle",
+)
+
+--- figure-tags-equation-only-marked-content-with-alt-ua-1 pdftags ---
+#set pdf(standard: "ua-1")
+#math.equation(
+  rect(fill: red),
+  alt: "A red rectangle",
+)
+
 --- figure-tags-additional-caption-inside-body pdftags ---
 #figure(caption: [The real caption])[
   #image(alt: "A tiger", "/assets/images/tiger.jpg"),
@@ -121,3 +140,15 @@ Ein Paragraph.
   alt: "A square with a red stroke",
   square(size: 60pt, stroke: 10pt + red)
 )
+
+--- issue-8703-single-page-figure-without-bbox pdftags ---
+#set pdf(standard: "ua-1")
+#set page(height: 100pt)
+#set page(header: [hi])
+
+#figure(
+  alt: "A rect",
+  rect(width: 80pt, height: 80pt),
+)
+
+Hi

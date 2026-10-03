@@ -159,8 +159,8 @@ fn draw_raster_glyph(
     // not in a way ttf-parser understands), so we artificially shift their
     // baseline to make it look good.
     if font.info().family.to_lowercase() == "apple color emoji" {
-        // This factor is just taken from krilla.
-        y_offset -= 0.128 * upem;
+        // This factor is taken from krilla.
+        y_offset -= 0.125 * upem;
     }
 
     let position = Point::new(-x_offset, -(image_height + y_offset));

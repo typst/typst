@@ -509,7 +509,7 @@ impl OutputType for Bundle {
             html: HtmlOptions { format: HtmlFormatOptions { pretty: Some(true) } },
             pdf: pdf_options(None),
             png: RenderOptions {
-                format: PngFormatOptions { pixel_per_pt: Some(Scalar::new(1.0)) },
+                format: PngFormatOptions { ppi: Some(Scalar::new(72.0)) },
                 ..Default::default()
             },
             svg: SvgOptions {
@@ -607,10 +607,9 @@ fn render(document: &PagedDocument, pixel_per_pt: f32) -> sk::Pixmap {
     }
 
     let gap = Abs::pt(1.0);
+    let ppi = pixel_per_pt * 72.0;
     let opts = typst_render::RenderOptions {
-        format: PngFormatOptions {
-            pixel_per_pt: Some(Scalar::new(pixel_per_pt as f64)),
-        },
+        format: PngFormatOptions { ppi: Some(Scalar::new(ppi as f64)) },
         render_bleed: false,
     };
     let mut pixmap =
