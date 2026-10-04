@@ -148,7 +148,7 @@ url = "2.5"
 usvg = { version = "0.47", default-features = false, features = ["text"] }
 utf8_iter = "1.0.4"
 walkdir = "2"
-wasmi = { version = "1.0.9", default-features = false, features = ["simd"] }
+wasmi = { version = "2.0.0", default-features = false, features = ["auto-dispatch", "deterministic", "libm", "memory64", "simd", "validate"] }
 web-sys = "0.3"
 xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
