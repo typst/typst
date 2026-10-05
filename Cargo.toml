@@ -157,6 +157,19 @@ zip = { version = "8", default-features = false, features = ["deflate"] }
 [profile.dev.package."*"]
 opt-level = 2
 
+[profile.dev.package.wasmi]
+debug-assertions = false
+overflow-checks = false
+[profile.dev.package.wasmi_core]
+debug-assertions = false
+overflow-checks = false
+[profile.dev.package.wasmi_ir]
+debug-assertions = false
+overflow-checks = false
+[profile.dev.package.wasmi_collections]
+debug-assertions = false
+overflow-checks = false
+
 [profile.dev-fast]
 inherits = "dev"
 opt-level = 2
