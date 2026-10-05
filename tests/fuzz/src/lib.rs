@@ -13,7 +13,7 @@ pub struct FuzzWorld {
 }
 
 impl FuzzWorld {
-    pub fn new(text: &str) -> Self {
+    pub fn new(source: Source) -> Self {
         let data = typst_assets::fonts().next().unwrap();
         let font = Font::new(Bytes::new(data), 0).unwrap();
         let book = FontBook::from_fonts([&font]);
@@ -31,7 +31,7 @@ impl FuzzWorld {
             ),
             book: LazyHash::new(book),
             font,
-            source: Source::detached(text),
+            source,
         }
     }
 }
