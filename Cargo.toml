@@ -154,6 +154,18 @@ xmlwriter = "0.1.0"
 xz2 = { version = "0.1", features = ["static"] }
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev.package.wasmi]
+opt-level = 0
+[profile.dev.package.wasmi_core]
+opt-level = 0
+[profile.dev.package.wasmi_ir]
+opt-level = 0
+[profile.dev.package.wasmi_collections]
+opt-level = 0
+
 [profile.dev-fast]
 inherits = "dev"
 opt-level = 2
