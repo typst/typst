@@ -588,31 +588,54 @@ impl SyntaxNode {
         }
     }
 
-    /// Replaces a range of children with a replacement.
+    /// Replace a range of children and update this node.
+    /// [`Self::renumber_children`] should be called immediately after this.
     ///
-    /// May have mutated the children if it returns `Err(_)`.
+    /// To increase the stability of span numbers, this does not replace nodes
+    /// at the front/back that are equal to the previous nodes. Returns the
+    /// final indices of the inserted nodes.
     pub(super) fn replace_children(
         &mut self,
         range: Range<usize>,
         replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
+    ) -> Range<usize> {
+        if let Some((inner, _)) = self.inner_and_span_mut() {
+            inner.replace_children(range, replacement)
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// Try to assign span numbers to a range of children. If there are not
+    /// enough numbers, retries taking exponentially more children into account.
+    pub(super) fn renumber_children(&mut self, range: Range<usize>) -> NumberingResult {
         if let Some((inner, span)) = self.inner_and_span_mut() {
-            inner.replace_children(span, range, replacement)
+            inner.renumber_children(span, range)
         } else {
             Ok(())
         }
     }
 
-    /// Update this node after changes were made to one of its children.
+    /// Update this node after one or more of its children were replaced or
+    /// updated.
     pub(super) fn update_parent(
         &mut self,
         prev_len: usize,
         new_len: usize,
         prev_descendants: usize,
         new_descendants: usize,
+        prev_diagnosis: Diagnosis,
+        new_diagnosis: Diagnosis,
     ) {
         if let Some((inner, _)) = self.inner_and_span_mut() {
-            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants);
+            inner.update_parent(
+                prev_len,
+                new_len,
+                prev_descendants,
+                new_descendants,
+                prev_diagnosis,
+                new_diagnosis,
+            );
         }
     }
 
@@ -745,16 +768,17 @@ impl InnerNode {
                 .all(|(a, b)| a.spanless_eq(b))
     }
 
-    /// Replaces a range of children with a replacement.
+    /// Replace a range of children and calls [`Self::update_parent`].
+    /// [`Self::renumber_children`] should be called immediately after this.
     ///
-    /// May have mutated the children if it returns `Err(_)`.
+    /// To increase the stability of span numbers, this does not replace nodes
+    /// at the front/back that are equal to the previous nodes. Returns the
+    /// final indices of the inserted nodes.
     fn replace_children(
         &mut self,
-        span: &mut Span,
         mut range: Range<usize>,
-        replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
-        let Some(id) = span.id() else { return Err(Unnumberable) };
+        mut replacement: Vec<SyntaxNode>,
+    ) -> Range<usize> {
         let mut replacement_range = 0..replacement.len();
 
         // Trim off common prefix.
@@ -777,42 +801,34 @@ impl InnerNode {
             replacement_range.end -= 1;
         }
 
-        let mut replacement_vec = replacement;
-        let replacement = &replacement_vec[replacement_range.clone()];
-        let superseded = &self.children[range.clone()];
+        // Compute child information for the `update_parent` call.
+        let new = &replacement[replacement_range.clone()];
+        let new_len = new.iter().map(SyntaxNode::len).sum::<usize>();
+        let new_desc = new.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let new_diag = Diagnosis::any(new);
 
-        // Compute the new byte length.
-        self.len = self.len + replacement.iter().map(SyntaxNode::len).sum::<usize>()
-            - superseded.iter().map(SyntaxNode::len).sum::<usize>();
+        let prev = &self.children[range.clone()];
+        let prev_len = prev.iter().map(SyntaxNode::len).sum::<usize>();
+        let prev_desc = prev.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let prev_diag = Diagnosis::any(prev);
 
-        // Compute the new number of descendants.
-        self.descendants = self.descendants
-            + replacement.iter().map(SyntaxNode::descendants).sum::<usize>()
-            - superseded.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let replaced_range = range.start..range.start + new.len();
 
-        // Update our diagnosis after the replacement.
-        // - If we had no errors/warnings before, we can just use the replaced
-        //   diagnosis
-        // - Or, if our replacement has errors _and_ warnings, we can use that
-        // - Otherwise, we need to update based on all of the children _outside_
-        //   the replaced range in case we replaced the erroneous children
-        let replaced_diagnosis = Diagnosis::any(replacement);
-        if !self.diagnosis.either() || replaced_diagnosis.both() {
-            self.diagnosis = replaced_diagnosis;
-        } else {
-            self.diagnosis = replaced_diagnosis.or(Diagnosis::or(
-                Diagnosis::any(&self.children[..range.start]),
-                Diagnosis::any(&self.children[range.end..]),
-            ));
-        }
+        self.children.splice(range, replacement.drain(replacement_range));
+        self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
 
-        // Perform the replacement.
-        self.children
-            .splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
-        range.end = range.start + replacement_range.len();
+        replaced_range
+    }
 
-        // Renumber the new children. Retries until it works, taking
-        // exponentially more children into account.
+    /// Try to assign span numbers to a range of children. If there are not
+    /// enough numbers, retries taking exponentially more children into account.
+    fn renumber_children(
+        &mut self,
+        span: &mut Span,
+        range: Range<usize>,
+    ) -> NumberingResult {
+        let Some(id) = span.id() else { return Err(Unnumberable) };
+
         let mut left = 0;
         let mut right = 0;
         let max_left = range.start;
@@ -858,17 +874,35 @@ impl InnerNode {
         }
     }
 
-    /// Update this node after changes were made to one of its children.
+    /// Update this node after one or more of its children were replaced or
+    /// updated. The new children must already be in `self.children`.
+    ///
+    /// `prev_*` variables should come from the previous range of children.
+    /// `new_*` are for the new range of children.
     fn update_parent(
         &mut self,
         prev_len: usize,
         new_len: usize,
         prev_descendants: usize,
         new_descendants: usize,
+        prev_diagnosis: Diagnosis,
+        new_diagnosis: Diagnosis,
     ) {
-        self.len = self.len + new_len - prev_len;
-        self.descendants = self.descendants + new_descendants - prev_descendants;
-        self.diagnosis = Diagnosis::any(&self.children);
+        // Length and descendants are numerical, can update with algebra.
+        // Subtract the previous values first to avoid potential overflow.
+        self.len = (self.len - prev_len) + new_len;
+        self.descendants = (self.descendants - prev_descendants) + new_descendants;
+
+        // Our diagnosis is the `OR` of all our children's diagnoses.
+        if !self.diagnosis.either() || new_diagnosis.both() {
+            // We can avoid iterating our children if our previous overall state
+            // had no errors/warnings, or if the new children have both.
+            self.diagnosis = new_diagnosis;
+        } else if prev_diagnosis != new_diagnosis {
+            // Otherwise, we recompute using all the children since we don't
+            // know if there were multiple children with errors or warnings.
+            self.diagnosis = Diagnosis::any(&self.children);
+        }
     }
 
     /// Write with debug formatting using the node's syntax kind.
