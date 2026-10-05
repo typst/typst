@@ -72,6 +72,7 @@ fn try_reparse(
         // child, or reparse the child itself (if the child is a block).
         let prev_len = child.len();
         let prev_desc = child.descendants();
+        let prev_diag = child.diagnosis();
         let new_len = prev_len + replacement_len - replaced.len();
         let new_range = start_offset..start_offset + new_len;
 
@@ -88,19 +89,23 @@ fn try_reparse(
             // reparsed range.
             assert_eq!(child.len(), new_len);
             let new_desc = child.descendants();
-            node.update_parent(prev_len, new_len, prev_desc, new_desc);
+            let new_diag = child.diagnosis();
+            node.update_parent(
+                prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
+            );
             return Some(range);
         }
 
-        // This is the innermost block which fully surrounds the text (and
+        // The child is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
         if child.kind().is_block()
             && let Some(reparsed) = reparse_block(text, new_range.clone())
         {
-            // Reparsing succeeded, but we can still fail if we're out of span
-            // numbers to assign to nodes (this is rare).
+            let reparsed_children = node.replace_children(overlap, vec![reparsed]);
+            // Reparsing succeeded, but we can still fail if we're out of
+            // span numbers to assign to nodes (this is rare).
             return node
-                .replace_children(overlap, vec![reparsed])
+                .renumber_children(reparsed_children)
                 .is_ok()
                 .then_some(new_range);
         }
@@ -119,11 +124,10 @@ fn try_reparse(
                 parent_kind.is_none(),
             )
     {
+        let reparsed_children = node.replace_children(prev_children, newborns);
         // Reparsing succeeded, but we can still fail if we're out of
         // span numbers to assign to nodes (this is rare).
-        node.replace_children(prev_children, newborns)
-            .is_ok()
-            .then_some(new_range)
+        node.renumber_children(reparsed_children).is_ok().then_some(new_range)
     } else {
         None
     }
@@ -547,8 +551,8 @@ mod tests {
 
             assert!(n <= 21, "code edits should be failing below at `n == 21`");
             // Leave the number of nodes the same:
-            test(&text, Edit::Match("A;B"), "B;C", Reparse::Incr("{B;C}"));
             test(&text, Edit::Match("A;B"), "A;B", Reparse::Incr("{A;B}"));
+            test(&text, Edit::Match("A;B"), "B;C", Reparse::Incr("{B;C}"));
             test(&text, Edit::Match(";"), "+", Reparse::Incr("{A+B}"));
             test(&text, Edit::After("A"), "3", Reparse::Incr("{A3;B}"));
 
@@ -580,8 +584,8 @@ mod tests {
 
             assert!(n <= 20, "markup edits should be failing below at `n == 20`");
             // Leave the number of nodes the same:
-            test(&text, Edit::Match("A~B"), "3~B", Reparse::Incr(" 3~B "));
             test(&text, Edit::Match("A~B"), "A~B", Reparse::Incr(" A~B "));
+            test(&text, Edit::Match("A~B"), "3~B", Reparse::Incr(" 3~B "));
             test(&text, Edit::After("A"), "3", Reparse::Incr(" A3~B "));
 
             // Increase the number of nodes:
