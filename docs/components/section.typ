@@ -1,7 +1,4 @@
-#import "base.typ": (
-  classnames, heading-offset, icon, labelled, short-or-long, title-state,
-  tooltip-counter,
-)
+#import "base.typ": classnames, heading-offset, icon, labelled, short-or-long, title-state, tooltip-counter
 #import "linking.typ": register-def
 #import "nav.typ": nav-breadcrumbs, nav-folding, nav-on-this-page, nav-prev-next
 #import "search.typ": register-index-item
@@ -84,6 +81,9 @@
     route += "/"
   }
 
+  let wrapped-body = labelled(body, <section-body>)
+  let sections = query(selector(heading).within(wrapped-body.location()))
+
   if def-target != none {
     register-def(def-target, route, title: def-title)
   }
@@ -106,6 +106,17 @@
       metadata((route: route, title: title, depth: depth)),
       <metadata-page>,
     )
+
+    for section in sections {
+      for keyword-meta in query(selector(<metadata-index-keywords>).within(section.location())) {
+        register-index-item(
+          kind: "Language",
+          title: section.body,
+          dest: section.location(),
+          keywords: keyword-meta.keywords,
+        )
+      }
+    }
 
     html.head({
       html.meta(charset: "utf-8")

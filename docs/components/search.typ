@@ -22,3 +22,10 @@
   )),
   <metadata-index-item>,
 )
+
+#let keyword(..keywords) = labelled(
+  metadata((
+    keywords: keywords,
+  )),
+  <metadata-index-keywords>,
+)
