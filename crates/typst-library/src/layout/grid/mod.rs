@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use comemo::Track;
 use smallvec::{SmallVec, smallvec};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
@@ -235,7 +235,7 @@ pub struct GridElem {
     ///
     /// In addition, you can find an example at the @table.inset parameter.
     #[fold]
-    pub inset: Spanned<Celled<Sides<Option<Rel<Length>>>>>,
+    pub inset: LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
 
     /// How to align the cells' content.
     ///
@@ -249,7 +249,7 @@ pub struct GridElem {
     /// See the @grid:styling[styling section] above for details.
     ///
     /// In addition, you can find an example at the @table.align parameter.
-    pub align: Spanned<Celled<Smart<Alignment>>>,
+    pub align: LooselySpanned<Celled<Smart<Alignment>>>,
 
     /// How to fill the cells.
     ///
@@ -275,7 +275,7 @@ pub struct GridElem {
     ///   [O], [X], [O], [X],
     /// )
     /// ```
-    pub fill: Spanned<Celled<Option<Paint>>>,
+    pub fill: LooselySpanned<Celled<Option<Paint>>>,
 
     /// How to @stroke[stroke] the cells.
     ///
@@ -406,7 +406,7 @@ pub struct GridElem {
     ///   ```
     /// )
     #[fold]
-    pub stroke: Spanned<Celled<Sides<GridStroke>>>,
+    pub stroke: LooselySpanned<Celled<Sides<GridStroke>>>,
 
     #[internal]
     #[synthesized]

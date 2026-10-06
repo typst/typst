@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 use typst_macros::Cast;
-use typst_syntax::Spanned;
+use typst_syntax::{LooselySpanned, Spanned};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
@@ -194,7 +194,7 @@ pub struct TableElem {
     /// ```
     #[fold]
     #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into())))))]
-    pub inset: Spanned<Celled<Sides<Option<Rel<Length>>>>>,
+    pub inset: LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
 
     /// How to align the cells' content.
     ///
@@ -216,7 +216,7 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    pub align: Spanned<Celled<Smart<Alignment>>>,
+    pub align: LooselySpanned<Celled<Smart<Alignment>>>,
 
     /// How to fill the cells.
     ///
@@ -244,7 +244,7 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    pub fill: Spanned<Celled<Option<Paint>>>,
+    pub fill: LooselySpanned<Celled<Option<Paint>>>,
 
     /// How to @stroke[stroke] the cells.
     ///
@@ -269,7 +269,7 @@ pub struct TableElem {
     #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Some(
         Arc::new(Stroke::default())
     ))))))]
-    pub stroke: Spanned<Celled<Sides<GridStroke>>>,
+    pub stroke: LooselySpanned<Celled<Sides<GridStroke>>>,
 
     /// A summary of the purpose and structure of complex tables.
     ///

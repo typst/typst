@@ -886,8 +886,8 @@ impl<T: Resolve> Resolve for Option<T> {
     }
 }
 
-impl<T: Resolve> Resolve for Spanned<T> {
-    type Output = Spanned<T::Output>;
+impl<T: Resolve, const SPAN_EQ: bool> Resolve for Spanned<T, Span, SPAN_EQ> {
+    type Output = Spanned<T::Output, Span, SPAN_EQ>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.map(|v| v.resolve(styles))
@@ -950,7 +950,7 @@ impl<T> Fold for OneOrMultiple<T> {
     }
 }
 
-impl<T: Fold> Fold for Spanned<T> {
+impl<T: Fold, const SPAN_EQ: bool> Fold for Spanned<T, Span, SPAN_EQ> {
     fn fold(self, outer: Self) -> Self {
         Spanned::new(self.v.fold(outer.v), self.span.or(outer.span))
     }

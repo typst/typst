@@ -1,6 +1,6 @@
 use comemo::Track;
 use ecow::eco_format;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span};
 
 use crate::diag::{At, Hint, SourceResult, Trace, Tracepoint, bail};
 use crate::engine::Engine;
@@ -177,7 +177,7 @@ pub struct RefElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    pub supplement: Spanned<Smart<Option<Supplement>>>,
+    pub supplement: LooselySpanned<Smart<Option<Supplement>>>,
 
     /// The kind of reference to produce.
     ///

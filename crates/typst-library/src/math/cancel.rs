@@ -1,4 +1,4 @@
-use typst_syntax::Spanned;
+use typst_syntax::LooselySpanned;
 
 use crate::foundations::{Content, Func, Smart, cast, elem};
 use crate::layout::{Angle, Em, Length, Ratio, Rel};
@@ -75,7 +75,7 @@ pub struct CancelElem {
     ///   cancel(1/(1+x), angle: #(a => a + 45deg))
     ///   cancel(1/(1+x), angle: #(a => a + 90deg)) $
     /// ```
-    pub angle: Spanned<Smart<CancelAngle>>,
+    pub angle: LooselySpanned<Smart<CancelAngle>>,
 
     /// How to @stroke[stroke] the cancel line.
     ///

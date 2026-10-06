@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use comemo::Tracked;
 use smallvec::SmallVec;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::{Get, NonZeroExt};
 
 use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, error};
@@ -240,7 +240,7 @@ pub struct OutlineElem {
     /// = Designing software components
     /// = Testing and integration
     /// ```
-    pub indent: Spanned<Smart<OutlineIndent>>,
+    pub indent: LooselySpanned<Smart<OutlineIndent>>,
 }
 
 #[scope]

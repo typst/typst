@@ -1,5 +1,5 @@
 use comemo::Track;
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span, Spanned};
 
 use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
@@ -93,7 +93,7 @@ pub struct ListElem {
         TextElem::packed('\u{2023}'), // Triangular Bullet
         TextElem::packed('\u{2013}'), // En-dash
     ])))]
-    pub marker: Spanned<ListMarker>,
+    pub marker: LooselySpanned<ListMarker>,
 
     /// The indent of each item.
     pub indent: Length,

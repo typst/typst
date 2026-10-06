@@ -17,7 +17,7 @@ use typst_library::model::{TableCell, TableChild, TableElem, TableItem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
 
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::{NonZeroExt, SmallBitSet};
 
 use crate::model::{TableCellKind, TableHeaderScope};
@@ -910,10 +910,10 @@ pub fn resolve_cellgrid<'a, T, C, I>(
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
     children: C,
-    fill: &'a Spanned<Celled<Option<Paint>>>,
-    align: &'a Spanned<Celled<Smart<Alignment>>>,
-    inset: &'a Spanned<Celled<Sides<Option<Rel<Length>>>>>,
-    stroke: &'a Spanned<ResolvedCelled<Sides<GridStroke>>>,
+    fill: &'a LooselySpanned<Celled<Option<Paint>>>,
+    align: &'a LooselySpanned<Celled<Smart<Alignment>>>,
+    inset: &'a LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
+    stroke: &'a LooselySpanned<ResolvedCelled<Sides<GridStroke>>>,
     engine: &'a mut Engine,
     styles: StyleChain<'a>,
     span: Span,
@@ -941,10 +941,10 @@ where
 struct CellGridResolver<'a, 'b> {
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
-    fill: &'a Spanned<Celled<Option<Paint>>>,
-    align: &'a Spanned<Celled<Smart<Alignment>>>,
-    inset: &'a Spanned<Celled<Sides<Option<Rel<Length>>>>>,
-    stroke: &'a Spanned<ResolvedCelled<Sides<GridStroke>>>,
+    fill: &'a LooselySpanned<Celled<Option<Paint>>>,
+    align: &'a LooselySpanned<Celled<Smart<Alignment>>>,
+    inset: &'a LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
+    stroke: &'a LooselySpanned<ResolvedCelled<Sides<GridStroke>>>,
     engine: &'a mut Engine<'b>,
     styles: StyleChain<'a>,
     span: Span,

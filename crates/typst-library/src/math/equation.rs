@@ -2,7 +2,7 @@ use std::num::NonZeroUsize;
 
 use codex::styling::MathVariant;
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{LooselySpanned, Spanned};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -108,7 +108,7 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
-    pub supplement: Spanned<Smart<Option<Supplement>>>,
+    pub supplement: LooselySpanned<Smart<Option<Supplement>>>,
 
     /// An alternative description of the mathematical equation.
     ///

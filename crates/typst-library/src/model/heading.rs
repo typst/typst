@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use typst_syntax::Spanned;
+use typst_syntax::{LooselySpanned, Spanned};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
@@ -172,7 +172,7 @@ pub struct HeadingElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    pub supplement: Spanned<Smart<Option<Supplement>>>,
+    pub supplement: LooselySpanned<Smart<Option<Supplement>>>,
 
     /// Whether the heading should appear in the @outline[outline].
     ///

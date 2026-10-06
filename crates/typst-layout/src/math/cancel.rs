@@ -6,7 +6,7 @@ use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Tran
 use typst_library::math::CancelAngle;
 use typst_library::math::ir::{CancelItem, MathProperties};
 use typst_library::visualize::{FixedStroke, Geometry};
-use typst_syntax::{Span, Spanned};
+use typst_syntax::{LooselySpanned, Span};
 
 use super::MathContext;
 use super::fragment::FrameFragment;
@@ -84,7 +84,7 @@ fn draw_cancel_line(
     length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
-    angle: &Spanned<Smart<CancelAngle>>,
+    angle: &LooselySpanned<Smart<CancelAngle>>,
     body_size: Size,
     styles: StyleChain,
     span: Span,
