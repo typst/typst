@@ -489,7 +489,7 @@ pub fn apply_shift<'a>(
 
 #[derive(Debug, Default)]
 struct LinkRenderInfo {
-    spans_text: bool,
+    text_leading: Option<Abs>,
     top: Abs,
     start: Abs,
     bottom: Abs,
@@ -728,8 +728,13 @@ fn build_output<'a>(
             link_info.last_end.set_max(offset + frame_width);
             link_info.last_index = Some(frame_index);
 
-            if matches!(**item, Item::Text(_)) {
-                link_info.spans_text = true;
+            if let Item::Text(text) = &**item {
+                link_info.text_leading = Some(
+                    link_info
+                        .text_leading
+                        .unwrap_or_default()
+                        .max(text.styles.resolve(ParElem::leading)),
+                );
             }
         }
 
@@ -836,16 +841,10 @@ fn prepare_link(
     debug_assert!(width >= Abs::zero());
     debug_assert!(link_info.last_index.is_some());
 
-    // TODO: also consider per-text run font size.
-
     let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
     let modifiers = FrameModifiers::with_dest(dest.clone());
-    if link_info.spans_text {
-        let mut styles = Styles::new();
-        styles.set(TextElem::size, TextSize(Length::from(config.font_size)));
-        let stylechain = StyleChain::new(&styles);
-
-        frame.modify_text(&modifiers, config.leading.resolve(stylechain));
+    if let Some(max_leading) = link_info.text_leading {
+        frame.modify_text(&modifiers, max_leading);
     } else {
         // Don't add padding; restrict the link to the box.
         frame.modify(&modifiers);
