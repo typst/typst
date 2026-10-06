@@ -19,7 +19,7 @@ use typst_library::introspection::{
     Introspector, Location, Locator, LocatorLink, SplitLocator,
 };
 use typst_library::layout::{
-    Abs, AlignElem, Dir, FixedAlignment, Fragment, HideElem, Length, Size,
+    Abs, AlignElem, Dir, FixedAlignment, Fragment, HideElem, Size,
 };
 use typst_library::model::{
     Destination, EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem,
@@ -244,7 +244,6 @@ fn configuration(
         costs: shared.get(TextElem::costs),
         link,
         hidden,
-        leading: shared.get(ParElem::leading),
     }
 }
 
@@ -311,8 +310,6 @@ struct Config {
     /// This is needed to decide whether links should be rendered, regardless of
     /// the paragraph's visual contents.
     hidden: bool,
-    /// Paragraph leading.
-    leading: Length,
 }
 
 /// Get a style property, but only if it is the same for all of the children.
