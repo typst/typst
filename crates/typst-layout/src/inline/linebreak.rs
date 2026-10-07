@@ -2,18 +2,21 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
+use ecow::EcoVec;
 use icu_properties::CodePointMapDataBorrowed;
 use icu_properties::props::LineBreak;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::options::LineBreakOptions;
 use icu_segmenter::{LineSegmenter, LineSegmenterBorrowed};
+use typst_library::diag::SourceDiagnostic;
 use typst_library::engine::Engine;
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem, is_default_ignorable};
-use typst_syntax::link_prefix;
+use typst_syntax::{Span, link_prefix};
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
+use typst_library::foundations::{Args, Context, Func};
 
 use super::*;
 
@@ -150,10 +153,10 @@ impl Trim {
 
 /// Breaks the text into lines.
 pub fn linebreak<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     match p.config.linebreaks {
         Linebreaks::Simple => linebreak_simple(engine, p, width),
         Linebreaks::Optimized => linebreak_optimized(engine, p, width),
@@ -165,15 +168,15 @@ pub fn linebreak<'a>(
 /// very unbalanced line, but is fast and simple.
 #[typst_macros::time]
 fn linebreak_simple<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     let mut lines = Vec::with_capacity(16);
     let mut start = 0;
     let mut last = None;
 
-    breakpoints(p, |end, breakpoint| {
+    breakpoints(p, |end, breakpoint, engine| {
         // Compute the line and its size.
         let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
 
@@ -198,13 +201,13 @@ fn linebreak_simple<'a>(
         } else {
             last = Some((attempt, end));
         }
-    });
+    }, engine)?;
 
     if let Some((line, _)) = last {
         lines.push(line);
     }
 
-    lines
+    Ok(lines)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style. Here, we use more
@@ -225,10 +228,10 @@ fn linebreak_simple<'a>(
 /// the layout determined for the last breakpoint at the end of text.
 #[typst_macros::time]
 fn linebreak_optimized<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     let metrics = CostMetrics::compute(p);
 
     // Determines the exact costs of a likely good layout through Knuth-Plass
@@ -237,19 +240,19 @@ fn linebreak_optimized<'a>(
     let upper_bound = linebreak_optimized_approximate(engine, p, width, &metrics);
 
     // Using the upper bound, perform exact optimized linebreaking.
-    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound)
+    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound?)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style, but with an upper
 /// bound on the cost. This allows us to skip many parts of the search space.
 #[typst_macros::time]
 fn linebreak_optimized_bounded<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
     metrics: &CostMetrics,
     upper_bound: Cost,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry<'a> {
         pred: usize,
@@ -264,7 +267,7 @@ fn linebreak_optimized_bounded<'a>(
     let mut active = 0;
     let mut prev_end = 0;
 
-    breakpoints(p, |end, breakpoint| {
+    breakpoints(p, |end, breakpoint, engine| {
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
 
@@ -347,7 +350,7 @@ fn linebreak_optimized_bounded<'a>(
 
         table.extend(best);
         prev_end = end;
-    });
+    }, engine)?;
 
     // Retrace the best path.
     let mut lines = Vec::with_capacity(16);
@@ -370,7 +373,7 @@ fn linebreak_optimized_bounded<'a>(
     }
 
     lines.reverse();
-    lines
+    Ok(lines)
 }
 
 /// Runs the normal Knuth-Plass algorithm, but instead of building proper lines
@@ -382,11 +385,11 @@ fn linebreak_optimized_bounded<'a>(
 /// linebreaking. We can use it to heavily prune the search space.
 #[typst_macros::time]
 fn linebreak_optimized_approximate(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &Preparation,
     width: Abs,
     metrics: &CostMetrics,
-) -> Cost {
+) -> SourceResult<Cost> {
     // Determine the cumulative estimation metrics.
     let estimates = Estimates::compute(p);
 
@@ -411,7 +414,7 @@ fn linebreak_optimized_approximate(
     let mut active = 0;
     let mut prev_end = 0;
 
-    breakpoints(p, |end, breakpoint| {
+    breakpoints(p, |end, breakpoint, _| {
         // Find the optimal predecessor.
         let mut best: Option<Entry> = None;
         for (pred_index, pred) in table.iter().enumerate().skip(active) {
@@ -486,7 +489,7 @@ fn linebreak_optimized_approximate(
 
         table.extend(best);
         prev_end = end;
-    });
+    }, engine)?;
 
     // Retrace the best path.
     let mut indices = Vec::with_capacity(16);
@@ -518,7 +521,7 @@ fn linebreak_optimized_approximate(
         // optimal layout produces). Thus, we immediately bail with an infinite
         // bound in this case.
         if ratio < metrics.min_ratio {
-            return Cost::INFINITY;
+            return Ok(Cost::INFINITY);
         }
 
         pred = attempt;
@@ -526,7 +529,7 @@ fn linebreak_optimized_approximate(
         exact += line_cost;
     }
 
-    exact
+    Ok(exact)
 }
 
 /// Compute the stretch ratio and cost of a line.
@@ -689,13 +692,13 @@ fn raw_cost(
 /// This is an internal instead of an external iterator because it makes the
 /// code much simpler and the consumers of this function don't need the
 /// composability and flexibility of external iteration anyway.
-fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
+fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint, &Engine), engine: &mut Engine) -> SourceResult<()>{
     let text = p.text;
 
     // Single breakpoint at the end for empty text.
     if text.is_empty() {
-        f(0, Breakpoint::Mandatory);
-        return;
+        f(0, Breakpoint::Mandatory, engine);
+        return Ok(());
     }
 
     let hyphenate = p.config.hyphenate != Some(false);
@@ -724,7 +727,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             || next_url_scheme.as_ref().is_some_and(|it| it.contains(&last))
         {
             let (link, _) = link_prefix(tail);
-            linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
+            linebreak_link(link, |i| f(last + i, Breakpoint::Normal, engine));
             last += link.len();
             while iter.peek().is_some_and(|&p| p < last) {
                 iter.next();
@@ -780,16 +783,17 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, last, segment, &mut f);
+                    hyphenations(p, last, segment, &mut f, engine)?;
                 }
                 last += segment.len();
             }
         }
 
         // Call `f` for the UAX #14 break opportunity.
-        f(point, breakpoint);
+        f(point, breakpoint, engine);
         last = point;
     }
+    Ok(())
 }
 
 /// Heuristically attempts to find the next URL scheme in the given text.
@@ -817,14 +821,38 @@ fn hyphenations(
     p: &Preparation,
     mut offset: usize,
     word: &str,
-    mut f: impl FnMut(usize, Breakpoint),
-) {
-    let Some(lang) = lang_at(p, offset) else { return };
+    mut f: impl FnMut(usize, Breakpoint, &Engine),
+    engine: &mut Engine
+) -> SourceResult<()>{
+    let Some(lang) = lang_at(p, offset) else { return Ok(())};
     let count = word.chars().count();
     let end = offset + word.len();
 
     let mut chars = 0;
-    for syllable in hypher::hyphenate(word, lang) {
+    let hyp_iter = if let Some(hyp_override) = hyphenation_override_at(p, offset) {
+        let result = hyp_override.call(engine, Context::none().track(), Args::new(Span::detached(), [word.to_string()]))?;
+        let mut result_vec = vec![];
+        match result {
+            typst_library::foundations::Value::Array(array) => {
+                for item in array {
+                    match item {
+                        typst_library::foundations::Value::Str(s) => {
+                            result_vec.push(s.to_string());
+                        },
+                        _ => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return auto or an array of strings for word '{word}'; returned an array that contains the value {item:#?}"))]))?
+                    };
+                }
+            },
+            typst_library::foundations::Value::Auto => {
+                result_vec = hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>();
+            }
+            return_value => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return auto or an array of strings for word '{word}'; returned {return_value:#?}"))]))?
+        }
+        result_vec
+    } else {
+        hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>()
+    };
+    for syllable in hyp_iter {
         offset += syllable.len();
         chars += syllable.chars().count();
 
@@ -852,8 +880,9 @@ fn hyphenations(
         let r = (count - chars).saturating_as::<u8>();
 
         // Call `f` for the word-internal hyphenation opportunity.
-        f(offset, Breakpoint::Hyphen(l, r));
+        f(offset, Breakpoint::Hyphen(l, r), engine);
     }
+    Ok(())
 }
 
 /// Produce linebreak opportunities for a link.
@@ -937,6 +966,17 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
     hypher::Lang::from_iso(bytes)
+}
+
+/// Which hyphenator should be used at the given offset.
+fn hyphenation_override_at(p: &Preparation, offset: usize) -> Option<Func> {
+    let (_, item) = p.get(offset);
+    match item.text() {
+        Some(text) => {
+            text.styles.get_cloned(TextElem::hypoverride)
+        }
+        None => None,
+    }
 }
 
 /// Resolved metrics relevant for cost computation.
