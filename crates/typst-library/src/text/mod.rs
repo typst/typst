@@ -44,7 +44,7 @@ use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
+    Args, Array, Cast, Construct, Content, Dict, Fold, Func, IntoValue, NativeElement, Never,
     NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
@@ -880,6 +880,10 @@ pub struct TextElem {
     /// ```
     #[required]
     pub text: EcoString,
+
+    /// Hyphenation override function that takes in a word and returns a list of syllables.
+    #[default(None)]
+    pub hypoverride: Option<Func>,
 
     /// The offset of the text in the text syntax node referenced by this
     /// element's span.
