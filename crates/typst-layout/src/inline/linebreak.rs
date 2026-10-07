@@ -16,7 +16,7 @@ use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::{Span, link_prefix};
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
-use typst_library::foundations::{Args, Context, Func};
+use typst_library::foundations::{Args, Context, Func, NoneValue, Value};
 
 use super::*;
 
@@ -829,8 +829,12 @@ fn hyphenations(
     let end = offset + word.len();
 
     let mut chars = 0;
+    // We wish to generate this regardless of whether we are overriden, as it is a parameter to the override
+    // The override is probably slow and this is cheap, relatively speaking
+    let hyp_result = hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>();
     let hyp_iter = if let Some(hyp_override) = hyphenation_override_at(p, offset) {
-        let result = hyp_override.call(engine, Context::none().track(), Args::new(Span::detached(), [word.to_string()]))?;
+        let args = Args::new(Span::detached(), [Value::Str(word.into()), Value::Array(typst_library::foundations::Array::from_iter(hyp_result.iter().map(|x| Value::Str(x.as_str().into()))))]);
+        let result = hyp_override.call(engine, Context::none().track(), args)?;
         let mut result_vec = vec![];
         match result {
             typst_library::foundations::Value::Array(array) => {
@@ -839,18 +843,15 @@ fn hyphenations(
                         typst_library::foundations::Value::Str(s) => {
                             result_vec.push(s.to_string());
                         },
-                        _ => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return auto or an array of strings for word '{word}'; returned an array that contains the value {item:#?}"))]))?
+                        _ => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return an array of strings for word '{word}'; returned an array that contains the value {item:#?}"))]))?
                     };
                 }
             },
-            typst_library::foundations::Value::Auto => {
-                result_vec = hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>();
-            }
-            return_value => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return auto or an array of strings for word '{word}'; returned {return_value:#?}"))]))?
+            return_value => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return an array of strings for word '{word}'; returned {return_value:#?}"))]))?
         }
         result_vec
     } else {
-        hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>()
+        hyp_result
     };
     for syllable in hyp_iter {
         offset += syllable.len();
