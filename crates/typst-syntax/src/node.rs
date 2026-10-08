@@ -140,6 +140,10 @@ impl SyntaxNode {
     }
 
     /// Add a warning message to an existing node.
+    ///
+    /// Calling this requires that we either recursively update the parent
+    /// node's `diagnosis` (as in reparsing) or we are in the process of
+    /// constructing the parent (as in normal parsing).
     pub fn warn(&mut self, message: impl Into<EcoString>) {
         let kind = self.kind();
         let child = std::mem::replace(&mut self.data, Node::Leaf(EcoString::new(), kind));
@@ -150,6 +154,10 @@ impl SyntaxNode {
     /// Add a warning around this node at a particular sub-range of the node's
     /// text. Panics if the range is empty or exceeds the length of the wrapped
     /// text.
+    ///
+    /// Calling this requires that we either recursively update the parent
+    /// node's `diagnosis` (as in reparsing) or we are in the process of
+    /// constructing the parent (as in normal parsing).
     #[track_caller]
     pub fn warn_at(
         &mut self,

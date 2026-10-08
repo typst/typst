@@ -340,7 +340,7 @@ mod tests {
     use std::ops::Range;
 
     use super::*;
-    use crate::{FileId, Source};
+    use crate::{Diagnosis, FileId, Source};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -609,5 +609,51 @@ mod tests {
             test(&text, Edit::After("A"), "~4", Reparse::Incr(" A~4~B "));
             test(&text, Edit::At(2 * n + 3), "5~", Reparse::Incr(" A~5~B "));
         }
+    }
+
+    /// Don't incrementally reparse ranges inside a syntax warning.
+    #[test]
+    fn test_reparse_within_warnings() {
+        // We build a custom tree with a warning since we don't currently
+        // produce any syntax warnings that would trigger this bug.
+        let text = "#[nor~mal] #[warn~ing]".to_string();
+        let mut root = parse(&text);
+
+        let second_block = &mut root.children_mut()[4];
+        assert_eq!(second_block.full_text(), "[warn~ing]");
+        // Note how the warning message can include text from within the node
+        // arbitrarily. This is the primary reason reparsing within warnings is
+        // unsound: there's no way to know how to update the message/hints!
+        second_block.warn_at(5..6, "tilde between `warn` and `ing`: `~`");
+        // We have to update the parent's diagnosis due to the new warning.
+        let warning_diagnosis = Diagnosis { warnings: true, errors: false };
+        // `{new,prev}_{len,desc}` are 0 since only their difference matters.
+        root.update_parent(0, 0, 0, 0, Diagnosis::default(), warning_diagnosis);
+        assert!(root.diagnosis().warnings);
+
+        // Assign initial span numbers so we can properly reparse.
+        let id = FileId::new_for_test("reparse_within_warnings");
+        root.numberize(id, Span::FULL).unwrap();
+        let mut source = Source::with_root(id, text, root);
+
+        // First we edit and reparse `nor~mal` into `normal`. The reparsed range
+        // should stay within the content block.
+        let replaced = Edit::Match("r~m").into_range(source.text());
+        let replace_with = "rm";
+        let reparsed = source.edit(replaced, replace_with);
+        assert_eq!(&source.text()[reparsed], "normal");
+        // Reparsing `normal` should not affect the warning:
+        assert!(source.root().diagnosis().warnings);
+
+        // Then we edit and reparse `warn~ing` into `warning`. Even though the
+        // edit is fully inside the warned content block, the reparsed range
+        // should expand to the outer code block since we can't soundly reparse
+        // within warnings.
+        let replaced = Edit::Match("n~i").into_range(source.text());
+        let replace_with = "ni";
+        let reparsed = source.edit(replaced, replace_with);
+        assert_eq!(&source.text()[reparsed], "warning"); // TODO: "#[normal] #[warning]"
+        // Reparsing should remove the warning:
+        assert!(source.root().diagnosis().warnings); // TODO: Invert
     }
 }
