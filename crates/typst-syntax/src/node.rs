@@ -37,9 +37,9 @@ pub struct SyntaxNode {
 /// a warning depends on what it wraps.
 ///
 /// The simplest way to get the underlying data by descending into the children
-/// of warnings is via a loop and match like below. The [`SyntaxNode::node_ref`]
+/// of warnings is via a loop and match like below. The [`Node::node_ref`]
 /// helper does this for the by-reference case, but mutation is usually more
-/// involved, so only gets the [`SyntaxNode::inner_and_span_mut`] helper.
+/// involved, so only gets the [`Node::inner_mut`] helper.
 /// ```ignore
 /// let mut data = &mut node.data;
 /// let value = loop {
@@ -57,17 +57,17 @@ enum Node {
     Warning(Arc<WarningWrapper>, SyntaxKind),
 }
 
-/// Data attached to a node, accessed by reference via [`SyntaxNode::node_ref`].
+/// Data attached to a node, accessed by reference via [`Node::node_ref`].
 enum NodeRef<'a> {
     Leaf(&'a EcoString),
     Inner(&'a Arc<InnerNode>),
     Error(&'a Arc<ErrorNode>),
 }
 
-impl SyntaxNode {
+impl Node {
     /// Access the underlying node data by reference, descending past warnings.
     fn node_ref(&self) -> NodeRef<'_> {
-        let mut data = &self.data;
+        let mut data = self;
         loop {
             match data {
                 Node::Leaf(text, _) => break NodeRef::Leaf(text),
@@ -78,18 +78,13 @@ impl SyntaxNode {
         }
     }
 
-    /// Access an inner node and the node's overall span mutably, descending
-    /// past warnings. If this only returned the `&mut InnerNode`, the caller
-    /// wouldn't be able to also get a mutable reference to the span since the
-    /// inner node would borrow mutably from `self`.
-    fn inner_and_span_mut(&mut self) -> Option<(&mut InnerNode, &mut Span)> {
-        let mut data = &mut self.data;
+    /// Access an inner node mutably, descending past warnings.
+    fn inner_mut(&mut self) -> Option<&mut InnerNode> {
+        let mut data = self;
         loop {
             match data {
                 Node::Leaf(_, _) | Node::Error(_, _) => break None,
-                Node::Inner(inner, _) => {
-                    break Some((Arc::make_mut(inner), &mut self.span));
-                }
+                Node::Inner(inner, _) => break Some(Arc::make_mut(inner)),
                 Node::Warning(warn, _) => data = &mut Arc::make_mut(warn).child,
             }
         }
@@ -97,7 +92,7 @@ impl SyntaxNode {
 
     /// Access the hints for an error or warning mutably.
     fn hints_mut(&mut self) -> Option<&mut EcoVec<(EcoString, Option<SubRange>)>> {
-        match &mut self.data {
+        match self {
             Node::Leaf(_, _) | Node::Inner(_, _) => None,
             Node::Error(err, _) => Some(&mut Arc::make_mut(err).hints),
             Node::Warning(warn, _) => Some(&mut Arc::make_mut(warn).hints),
@@ -176,7 +171,7 @@ impl SyntaxNode {
     /// this is not an error or warning.
     #[track_caller]
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         hints.push((hint.into(), None));
     }
 
@@ -192,7 +187,7 @@ impl SyntaxNode {
     ) {
         assert!(end <= self.len()); // This isn't checked by `SubRange::new`.
         let sub_range = SubRange::new(start, end).expect("a valid sub-range");
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         hints.push((hint.into(), Some(sub_range)));
     }
 
@@ -200,7 +195,7 @@ impl SyntaxNode {
     /// not an error or warning.
     #[track_caller]
     pub fn with_hints(mut self, new_hints: impl IntoIterator<Item = EcoString>) -> Self {
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         let iter = new_hints.into_iter().map(|h| (h, None));
         hints.extend(iter);
         self
@@ -237,7 +232,7 @@ impl SyntaxNode {
 
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(text) => text.len(),
             NodeRef::Inner(inner) => inner.len,
             NodeRef::Error(err) => err.text.len(),
@@ -254,7 +249,7 @@ impl SyntaxNode {
     /// Returns the empty string if this is an inner node.
     pub fn leaf_text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(text) => text,
             NodeRef::Inner(_) => &EMPTY,
             NodeRef::Error(err) => &err.text,
@@ -270,7 +265,7 @@ impl SyntaxNode {
             Node::Inner(_, _) | Node::Warning(_, _) => {
                 let mut buffer = EcoString::with_capacity(self.len());
                 self.traverse(|node| {
-                    match node.node_ref() {
+                    match node.data.node_ref() {
                         NodeRef::Leaf(text) => buffer.push_str(text),
                         NodeRef::Inner(_) => {}
                         NodeRef::Error(err) => buffer.push_str(&err.text),
@@ -284,7 +279,7 @@ impl SyntaxNode {
 
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => [].iter(),
             NodeRef::Inner(inner) => inner.children.iter(),
         }
@@ -297,7 +292,7 @@ impl SyntaxNode {
     /// This can be used to determine whether [`Self::errors_and_warnings`] will
     /// return an empty vector without traversing the tree if it will not.
     pub fn diagnosis(&self) -> Diagnosis {
-        let diagnosis = match self.node_ref() {
+        let diagnosis = match self.data.node_ref() {
             NodeRef::Leaf(_) => Diagnosis::default(),
             NodeRef::Inner(inner) => inner.diagnosis,
             NodeRef::Error(_) => Diagnosis { errors: true, warnings: false },
@@ -538,8 +533,8 @@ impl SyntaxNode {
     ) -> NumberingResult {
         if within.start >= within.end {
             Err(Unnumberable)
-        } else if let Some((inner, span)) = self.inner_and_span_mut() {
-            inner.numberize(span, id, None, within)
+        } else if let Some(inner) = self.data.inner_mut() {
+            inner.numberize(Some(&mut self.span), id, None, within)
         } else {
             self.span =
                 Span::from_number(id, SpanNumber((within.start + within.end) / 2));
@@ -570,18 +565,18 @@ impl SyntaxNode {
 
     /// Whether this is a leaf node.
     pub(super) fn is_leaf(&self) -> bool {
-        matches!(self.node_ref(), NodeRef::Leaf(_))
+        matches!(self.data.node_ref(), NodeRef::Leaf(_))
         // TODO: Should we also treat non-empty errors as leaves?
     }
 
     /// Whether this is an inner node.
     pub(super) fn is_inner(&self) -> bool {
-        matches!(self.node_ref(), NodeRef::Inner(_))
+        matches!(self.data.node_ref(), NodeRef::Inner(_))
     }
 
     /// The number of descendants, including the node itself.
     pub(super) fn descendants(&self) -> usize {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => 1,
             NodeRef::Inner(inner) => inner.descendants,
         }
@@ -589,7 +584,7 @@ impl SyntaxNode {
 
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
-        if let Some((inner, _)) = self.inner_and_span_mut() {
+        if let Some(inner) = self.data.inner_mut() {
             &mut inner.children
         } else {
             &mut []
@@ -607,7 +602,7 @@ impl SyntaxNode {
         range: Range<usize>,
         replacement: Vec<SyntaxNode>,
     ) -> Range<usize> {
-        if let Some((inner, _)) = self.inner_and_span_mut() {
+        if let Some(inner) = self.data.inner_mut() {
             inner.replace_children(range, replacement)
         } else {
             unreachable!();
@@ -617,8 +612,8 @@ impl SyntaxNode {
     /// Try to assign span numbers to a range of children. If there are not
     /// enough numbers, retries taking exponentially more children into account.
     pub(super) fn renumber_children(&mut self, range: Range<usize>) -> NumberingResult {
-        if let Some((inner, span)) = self.inner_and_span_mut() {
-            inner.renumber_children(span, range)
+        if let Some(inner) = self.data.inner_mut() {
+            inner.renumber_children(self.span, range)
         } else {
             Ok(())
         }
@@ -635,7 +630,7 @@ impl SyntaxNode {
         prev_diagnosis: Diagnosis,
         new_diagnosis: Diagnosis,
     ) {
-        if let Some((inner, _)) = self.inner_and_span_mut() {
+        if let Some(inner) = self.data.inner_mut() {
             inner.update_parent(
                 prev_len,
                 new_len,
@@ -649,7 +644,7 @@ impl SyntaxNode {
 
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => self.span.number() + 1,
             NodeRef::Inner(inner) => inner.upper,
         }
@@ -716,7 +711,7 @@ impl InnerNode {
     /// a `range` of its children.
     fn numberize(
         &mut self,
-        span: &mut Span,
+        span: Option<&mut Span>,
         id: FileId,
         range: Option<Range<usize>>,
         within: Range<u64>,
@@ -745,7 +740,8 @@ impl InnerNode {
 
         // Number the node itself.
         let mut start = within.start;
-        if range.is_none() {
+        if let Some(span) = span {
+            debug_assert!(range.is_none(), "`node_span` and `range` are exclusive");
             let end = start + stride;
             *span = Span::from_number(id, SpanNumber((start + end) / 2));
             self.upper = within.end;
@@ -832,7 +828,7 @@ impl InnerNode {
     /// enough numbers, retries taking exponentially more children into account.
     fn renumber_children(
         &mut self,
-        span: &mut Span,
+        span: Span,
         range: Range<usize>,
     ) -> NumberingResult {
         let Some(id) = span.id() else { return Err(Unnumberable) };
@@ -867,7 +863,7 @@ impl InnerNode {
 
             // Try to renumber.
             let within = start_number..end_number;
-            if self.numberize(span, id, Some(renumber), within).is_ok() {
+            if self.numberize(None, id, Some(renumber), within).is_ok() {
                 return Ok(());
             }
 
@@ -1034,8 +1030,8 @@ impl ErrorNode {
 ///
 /// Warnings transparently wrap another node and do not have spans or text of
 /// their own. This means their child cannot be directly found or mutated, only
-/// affected _through_ the warning, usually via the [`SyntaxNode::node_ref`] and
-/// [`SyntaxNode::inner_and_span_mut`] methods.
+/// affected _through_ the warning, usually via the [`Node::node_ref`] and
+/// [`Node::inner_mut`] methods.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct WarningWrapper {
     /// The wrapped node data.
