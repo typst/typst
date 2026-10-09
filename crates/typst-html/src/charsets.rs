@@ -94,3 +94,32 @@ const fn is_whatwg_control_char(c: char) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_attr_name() {
+        let assert_valid = |c: char, x: bool, y: bool| {
+            let expected = (x, y);
+            let got =
+                (is_valid_in_attribute_name(c), is_valid_in_attribute_local_name(c));
+            assert_eq!(
+                got, expected,
+                "char: {c:?}, expected: ({expected:?}), got: ({got:?})",
+            );
+        };
+
+        assert_valid('a', true, true);
+        assert_valid('-', true, true);
+        assert_valid('*', true, true);
+
+        assert_valid('\0', false, false);
+        assert_valid('=', false, false);
+        assert_valid('\t', false, false);
+
+        assert_valid('"', false, true);
+        assert_valid('\'', false, true);
+    }
+}

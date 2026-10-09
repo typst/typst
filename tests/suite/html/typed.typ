@@ -199,7 +199,7 @@
 #html.div(data--foo: "not available in `element.dataset`")
 #html.div(data-foo-1: "hard to access in JavaScript")
 
-#html.div(..("data-valid.in.html": "hard to enter in Typst"))
+#html.div(..("data-valid.in.html": "", "data-*": "hard to enter in Typst"))
 #html.div(data-_schön_始料不及_π: "valid in HTML")
 
 --- html-typed-data-name-invalid-empty eval ---
@@ -216,6 +216,15 @@
 // Error: 11-26 `data-FooBar` is not a valid custom `data-*` attribute
 // Hint: 11-26 it should contain no ASCII upper alphas or special characters
 #html.div(data-FooBar: "")
+
+--- html-typed-data-name-invalid-special-char-B eval ---
+// Error: 11-27 `data-/` is not a valid custom `data-*` attribute
+// Hint: 11-27 it should contain no ASCII upper alphas or special characters
+#html.div(..("data-/": ""))
+
+--- html-typed-data-name-invalid-special-char-A eval ---
+// Error: 11-28 the character "\"" is not valid in an attribute name
+#html.div(..("data-\"": ""))
 
 --- html-typed-data-name-duplicate eval ---
 // Error: 26-34 duplicate argument: data-foo

@@ -72,7 +72,7 @@ c3be983a199a95106caffe0572463a58 html-style
 568cbc99dba4312ba440431d779ec70a html-style-str
 f9671e4e56820cd2f5fbd767d04eabc0 html-textarea-starting-with-newline
 27deb9f67ff71237f5d8bee72a95ef82 html-typed
-a1ddaa0de9d69d5ee698edaade775e5f html-typed-data-name-valid-though-not-recommended
+787da811dbe4934df2638844e3764e33 html-typed-data-name-valid-though-not-recommended
 58895c458693621c61d4d498ab0f8b64 html-untyped-style-content
 f7eaf53ac8ae30b69426912e83ff1b43 image-blocky-html
 59e349bb0bd41fb1a37a6d575c12b41e image-jpg-html-base64
