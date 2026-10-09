@@ -37,8 +37,8 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// convenience, as creating a proper bleed-aware background inherently requires
 /// extending it into the bleed area.
 ///
-/// If you're trying to size an element so that it takes up the page's _full_
-/// width, you have a few options (this highly depends on your exact use case):
+/// If you're trying to size an element relative to the page's _full_ width, you
+/// have a few options (this highly depends on your exact use case):
 ///
 /// + Set page margins to `{0pt}` (`[#set page(margin: 0pt)]`)
 /// + Multiply the ratio by the known full page width (`{21cm * 69%}`)
