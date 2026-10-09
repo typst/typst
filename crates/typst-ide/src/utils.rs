@@ -255,6 +255,7 @@ where
 #[cfg(test)]
 mod tests {
     use typst::text::{FontBook, FontInfo};
+    use typst_utils::Caseless;
 
     use super::*;
 
@@ -266,7 +267,7 @@ mod tests {
 
         let summarize = |family: &str| {
             summarize_font_family(
-                book.select_family(&family.to_lowercase())
+                book.select_family(Caseless::wrap(family))
                     .map(|id| book.info(id).unwrap()),
             )
         };

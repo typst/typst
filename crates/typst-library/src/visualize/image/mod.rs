@@ -269,7 +269,7 @@ impl Packed<ImageElem> {
                 let Warned { output, warnings } = SvgImage::with_fonts_images(
                     loaded.data.clone(),
                     engine.world,
-                    &families(styles).map(|f| f.as_str()).collect::<Vec<_>>(),
+                    &families(styles).map(|f| f.name()).collect::<Vec<_>>(),
                     svg_file,
                 )
                 .within(loaded)?;
