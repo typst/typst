@@ -7,6 +7,12 @@ What's up?
 --- document-set-author-date paged empty ---
 #set document(author: ("A", "B"), date: datetime.today())
 
+--- document-set-version pdftags ---
+#set document(version: version(1, 2, 3))
+
+--- document-set-version-string pdftags ---
+#set document(version: "v1.2.3-beta")
+
 --- document-date-bad eval ---
 // Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
@@ -173,6 +179,7 @@ world
   author: "Test Author",
   description: [Test description],
   keywords: ("a", "b"),
+  version: version(1, 2, 3),
 )[
   #title()
   // Testing all properties separately because, in the current implementation,
@@ -183,6 +190,7 @@ world
     test(document.author, ("Test Author",))
     test(document.description, [Test description])
     test(document.keywords, ("a", "b"))
+    test(document.version, version(1, 2, 3))
     test(document.date, auto)
   }
 ]
