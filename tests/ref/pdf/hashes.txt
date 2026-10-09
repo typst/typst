@@ -632,7 +632,7 @@ b68fe0d021f382a465a2b8fa087a6f06 hyphenate-pt-repeat-hyphen-hyphenate-true-with-
 749a46c35d9a499fd6b0ea919d97259e image-decode-detect-format
 5f58a768d82a5538ef96cdab90c7c5df image-decode-specify-format
 19baf7ccd2b888f52e1c0066d9e48647 image-decode-svg
-6f4d4f0d9fa4761011f6633574a177bb image-exif-rotation
+0d280e6585636d7d6a762c8ab1b67aa3 image-exif-rotation
 8bceb5bb4997875a52bcad2ab5a28147 image-fit
 364849ef231ce5da69cd5c34669fae09 image-jpg
 e2c28abda075f98a1be7605f762b4291 image-jump-to-next-page
@@ -646,6 +646,7 @@ d7745ce3cafb9fe332e6dfa398bddc76 image-pixmap-lumaa8
 9f5604c88f6f0b71e7c52aef08adf76e image-pixmap-rgb8
 cb4d72e9cc3a018f9c34e3e6bb03daec image-pixmap-rgba8
 6aac6244e82b974ddcd0b8db538a244d image-png
+7890610d2a9894029a44501560d85b9c image-png-indexed
 65267f2280a0f6f6ba9804519bab4dd7 image-scaling-methods
 2e0bb459820fbfa3a02fa45f0321a87b image-sizing
 44c2e2e556d8a1411be2199d31ae4da0 image-svg-auto-detection

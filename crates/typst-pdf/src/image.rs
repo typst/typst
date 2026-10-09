@@ -205,6 +205,10 @@ fn convert_raster(
             icc_profile.map(|i| i.into()),
             interpolate,
         )
+    } else if let RasterFormat::Exchange(ExchangeFormat::Png) = raster.format() {
+        let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+            Arc::new(raster.data().clone());
+        krilla::image::Image::from_png(image_data.into(), interpolate)
     } else {
         krilla::image::Image::from_custom(PdfRasterImage::new(raster), interpolate)
     }
@@ -216,10 +220,13 @@ fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
 }
 
 fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
-    // For JPEGs, we want to apply the EXIF orientation as a transformation
+    // For JPEG/PNGs, we want to apply the EXIF orientation as a transformation
     // because we don't recode them. For other formats, the transform is already
     // baked into the dynamic image data.
-    if image.format() != RasterFormat::Exchange(ExchangeFormat::Jpg) {
+    if !matches!(
+        image.format(),
+        RasterFormat::Exchange(ExchangeFormat::Jpg | ExchangeFormat::Png)
+    ) {
         return (Transform::identity(), size);
     }
 
