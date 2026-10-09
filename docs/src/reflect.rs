@@ -319,6 +319,10 @@ pub fn is_global_html_attr(name: EcoString) -> bool {
     data::ATTRS[..data::ATTRS_GLOBAL]
         .iter()
         .any(|global| global.name == name)
+        // In the HTML spec, the section of global attributes includes `data-*`;
+        // however, the list of attributes on the index page does not. Therefore,
+        // a special treatment is required here.
+        || name == "data-*"
 }
 
 /// Returns the list of raw languages available.
