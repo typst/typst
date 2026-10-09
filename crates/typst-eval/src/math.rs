@@ -5,7 +5,7 @@ use typst_library::math::{
     AlignPointElem, AttachElem, EquationElem, FracElem, LrElem, PrimesElem, RootElem,
 };
 use typst_library::text::TextElem;
-use typst_syntax::ast::{self, AstNode, MathTextKind};
+use typst_syntax::ast::{self, AstNode};
 
 use crate::{Eval, Vm};
 
@@ -31,14 +31,27 @@ impl Eval for ast::Math<'_> {
     }
 }
 
-impl Eval for ast::MathText<'_> {
+impl Eval for ast::MathLetter<'_> {
     type Output = Content;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        match self.get() {
-            MathTextKind::Grapheme(text) => Ok(SymbolElem::packed(text.clone())),
-            MathTextKind::Number(text) => Ok(TextElem::packed(text.clone())),
-        }
+        Ok(SymbolElem::packed(self.get().clone()))
+    }
+}
+
+impl Eval for ast::MathGrapheme<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(SymbolElem::packed(self.get().clone()))
+    }
+}
+
+impl Eval for ast::MathNumber<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        Ok(TextElem::packed(self.get().clone()))
     }
 }
 
@@ -96,13 +109,43 @@ impl Eval for ast::MathAlignPoint<'_> {
     }
 }
 
+impl Eval for ast::MathOpening<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        // This is mainly used for an unpaired delimiter like `$ ( $`.
+        Ok(SymbolElem::packed(self.get()))
+    }
+}
+
+impl Eval for ast::MathClosing<'_> {
+    type Output = Content;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        // This is mainly used for an unpaired delimiter like `$ ) $`.
+        Ok(SymbolElem::packed(self.get()))
+    }
+}
+
 impl Eval for ast::MathDelimited<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
-        let close = self.close().eval_display(vm)?;
+
+        // We intentionally forego calling `Vm::trace` for `open` or `close`
+        // because it would be better for an IDE tooltip to show the full LR
+        // element instead of a single delim when hovering a delimiter (albeit
+        // no such tooltip for that exists right now).
+        let open = {
+            let delim = self.open();
+            SymbolElem::packed(delim.get()).spanned(delim.span())
+        };
+        let close = {
+            let delim = self.close();
+            SymbolElem::packed(delim.get()).spanned(delim.span())
+        };
+
         Ok(LrElem::new(open + body + close).pack())
     }
 }
@@ -165,7 +208,7 @@ impl Eval for ast::MathRoot<'_> {
     type Output = Content;
 
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        // Use `TextElem` to match `MathTextKind::Number` above.
+        // Use `TextElem` to match `MathNumber` above.
         let index = self.index().map(|i| TextElem::packed(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok(RootElem::new(radicand).with_index(index).pack())

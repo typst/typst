@@ -3,8 +3,7 @@ use std::ops::{DerefMut, Index, IndexMut, Range};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::{FxHashMap, FxHashSet};
-use typst_utils::{default_math_class, defer};
-use unicode_math_class::MathClass;
+use typst_utils::defer;
 
 use crate::set::{SyntaxSet, syntax_set};
 use crate::{Lexer, SyntaxKind, SyntaxMode, SyntaxNode, ast, set};
@@ -272,6 +271,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     let Some(p) = &mut p.increase_depth() else { return };
 
     let m = p.marker();
+    // Whether this expression can group with a following open delimiter as an
+    // implicit function call.
     let mut continuable = false;
     match p.current() {
         SyntaxKind::Hash => embedded_code_expr(p),
@@ -288,35 +289,34 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
             }
         }
 
-        SyntaxKind::LeftBrace | SyntaxKind::LeftParen => {
+        // Parse delimiters as an atomic unit.
+        SyntaxKind::MathOpening | SyntaxKind::LeftParen => {
             math_delimited(p);
         }
-        SyntaxKind::RightBrace if p.current_text() == "|]" => {
-            p.convert_and_eat(SyntaxKind::MathShorthand);
-        }
-        SyntaxKind::Dot
-        | SyntaxKind::Bang
-        | SyntaxKind::Comma
-        | SyntaxKind::Semicolon
-        | SyntaxKind::RightBrace
-        | SyntaxKind::RightParen => {
-            p.convert_and_eat(SyntaxKind::MathText);
+        // An unmatched closing delimiter.
+        SyntaxKind::MathClosing | SyntaxKind::RightParen => {
+            p.convert_and_eat(SyntaxKind::MathClosing);
         }
 
-        SyntaxKind::MathText => {
-            continuable = is_math_alphabetic(p.current_text());
-            p.eat();
+        SyntaxKind::Bang | SyntaxKind::Comma | SyntaxKind::Semicolon => {
+            p.convert_and_eat(SyntaxKind::MathGrapheme);
         }
 
         SyntaxKind::Linebreak
         | SyntaxKind::MathAlignPoint
+        | SyntaxKind::MathGrapheme
+        | SyntaxKind::MathNumber
         | SyntaxKind::MathShorthand => p.eat(),
 
-        SyntaxKind::MathPrimes | SyntaxKind::Escape | SyntaxKind::Str => {
+        SyntaxKind::MathLetter
+        | SyntaxKind::MathPrimes
+        | SyntaxKind::Escape
+        | SyntaxKind::Str => {
             continuable = true;
             p.eat();
         }
 
+        // The only prefix operator in math.
         SyntaxKind::Root => {
             p.eat();
             let m2 = p.marker();
@@ -334,14 +334,14 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
     if continuable
         && MATH_FUNC_PREC >= min_prec
         && !p.had_trivia()
-        && p.at_set(syntax_set!(LeftBrace, LeftParen))
+        && p.at_set(syntax_set!(MathOpening, LeftParen))
     {
         math_delimited(p);
         p.wrap(m, SyntaxKind::Math);
     }
 
     // Parse infix and postfix operators. The general form of a parsed op looks
-    // like: `MathAttach[ MathText("x"), Hat("^"), MathText("2") ]`.
+    // like: `MathAttach[ MathLetter("x"), Hat("^"), MathNumber("2") ]`.
     while !p.at_set(stop_set)
         && let op_kind = p.current()
         && let had_trivia = p.had_trivia()
@@ -360,7 +360,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: u8, stop_set: SyntaxSet) {
 
         // Eat the operator itself.
         if op_kind == SyntaxKind::Bang {
-            p.convert_and_eat(SyntaxKind::MathText);
+            p.convert_and_eat(SyntaxKind::MathGrapheme);
         } else {
             p.eat();
         }
@@ -419,38 +419,19 @@ fn math_op(
     Some(op)
 }
 
-/// Whether text counts as alphabetic in math. For the `Text` and `MathText`
-/// kinds, this causes them to group with parens as an implicit function call.
-fn is_math_alphabetic(text: &str) -> bool {
-    if let Some((0, c)) = text.char_indices().next_back() {
-        // Just a single character.
-        c.is_alphabetic() || default_math_class(c) == Some(MathClass::Alphabetic)
-    } else {
-        // Multiple characters.
-        text.chars().all(char::is_alphabetic)
-    }
-}
-
 /// Parse matched delimiters in math: `[x + y]`.
 ///
-/// The lexer produces `{Left,Right}{Brace,Paren}` for delimiters, and it's our
-/// job to convert them back to `MathText` or `MathShorthand` before eating.
+/// `{Left,Right}Paren` need to be converted to `Math{Opening,Closing}` since we
+/// parens are separated out to aid function call parsing. Note that they may be
+/// converted _back_ to `{Left,Right}Paren` by a later `math_unparen` call.
 fn math_delimited(p: &mut Parser) {
     let m = p.marker();
-    if p.current_text() == "[|" {
-        p.convert_and_eat(SyntaxKind::MathShorthand);
-    } else {
-        p.convert_and_eat(SyntaxKind::MathText);
-    }
+    p.convert_and_eat(SyntaxKind::MathOpening); // Converts `LeftParen`.
     let m_body = p.marker();
-    math_exprs(p, syntax_set!(Dollar, End, RightBrace, RightParen));
-    if p.at_set(syntax_set!(RightBrace, RightParen)) {
+    math_exprs(p, syntax_set!(Dollar, End, MathClosing, RightParen));
+    if p.at_set(syntax_set!(MathClosing, RightParen)) {
         p.wrap(m_body, SyntaxKind::Math);
-        if p.current_text() == "|]" {
-            p.convert_and_eat(SyntaxKind::MathShorthand);
-        } else {
-            p.convert_and_eat(SyntaxKind::MathText);
-        }
+        p.convert_and_eat(SyntaxKind::MathClosing); // Converts `RightParen`.
         p.wrap(m, SyntaxKind::MathDelimited);
     } else {
         // If we had no closing delimiter, just produce a math sequence.
@@ -461,18 +442,15 @@ fn math_delimited(p: &mut Parser) {
 /// Remove one set of parentheses (if any) from a previously parsed expression
 /// by converting to non-expression [`SyntaxKind`]s.
 fn math_unparen(p: &mut Parser, m: Marker) {
-    let Some(node) = p.nodes.get_mut(m.0) else { return };
-    if node.kind() != SyntaxKind::MathDelimited {
-        return;
-    }
-
-    if let [first, .., last] = node.children_mut()
+    let node = &mut p[m];
+    if node.kind() == SyntaxKind::MathDelimited
+        && let [first, .., last] = node.children_mut()
         && first.leaf_text() == "("
         && last.leaf_text() == ")"
     {
+        // `LeftParen` and `RightParen` kinds are skipped in the AST.
         first.convert_to_kind(SyntaxKind::LeftParen);
         last.convert_to_kind(SyntaxKind::RightParen);
-        // Only convert if we did have regular parens.
         node.convert_to_kind(SyntaxKind::Math);
     }
 }
@@ -2113,6 +2091,8 @@ impl Parser<'_> {
         // opening and closing grouping delimiters before continuing.
         self.with_nl_mode(AtNewline::Continue, |p| {
             loop {
+                // We don't need to add `MathOpening/MathClosing` since they
+                // don't actually contribute to delimiter balance.
                 if p.at_set(syntax_set!(LeftBracket, LeftBrace, LeftParen)) {
                     balance = balance.saturating_add(1);
                 } else if p.at_set(syntax_set!(RightBracket, RightBrace, RightParen)) {

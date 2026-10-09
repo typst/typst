@@ -57,6 +57,33 @@ $
   (x)'(x)'(x)' / (x)'(x)'(x)' \
 $
 
+--- math-frac-precedence-xid-vs-alpha eval ---
+// Many characters have the Unicode `Alphabetic` property but not `xid_start`,
+// but only two have `xid_start` but not `Alphabetic` (℮ U+212E and ℘ U+2118).
+// We used to use `Alphabetic` to determine whether characters would be treated
+// as an implicit function call, but now we use `xid_start`. This is partly
+// because the chars with `Alphabetic` but not `xid_start` are not very
+// function-like, but mainly because ℘ is an actual named function!
+// https://en.wikipedia.org/wiki/Weierstrass_elliptic_function
+// https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=\p{alpha}+-+\p{xids}
+
+#let alphabetic = regex("\p{alpha}")
+#let xid-start = regex("\p{xids}")
+
+// https://en.wikipedia.org/wiki/Weierstrass_elliptic_function
+#assert(not "℘".contains(alphabetic))
+#assert("℘".contains(xid-start))
+#let eqn = $ ℘()/2  $
+#test(repr(eqn.body), "frac(
+  num: sequence([℘], lr(body: sequence([(], [)]))),
+  denom: [2],
+)")
+
+#assert("ⓟ".contains(alphabetic))
+#assert(not "ⓟ".contains(xid-start))
+#let eqn = $ ⓟ()/2  $
+#test(repr(eqn.body), "sequence([ⓟ], frac(num: [], denom: [2]))")
+
 --- math-frac-gap paged html ---
 // Test that the gap above and below the fraction rule is correct.
 $ sqrt(n^(2/3)) $
