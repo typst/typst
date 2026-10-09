@@ -281,11 +281,14 @@ pub struct CircleElem {
     /// In contrast to `radius`, this can be relative to the parent container's
     /// width.
     #[parse(
-        let size = args
+        let mut size = args
             .named::<Smart<Length>>("radius")?
             .map(|s| s.map(|r| 2.0 * Rel::from(r)));
         match size {
-            None => args.named("width")?,
+            None => {
+                size = args.named("width")?;
+                size
+            },
             size => size,
         }
     )]
