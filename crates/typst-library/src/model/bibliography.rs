@@ -98,24 +98,6 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 ///   [Physics],
 ///   [`{"american-physics-society"}`],
 /// )
-/// = Hanging indent <hanging-indent>
-/// By default, bibliography entries use a hanging indent of `{1.5em}`,
-/// applied through a built-in show-set rule on `{par.hanging-indent}`.
-/// Because show-set rules take precedence over prior `set` rules, a plain
-/// `{set par(hanging-indent: ...)}` elsewhere in your document will have no
-/// effect on the bibliography. To change or disable this indent, target the
-/// bibliography's own show rule instead:
-///
-/// ```example
-/// #set bibliography(style: "apa")
-/// Multiple sources say... @arrgh @netwok
-///
-/// #bibliography("works.bib")
-/// #show bibliography: set par(hanging-indent: 3em)
-///
-/// Might be a pirate. @netwok
-/// #bibliography("works.bib")
-/// ```
 ///
 /// = Multiple bibliographies <multiple-bibliographies>
 /// When a Typst document contains multiple bibliographies, each citation is
@@ -125,6 +107,31 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 /// thematic bibliographies. For more fine-grained control, citations can be
 /// explicitly targeted by a bibliography through a
 /// @bibliography.target[`target`] selector.
+///
+/// = Styling <styling>
+/// Some bibliography styles format entries with hanging indent. By default,
+/// such styles apply an indent of `{1.5em}` through a built-in show-set rule on
+/// @par.hanging-indent. To override this default, you can write your own
+/// show-set rule
+/// #footnote[
+///   A bare `{set par(hanging-indent: ..)}` will have no effect on the
+///   bibliography since show-set rules (including built-in ones) take
+///   precedence over plain set rules.
+/// ],
+/// targeting the bibliography:
+///
+/// ```example
+/// #show bibliography: set par(
+///   hanging-indent: 3em
+/// )
+///
+/// The Net Wok is ... @netwok
+///
+/// #bibliography(
+///   "works.bib",
+///   style: "apa",
+/// )
+/// ```
 #[elem(since = "forever", Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or

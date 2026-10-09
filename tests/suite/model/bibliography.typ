@@ -104,7 +104,8 @@ hi:
 // does not leak into paragraphs outside of the bibliography.
 #show bibliography: set par(hanging-indent: 3em)
 
-Hanging indent should not affect this paragraph, which is long enough to wrap onto a second line.
+Hanging indent should not affect this paragraph, which is long enough to wrap
+onto a second line.
 
 @Zee04
 @keshav2007read
