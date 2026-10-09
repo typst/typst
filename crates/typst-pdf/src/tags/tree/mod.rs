@@ -16,7 +16,7 @@ use typst_library::format::Complete;
 use typst_library::foundations::Packed;
 use typst_library::introspection::Location;
 use typst_library::layout::Inherit;
-use typst_library::model::LinkMarker;
+use typst_library::model::{FormFieldMarker, LinkMarker};
 
 pub use build::build;
 pub use text::{ResolvedTextAttrs, TextAttr, resolve_text_attrs};
@@ -58,6 +58,21 @@ impl Tree {
             let group = self.groups.get(current);
             if let Some(link) = group.kind.as_link() {
                 return Some((current, link));
+            }
+            current = group.parent;
+        }
+
+        None
+    }
+
+    /// Find the form field ancestor in the tree.
+    pub fn parent_form_field(&self) -> Option<(GroupId, &Packed<FormFieldMarker>)> {
+        let mut current = self.current();
+
+        while current != GroupId::INVALID {
+            let group = self.groups.get(current);
+            if let Some(form_field) = group.kind.as_form_field() {
+                return Some((current, form_field));
             }
             current = group.parent;
         }
@@ -605,6 +620,9 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
                 parent = tree.groups.push_tag(parent, Tag::Reference);
             }
             tree.groups.push_group(parent, id);
+        }
+        GroupKind::FormField(..) => {
+            tree.groups.push_group(direct_parent, id);
         }
         GroupKind::CodeBlock(..) => {
             tree.groups.push_group(direct_parent, id);

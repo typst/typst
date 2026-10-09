@@ -1,21 +1,28 @@
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
+use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail, eco_vec, error};
 use typst_library::foundations::{
-    Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, Value, dict,
+    Content, Context, FromValue, IntoValue, NativeElement, NativeRuleMap, Packed,
+    Resolve, ShowFn, Smart, StyleChain, SymbolElem, Synthesize, Target, Value, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
-    FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
-    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
-    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
-    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    Abs, AlignElem, Alignment, Axes, BaselinePos, BlockBody, BlockElem, BoxElem,
+    ColumnsElem, Em, FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment,
+    HElem, HideElem, InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem,
+    PageElem, PlaceElem, PlacementScope, Ratio, Region, Rel, RepeatElem, RotateElem,
+    ScaleElem, Sides, Size, Sizing, SkewElem, Spacing, StackChild, StackElem,
+    TrackSizings, VAlignment, VElem,
 };
 use typst_library::math::EquationElem;
-use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
+use typst_library::model::{
+    ArtifactElem, ArtifactKind, ButtonAction, CheckboxField, ChoiceField,
+    FieldAppearance, FieldAppearanceKind, Form, FormButtonField, FormCheckboxField,
+    FormChoiceField, FormElem, FormField, FormFieldKind, FormFieldMarker, FormLabel,
+    FormRadioField, FormRadioGroup, FormTextField, PdfMarkerTag, RadioField, RadioGroup,
+    TextField, WidgetAction,
+};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
@@ -30,8 +37,8 @@ use typst_library::text::{
     TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
-    SquareElem, Stroke,
+    CircleElem, Color, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem,
+    RectElem, SquareElem, Stroke,
 };
 use typst_utils::{Get, Numeric};
 
@@ -65,6 +72,15 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
+    rules.register(Paged, FORM_RULE);
+    rules.register(Paged, FORM_FIELD_MARKER_RULE);
+    rules.register(Paged, FORM_BUTTON_FIELD_RULE);
+    rules.register(Paged, FORM_CHECKBOX_FIELD_RULE);
+    rules.register(Paged, FORM_RADIO_GROUP_RULE);
+    rules.register(Paged, FORM_RADIO_FIELD_RULE);
+    rules.register(Paged, FORM_TEXT_FIELD_RULE);
+    rules.register(Paged, FORM_CHOICE_FIELD_RULE);
+    rules.register(Paged, FORM_LABEL_RULE);
 
     // Text.
     rules.register(Paged, SUB_RULE);
@@ -541,6 +557,481 @@ const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
 const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, styles| {
     show_cell(elem.body.clone(), elem.inset.get(styles), elem.align.get(styles))
 };
+
+const FORM_RULE: ShowFn<FormElem> = |elem, _, styles| {
+    Ok(elem.body.clone().set(
+        FormElem::form,
+        Some(Form {
+            location: elem.location().unwrap(),
+            target: elem.target.get_cloned(styles),
+        }),
+    ))
+};
+
+const FORM_FIELD_MARKER_RULE: ShowFn<FormFieldMarker> =
+    |elem, _, _| Ok(elem.body.clone());
+
+const FORM_BUTTON_FIELD_RULE: ShowFn<FormButtonField> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let name = elem.name.get_cloned(styles).custom();
+    let Some(form) = styles.get_ref(FormElem::form) else {
+        bail!(span, "button must be placed inside a #form element");
+    };
+
+    let action = elem.action.get(styles).map(|action| {
+        match action {
+            ButtonAction::Submit => {
+                let Some(target) = form.target.clone() else {
+                    bail!(
+                        span, "button has submit action, but no submission target is defined for its form";
+                        hint: "set the `target` property of the surrounding #form element";
+                    );
+                };
+                Ok(WidgetAction::Submit { form: form.location, target })
+            },
+            ButtonAction::Reset => Ok(WidgetAction::Reset { form: form.location }),
+        }
+    }).transpose()?;
+
+    // TODO: maybe get rid of the BoxElem and just use elem.body?
+    // however, what do we do with elem.width/elem.height then?
+    // FIXME: we have clipping issues, as box does not expand to accommodate the correct text height
+    let inner = BoxElem::new()
+        .with_width(elem.width.get(styles))
+        .with_height(elem.height.get(styles))
+        .with_clip(true) // PDF XObjects are clipped, so ensure the same for png/svg
+        .with_baseline(
+            // TODO: impl From<...> for BaselinePos
+            BaselinePos::from_value(Rel::from(Length::from(Em::new(0.2))).into_value())
+                .unwrap(),
+        )
+        .with_body(Some(
+            elem.body.clone().set(
+                FormElem::appearance,
+                Some(
+                    FieldAppearance::new(location, FieldAppearanceKind::Single)
+                        .with_action(action),
+                ),
+            ),
+        ))
+        .pack()
+        .spanned(span);
+
+    Ok(FormFieldMarker::new(inner).pack().spanned(span).set(
+        FormElem::field,
+        Some(FormField::new(span, location, form.location, name, FormFieldKind::Button)),
+    ))
+};
+
+const FORM_CHECKBOX_FIELD_RULE: ShowFn<FormCheckboxField> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let name = elem.name.get_cloned(styles).custom();
+    let Some(form) = styles.get_ref(FormElem::form) else {
+        bail!(span, "checkbox must be placed inside a #form element");
+    };
+    let checked = elem.checked.get(styles);
+
+    let inner_width = Smart::Custom(Ratio::one().into());
+    let inner_height = Sizing::Rel(Ratio::one().into());
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::one().into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    let checkmark = AlignElem::new(SymbolElem::packed("✓"))
+        .with_alignment(HAlignment::Center + VAlignment::Horizon)
+        .pack();
+
+    let children = [
+        PlaceElem::new(
+            RectElem::new()
+                .with_width(inner_width)
+                .with_height(inner_height)
+                .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+                .with_inset(Sides::splat(Some(Rel::zero())))
+                .with_body(Some(checkmark))
+                .pack()
+                .spanned(span)
+                .set(
+                    FormElem::appearance,
+                    Some(FieldAppearance::new(
+                        location,
+                        FieldAppearanceKind::On(checked),
+                    )),
+                ),
+        )
+        .with_alignment(Smart::Custom(HAlignment::Left + VAlignment::Top))
+        .pack()
+        .spanned(span),
+        RectElem::new()
+            .with_width(inner_width)
+            .with_height(inner_height)
+            .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+            .pack()
+            .spanned(span)
+            .set(
+                FormElem::appearance,
+                Some(FieldAppearance::new(location, FieldAppearanceKind::Off(!checked))),
+            ),
+    ];
+    let states = Content::sequence(children).spanned(span);
+
+    let inner = BoxElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_clip(true) // PDF XObjects are clipped, so ensure the same for png/svg
+        .with_baseline(
+            // TODO: impl From<...> for BaselinePos
+            BaselinePos::from_value(Rel::from(Length::from(Em::new(0.2))).into_value())
+                .unwrap(),
+        )
+        .with_body(Some(states))
+        .pack()
+        .spanned(span);
+
+    Ok(FormFieldMarker::new(inner).pack().spanned(span).set(
+        FormElem::field,
+        Some(FormField::new(
+            span,
+            location,
+            form.location,
+            name,
+            CheckboxField {
+                checked,
+                required: elem.required.get(styles),
+                read_only: elem.read_only.get(styles),
+            },
+        )),
+    ))
+};
+
+const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroup> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let name = elem.name.get_cloned(styles).custom();
+    let Some(form) = styles.get_ref(FormElem::form) else {
+        bail!(span, "radio group must be placed inside a #form element");
+    };
+    let selected = elem.selected.get_cloned(styles);
+    let required = elem.required.get(styles);
+
+    Ok(FormFieldMarker::new(elem.body.clone())
+        .pack()
+        .spanned(span)
+        .set(
+            FormElem::field,
+            Some(FormField::new(
+                span,
+                location,
+                form.location,
+                name,
+                RadioField {
+                    selected: selected.clone(),
+                    required,
+                    read_only: elem.read_only.get(styles),
+                },
+            )),
+        )
+        .set(
+            FormRadioGroup::radio_group,
+            Some(RadioGroup {
+                location,
+                name: Smart::Auto, // FIXME: this is not used in paged export
+                selected,
+                required,
+            }),
+        ))
+};
+
+const FORM_RADIO_FIELD_RULE: ShowFn<FormRadioField> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let Some(group) = styles.get_ref(FormRadioGroup::radio_group) else {
+        bail!(
+            span, "a radio button must appear inside a radio group";
+            hint: "try surrounding this button with #form.radio-group[...]";
+        )
+    };
+    let value = &elem.value;
+    let selected = group.selected.as_ref().is_some_and(|s| s == value);
+
+    let inner_width = Smart::Custom(Ratio::one().into());
+    let inner_height = Sizing::Rel(Ratio::one().into());
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::one().into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    let inner_circle = AlignElem::new(
+        CircleElem::new()
+            .with_width(inner_width)
+            .with_height(inner_height)
+            .with_fill(Some(Color::BLACK.into()))
+            .pack(),
+    )
+    .with_alignment(HAlignment::Center + VAlignment::Horizon)
+    .pack();
+
+    let children = [
+        PlaceElem::new(
+            CircleElem::new()
+                .with_width(inner_width)
+                .with_height(inner_height)
+                .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+                .with_inset(Sides::splat(Some(Rel::zero())))
+                .with_body(Some(inner_circle))
+                .pack()
+                .spanned(span)
+                .set(
+                    FormElem::appearance,
+                    Some(
+                        FieldAppearance::new(
+                            group.location,
+                            FieldAppearanceKind::On(selected),
+                        )
+                        .with_widget_location(location)
+                        .with_value(Some(value.clone())),
+                    ),
+                ),
+        )
+        .with_alignment(Smart::Custom(HAlignment::Left + VAlignment::Top))
+        .pack()
+        .spanned(span),
+        CircleElem::new()
+            .with_width(inner_width)
+            .with_height(inner_height)
+            .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+            .pack()
+            .spanned(span)
+            .set(
+                FormElem::appearance,
+                Some(
+                    FieldAppearance::new(
+                        group.location,
+                        FieldAppearanceKind::Off(!selected),
+                    )
+                    .with_widget_location(location)
+                    .with_value(Some(value.clone())),
+                ),
+            ),
+    ];
+    let states = Content::sequence(children).spanned(span);
+
+    Ok(BoxElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_clip(true) // PDF XObjects are clipped, so ensure the same for png/svg
+        .with_baseline(
+            // TODO: impl From<...> for BaselinePos
+            BaselinePos::from_value(Rel::from(Length::from(Em::new(0.2))).into_value())
+                .unwrap(),
+        )
+        .with_body(Some(states))
+        .pack()
+        .spanned(span))
+};
+
+const FORM_TEXT_FIELD_RULE: ShowFn<FormTextField> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let name = elem.name.get_cloned(styles).custom();
+    let Some(form) = styles.get_ref(FormElem::form) else {
+        bail!(span, "textbox must be placed inside a #form element");
+    };
+
+    let inner_width = Smart::Custom(Ratio::one().into());
+    let inner_height = Sizing::Rel(Ratio::one().into());
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::new(10.0).into()) } else { width };
+    let height = elem.height.get(styles).or(Smart::Custom(Em::one().into()));
+
+    let children = [
+        PlaceElem::new(
+            BlockElem::new()
+                .with_width(inner_width)
+                .with_height(inner_height)
+                .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+                .with_inset(Sides::splat(Some(Em::new(0.1).into())))
+                .with_body(
+                    elem.value
+                        .get_cloned(styles)
+                        .map(|v| BlockBody::Content(TextElem::new(v).pack())),
+                )
+                .pack()
+                .spanned(span)
+                .set(
+                    FormElem::appearance,
+                    Some(FieldAppearance::new(
+                        location,
+                        FieldAppearanceKind::VariableText,
+                    )),
+                ),
+        )
+        .with_alignment(Smart::Custom(HAlignment::Left + VAlignment::Top))
+        .pack()
+        .spanned(span),
+        RectElem::new()
+            .with_width(inner_width)
+            .with_height(inner_height)
+            .with_outset(Sides::splat(Some(Abs::pt(-0.5).into())))
+            .pack()
+            .spanned(span),
+    ];
+    let states = Content::sequence(children).spanned(span);
+
+    let inner = BoxElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_clip(true) // PDF XObjects are clipped, so ensure the same for png/svg
+        .with_baseline(
+            // TODO: impl From<...> for BaselinePos
+            BaselinePos::from_value(Rel::from(Length::from(Em::new(0.2))).into_value())
+                .unwrap(),
+        )
+        .with_body(Some(states))
+        .pack()
+        .spanned(span);
+
+    Ok(FormFieldMarker::new(inner).pack().spanned(span).set(
+        FormElem::field,
+        Some(FormField::new(
+            span,
+            location,
+            form.location,
+            name,
+            TextField {
+                value: elem.value.get_cloned(styles),
+                multiline: elem.multiline.get(styles),
+                required: elem.required.get(styles),
+                max_length: elem.max_length.get(styles),
+                read_only: elem.read_only.get(styles),
+                spellcheck: elem.spellcheck.get(styles).unwrap_or(true),
+            },
+        )),
+    ))
+};
+
+const FORM_CHOICE_FIELD_RULE: ShowFn<FormChoiceField> = |elem, _, styles| {
+    // TODO: this will probably be changed, but used as a PoC for now
+    let span = elem.span();
+    let location = elem.location().unwrap();
+    let name = elem.name.get_cloned(styles).custom();
+    let Some(form) = styles.get_ref(FormElem::form) else {
+        bail!(span, "choice field must be placed inside a #form element");
+    };
+    let options = elem.options.get_ref(styles);
+    let value = elem.value.get_ref(styles);
+    let multiple = elem.multiple.get(styles);
+
+    let inner_width = Smart::Custom(Ratio::one().into());
+
+    let width = elem.width.get(styles);
+    let width = if width.is_auto() { Sizing::Rel(Em::new(10.0).into()) } else { width };
+    let height = elem
+        .height
+        .get(styles)
+        .or(Smart::Custom(Em::new(if multiple { 5.0 } else { 1.0 }).into()));
+
+    let box_body = if multiple {
+        let children = options.0.iter().map(|option| {
+            let name = option.display_or_mapping_name();
+            let fill =
+                value.0.contains(&option.mapping_name).then_some(Color::BLUE.into());
+
+            BlockElem::new()
+                .with_width(inner_width)
+                .with_breakable(false)
+                .with_inset(Sides::splat(Some(Em::new(0.1).into())))
+                .with_fill(fill)
+                .with_body(Some(BlockBody::Content(TextElem::new(name).pack())))
+                .pack()
+        });
+
+        StackElem::new(children.map(StackChild::Block).collect()).pack()
+    } else {
+        if value.0.len() > 1 {
+            bail!(
+                span, "single choice field has more than one selected option";
+                hint: "set `multiple: true` to allow multiple options to be selected";
+            )
+        }
+        let value = value
+            .0
+            .first()
+            .map(|value| {
+                options
+                    .0
+                    .iter()
+                    .find_map(|option| {
+                        (&option.mapping_name == value)
+                            .then(|| option.display_or_mapping_name())
+                    })
+                    .ok_or(eco_vec![error!(
+                        span,
+                        "value of this choice field is not present in its options"
+                    )])
+            })
+            .unwrap_or_else(|| {
+                Ok(options
+                    .0
+                    .first()
+                    .map(|option| option.display_or_mapping_name())
+                    .unwrap_or_default())
+            })?;
+
+        BlockElem::new()
+            .with_width(inner_width)
+            .with_breakable(false)
+            .with_inset(Sides::splat(Some(Em::new(0.1).into())))
+            .with_body(Some(BlockBody::Content(TextElem::new(value).pack())))
+            .pack()
+    }
+    .spanned(span)
+    .set(
+        FormElem::appearance,
+        Some(FieldAppearance::new(location, FieldAppearanceKind::VariableText)),
+    );
+
+    let inner = BoxElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_clip(true) // PDF XObjects are clipped, so ensure the same for png/svg
+        .with_baseline(
+            // TODO: impl From<...> for BaselinePos
+            BaselinePos::from_value(Rel::from(Length::from(Em::new(0.2))).into_value())
+                .unwrap(),
+        )
+        .with_body(Some(box_body))
+        .pack()
+        .spanned(span);
+
+    Ok(FormFieldMarker::new(inner).pack().spanned(span).set(
+        FormElem::field,
+        Some(FormField::new(
+            span,
+            location,
+            form.location,
+            name,
+            ChoiceField {
+                value: value.0.clone(),
+                options: options.0.clone(),
+                multiple,
+                required: elem.required.get(styles),
+                read_only: elem.read_only.get(styles),
+            },
+        )),
+    ))
+};
+
+const FORM_LABEL_RULE: ShowFn<FormLabel> = |elem, _, _| Ok(elem.body.clone());
 
 const SUB_RULE: ShowFn<SubElem> = |elem, _, styles| {
     show_script(

@@ -9,7 +9,7 @@ use typst_utils::{LazyHash, Numeric};
 use crate::foundations::Label;
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
-use crate::model::Destination;
+use crate::model::{Destination, FieldAppearance, FormField};
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
@@ -384,6 +384,17 @@ impl Frame {
         wrapper.push(Point::zero(), FrameItem::Group(group));
         *self = wrapper;
     }
+
+    /// Wrap the frame's contents in a field appearance.
+    pub fn set_field_appearance(&mut self, appearance: FieldAppearance) {
+        let mut wrapper = Frame::soft(self.size);
+        wrapper.baseline = self.baseline;
+        wrapper.push(
+            Point::zero(),
+            FrameItem::FieldAppearance(appearance, std::mem::take(self)),
+        );
+        *self = wrapper;
+    }
 }
 
 /// Tools for debugging.
@@ -494,6 +505,10 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
+    /// An interactive form field. Has no visible content.
+    FormField(FormField),
+    /// A representation of an interactive form field.
+    FieldAppearance(FieldAppearance, Frame),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
 }
@@ -506,6 +521,10 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::FormField(field) => write!(f, "FormField({field:?})"),
+            Self::FieldAppearance(appearance, frame) => {
+                write!(f, "FieldAppearance({appearance:?}, {frame:?})")
+            }
             Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }

@@ -13,6 +13,7 @@ use typst_library::visualize::{Image, Shape};
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
+use crate::form::WidgetAnnotation;
 use crate::link::{LinkAnnotation, LinkAnnotationKind};
 use crate::tags::tree::Tree;
 
@@ -146,7 +147,7 @@ pub fn disabled(gc: &GlobalContext) -> bool {
     !gc.options.tagged() || gc.tags.in_tiling
 }
 
-/// Add all annotations that were found in the page frame.
+/// Add all link annotations that were found in the page frame.
 pub fn add_link_annotations(
     gc: &mut GlobalContext,
     page: &mut Page,
@@ -168,6 +169,30 @@ pub fn add_link_annotations(
             gc.tags.annotations.init(annot_id, identifier);
         } else {
             page.add_annotation(annotation);
+        }
+    }
+}
+
+/// Add all widget annotations that were found in the page frame.
+pub fn add_widget_annotations(
+    gc: &mut GlobalContext,
+    page: &mut Page,
+    annotations: impl Iterator<Item = WidgetAnnotation>,
+) {
+    for annot in annotations {
+        let annot_id = annot.annotation_id;
+        let action = annot.get_krilla_action(gc);
+        let field_name = gc
+            .location_to_fields
+            .get(&annot.field_location)
+            .expect("could not find field name for location");
+        let identifier = gc
+            .fields
+            .get_mut(field_name)
+            .expect("could not find field for widget annotation")
+            .insert_annotation(page, annot, action);
+        if let Some(annot_id) = annot_id {
+            gc.tags.annotations.init(annot_id, identifier);
         }
     }
 }
