@@ -1,4 +1,4 @@
-use typst::foundations::{AsOutput, Label, Selector, Value};
+use typst::foundations::{AsOutput, Label, Selector, Value, WorldBindingExt};
 use typst::syntax::{FileId, LinkedNode, Side, Source, Span, ast};
 use typst::utils::PicoStr;
 
@@ -56,8 +56,10 @@ pub fn definition(
                 }
             }
 
-            if let Some(binding) = globals(world, &leaf).get(&name) {
-                return Some(Definition::Std(binding.read().clone()));
+            if let Some(binding) = globals(world, &leaf).get(&name)
+                && let Ok(value) = binding.read(world.silent_binding_guard())
+            {
+                return Some(Definition::Std(value.clone()));
             }
         }
 
@@ -164,9 +166,7 @@ mod tests {
         let world = TestWorld::new("#import \"other.typ\"; #other.foo")
             .with_source("other.typ", "#let foo(x) = x + 1");
 
-        // The span is at the args here because that's what the function value's
-        // span is. Not ideal, but also not too big of a big deal.
-        test(&world, -2, Side::Before).must_be_at("other.typ", 8..11);
+        test(&world, -2, Side::Before).must_be_at("other.typ", 5..19);
     }
 
     #[test]

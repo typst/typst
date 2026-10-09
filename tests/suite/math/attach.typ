@@ -99,7 +99,7 @@ $ scripts(sum)_1^2 != sum_1^2 $
 $ limits(integral)_a^b != integral_a^b $
 
 --- issue-math-attach-realize-panic paged html ---
-// Error: 25-29 unknown variable: oops
+// Error: 25-29 unknown variable `oops`
 $ attach(A, t: #context oops) $
 
 --- math-attach-show-limit paged html ---

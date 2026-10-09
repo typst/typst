@@ -8,12 +8,13 @@ use ecow::{EcoString, eco_format};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use typst_syntax::is_ident;
+use typst_syntax::{Spanned, is_ident};
 
-use crate::diag::{At, Hint, HintedStrResult, SourceResult, StrResult};
+use crate::diag::{CallSpanned, Hint, HintedStrResult, SourceResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Array, Context, Func, Module, Repr, Str, Value, array, cast, func, repr, scope, ty,
+    Array, Context, Func, Module, Repr, Str, Value, WorldBindingExt, array, cast, func,
+    repr, scope, ty,
 };
 
 /// Create a new [`Dict`] from key-value pairs.
@@ -183,10 +184,23 @@ impl Dict {
     /// ```
     #[func(constructor, since = "forever")]
     pub fn construct(
+        engine: &mut Engine,
         /// The value that should be converted to a dictionary.
-        value: ToDict,
-    ) -> Dict {
-        value.0
+        value: Spanned<ToDict>,
+    ) -> SourceResult<Dict> {
+        let ToDict(module) = value.v;
+        let dict = module
+            .scope()
+            .iter()
+            .filter_map(|(key, binding)| {
+                // Filter out values that are in feature gated bindings and
+                // ignore any deprecation warnings that are emitted.
+                let guard = engine.world.silent_binding_guard();
+                let val = binding.read(guard).ok()?;
+                Some((Str::from(key.clone()), val.clone()))
+            })
+            .collect();
+        Ok(dict)
     }
 
     /// The number of pairs in the dictionary.
@@ -304,13 +318,9 @@ impl Dict {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<Dict> {
-        let mut run_test = |v: &Value| {
-            test.call(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span())
-        };
+        let mut run_test = |v: &Value| test.call::<bool>(engine, context, [v.clone()]);
         self.into_iter()
             .filter_map(|(k, v)| run_test(&v).map(|b| b.then_some((k, v))).transpose())
             .collect()
@@ -328,7 +338,7 @@ impl Dict {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value.
-        mapper: Func,
+        mapper: Spanned<Func>,
     ) -> SourceResult<Dict> {
         self.into_iter()
             .map(|(k, v)| {
@@ -340,16 +350,14 @@ impl Dict {
 }
 
 /// A value that can be cast to dictionary.
-pub struct ToDict(Dict);
+/// Currently only modules are supported, and the conversion is deferred because
+/// when accessing the scope of the module the list of active features needs to
+/// be provided.
+pub struct ToDict(Module);
 
 cast! {
     ToDict,
-    v: Module => Self(v
-        .scope()
-        .iter()
-        .map(|(k, b)| (Str::from(k.clone()), b.read().clone()))
-        .collect()
-    ),
+    m: Module => Self(m),
 }
 
 impl Debug for Dict {

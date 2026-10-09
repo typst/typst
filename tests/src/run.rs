@@ -8,7 +8,7 @@ use typst::model::Document;
 use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
-use typst_syntax::Spanned;
+use typst_syntax::{DiagSpan, Spanned};
 
 use crate::collect::{
     FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
@@ -122,7 +122,7 @@ impl UnexpectedEmpty {
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
-        let world = TestWorld::new(test.body.source.clone());
+        let world = TestWorld::new(test.body.source.clone(), test.attrs.features.clone());
         Self {
             hashes,
             test,
@@ -473,9 +473,9 @@ impl<'a> Runner<'a> {
     /// Run test for a specific output format, and save the live output to disk.
     fn run_test<T: OutputType>(&mut self, doc: Option<&T::Doc>) -> Option<T::Live> {
         let doc = doc?;
-        let live = T::make_live(self.test, doc);
+        let Warned { output, warnings } = T::make_live(doc);
 
-        if let Err(errors) = &live {
+        if let Err(errors) = &output {
             if errors.is_empty() {
                 log!(self, "no document, but also no errors");
             }
@@ -485,7 +485,11 @@ impl<'a> Runner<'a> {
             }
         }
 
-        live.ok()
+        for warning in &warnings {
+            self.check_diagnostic(NoteKind::Warning, warning, T::OUTPUT);
+        }
+
+        output.ok()
     }
 
     fn save_live<'d, T: OutputType>(
@@ -791,6 +795,20 @@ impl<'a> Runner<'a> {
             let emitted_hint =
                 Note::emitted(NoteKind::Hint, stage, hint, hint_span, &self.world);
             self.test.body.mark_seen_or_update(emitted_hint);
+        }
+
+        // Check traces.
+        if self.test.attrs.trace {
+            for (Spanned { v: point, span }, i) in diag.trace.iter().zip(1..) {
+                let emitted_hint = Note::emitted(
+                    NoteKind::Trace,
+                    stage,
+                    format!("({i}) {point}"),
+                    DiagSpan::from(*span),
+                    &self.world,
+                );
+                self.test.body.mark_seen_or_update(emitted_hint);
+            }
         }
     }
 }

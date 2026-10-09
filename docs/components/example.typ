@@ -159,10 +159,12 @@
       if pre.at("label", default: none) == <_stop> {
         return pre
       }
-      let copy-button = html.button(
+      let copy-button = html.div(
         class: "copy",
-        disabled: true,
-        use-icon(16, "copy", "Copy"),
+        html.button(
+          disabled: true,
+          use-icon(16, "copy", "Copy"),
+        ),
       )
       let reconstructed = html.elem(
         "pre",

@@ -142,6 +142,7 @@
 
 // Similar to `icon` but ensures that the SVG will respect the current
 // foreground `color` by emitting an inline `<svg>` with a `<use>` element.
+// NOTE: The icon needs to be added `docs/assets/index.typ`.
 #let use-icon(size, name, alt) = html.elem(
   "svg",
   attrs: {
@@ -219,27 +220,6 @@
       }
     })
     .join()
-}
-
-// Displays a deprecation info, if any.
-#let deprecation(info) = {
-  if info == none { return }
-
-  let body = {
-    text-with-code(info.message)
-    if info.until != none {
-      [; it will be removed in Typst #info.until]
-    }
-  }
-
-  context if target() == "paged" {
-    small(icon(16, "warn", "Warning") + [ ] + body)
-  } else {
-    html.small(class: "deprecation", {
-      html.div(use-icon(16, "warn", "Warning"))
-      html.span(body)
-    })
-  }
 }
 
 // Displays a search box.
@@ -326,3 +306,7 @@
     small(body)
   }
 }
+
+// Emits category settings as labelled metadata to be picked up and used when
+// generating a sub-category definitions section.
+#let category-settings(..args) = [#metadata(args.named())<category-settings>]

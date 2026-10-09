@@ -29,3 +29,9 @@
 
 --- std-math paged ---
 $ std.rect(x + y = 5) $
+
+--- std-gated-contains-enabled eval features(html) ---
+#test("html" in std, true)
+
+--- std-gated-contains-disabled eval features() ---
+#test("html" in std, false)

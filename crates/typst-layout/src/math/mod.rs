@@ -641,7 +641,8 @@ fn warn_non_math_font(font: &Font, engine: &mut Engine, span: Span) {
     if !font.info().flags.contains(FontFlags::MATH) {
         engine.sink.warn(warning!(
             span,
-            "current font is not designed for math";
+            "font family is not designed for math: {}",
+            font.info().family;
             hint: "rendering may be poor";
         ));
     }

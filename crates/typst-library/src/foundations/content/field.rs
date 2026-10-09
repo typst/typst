@@ -213,7 +213,7 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
     }
 
     /// Creates type-erased metadata and routines for an `#[external]` field.
-    pub const fn vtable() -> FieldVtable<Packed<E>>
+    pub const fn vtable(positional: bool, required: bool) -> FieldVtable<Packed<E>>
     where
         E: ExternalField<I>,
         E::Type: Reflect + IntoValue,
@@ -222,8 +222,8 @@ impl<E: ExternalField<I>, const I: u8> ExternalFieldData<E, I> {
             name: E::FIELD.name,
             docs: E::FIELD.docs,
             def_site: E::FIELD.def_site,
-            positional: false,
-            required: false,
+            positional,
+            required,
             variadic: false,
             settable: false,
             synthesized: false,

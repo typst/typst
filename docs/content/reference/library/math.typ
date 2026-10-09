@@ -1,23 +1,20 @@
-#import "../../../components/index.typ": docs-category
+#import "../../../components/index.typ": docs-category, scope
+
+#let math-definitions = dictionary(math)
+#let math-items(..keys) = {
+  keys.pos().map(k => (k, math-definitions.at(k))).to-dict()
+}
 
 #show: docs-category.with(
   title: "Math",
   description: "Documentation for math mode and the `math` module, which together enable high-quality math typesetting.",
   category: "math",
-  scope: math,
+  scope: scope(std, "math"),
   groups: (
     (
       name: "variants",
       title: "Variants",
-      items: (
-        math.serif,
-        math.sans,
-        math.frak,
-        math.mono,
-        math.bb,
-        math.cal,
-        math.scr,
-      ),
+      definitions: math-items("serif", "sans", "frak", "mono", "bb", "cal", "scr"),
       description: "Documentation for functions which allow switching to alternative math typefaces.",
       docs: [
         Alternate typefaces within formulas.
@@ -28,7 +25,7 @@
     (
       name: "styles",
       title: "Styles",
-      items: (math.upright, math.italic, math.bold),
+      definitions: math-items("upright", "italic", "bold"),
       description: "Documentation for functions which allow switching to alternative math letterforms.",
       docs: [
         Alternate letterforms within formulas.
@@ -39,7 +36,7 @@
     (
       name: "sizes",
       title: "Sizes",
-      items: (math.display, math.inline, math.script, math.sscript),
+      definitions: math-items("display", "inline", "script", "sscript"),
       description: "Documentation for functions which allow switching to alternative math text sizes.",
       docs: [
         Forced size styles for expressions within formulas.
@@ -50,29 +47,31 @@
     (
       name: "underover",
       title: "Under/Over",
-      items: (
-        math.underline,
-        math.overline,
-        math.underbrace,
-        math.overbrace,
-        math.underbracket,
-        math.overbracket,
-        math.underparen,
-        math.overparen,
-        math.undershell,
-        math.overshell,
+      definitions: math-items(
+        "underline",
+        "overline",
+        "underbrace",
+        "overbrace",
+        "underbracket",
+        "overbracket",
+        "underparen",
+        "overparen",
+        "undershell",
+        "overshell",
       ),
       description: "Documentation for functions that add delimiters above or below parts of an equation.",
       docs: [
         Delimiters above or below parts of an equation.
 
         The braces and brackets further allow you to add an optional annotation below or above themselves.
+
+        These functions are intended specifically for adding delimiters. If you want to place two arbitrary parts of an equation over or under one another, without delimiters, use the @math.attach[`attach`] function instead.
       ],
     ),
     (
       name: "roots",
       title: "Roots",
-      items: (math.root, math.sqrt),
+      definitions: math-items("root", "sqrt"),
       description: "Documentation for functions that typeset mathematical roots.",
       docs: [
         Square and non-square roots.
@@ -87,7 +86,7 @@
     (
       name: "attach",
       title: "Attach",
-      items: (math.attach, math.scripts, math.limits),
+      definitions: math-items("attach", "scripts", "limits"),
       description: "Documentation for functions that allows to precisely attach sub-, superscripts, and limits to parts of an equation.",
       docs: [
         Subscript, superscripts, and limits.
@@ -108,15 +107,7 @@
     (
       name: "lr",
       title: "Left/Right",
-      items: (
-        math.lr,
-        math.mid,
-        math.abs,
-        math.norm,
-        math.floor,
-        math.ceil,
-        math.round,
-      ),
+      definitions: math-items("lr", "mid", "abs", "norm", "floor", "ceil", "round"),
       description: "Documentation for functions that enable typesetting of matched, potentially scaled, delimiters.",
       docs: [
         Delimiter matching.
@@ -134,6 +125,15 @@
         #set math.lr(size: 1em)
         $ { (a / b), a, b in (0; 1/2] } $
         ```
+      ],
+    ),
+    (
+      name: "spaces",
+      title: "Spaces",
+      definitions: math-items("thin", "med", "thick", "quad", "wide"),
+      description: "Documentation for math spaces.",
+      docs: [
+        Predefined mathematical spaces of various widths.
       ],
     ),
   ),
@@ -200,7 +200,7 @@ $ (3x + y) / 7 &= 9 && "given" \
 ```
 
 = Math fonts <math-fonts>
-You can set the math font by with a @reference:styling:show-rules[show-set rule] as demonstrated below. Note that only special OpenType math fonts are suitable for typesetting maths.
+You can set the math font with a @reference:styling:show-rules[show-set rule] as demonstrated below. Note that only special OpenType math fonts are suitable for typesetting maths.
 
 ```example
 #show math.equation: set text(font: "Pennstander Math")

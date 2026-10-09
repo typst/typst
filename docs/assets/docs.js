@@ -428,8 +428,8 @@ function setUpPreviewSplits() {
  * Sets up the Copy button on example codes.
  */
 function setUpPreviewCopy() {
-  for (const button of document.querySelectorAll("pre > button.copy")) {
-    const pre = button.parentElement;
+  for (const button of document.querySelectorAll("pre > .copy > button")) {
+    const pre = button.parentElement.parentElement;
     // Display the Copy button for 30s when the `<pre>` is tapped on touch
     // screens.
     let timeoutId;
@@ -765,12 +765,32 @@ async function setUpGlobalSearch() {
       }
       const li = document.createElement("li");
       const a = document.createElement("a");
-      const span = document.createElement("span");
       a.href = url;
-      a.textContent = item.title;
-      span.classList.add("type");
-      span.textContent = item.kind;
-      a.appendChild(span);
+
+      let title;
+      if ("path" in item) {
+        title = document.createElement("code");
+        let first = true;
+        for (const part of item.path.split(".")) {
+          if (!first) {
+            title.append(".");
+            title.appendChild(document.createElement("wbr"));
+          }
+          title.append(part);
+          first = false;
+        }
+      } else {
+        title = document.createElement("span");
+        title.textContent = item.title;
+      }
+      title.classList.add("result-title");
+      a.appendChild(title);
+
+      const type = document.createElement("span");
+      type.classList.add("result-kind");
+      type.textContent = item.kind;
+      a.appendChild(type);
+
       li.appendChild(a);
       return li;
     });
@@ -915,6 +935,7 @@ function scoreItem(item, query) {
     f *
     Math.max(
       scoreText(item.title, query),
+      "path" in item ? scoreText(item.path, query) : 0,
       ...(item.keywords || []).map((keyword) => scoreText(keyword, query)),
     )
   );
@@ -1188,13 +1209,16 @@ function normalizedEditDistance(left, right) {
   }
 
   const INSERTION_COST = 0.7;
+  // We use a lower cost for inserting at the end.
+  // https://github.com/typst/typst/pull/8784
+  const TAIL_INSERTION_COST = 0.5;
   const DELETION_COST = 1.0;
   const SUBSTITUTION_COST = Infinity;
 
   let previous = Array(rightLength + 1).fill(0.0);
   let current = Array(rightLength + 1).fill(0.0);
   for (let j = 0; j <= rightLength; j++) {
-    current[j] = j * INSERTION_COST;
+    current[j] = j * TAIL_INSERTION_COST;
   }
   for (let i = 1; i <= leftLength; i++) {
     const tmp = previous;
@@ -1203,7 +1227,8 @@ function normalizedEditDistance(left, right) {
     current[0] = i * DELETION_COST;
     for (let j = 1; j <= rightLength; j++) {
       current[j] = Math.min(
-        current[j - 1] + INSERTION_COST,
+        current[j - 1] +
+          (i == leftLength ? TAIL_INSERTION_COST : INSERTION_COST),
         previous[j] + DELETION_COST,
         previous[j - 1] +
           (left[i - 1] === right[j - 1] ? 0.0 : SUBSTITUTION_COST),

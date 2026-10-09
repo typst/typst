@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 use ttf_parser::{PlatformId, name_id};
@@ -115,10 +116,18 @@ impl FontInfo {
         };
 
         // Determine the unicode coverage.
-        let mut codepoints = vec![];
-        for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
-            if subtable.is_unicode() {
-                subtable.codepoints(|c| codepoints.push(c));
+        let mut coverage = Coverage::default();
+        if let Some(cmap) = ttf.tables().cmap {
+            for subtable in cmap.subtables {
+                if subtable.is_unicode() {
+                    let mut subtable_coverage =
+                        CoverageBuilder::with_capacity(coverage.0.len());
+                    subtable.codepoints(|c| {
+                        // We expect codepoints in CMAP subtables to be already sorted
+                        subtable_coverage.add_codepoint(c);
+                    });
+                    coverage = coverage.union(&subtable_coverage.build());
+                }
             }
         }
 
@@ -148,13 +157,7 @@ impl FontInfo {
             })
             .collect();
 
-        Some(FontInfo {
-            family,
-            variant,
-            axes,
-            flags,
-            coverage: Coverage::from_vec(codepoints),
-        })
+        Some(FontInfo { family, variant, flags, axes, coverage })
     }
 
     /// Whether this is the macOS LastResort font. It can yield tofus with
@@ -282,7 +285,7 @@ fn typographic_family(mut family: &str) -> &str {
 /// - 2 codepoints inside (18, 19)
 ///
 /// So the resulting encoding is `[2, 3, 4, 3, 3, 1, 2, 2]`.
-#[derive(Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Default, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Coverage(Vec<u32>);
 
@@ -297,21 +300,11 @@ impl Coverage {
         codepoints.sort();
         codepoints.dedup();
 
-        let mut runs = Vec::new();
-        let mut next = 0;
-
+        let mut builder = CoverageBuilder::with_capacity(0);
         for c in codepoints {
-            if let Some(run) = runs.last_mut().filter(|_| c == next) {
-                *run += 1;
-            } else {
-                runs.push(c - next);
-                runs.push(1);
-            }
-
-            next = c + 1;
+            builder.add_codepoint(c);
         }
-
-        Self(runs)
+        builder.build()
     }
 
     /// Whether the codepoint is covered.
@@ -331,21 +324,103 @@ impl Coverage {
     }
 
     /// Iterate over all covered codepoints.
-    pub fn iter(&self) -> impl Iterator<Item = u32> + '_ {
-        let mut inside = false;
-        let mut cursor = 0;
-        self.0.iter().flat_map(move |run| {
-            let range = if inside { cursor..cursor + run } else { 0..0 };
-            inside = !inside;
-            cursor += run;
-            range
+    pub fn iter(&self) -> impl Iterator<Item = u32> {
+        self.iter_ranges().flatten()
+    }
+
+    /// Iterate over all continuous ranges of covered codepoints.
+    fn iter_ranges(&self) -> impl Iterator<Item = Range<u32>> {
+        let mut offset = 0;
+        let (pairs, _) = self.0.as_chunks::<2>();
+
+        pairs.iter().map(move |&[gap, count]| {
+            offset += gap;
+            let start = offset;
+            offset += count;
+            start..offset
         })
+    }
+
+    /// Returns an encoding of the set of codepoints covered by either `self` or
+    /// `other`.
+    fn union(&self, other: &Coverage) -> Self {
+        let capacity = self.0.len().max(other.0.len());
+        let mut builder = CoverageBuilder::with_capacity(capacity);
+
+        let mut self_ranges = self.iter_ranges().peekable();
+        let mut other_ranges = other.iter_ranges().peekable();
+
+        while let Some(self_range) = self_ranges.peek()
+            && let Some(other_range) = other_ranges.peek()
+        {
+            if self_range.start < other_range.start {
+                builder.add_codepoint_range(self_range.clone());
+                self_ranges.next();
+            } else {
+                builder.add_codepoint_range(other_range.clone());
+                other_ranges.next();
+            }
+        }
+
+        for self_range in self_ranges {
+            builder.add_codepoint_range(self_range);
+        }
+        for other_range in other_ranges {
+            builder.add_codepoint_range(other_range);
+        }
+
+        builder.build()
     }
 }
 
 impl Debug for Coverage {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("Coverage(..)")
+    }
+}
+
+/// Incrementally builds a [`Coverage`] set from a non-decreasing series of
+/// codepoints, or ranges thereof.
+struct CoverageBuilder {
+    runs: Vec<u32>,
+    next: u32,
+}
+
+impl CoverageBuilder {
+    /// Create a new coverage builder with at least the given capacity.
+    fn with_capacity(capacity: usize) -> Self {
+        Self { runs: Vec::with_capacity(capacity), next: 0 }
+    }
+
+    /// Build the [`Coverage`] set.
+    fn build(self) -> Coverage {
+        Coverage(self.runs)
+    }
+
+    /// Add a single codepoint to the set being built. Codepoints must be added
+    /// in a strictly increasing order.
+    fn add_codepoint(&mut self, codepoint: u32) {
+        let range = codepoint..(codepoint.saturating_add(1));
+        self.add_codepoint_range(range);
+    }
+
+    /// Add a continuous range of codepoints to the set being built. Ranges must
+    /// be added in non-decreasing order of start codepoint, but may intersect
+    /// or be contained in previously added ranges.
+    fn add_codepoint_range(&mut self, range: Range<u32>) {
+        if range.end <= self.next || range.is_empty() {
+            return;
+        } else if range.start <= self.next
+            && let Some(prev_count) = self.runs.last_mut()
+        {
+            *prev_count += range.end - self.next;
+        } else {
+            let gap = range.start - self.next;
+            let count = range.end - range.start;
+            self.runs.extend([gap, count]);
+        }
+
+        self.next = range.end;
     }
 }
 
@@ -401,5 +476,21 @@ mod tests {
         let codepoints = vec![2, 3, 7, 8, 9, 14, 15, 19, 21];
         let coverage = Coverage::from_vec(codepoints.clone());
         assert_eq!(coverage.iter().collect::<Vec<_>>(), codepoints);
+    }
+
+    #[test]
+    fn test_coverage_union() {
+        let right = Coverage::from_vec(vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14]);
+        let left =
+            Coverage::from_vec(vec![0, 1, 2, 3, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18]);
+
+        let combined = right.union(&left);
+
+        let codepoints = combined.iter().collect::<Vec<_>>();
+        assert_eq!(
+            codepoints,
+            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18]
+        );
+        assert_eq!(combined.0, vec![0, 15, 1, 3]);
     }
 }

@@ -5,11 +5,8 @@ use crate::layout::{Axis, Side};
 
 /// The four directions into which content can be laid out.
 ///
-/// Possible values are:
-/// - `{ltr}`: Left to right.
-/// - `{rtl}`: Right to left.
-/// - `{ttb}`: Top to bottom.
-/// - `{btt}`: Bottom to top.
+/// Possible values are: @direction.ltr[`ltr`], @direction.rtl[`rtl`],
+/// @direction.ttb[`ttb`], and @direction.btt[`btt`].
 ///
 /// These values are available globally and also in the direction type's scope,
 /// so you can write either of the following two:
@@ -45,12 +42,65 @@ impl Dir {
 
 #[scope]
 impl Dir {
+    /// Left to right.
+    ///
+    /// ```example
+    /// #stack(
+    ///   dir: ltr,
+    ///   spacing: 0.2cm,
+    ///   circle(),
+    ///   line(),
+    ///   square(),
+    /// )
+    /// ```
+    #[constant(title = "Left to right", since = "forever")]
     pub const LTR: Self = Self::LTR;
+
+    /// Right to left.
+    ///
+    /// ```example
+    /// #stack(
+    ///   dir: rtl,
+    ///   spacing: 0.2cm,
+    ///   circle(),
+    ///   line(),
+    ///   square(),
+    /// )
+    /// ```
+    #[constant(title = "Right to left", since = "forever")]
     pub const RTL: Self = Self::RTL;
+
+    /// Top to bottom.
+    ///
+    /// ```example
+    /// #stack(
+    ///   dir: ttb,
+    ///   spacing: 0.2cm,
+    ///   circle(),
+    ///   line(),
+    ///   square(),
+    /// )
+    /// ```
+    #[constant(title = "Top to bottom", since = "forever")]
     pub const TTB: Self = Self::TTB;
+
+    /// Bottom to top.
+    ///
+    /// ```example
+    /// #stack(
+    ///   dir: btt,
+    ///   spacing: 0.2cm,
+    ///   circle(),
+    ///   line(),
+    ///   square(),
+    /// )
+    /// ```
+    #[constant(title = "Bottom to top", since = "forever")]
     pub const BTT: Self = Self::BTT;
 
     /// Returns a direction from a starting point.
+    ///
+    /// This function does the opposite of @direction.start.
     ///
     /// ```example
     /// #direction.from(left) \
@@ -59,7 +109,12 @@ impl Dir {
     /// #direction.from(bottom)
     /// ```
     #[func(since = "0.14.0")]
-    pub const fn from(side: Side) -> Dir {
+    pub const fn from(
+        /// The starting point for the direction.
+        ///
+        /// This cannot be `{start}` or `{end}`.
+        side: Side,
+    ) -> Dir {
         match side {
             Side::Left => Self::LTR,
             Side::Right => Self::RTL,
@@ -70,6 +125,8 @@ impl Dir {
 
     /// Returns a direction from an end point.
     ///
+    /// This function does the opposite of @direction.end.
+    ///
     /// ```example
     /// #direction.to(left) \
     /// #direction.to(right) \
@@ -77,7 +134,12 @@ impl Dir {
     /// #direction.to(bottom)
     /// ```
     #[func(since = "0.14.0")]
-    pub const fn to(side: Side) -> Dir {
+    pub const fn to(
+        /// The end point for the direction.
+        ///
+        /// This cannot be `{start}` or `{end}`.
+        side: Side,
+    ) -> Dir {
         match side {
             Side::Right => Self::LTR,
             Side::Left => Self::RTL,
@@ -103,6 +165,9 @@ impl Dir {
 
     /// The corresponding sign, for use in calculations.
     ///
+    /// This is the sign of the vector going this direction along the
+    /// corresponding axis.
+    ///
     /// ```example
     /// #ltr.sign() \
     /// #rtl.sign() \
@@ -117,7 +182,9 @@ impl Dir {
         }
     }
 
-    /// The start point of this direction, as an alignment.
+    /// The starting point of this direction.
+    ///
+    /// This function does the opposite of @direction.from.
     ///
     /// ```example
     /// #ltr.start() \
@@ -135,7 +202,9 @@ impl Dir {
         }
     }
 
-    /// The end point of this direction, as an alignment.
+    /// The end point of this direction.
+    ///
+    /// This function does the opposite of @direction.to.
     ///
     /// ```example
     /// #ltr.end() \
@@ -153,7 +222,7 @@ impl Dir {
         }
     }
 
-    /// The inverse direction.
+    /// The inverse (opposite) direction.
     ///
     /// ```example
     /// #ltr.inv() \
@@ -161,7 +230,7 @@ impl Dir {
     /// #ttb.inv() \
     /// #btt.inv()
     /// ```
-    #[func(title = "Inverse", since = "forever")]
+    #[func(title = "Inverse", since = "forever", keywords = ["opposite"])]
     pub const fn inv(self) -> Dir {
         match self {
             Self::LTR => Self::RTL,

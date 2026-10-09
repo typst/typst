@@ -1,10 +1,10 @@
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, dict,
+    StyleChain, Synthesize, Target, Value, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -15,6 +15,7 @@ use typst_library::layout::{
     Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
+use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
@@ -22,7 +23,6 @@ use typst_library::model::{
     OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
     TableCell, TableElem, TermsElem, TitleElem, Works,
 };
-use typst_library::pdf::{ArtifactElem, ArtifactKind, AttachElem, PdfMarkerTag};
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
     OverlineElem, RawElem, RawLine, ScriptKind, ShiftSettings, Smallcaps, SmallcapsElem,
@@ -106,7 +106,6 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, EQUATION_RULE);
 
     // PDF.
-    rules.register(Paged, ATTACH_RULE);
     rules.register(Paged, ARTIFACT_RULE);
     rules.register(Paged, PDF_MARKER_TAG_RULE);
 }
@@ -265,12 +264,21 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
+            // Add weak spacing (that will collapse) on both sides to disable CJ
+            // punctuation adjustment during measurement. In the actual heading
+            // the numbering will not be at the boundary (negative spacing
+            // before and the body after), so there could be misalignment
+            // otherwise. If there is ever a cleaner way to disable punctuation
+            // adjustment, that would be preferrable.
+            let collapsing = HElem::new(Abs::pt(1.0).into()).with_weak(true).pack();
+            let measurable = collapsing.clone() + numbering.clone() + collapsing;
+
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
             let link = LocatorLink::measure(location, span);
             let size = (engine.library.routines.layout_frame)(
                 engine,
-                &numbering,
+                &measurable,
                 Locator::link(&link),
                 styles,
                 pod,
@@ -280,6 +288,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
             indent = size.x + SPACING_TO_NUMBERING.resolve(styles);
         }
 
+        // The spacing is weak to eat up a potential leading space in the body.
         let spacing = HElem::new(SPACING_TO_NUMBERING.into()).with_weak(true).pack();
 
         realized = numbering + spacing + realized;
@@ -438,7 +447,9 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::packed(body).spanned(span)
     } else {
-        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
+        let point = Tracepoint::process::<OutlineEntry>;
+        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())
+            .trace(engine.world, point, span)?
     };
 
     let loc = elem.element_location().at(span)?;
@@ -745,9 +756,10 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             let Size { x, y } = regions.base();
             let loc = elem.location().unwrap();
             let context = Context::new(Some(loc), Some(styles));
+            let size = dict! { "width" => x, "height" => y };
             let result = elem
                 .func
-                .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
+                .call::<Value>(engine, context.track(), [size], elem.span())?
                 .display();
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },
@@ -810,8 +822,6 @@ const EQUATION_RULE: ShowFn<EquationElem> = |elem, _, styles| {
         Ok(InlineElem::layouter(elem.clone(), crate::math::layout_equation_inline).pack())
     }
 };
-
-const ATTACH_RULE: ShowFn<AttachElem> = |_, _, _| Ok(Content::empty());
 
 const ARTIFACT_RULE: ShowFn<ArtifactElem> = |elem, _, _| Ok(elem.body.clone());
 

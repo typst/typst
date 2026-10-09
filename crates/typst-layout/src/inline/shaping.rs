@@ -1383,11 +1383,13 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 }
 
 // The CJK punctuation that can appear at the beginning or end of a line.
-pub const BEGIN_PUNCT_PAT: &[char] =
-    &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
+pub const BEGIN_PUNCT_PAT: &[char] = &[
+    '“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛', '｟', '〘',
+    '〝',
+];
 pub const END_PUNCT_PAT: &[char] = &[
     '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
-    '〗', '〕', '］', '｝', '？', '！',
+    '〗', '〕', '］', '｝', '｠', '〙', '〟', '？', '！',
 ];
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -1455,8 +1457,23 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '》' | '）' | '』' | '」' | '】' | '〗' | '〕' | '〉' | '］' | '｝')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.2 https://www.w3.org/TR/jlreq/?lang=ja#cl-02
+    matches!(
+        c,
+        '》' | '）'
+            | '』'
+            | '」'
+            | '】'
+            | '〗'
+            | '〕'
+            | '〉'
+            | '］'
+            | '｝'
+            | '｠'
+            | '〙'
+            | '〟'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -1470,8 +1487,23 @@ fn is_cjk_right_aligned_punctuation(
     if matches!(c, '“' | '‘') && x_advance + stretchability.0 == Em::one() {
         return true;
     }
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.1 https://www.w3.org/TR/jlreq/?lang=ja#cl-01
+    matches!(
+        c,
+        '《' | '（'
+            | '『'
+            | '「'
+            | '【'
+            | '〖'
+            | '〔'
+            | '〈'
+            | '［'
+            | '｛'
+            | '｟'
+            | '〘'
+            | '〝'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
