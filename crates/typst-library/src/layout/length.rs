@@ -98,9 +98,9 @@ impl Length {
     /// Converts this length to points.
     ///
     /// Fails with an error if this length has non-zero `em` units (such as
-    /// `5em + 2pt` instead of just `2pt`). Use the `abs` field (such as in
-    /// `(5em + 2pt).abs.pt()`) to ignore the `em` component of the length (thus
-    /// converting only its absolute component).
+    /// `{5em + 2pt}` instead of just `{2pt}`). Use the `abs` field (such as in
+    /// `{(5em + 2pt).abs.pt()}`) to ignore the `em` component of the length
+    /// (thus converting only its absolute component).
     #[func(name = "pt", title = "Points", since = "0.7.0")]
     pub fn to_pt(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "pt")?;
