@@ -348,7 +348,7 @@ cast! {
 }
 
 impl DelimiterPair {
-    const PAREN: Self = Self {
+    pub const PAREN: Self = Self {
         open: Delimiter(Some('(')),
         close: Delimiter(Some(')')),
     };
