@@ -295,16 +295,17 @@ const FIGURE_CAPTION_RULE: ShowFn<FigureCaption> = |elem, engine, styles| {
 const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     let span = elem.span();
     let block = elem.block.get(styles);
+    let wrap_with_quotes = elem.quotes.get(styles).unwrap_or(!block);
 
     let mut realized = elem.body.clone();
-
-    if elem.quotes.get(styles).unwrap_or(!block) {
-        realized = QuoteElem::quoted(realized, styles);
-    }
 
     let attribution = elem.attribution.get_ref(styles);
 
     if block {
+        if wrap_with_quotes {
+            realized = QuoteElem::quoted(realized, styles);
+        }
+
         let mut blockquote = HtmlElem::new(tag::blockquote).with_body(Some(realized));
         if let Some(Attribution::Content(attribution)) = attribution
             && let Some(link) = attribution.to_packed::<LinkElem>()
@@ -319,9 +320,18 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
             realized += attribution.realize(span);
             realized += ParbreakElem::shared();
         }
-    } else if let Some(Attribution::Label(label)) = attribution {
-        realized += SpaceElem::shared().clone();
-        realized += CiteElem::new(*label).pack().spanned(span);
+    } else {
+        let mut inlinequote = HtmlElem::new(tag::q).with_body(Some(realized));
+        if !wrap_with_quotes {
+            inlinequote =
+                inlinequote.with_css(css::Properties::new().with("quotes", "none"));
+        }
+        realized = inlinequote.pack().spanned(span);
+
+        if let Some(Attribution::Label(label)) = attribution {
+            realized += SpaceElem::shared().clone();
+            realized += CiteElem::new(*label).pack().spanned(span);
+        }
     }
 
     Ok(realized)

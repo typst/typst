@@ -128,5 +128,5 @@ An inline #quote[quote.]
   A block-level quote.
 ]
 
---- issue-5536-quote-inline-quotes-false paged ---
+--- issue-5536-quote-inline-quotes-false paged html ---
 Lorem #quote(block: false, quotes: false)[dolor].
