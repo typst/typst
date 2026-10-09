@@ -103,7 +103,6 @@ pub const FORMAT: Format = Format::new::<HtmlFormat>().with_feature(Feature::Htm
 ///       listed at the bottom in the
 ///       @html:typed:global-attributes[Global Attributes] section instead of
 ///       explicitly on each element for readability.
-///       TODO: Document custom `data-*` attributes
 ///
 ///       = Example <example>
 ///       ```typ

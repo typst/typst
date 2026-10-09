@@ -111,8 +111,35 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
             settable: false,
         });
     }
-    // TODO: Should `NativeParamInfo { name: "data-", .. }` be pushed to `params`?
-    // How should the auto-completion menu present it?
+    // This should be pushed last because it is the least specific attribute in
+    // auto-completion.
+    params.push(NativeParamInfo {
+        name: "data-*",
+        docs: r#"Custom data attribute.
+
+This is a class of attributes. An HTML element can be specified with any number of attributes whose names start with `data-`. Such `data-*` attributes are intended to pass custom data from HTML to JavaScript or other scripts known to the website author.
+
+```typ
+#html.ol(data-series: "DS9", {
+  html.li(
+    value: 457,
+    data-stardate: "48481.2",
+    data-original-airdate: "1995-01-08",
+  )[Past Tense, Part I]
+})
+```
+"#,
+        def_site: None,
+        input: Str::input(),
+        default: None,
+        positional: false,
+        named: true,
+        // `data-*` is not considered as variadic, because it is named and each
+        // `data-*` can only be specified once.
+        variadic: false,
+        required: false,
+        settable: false,
+    });
     params
 }
 
@@ -125,7 +152,7 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
         let Some(name) = &item.name else { return true };
         let span = item.value.span;
 
-        // Element-specific and global attributes have a fixed type.
+        // Element-specific and global attributes have a fixed type, except `data-*`.
         if let Some(attr) = element.get_attr(name) {
             let value = std::mem::take(&mut item.value.v);
             let ty = AttrType::convert(attr.ty);
