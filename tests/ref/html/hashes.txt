@@ -50,6 +50,7 @@ dfd6054882467753666c1ebe54b81a0d footnote-basic
 2cd904e0438e2fabc38fca4adcc8f710 footnote-container-show-set-rule-html
 307cccdcf4405f28a9becb1b9f715cc6 footnote-custom-head-html-show-none
 8a260f81aa60ea09efc9d444341853f0 footnote-entry-html
+96c9f52f2b02aca3b72cfd1a3be79556 footnote-group
 776d252e47331fcfb46a4df586396a73 footnote-nested
 f05d21fa2b913016803bf5476a1b6826 footnote-ref-multiple
 238cfb7578ecfc0e457b2e2bb2dbba44 footnote-space-collapsing
