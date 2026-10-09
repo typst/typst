@@ -61,6 +61,11 @@ Expanded by height.
 // Error: 23-34 unexpected argument: width
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
 
+--- circle-width-and-height eval ---
+// Width wins over height.
+// Error: 22-35 unexpected argument: height
+#circle(width: 50pt, height: 100pt, fill: eastern)
+
 --- circle-sizing-options paged ---
 // Test different ways of sizing.
 #set page(width: 120pt, height: 40pt)
