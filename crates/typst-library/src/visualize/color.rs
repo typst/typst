@@ -1431,8 +1431,8 @@ impl Color {
     /// ```
     #[func(since = "0.7.0")]
     pub fn mix(
-        /// The colors, optionally with weights, specified as a pair (array of
-        /// length two) of color and weight (float or ratio).
+        /// The colors to mix, optionally with weights, specified as a pair
+        /// (array of length two) of color and weight (@float or @ratio).
         ///
         /// The weights do not need to add to `{100%}`, they are relative to the
         /// sum of all weights.
