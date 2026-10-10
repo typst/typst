@@ -79,6 +79,7 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 /// = Example <example>
 /// ```example
 /// #rect(fill: aqua)
+/// #text(rgb("#265f02"))[Green]
 /// ```
 ///
 /// = Predefined colors <predefined-colors>
@@ -350,7 +351,7 @@ impl Color {
     /// @color.components[`components`] method.
     ///
     /// ```example
-    /// #for x in range(250, step: 50) {
+    /// #for x in range(256, step: 50) {
     ///   box(square(fill: luma(x)))
     /// }
     /// ```
@@ -366,6 +367,17 @@ impl Color {
         /// Alternatively: The color to convert to grayscale.
         ///
         /// If this is given, the individual components should not be given.
+        ///
+        /// ```example
+        /// #let colors = (red, green, blue)
+        /// #for c in colors {
+        ///   box(square(fill: c))
+        /// }
+        /// #linebreak()
+        /// #for c in colors {
+        ///   box(square(fill: luma(c)))
+        /// }
+        /// ```
         #[external]
         color: Color,
     ) -> SourceResult<Color> {
@@ -420,12 +432,39 @@ impl Color {
     pub fn oklab(
         args: &mut Args,
         /// The lightness component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklab,
+        ///   oklab(0%, -27%, -32%),
+        ///   oklab(100%, -27%, -32%),
+        /// ))
+        /// ```
         #[external]
         lightness: RatioComponent,
         /// The a ("green/red") component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklab,
+        ///   oklab(50%, -100%, 0%),
+        ///   oklab(50%, 100%, 0%),
+        /// ))
+        /// ```
         #[external]
         a: ChromaComponent,
         /// The b ("blue/yellow") component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklab,
+        ///   oklab(80%, 0%, -100%),
+        ///   oklab(80%, 0%, 100%),
+        /// ))
+        /// ```
         #[external]
         b: ChromaComponent,
         /// The alpha component.
@@ -479,12 +518,42 @@ impl Color {
     pub fn oklch(
         args: &mut Args,
         /// The lightness component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklch,
+        ///   oklch(0%, 50%, 40deg),
+        ///   oklch(100%, 50%, 40deg),
+        /// ))
+        /// ```
         #[external]
         lightness: RatioComponent,
         /// The chroma component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklch,
+        ///   oklch(50%, -100%, 150deg),
+        ///   oklch(50%, 100%, 150deg),
+        /// ))
+        /// ```
         #[external]
         chroma: ChromaComponent,
         /// The hue component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: oklch,
+        ///   oklch(50%, 70%, 0deg),
+        ///   oklch(50%, 70%, 90deg),
+        ///   oklch(50%, 70%, 180deg),
+        ///   oklch(50%, 70%, 270deg),
+        ///   oklch(50%, 70%, 360deg),
+        /// ))
+        /// ```
         #[external]
         hue: Angle,
         /// The alpha component.
@@ -533,20 +602,68 @@ impl Color {
     /// @color.components[`components`] method.
     ///
     /// ```example
-    /// #square(fill: color.linear-rgb(
+    /// #box(square(fill: color.linear-rgb(
     ///   30%, 50%, 10%,
-    /// ))
+    /// )))
+    /// #box(square(fill: color.linear-rgb(
+    ///   77, 128, 26,
+    /// )))
     /// ```
     #[func(title = "Linear RGB", since = "0.9.0")]
     pub fn linear_rgb(
         args: &mut Args,
         /// The red component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.linear-rgb,
+        ///   color.linear-rgb(0%, 0%, 0%),
+        ///   color.linear-rgb(100%, 0%, 0%),
+        /// ))
+        /// For comparison:
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(100%, 0%, 0%),
+        /// ))
+        /// ```
         #[external]
         red: Component,
         /// The green component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.linear-rgb,
+        ///   color.linear-rgb(0%, 0%, 0%),
+        ///   color.linear-rgb(0%, 100%, 0%),
+        /// ))
+        /// For comparison:
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(0%, 100%, 0%),
+        /// ))
+        /// ```
         #[external]
         green: Component,
         /// The blue component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.linear-rgb,
+        ///   color.linear-rgb(0%, 0%, 0%),
+        ///   color.linear-rgb(0%, 0%, 100%),
+        /// ))
+        /// For comparison:
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(0%, 0%, 100%),
+        /// ))
+        /// ```
         #[external]
         blue: Component,
         /// The alpha component.
@@ -591,20 +708,47 @@ impl Color {
     /// @color.components[`components`] method.
     ///
     /// ```example
-    /// #square(fill: rgb("#b1f2eb"))
-    /// #square(fill: rgb(87, 127, 230))
-    /// #square(fill: rgb(25%, 13%, 65%))
+    /// #box(square(fill: rgb("#b1f2eb")))
+    /// #box(square(fill: rgb(87, 127, 230)))
+    /// #box(square(fill: rgb(25%, 13%, 65%)))
     /// ```
     #[func(title = "RGB", since = "forever")]
     pub fn rgb(
         args: &mut Args,
         /// The red component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(100%, 0%, 0%),
+        /// ))
+        /// ```
         #[external]
         red: Component,
         /// The green component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(0%, 100%, 0%),
+        /// ))
+        /// ```
         #[external]
         green: Component,
         /// The blue component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: rgb,
+        ///   rgb(0%, 0%, 0%),
+        ///   rgb(0%, 0%, 100%),
+        /// ))
+        /// ```
         #[external]
         blue: Component,
         /// The alpha component.
@@ -675,15 +819,51 @@ impl Color {
     pub fn cmyk(
         args: &mut Args,
         /// The cyan component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: cmyk,
+        ///   cmyk(0%, 0%, 0%, 20%),
+        ///   cmyk(100%, 0%, 0%, 20%),
+        /// ))
+        /// ```
         #[external]
         cyan: RatioComponent,
         /// The magenta component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: cmyk,
+        ///   cmyk(0%, 0%, 0%, 20%),
+        ///   cmyk(0%, 100%, 0%, 20%),
+        /// ))
+        /// ```
         #[external]
         magenta: RatioComponent,
         /// The yellow component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: cmyk,
+        ///   cmyk(0%, 0%, 0%, 20%),
+        ///   cmyk(0%, 0%, 100%, 20%),
+        /// ))
+        /// ```
         #[external]
         yellow: RatioComponent,
         /// The key component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: cmyk,
+        ///   cmyk(65%, 24%, 43%, 0%),
+        ///   cmyk(65%, 24%, 43%, 100%),
+        /// ))
+        /// ```
         #[external]
         key: RatioComponent,
         /// Alternatively: The color to convert to CMYK.
@@ -721,20 +901,53 @@ impl Color {
     /// @color.components[`components`] method.
     ///
     /// ```example
-    /// #square(
+    /// #box(square(
     ///   fill: color.hsl(30deg, 50%, 60%)
-    /// )
+    /// ))
+    /// #box(square(
+    ///   fill: color.hsl(30deg, 128, 153)
+    /// ))
     /// ```
     #[func(title = "HSL", since = "0.9.0")]
     pub fn hsl(
         args: &mut Args,
         /// The hue angle.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsl,
+        ///   color.hsl(0deg, 100%, 50%),
+        ///   color.hsl(90deg, 100%, 50%),
+        ///   color.hsl(180deg, 100%, 50%),
+        ///   color.hsl(270deg, 100%, 50%),
+        ///   color.hsl(360deg, 100%, 50%),
+        /// ))
+        /// ```
         #[external]
         hue: Angle,
         /// The saturation component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsl,
+        ///   color.hsl(50deg, 0%, 50%),
+        ///   color.hsl(50deg, 100%, 50%),
+        /// ))
+        /// ```
         #[external]
         saturation: Component,
         /// The lightness component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsl,
+        ///   color.hsl(-30deg, 100%, 0%),
+        ///   color.hsl(-30deg, 100%, 100%),
+        /// ))
+        /// ```
         #[external]
         lightness: Component,
         /// The alpha component.
@@ -778,20 +991,59 @@ impl Color {
     /// @color.components[`components`] method.
     ///
     /// ```example
-    /// #square(
+    /// #box(square(
     ///   fill: color.hsv(30deg, 50%, 60%)
-    /// )
+    /// ))
+    /// #box(square(
+    ///   fill: color.hsv(30deg, 128, 153)
+    /// ))
     /// ```
     #[func(title = "HSV", since = "0.9.0")]
     pub fn hsv(
         args: &mut Args,
         /// The hue angle.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsv,
+        ///   color.hsv(0deg, 100%, 100%),
+        ///   color.hsv(90deg, 100%, 100%),
+        ///   color.hsv(180deg, 100%, 100%),
+        ///   color.hsv(270deg, 100%, 100%),
+        ///   color.hsv(360deg, 100%, 100%),
+        /// ))
+        /// ```
         #[external]
         hue: Angle,
         /// The saturation component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsv,
+        ///   color.hsv(50deg, 0%, 100%),
+        ///   color.hsv(50deg, 100%, 100%),
+        /// ))
+        /// ```
         #[external]
         saturation: Component,
         /// The value component.
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsv,
+        ///   color.hsv(-30deg, 100%, 0%),
+        ///   color.hsv(-30deg, 100%, 100%),
+        /// ))
+        /// In HSL for comparison:
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsl,
+        ///   color.hsl(-30deg, 100%, 0%),
+        ///   color.hsl(-30deg, 100%, 100%),
+        /// ))
+        /// ```
         #[external]
         value: Component,
         /// The alpha component.
@@ -920,8 +1172,8 @@ impl Color {
     /// - @color.hsv[`hsv`]
     ///
     /// ```example
-    /// #let color = cmyk(1%, 2%, 3%, 4%)
-    /// #(color.space() == cmyk)
+    /// #let c = cmyk(1%, 2%, 3%, 4%)
+    /// #(c.space() == cmyk)
     /// ```
     #[func(since = "0.9.0")]
     pub fn space(&self) -> ColorSpace {
@@ -934,6 +1186,11 @@ impl Color {
     /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
     /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
     /// omitted if it is equal to `ff` (255 / 100%).
+    ///
+    /// ```example
+    /// #rgb("FFAA32").to-hex() \
+    /// #rgb("020304fe").to-hex()
+    /// ```
     #[func(since = "0.9.0")]
     pub fn to_hex(&self) -> EcoString {
         match self {
@@ -943,6 +1200,14 @@ impl Color {
     }
 
     /// Lightens a color by a given factor.
+    ///
+    /// ```example
+    /// #let c = rgb("#4ebf19")
+    /// #box(square(fill: c))
+    /// #box(square(fill: c.lighten(30%)))
+    /// #box(square(fill: c.lighten(60%)))
+    /// #box(square(fill: c.lighten(90%)))
+    /// ```
     #[func(since = "forever")]
     pub fn lighten(
         &self,
@@ -956,6 +1221,14 @@ impl Color {
     }
 
     /// Darkens a color by a given factor.
+    ///
+    /// ```example
+    /// #let c = rgb("#fded0a")
+    /// #box(square(fill: c))
+    /// #box(square(fill: c.darken(30%)))
+    /// #box(square(fill: c.darken(60%)))
+    /// #box(square(fill: c.darken(90%)))
+    /// ```
     #[func(since = "forever")]
     pub fn darken(
         &self,
@@ -972,6 +1245,14 @@ impl Color {
     ///
     /// Only process colors can be saturated. If you want to saturate a spot
     /// color, convert it into a process color first.
+    ///
+    /// ```example
+    /// #let c = rgb("#ac9eb4")
+    /// #box(square(fill: c))
+    /// #box(square(fill: c.saturate(30%)))
+    /// #box(square(fill: c.saturate(60%)))
+    /// #box(square(fill: c.saturate(90%)))
+    /// ```
     #[func(since = "0.9.0")]
     pub fn saturate(
         &self,
@@ -993,6 +1274,14 @@ impl Color {
     ///
     /// Only process colors can be desaturated. If you want to desaturate a spot
     /// color, convert it into a process color first.
+    ///
+    /// ```example
+    /// #let c = rgb("#17cbd8")
+    /// #box(square(fill: c))
+    /// #box(square(fill: c.desaturate(30%)))
+    /// #box(square(fill: c.desaturate(60%)))
+    /// #box(square(fill: c.desaturate(90%)))
+    /// ```
     #[func(since = "0.9.0")]
     pub fn desaturate(
         &self,
@@ -1014,15 +1303,21 @@ impl Color {
     /// think of it as the opposite side on a color wheel.
     ///
     /// ```example
-    /// #square(fill: yellow)
-    /// #square(fill: yellow.negate())
-    /// #square(fill: yellow.negate(space: rgb))
+    /// #box(square(fill: yellow))
+    /// #box(square(fill: yellow.negate()))
     /// ```
     #[func(since = "forever")]
     pub fn negate(
         &self,
         /// The color space used for the transformation. By default, a
         /// perceptual color space is used.
+        ///
+        /// ```example
+        /// #let sample(c) = box(square(fill: c))
+        /// #sample(red)
+        /// #sample(red.negate())
+        /// #sample(red.negate(space: rgb))
+        /// ```
         #[named]
         #[default]
         space: Smart<ColorSpace>,
@@ -1043,6 +1338,14 @@ impl Color {
     ///
     /// This function only works on color models with a well-defined hue
     /// component, i.e. Oklch, HSL, and HSV.
+    ///
+    /// ```example
+    /// #let c = rgb("#15e24f")
+    /// #box(square(fill: c))
+    /// #box(square(fill: c.rotate(20deg)))
+    /// #box(square(fill: c.rotate(40deg)))
+    /// #box(square(fill: c.rotate(60deg)))
+    /// ```
     #[func(since = "0.9.0")]
     pub fn rotate(
         &self,
@@ -1051,6 +1354,23 @@ impl Color {
         angle: Angle,
         /// The color space used to rotate. By default, this happens in a
         /// perceptual color space (@color.oklch[`oklch`]).
+        ///
+        /// ```example
+        /// #set rect(width: 100%)
+        /// #let c = rgb("#117be6")
+        /// Oklch:
+        /// #rect(fill: gradient.linear(
+        ///   space: oklch,
+        ///   c,
+        ///   c.rotate(90deg),
+        /// ))
+        /// HSL:
+        /// #rect(fill: gradient.linear(
+        ///   space: color.hsl,
+        ///   c,
+        ///   c.rotate(90deg, space: color.hsl),
+        /// ))
+        /// ```
         #[named]
         #[default(ProcessColorSpace::Oklch)]
         space: ProcessColorSpace,
@@ -1088,11 +1408,9 @@ impl Color {
     /// result in an error!
     ///
     /// ```example
-    /// #set block(height: 20pt, width: 100%)
-    /// #block(fill: red.mix(blue))
-    /// #block(fill: red.mix(blue, space: rgb))
-    /// #block(fill: color.mix(red, blue, white))
-    /// #block(fill: color.mix((red, 70%), (blue, 30%)))
+    /// #box(square(fill: red))
+    /// #box(square(fill: red.mix(blue)))
+    /// #box(square(fill: blue))
     /// ```
     #[func(since = "0.7.0")]
     pub fn mix(
@@ -1101,6 +1419,15 @@ impl Color {
         ///
         /// The weights do not need to add to `{100%}`, they are relative to the
         /// sum of all weights.
+        ///
+        /// ```example
+        /// #let sample(c) = box(square(fill: c))
+        /// #sample(color.mix(red, blue))
+        /// #sample(color.mix(red, blue, white))
+        /// #sample(color.mix(
+        ///   (red, 70%), (blue, 30%),
+        /// ))
+        /// ```
         #[variadic]
         colors: Vec<WeightedColor>,
         /// The color space to mix in. By default, this happens in a perceptual
@@ -1108,6 +1435,12 @@ impl Color {
         /// spot colorant, using that colorant.
         ///
         /// All colors will be converted into this color space.
+        ///
+        /// ```example
+        /// #let sample(c) = box(square(fill: c))
+        /// #sample(red.mix(blue, space: oklab))
+        /// #sample(red.mix(blue, space: rgb))
+        /// ```
         #[named]
         #[default]
         space: Smart<ColorSpace>,
@@ -1122,9 +1455,13 @@ impl Color {
     /// like `color.opacify(-scale)`.
     ///
     /// ```example
-    /// #block(fill: red)[opaque]
-    /// #block(fill: red.transparentize(50%))[half red]
-    /// #block(fill: red.transparentize(75%))[quarter red]
+    /// #let sample(c) = box(square(fill: c))
+    /// #set page(fill: tiling(line(),
+    ///   size: (1cm, 0.2cm), angle: -45deg,
+    /// ))
+    /// #sample(red)
+    /// #sample(red.transparentize(50%))
+    /// #sample(red.transparentize(75%))
     /// ```
     #[func(since = "0.11.0")]
     pub fn transparentize(
