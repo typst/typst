@@ -1358,9 +1358,6 @@ impl Color {
 
     /// Rotates the hue of the color by a given angle.
     ///
-    /// This function only works on color models with a well-defined hue
-    /// component, i.e. Oklch, HSL, and HSV.
-    ///
     /// ```example
     /// #let c = rgb("#15e24f")
     /// #box(square(fill: c))
@@ -1376,6 +1373,9 @@ impl Color {
         angle: Angle,
         /// The color space used to rotate. By default, this happens in a
         /// perceptual color space (@color.oklch[`oklch`]).
+        ///
+        /// This must be a color space with a well-defined hue component: either
+        /// @color.oklch[`oklch`], @color.hsl, or @color.hsv.
         ///
         /// ```example
         /// #set rect(width: 100%)
@@ -1425,10 +1425,6 @@ impl Color {
 
     /// Creates a color by mixing two or more colors.
     ///
-    /// In color spaces with a hue component (HSL, HSV, Oklch), only two colors
-    /// can be mixed at once. Mixing more than two colors in such a space will
-    /// result in an error!
-    ///
     /// ```example
     /// #box(square(fill: red))
     /// #box(square(fill: red.mix(blue)))
@@ -1458,6 +1454,10 @@ impl Color {
         ///
         /// All colors will be converted into this color space.
         ///
+        /// Note that, in color spaces with a hue component (Oklch, HSL, HSV),
+        /// only two colors can be mixed at once. Mixing more than two colors in
+        /// such a space will result in an error!
+        ///
         /// ```example
         /// #let sample(c) = box(square(fill: c))
         /// #sample(red.mix(blue, space: oklab))
@@ -1472,10 +1472,6 @@ impl Color {
 
     /// Makes a color more transparent by a given factor.
     ///
-    /// This method is relative to the existing alpha value. If the scale is
-    /// positive, calculates `alpha - alpha * scale`. Negative scales behave
-    /// like `color.opacify(-scale)`.
-    ///
     /// ```example
     /// #let sample(c) = box(square(fill: c))
     /// #set page(fill: tiling(line(),
@@ -1489,16 +1485,15 @@ impl Color {
     pub fn transparentize(
         &self,
         /// The factor to change the alpha value by.
+        ///
+        /// If positive, calculates `{alpha - alpha * scale}`. Negative scales
+        /// behave like `{color.opacify(-scale)}`.
         scale: Ratio,
     ) -> StrResult<Color> {
         self.scale_alpha(-scale)
     }
 
     /// Makes a color more opaque by a given scale.
-    ///
-    /// This method is relative to the existing alpha value. If the scale is
-    /// positive, calculates `alpha + scale - alpha * scale`. Negative scales
-    /// behave like `color.transparentize(-scale)`.
     ///
     /// ```example
     /// #let half-red = red.transparentize(50%)
@@ -1510,6 +1505,9 @@ impl Color {
     pub fn opacify(
         &self,
         /// The scale to change the alpha value by.
+        ///
+        /// If positive, calculates `{alpha + (1 - alpha) * scale}`. Negative
+        /// scales behave like `{color.transparentize(-scale)}`.
         scale: Ratio,
     ) -> StrResult<Color> {
         self.scale_alpha(scale)
