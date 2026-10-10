@@ -892,7 +892,7 @@ fn hyphenations(
                     format!(
                         "Expected custom hyphenator function to return an array of strings for word '{word}'; returned {return_value:#?}"
                     ),
-                )]))?
+                )]))?;
             }
         }
         result_vec
