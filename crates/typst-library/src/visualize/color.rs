@@ -1097,7 +1097,7 @@ impl Color {
         })))
     }
 
-    /// Extracts the components of this color.
+    /// Extracts the components of the color.
     ///
     /// The size and values of this array depends on the color space. You can
     /// obtain the color space using the @color.space[`space`] method. Below is
@@ -1184,7 +1184,7 @@ impl Color {
         }
     }
 
-    /// Returns the constructor function for this color's space.
+    /// Returns the constructor function for the color's space.
     ///
     /// Returns one of the color constructor functions: @color.luma[`luma`],
     /// @color.oklab[`oklab`], @color.oklch[`oklch`],
