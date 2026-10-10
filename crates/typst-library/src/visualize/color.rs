@@ -1090,15 +1090,15 @@ impl Color {
     /// Extracts the components of this color.
     ///
     /// The size and values of this array depends on the color space. You can
-    /// obtain the color space using @color.space[`space`]. Below is a table of
-    /// the color spaces and their components:
+    /// obtain the color space using the @color.space[`space`] method. Below is
+    /// a table of the color spaces and their components.
     ///
     /// #docs-table(
-    ///   table.header[Color space][C1][C2][C3][C4],
+    ///   table.header[Color space][C0][C1][C2][C3],
     ///
     ///   [@color.luma[`luma`]],
     ///   [Lightness],
-    ///   [],
+    ///   [Alpha],
     ///   [],
     ///   [],
     ///
