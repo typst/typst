@@ -341,7 +341,7 @@ impl Color {
     #[constant(title = "Predefined color maps", since = "0.9.0")]
     pub const MAP: fn() -> Module = || typst_utils::singleton!(Module, map()).clone();
 
-    /// Create a grayscale color.
+    /// Creates a grayscale color.
     ///
     /// A grayscale color is represented by `lightness` (@ratio) and `alpha`
     /// (@ratio) components.
@@ -391,7 +391,7 @@ impl Color {
         )))
     }
 
-    /// Create an #link("https://bottosson.github.io/posts/oklab/")[Oklab]
+    /// Creates an #link("https://bottosson.github.io/posts/oklab/")[Oklab]
     /// color.
     ///
     /// This color space is well suited for the following use cases:
@@ -451,7 +451,7 @@ impl Color {
         )))
     }
 
-    /// Create an #link("https://bottosson.github.io/posts/oklab/")[Oklch]
+    /// Creates an #link("https://bottosson.github.io/posts/oklab/")[Oklch]
     /// color.
     ///
     /// This color space is well suited for the following use cases:
@@ -515,7 +515,7 @@ impl Color {
         )))
     }
 
-    /// Create an RGB(A) color with linear luma.
+    /// Creates an RGB(A) color with linear luma.
     ///
     /// This color space is similar to sRGB, but with the distinction that the
     /// color component are not gamma corrected. This makes it easier to perform
@@ -576,7 +576,7 @@ impl Color {
         )))
     }
 
-    /// Create an RGB(A) color.
+    /// Creates an RGB(A) color.
     ///
     /// The color is specified in the sRGB color space.
     ///
@@ -648,7 +648,7 @@ impl Color {
         })
     }
 
-    /// Create a CMYK color.
+    /// Creates a CMYK color.
     ///
     /// This is useful if you want to target a specific printer. The conversion
     /// to RGB for display preview might differ from how your printer reproduces
@@ -705,7 +705,7 @@ impl Color {
         )))
     }
 
-    /// Create an HSL color.
+    /// Creates an HSL color.
     ///
     /// This color space is useful for specifying colors by hue, saturation and
     /// lightness. It is also useful for color manipulation, such as saturating
@@ -762,7 +762,7 @@ impl Color {
         })))
     }
 
-    /// Create an HSV color.
+    /// Creates an HSV color.
     ///
     /// This color space is useful for specifying colors by hue, saturation and
     /// value. It is also useful for color manipulation, such as saturating
@@ -1081,7 +1081,7 @@ impl Color {
         })
     }
 
-    /// Create a color by mixing two or more colors.
+    /// Creates a color by mixing two or more colors.
     ///
     /// In color spaces with a hue component (HSL, HSV, Oklch), only two colors
     /// can be mixed at once. Mixing more than two colors in such a space will
@@ -2342,7 +2342,7 @@ impl Repr for SpotColorant {
 
 #[scope]
 impl SpotColorant {
-    /// Create a new spot colorant.
+    /// Creates a new spot colorant.
     #[func(constructor, since = "0.15.0")]
     pub fn construct(
         /// Name of the spot colorant to use.
@@ -2381,7 +2381,7 @@ impl SpotColorant {
         Ok(Self { name, fallback })
     }
 
-    /// Create a spot color at a specific tint of this colorant.
+    /// Creates a spot color at a specific tint of this colorant.
     ///
     /// The tint represents what percentage of the colorant is applied. A tint
     /// of `{100%}` means the colorant is applied at full strength, while `{0%}`
