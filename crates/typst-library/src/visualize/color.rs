@@ -2920,16 +2920,12 @@ cast! {
         Self::Spot(s) => s.into_value()
     },
     spot: SpotColorant => Self::Spot(spot),
-    v: Value => {
-        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or spot colorant";
-
-        let Value::Func(func) = v else {
-            bail!("{expected}, found {}", v.ty());
-        };
-
+    func: Func => {
         match ProcessColorSpace::try_from_constructor(func) {
             Some(space) => Self::Process(space),
-            None => bail!("{expected}")
+            None => bail!(
+                "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or spot colorant",
+            )
         }
     },
 }
@@ -3016,16 +3012,12 @@ impl From<ProcessColorSpace> for ColorSpace {
 cast! {
     ProcessColorSpace,
     self => self.variant_constructor(),
-    v: Value => {
-        let expected = "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`";
-
-        let Value::Func(func) = v else {
-            bail!("{expected}, found {}", v.ty());
-        };
-
+    func: Func => {
         match Self::try_from_constructor(func) {
             Some(space) => space,
-            None => bail!("{expected}")
+            None => bail!(
+                "expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, or `color.hsv`",
+            )
         }
     },
 }

@@ -244,7 +244,7 @@
 #color.mix((red, 1, 2))
 
 --- color-mix-bad-space-type eval ---
-// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or spot colorant, found string
+// Error: 31-38 expected spot colorant, function, or auto, found string
 #color.mix(red, green, space: "cyber")
 
 --- color-mix-bad-space-value-1 eval ---
