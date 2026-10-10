@@ -1186,15 +1186,10 @@ impl Color {
 
     /// Returns the constructor function for this color's space.
     ///
-    /// Returns one of:
-    /// - @color.luma[`luma`]
-    /// - @color.oklab[`oklab`]
-    /// - @color.oklch[`oklch`]
-    /// - @color.linear-rgb[`linear-rgb`]
-    /// - @color.rgb[`rgb`]
-    /// - @color.cmyk[`cmyk`]
-    /// - @color.hsl[`hsl`]
-    /// - @color.hsv[`hsv`]
+    /// Returns one of the color constructor functions: @color.luma[`luma`],
+    /// @color.oklab[`oklab`], @color.oklch[`oklch`],
+    /// @color.linear-rgb[`linear-rgb`], @color.rgb[`rgb`], @color.cmyk[`cmyk`],
+    /// @color.hsl[`hsl`], @color.hsv[`hsv`], or a @color.spot[`spot`] colorant.
     ///
     /// ```example
     /// #let c = cmyk(1%, 2%, 3%, 4%)
