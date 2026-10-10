@@ -1501,6 +1501,7 @@ fn show_math(ctx: &ShowCtx, math: &str) -> Content {
         // TODO: propagate warnings
         Sink::new().track_mut(),
         EmptyIntrospector.track(),
+        Route::default().track(),
         Context::none().track(),
         math,
         SpanMode::Uniform(ctx.span),
