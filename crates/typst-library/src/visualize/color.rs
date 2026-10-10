@@ -362,6 +362,7 @@ impl Color {
         lightness: Component,
         /// The alpha component.
         #[external]
+        #[default(Component::ONE)]
         alpha: Component,
         /// Alternatively: The color to convert to grayscale.
         ///
@@ -468,6 +469,7 @@ impl Color {
         b: ChromaComponent,
         /// The alpha component.
         #[external]
+        #[default(RatioComponent::ONE)]
         alpha: RatioComponent,
         /// Alternatively: The color to convert to Oklab.
         ///
@@ -555,6 +557,7 @@ impl Color {
         hue: Angle,
         /// The alpha component.
         #[external]
+        #[default(RatioComponent::ONE)]
         alpha: RatioComponent,
         /// Alternatively: The color to convert to Oklch.
         ///
@@ -673,6 +676,7 @@ impl Color {
         /// This should be a value between `{0%}` (or `{0}`) and `{100%}` (or
         /// `{255}`).
         #[external]
+        #[default(Component::ONE)]
         alpha: Component,
         /// Alternatively: The color to convert to linear RGB(A).
         ///
@@ -766,6 +770,7 @@ impl Color {
         /// This should be a value between `{0%}` (or `{0}`) and `{100%}` (or
         /// `{255}`).
         #[external]
+        #[default(Component::ONE)]
         alpha: Component,
         /// Alternatively: The color in hexadecimal notation.
         ///
@@ -965,6 +970,7 @@ impl Color {
         lightness: Component,
         /// The alpha component.
         #[external]
+        #[default(Component::ONE)]
         alpha: Component,
         /// Alternatively: The color to convert to HSL.
         ///
@@ -1064,6 +1070,7 @@ impl Color {
         value: Component,
         /// The alpha component.
         #[external]
+        #[default(Component::ONE)]
         alpha: Component,
         /// Alternatively: The color to convert to HSL.
         ///
@@ -3030,6 +3037,10 @@ cast! {
 /// A component that must be a ratio.
 pub struct RatioComponent(Ratio);
 
+impl RatioComponent {
+    pub const ONE: Self = Self(Ratio::one());
+}
+
 cast! {
     RatioComponent,
     self => self.0.into_value(),
@@ -3055,6 +3066,10 @@ cast! {
 
 /// An integer or ratio component.
 pub struct Component(Ratio);
+
+impl Component {
+    pub const ONE: Self = Self(Ratio::one());
+}
 
 cast! {
     Component,
