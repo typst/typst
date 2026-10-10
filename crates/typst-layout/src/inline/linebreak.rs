@@ -834,7 +834,7 @@ fn hyphenations(
     let hyp_result = hypher::hyphenate(word, lang).map(|x| x.to_string()).collect::<Vec<_>>();
     let hyp_iter = if let Some(hyp_override) = hyphenation_override_at(p, offset) {
         let args = Args::new(Span::detached(), [Value::Str(word.into()), Value::Array(typst_library::foundations::Array::from_iter(hyp_result.iter().map(|x| Value::Str(x.as_str().into()))))]);
-        let result = hyp_override.call(engine, Context::none().track(), args)?;
+        let result = hyp_override.call(engine, Context::none().track(), args, Span::detached())?;
         let mut result_vec = vec![];
         match result {
             typst_library::foundations::Value::Array(array) => {
