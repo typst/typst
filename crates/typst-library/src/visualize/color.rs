@@ -1160,12 +1160,11 @@ impl Color {
     ///
     /// For the meaning and type of each individual value, see the documentation
     /// of the corresponding color space. The alpha component is optional and
-    /// only included if the `alpha` argument is `true`. The length of the
-    /// returned array depends on the number of components and whether the alpha
-    /// component is included.
+    /// only included if the `alpha` argument is `true` (the default). The
+    /// length of the returned array depends on the number of components and
+    /// whether the alpha component is included.
     ///
     /// ```example
-    /// // note that the alpha component is included by default
     /// #rgb(40%, 60%, 80%).components()
     /// ```
     #[func(since = "0.9.0")]
