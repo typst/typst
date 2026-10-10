@@ -230,6 +230,10 @@
 // Error: 17-22 unexpected argument
 #luma(25%, 50%, "val")
 
+--- color-rotate-bad-space eval ---
+// Error: 27-30 expected `oklch`, `color.hsl`, or `color.hsv`
+#red.rotate(90deg, space: rgb)
+
 --- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string

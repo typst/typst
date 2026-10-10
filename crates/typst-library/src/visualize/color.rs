@@ -1394,32 +1394,31 @@ impl Color {
         /// ))
         /// ```
         #[named]
-        #[default(ProcessColorSpace::Oklch)]
-        space: ProcessColorSpace,
+        #[default(HueColorSpace::Oklch)]
+        space: HueColorSpace,
     ) -> SourceResult<Color> {
         Ok(match space {
-            ProcessColorSpace::Oklch => {
+            HueColorSpace::Oklch => {
                 let oklch = self.to_oklch();
                 let rotated = oklch.shift_hue(angle.to_deg() as f32);
                 Self::Process(ProcessColor::Oklch(rotated))
                     .to_space(&self.space())
                     .at(span)?
             }
-            ProcessColorSpace::Hsl => {
+            HueColorSpace::Hsl => {
                 let hsl = self.to_hsl();
                 let rotated = hsl.shift_hue(angle.to_deg() as f32);
                 Self::Process(ProcessColor::Hsl(rotated))
                     .to_space(&self.space())
                     .at(span)?
             }
-            ProcessColorSpace::Hsv => {
+            HueColorSpace::Hsv => {
                 let hsv = self.to_hsv();
                 let rotated = hsv.shift_hue(angle.to_deg() as f32);
                 Self::Process(ProcessColor::Hsv(rotated))
                     .to_space(&self.space())
                     .at(span)?
             }
-            _ => bail!(span, "this color space does not support hue rotation"),
         })
     }
 
@@ -3027,6 +3026,71 @@ cast! {
         match Self::try_from_constructor(func) {
             Some(space) => space,
             None => bail!("{expected}")
+        }
+    },
+}
+
+/// A color space that has a well-defined hue component.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum HueColorSpace {
+    /// The perceptual Oklch color space.
+    Oklch,
+    /// The HSL color space.
+    Hsl,
+    /// The HSV color space.
+    Hsv,
+}
+
+impl HueColorSpace {
+    /// Return the value for each variant's constructor.
+    fn variant_constructor(self) -> Value {
+        match self {
+            Self::Oklch => Color::oklch_data(),
+            Self::Hsl => Color::hsl_data(),
+            Self::Hsv => Color::hsv_data(),
+        }
+        .into_value()
+    }
+
+    /// Given a constructor, return the matching variant.
+    fn try_from_constructor(func: Func) -> Option<Self> {
+        // Here comparing the function pointer since it's `Eq`
+        // whereas the `NativeFuncData` is not.
+        Some(if func == Color::oklch_data() {
+            Self::Oklch
+        } else if func == Color::hsl_data() {
+            Self::Hsl
+        } else if func == Color::hsv_data() {
+            Self::Hsv
+        } else {
+            return None;
+        })
+    }
+}
+
+impl From<HueColorSpace> for ProcessColorSpace {
+    fn from(value: HueColorSpace) -> Self {
+        match value {
+            HueColorSpace::Oklch => ProcessColorSpace::Oklch,
+            HueColorSpace::Hsl => ProcessColorSpace::Hsl,
+            HueColorSpace::Hsv => ProcessColorSpace::Hsv,
+        }
+    }
+}
+
+impl From<HueColorSpace> for ColorSpace {
+    fn from(value: HueColorSpace) -> Self {
+        Self::Process(value.into())
+    }
+}
+
+cast! {
+    HueColorSpace,
+    self => self.variant_constructor(),
+    func: Func => {
+        match Self::try_from_constructor(func) {
+            Some(space) => space,
+            None => bail!("expected `oklch`, `color.hsl`, or `color.hsv`")
         }
     },
 }
