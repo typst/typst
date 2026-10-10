@@ -32,7 +32,7 @@ use crate::foundations::{
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
 use crate::model::{
-    ArtifactElem, ArtifactKind, Destination, EmphElem, LinkElem, LinkMarker, StrongElem,
+    ArtifactElem, ArtifactKind, Destination, EmphElem, LinkMarker, StrongElem,
 };
 use crate::text::UnderlineElem;
 
@@ -483,10 +483,7 @@ impl Content {
     /// Link the content somewhere.
     pub fn linked(self, dest: Destination, alt: Option<EcoString>) -> Self {
         let span = self.span();
-        LinkMarker::new(self, alt)
-            .pack()
-            .spanned(span)
-            .set(LinkElem::current, Some(dest))
+        LinkMarker::new(self, alt, dest).pack().spanned(span)
     }
 
     /// Set alignments for this content.
