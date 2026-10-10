@@ -145,7 +145,7 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 ///
 /// The predefined colors and the most important color constructors are
 /// available globally and also in the color type's scope, so you can write
-/// either `color.red` or just `red`.
+/// either `{color.red}` or just `{red}`.
 ///
 /// ```preview
 /// #let colors = (
@@ -1163,7 +1163,7 @@ impl Color {
     ///
     /// For the meaning and type of each individual value, see the documentation
     /// of the corresponding color space. The alpha component is optional and
-    /// only included if the `alpha` argument is `true` (the default). The
+    /// only included if the `alpha` argument is `{true}` (the default). The
     /// length of the returned array depends on the number of components and
     /// whether the alpha component is included.
     ///
