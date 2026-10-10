@@ -16,7 +16,7 @@ use typst_library::text::{Lang, TextElem, is_default_ignorable};
 use typst_syntax::{Span, link_prefix};
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
-use typst_library::foundations::{Args, Context, Func, NoneValue, Value};
+use typst_library::foundations::{Args, Context, Func, Value};
 
 use super::*;
 
@@ -844,7 +844,7 @@ fn hyphenations(
                             result_vec.push(s.to_string());
                         },
                         _ => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return an array of strings for word '{word}'; returned an array that contains the value {item:#?}"))]))?
-                    };
+                    }
                 }
             },
             return_value => SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(hyp_override.span(), format!("Expected custom hyphenator function to return an array of strings for word '{word}'; returned {return_value:#?}"))]))?
