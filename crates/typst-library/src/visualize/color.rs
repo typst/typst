@@ -1422,6 +1422,49 @@ impl Color {
         })
     }
 
+    /// Makes a color more transparent by a given factor.
+    ///
+    /// ```example
+    /// #let sample(c) = box(square(fill: c))
+    /// #set page(fill: tiling(line(),
+    ///   size: (1cm, 0.2cm), angle: -45deg,
+    /// ))
+    /// #sample(red)
+    /// #sample(red.transparentize(50%))
+    /// #sample(red.transparentize(75%))
+    /// ```
+    #[func(since = "0.11.0")]
+    pub fn transparentize(
+        &self,
+        /// The factor to change the alpha value by.
+        ///
+        /// If positive, calculates `{alpha - alpha * scale}`. Negative scales
+        /// behave like `{color.opacify(-scale)}`.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(-scale)
+    }
+
+    /// Makes a color more opaque by a given scale.
+    ///
+    /// ```example
+    /// #let half-red = red.transparentize(50%)
+    /// #block(fill: half-red.opacify(100%))[opaque]
+    /// #block(fill: half-red.opacify(50%))[three quarters red]
+    /// #block(fill: half-red.opacify(-50%))[one quarter red]
+    /// ```
+    #[func(since = "0.11.0")]
+    pub fn opacify(
+        &self,
+        /// The scale to change the alpha value by.
+        ///
+        /// If positive, calculates `{alpha + (1 - alpha) * scale}`. Negative
+        /// scales behave like `{color.transparentize(-scale)}`.
+        scale: Ratio,
+    ) -> StrResult<Color> {
+        self.scale_alpha(scale)
+    }
+
     /// Creates a color by mixing two or more colors.
     ///
     /// ```example
@@ -1467,49 +1510,6 @@ impl Color {
         space: Smart<ColorSpace>,
     ) -> HintedStrResult<Color> {
         Self::mix_iter(colors, space)
-    }
-
-    /// Makes a color more transparent by a given factor.
-    ///
-    /// ```example
-    /// #let sample(c) = box(square(fill: c))
-    /// #set page(fill: tiling(line(),
-    ///   size: (1cm, 0.2cm), angle: -45deg,
-    /// ))
-    /// #sample(red)
-    /// #sample(red.transparentize(50%))
-    /// #sample(red.transparentize(75%))
-    /// ```
-    #[func(since = "0.11.0")]
-    pub fn transparentize(
-        &self,
-        /// The factor to change the alpha value by.
-        ///
-        /// If positive, calculates `{alpha - alpha * scale}`. Negative scales
-        /// behave like `{color.opacify(-scale)}`.
-        scale: Ratio,
-    ) -> StrResult<Color> {
-        self.scale_alpha(-scale)
-    }
-
-    /// Makes a color more opaque by a given scale.
-    ///
-    /// ```example
-    /// #let half-red = red.transparentize(50%)
-    /// #block(fill: half-red.opacify(100%))[opaque]
-    /// #block(fill: half-red.opacify(50%))[three quarters red]
-    /// #block(fill: half-red.opacify(-50%))[one quarter red]
-    /// ```
-    #[func(since = "0.11.0")]
-    pub fn opacify(
-        &self,
-        /// The scale to change the alpha value by.
-        ///
-        /// If positive, calculates `{alpha + (1 - alpha) * scale}`. Negative
-        /// scales behave like `{color.transparentize(-scale)}`.
-        scale: Ratio,
-    ) -> StrResult<Color> {
-        self.scale_alpha(scale)
     }
 
     type SpotColorant;
