@@ -62,9 +62,9 @@ use crate::loading::{DataSource, Load};
 /// )
 ///
 /// == Notes <notes>
-/// - Be aware that CBOR integers larger than 2#super[63]-1 or smaller
-///   than -2#super[63] will be converted to floating point numbers, which may
-///   result in an approximative value.
+/// - Be aware that CBOR integers larger than $2^63-1$ or smaller than $-2^63$
+///   will be converted to floating point numbers, which may result in an
+///   approximative value.
 ///
 /// - CBOR tags are not supported, and an error will be thrown.
 ///
