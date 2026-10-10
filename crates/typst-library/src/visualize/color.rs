@@ -1320,8 +1320,9 @@ impl Color {
         })
     }
 
-    /// Produces the complementary color using a provided color space. You can
-    /// think of it as the opposite side on a color wheel.
+    /// Produces the complementary color using a provided color space.
+    ///
+    /// You can think of it as the opposite side on a color wheel.
     ///
     /// ```example
     /// #box(square(fill: yellow))
