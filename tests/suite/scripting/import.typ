@@ -340,6 +340,10 @@
 // Error: 9-23 cyclic import
 #import "./import.typ"
 
+--- import-cyclic-in-eval eval ---
+// Error: 7-32 cyclic import
+#eval("import \"./import.typ\"")
+
 --- import-cyclic-in-other-file eval ---
 // Cyclic import in other file.
 // Error: "tests/suite/scripting/modules/cycle2.typ" 2:9-2:21 cyclic import
