@@ -44,8 +44,8 @@ use crate::World;
 use crate::diag::{Hint, HintedStrResult, SourceResult, StrResult, bail, warning};
 use crate::engine::Engine;
 use crate::foundations::{
-    Args, Array, Cast, Construct, Content, Dict, Fold, IntoValue, NativeElement, Never,
-    NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
+    Args, Array, Cast, Construct, Content, Dict, Fold, Func, IntoValue, NativeElement,
+    Never, NoneValue, Packed, PlainText, Regex, Repr, Resolve, Scope, Set, Smart, Str,
     StyleChain, cast, dict, elem,
 };
 use crate::layout::{Abs, Axis, Dir, Em, Length, Ratio, Rel};
@@ -880,6 +880,55 @@ pub struct TextElem {
     /// ```
     #[required]
     pub text: EcoString,
+
+    /// Hyphenation override function that takes in a word and the default hyphenation and returns the word broken up as an array.
+    /// ```example
+    /// #set text(lang: "en", overhang: true)
+    /// #set par(justify: true)
+    ///
+    /// // Let's define some alternative hyphenation schemes
+    ///
+    /// #let dont_break_proper_nouns(word, stock) = {
+    ///   // We interpret a word as a proper noun if it starts with a capital letter
+    ///   // with reckless disregard for starts of sentences
+    ///   if upper(word.clusters().at(0)) == word.clusters().at(0) {
+    ///      (word,) // Return a list with only one chunk: the word as a whole
+    ///   } else {
+    ///      stock // Accept the default hyphenation otherwise
+    ///   }
+    /// }
+    ///
+    /// #let hyphenate_between_any_letters(word, stock) = {
+    ///   // Hyphenating only at syllable boundaries is so passé
+    ///   // We want to break up words anywhere we please!
+    ///   word.clusters() // an array of individual symbols
+    /// }
+    ///
+    /// // Example paragraph with apple cultivar names from Wikipedia
+    ///
+    /// #let example = [ Here's a list of apple cultivars for an apples to apples comparison: Amanda, Amère de Berthcourt, Amère Forestier, Angela, Antoinette, Arbeya, Arbeya Montés, Armagnac, Ashmead's Kernel ]
+    ///
+    /// = Hyphenation comparison
+    ///
+    /// Here's three different hyphenation schemes using `text.hypoverride`!
+    ///
+    /// // Let's squeeze our paragraph into a narrow column
+    ///
+    /// #columns(3)[
+    ///   == Default
+    ///   #text(example)
+    ///   #colbreak()
+    ///   == PN
+    ///   #text(example, hypoverride: dont_break_proper_nouns)
+    ///   #colbreak()
+    ///   == Mayhem
+    ///   #text(example, hypoverride: hyphenate_between_any_letters)
+    /// ]
+    ///
+    /// ```
+
+    #[default(None)]
+    pub hypoverride: Option<Func>,
 
     /// The offset of the text in the text syntax node referenced by this
     /// element's span.
