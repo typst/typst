@@ -1203,9 +1203,10 @@ impl Color {
         }
     }
 
-    /// Returns the color's RGB(A) hex representation (such as `#ffaa32` or
-    /// `#020304fe`). The alpha component (last two digits in `#020304fe`) is
-    /// omitted if it is equal to `ff` (255 / 100%).
+    /// Returns the color's RGB(A) hex code.
+    ///
+    /// The alpha component (last two digits) is omitted if it is equal to
+    /// `{100%}`.
     ///
     /// ```example
     /// #rgb("FFAA32").to-hex() \
