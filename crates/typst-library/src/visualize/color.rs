@@ -779,6 +779,9 @@ impl Color {
         ///
         /// If this is given, the individual components should not be given.
         ///
+        /// Note that the hex code for an existing color can be obtained with
+        /// the @color.to-hex[`to-hex`] method.
+        ///
         /// ```example
         /// #text(16pt, rgb("#239dad"))[
         ///   *Typst*
