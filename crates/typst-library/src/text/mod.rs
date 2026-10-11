@@ -928,6 +928,7 @@ pub struct TextElem {
     /// ```
 
     #[default(None)]
+    #[ghost]
     pub hypoverride: Option<Func>,
 
     /// The offset of the text in the text syntax node referenced by this
