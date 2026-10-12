@@ -706,7 +706,8 @@ fn build_output<'a>(
                 } else if frame_index != last_index + 1 {
                     // Items are discontinuous; break and begin a new link
                     // bounding box.
-                    let (pos, frame) = prepare_link(
+                    push_link_frame(
+                        output,
                         dest,
                         link_info,
                         link_info.last_end,
@@ -714,7 +715,6 @@ fn build_output<'a>(
                         remaining,
                         top,
                     );
-                    output.push_frame(pos, frame);
 
                     *link_info = LinkRenderInfo::with_start(offset);
                 }
@@ -751,7 +751,8 @@ fn build_output<'a>(
                     // Ignore the offset of the end event itself as it might
                     // (visually) be at the start rather than the end of the link
                     // due to RTL reversal.
-                    let (pos, frame) = prepare_link(
+                    push_link_frame(
+                        output,
                         dest,
                         &link_info,
                         link_info.last_end,
@@ -759,7 +760,6 @@ fn build_output<'a>(
                         remaining,
                         top,
                     );
-                    output.push_frame(pos, frame);
                 }
             }
             _ => {}
@@ -773,9 +773,15 @@ fn build_output<'a>(
 
         // Only render a link if there was at least one item within it...
         if link_info.last_index.is_some() {
-            let (pos, frame) =
-                prepare_link(dest, &link_info, last_frame_end, p.config, remaining, top);
-            output.push_frame(pos, frame);
+            push_link_frame(
+                output,
+                dest,
+                &link_info,
+                last_frame_end,
+                p.config,
+                remaining,
+                top,
+            );
         }
     }
 }
@@ -817,15 +823,17 @@ fn add_par_line_marker(
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
 }
 
-/// Prepare a link's frame, calculating its optimal position as well as padding.
-fn prepare_link(
+/// Prepare and push a link's frame, calculating its optimal position as well as
+/// padding.
+fn push_link_frame(
+    output: &mut Frame,
     dest: &Destination,
     link_info: &LinkRenderInfo,
     end: Abs,
     config: &Config,
     remaining: Abs,
     top: Abs,
-) -> (Point, Frame) {
+) {
     let x = link_info.start + config.align.position(remaining);
     let y = top - link_info.top;
     let width = end - link_info.start;
@@ -834,6 +842,11 @@ fn prepare_link(
     // Can only fail if the link was pushed regardless of being empty.
     debug_assert!(width >= Abs::zero());
     debug_assert!(link_info.last_index.is_some());
+
+    if width.is_zero() || height.is_zero() {
+        // Only skippable items were spanned.
+        return;
+    }
 
     let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
     let modifiers = FrameModifiers::with_dest(dest.clone());
@@ -844,7 +857,7 @@ fn prepare_link(
         frame.modify(&modifiers);
     }
 
-    (Point::new(x, y), frame)
+    output.push_frame(Point::new(x, y), frame);
 }
 
 /// How much a glyph should hang into the end margin.
