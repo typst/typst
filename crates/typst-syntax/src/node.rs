@@ -601,11 +601,22 @@ impl SyntaxNode {
 
     /// Access an inner node mutably for incremental reparsing. Also returns the
     /// node's span and syntax kind since those are needed.
+    ///
+    /// Unlike [`Node::inner_mut`], this does not descend past wrapped warnings
+    /// since reparsing under syntax warnings cannot be made sound. A warning's
+    /// message, hints, or sub-ranges could target or include subsets of the
+    /// replaced text, and trying to match and update those subsets correctly is
+    /// not feasible in the general case.
+    ///
+    /// Luckily, avoiding reparsing under syntax warnings is unlikely to have a
+    /// performance impact in real documents.
     pub(super) fn reparse_inner_node_mut(
         &mut self,
     ) -> Option<(&mut InnerNode, SyntaxKind, Span)> {
-        let kind = self.kind();
-        Some((self.data.inner_mut()?, kind, self.span))
+        match &mut self.data {
+            Node::Inner(inner, kind) => Some((Arc::make_mut(inner), *kind, self.span)),
+            _ => None,
+        }
     }
 }
 
