@@ -1,10 +1,10 @@
 use typst_library::diag::warning;
 use typst_library::foundations::{Packed, Resolve};
-use typst_library::introspection::{Location, SplitLocator, Tag, TagElem};
+use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
-use typst_library::model::{Destination, LinkElem, LinkMarker};
+use typst_library::model::{LinkElem, LinkMarker, Linkage};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -108,8 +108,8 @@ impl<'a> Item<'a> {
 
 #[derive(Debug)]
 pub enum Event {
-    StartLink(Destination),
-    EndLink(Destination),
+    StartLink(Linkage),
+    EndLink(Linkage),
 }
 
 /// An item or not-yet shaped text. We can't shape text until we have collected
@@ -146,14 +146,14 @@ struct EventCollectionState<'a> {
     /// is applied at the very end of the paragraph (this is then set to
     /// `None`), unless the whole paragraph is a #link[...], in which case we
     /// must not apply it again.
-    shared_link: Option<&'a (Destination, Location)>,
+    shared_link: Option<&'a Linkage>,
 
     /// The link active in the previously collected item. Used to detect changes
     /// in links.
-    prev_link: Option<&'a (Destination, Location)>,
+    prev_link: Option<&'a Linkage>,
 
     /// Links with currently unclosed marker tags.
-    active_links: Vec<(Destination, Location)>,
+    active_links: Vec<Linkage>,
 }
 
 /// Collects all text into one string and a collection of segments that
@@ -291,13 +291,14 @@ pub fn collect<'a>(
                     if let Some(link_marker) = content.to_packed::<LinkMarker>()
                         && !FrameModifiers::get_in(styles).hidden
                     {
-                        let link = link_marker.dest.clone();
+                        let dest = link_marker.dest.clone();
                         let location = elem.tag.location();
+                        let link = Linkage::new(location, dest);
                         collector.push_event(Event::StartLink(link.clone()));
-                        events.active_links.push((link, location));
+                        events.active_links.push(link);
 
-                        if let Some((_, loc)) = events.shared_link
-                            && loc == &location
+                        if let Some(l) = events.shared_link
+                            && l.origin == location
                         {
                             // Link spanning the entire paragraph starts and
                             // ends within it, so don't apply it twice.
@@ -306,8 +307,8 @@ pub fn collect<'a>(
                     }
                 }
                 Tag::End(location, _, _) => {
-                    if let Some((link, _)) =
-                        events.active_links.pop_if(|(_, loc)| loc == location)
+                    if let Some(link) =
+                        events.active_links.pop_if(|l| l.origin == *location)
                     {
                         collector.push_event(Event::EndLink(link));
 
@@ -322,8 +323,8 @@ pub fn collect<'a>(
                     // reverted at the end tag, so we compare with the previous
                     // link style. If it changed, means this tag was ending a
                     // link marker element.
-                    } else if let Some((link, loc)) = events.prev_link
-                        && loc == location
+                    } else if let Some(link) = events.prev_link
+                        && link.origin == *location
                         && !FrameModifiers::get_in(styles).hidden
                     {
                         events.initial_events.push(Event::StartLink(link.clone()));
@@ -352,7 +353,7 @@ pub fn collect<'a>(
     }
 
     // Render flow-level link, if the paragraph was not hidden.
-    if let Some((link, _)) = events.shared_link
+    if let Some(link) = events.shared_link
         && !config.hidden
     {
         events.initial_events.push(Event::StartLink(link.clone()));

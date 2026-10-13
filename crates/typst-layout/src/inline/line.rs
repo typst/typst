@@ -5,7 +5,7 @@ use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
-use typst_library::model::{Destination, ParLineMarker};
+use typst_library::model::ParLineMarker;
 use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
 
@@ -513,7 +513,7 @@ pub fn commit<'l>(
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
-    active_links: &mut Vec<&'l Destination>,
+    active_links: &mut Vec<&'l Linkage>,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
@@ -664,7 +664,7 @@ pub fn commit<'l>(
 
 fn build_output<'a>(
     p: &Preparation<'_>,
-    active_links: &mut Vec<&'a Destination>,
+    active_links: &mut Vec<&'a Linkage>,
     remaining: Abs,
     last_frame_end: Abs,
     top: Abs,
@@ -674,7 +674,7 @@ fn build_output<'a>(
     // Keep track of items spanned by each link, including the destination,
     // whether a text was spanned, the height, the horizontal offset where it
     // starts, and the offset where it would end (after its last spanned item).
-    let mut link_stack: Vec<(&Destination, LinkRenderInfo)> =
+    let mut link_stack: Vec<(&Linkage, LinkRenderInfo)> =
         active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
 
     // Construct the line's frame.
@@ -694,7 +694,7 @@ fn build_output<'a>(
             output.push_frame(Point::new(x, y), frame);
         }
 
-        for (dest, link_info) in &mut link_stack {
+        for (link, link_info) in &mut link_stack {
             // Check if link items are discontinuous, i.e. if despite the two
             // being adjacent in the source code (consecutive logical indices),
             // they are not adjacent in the resulting line (non-consecutive
@@ -709,7 +709,7 @@ fn build_output<'a>(
                     // bounding box.
                     push_link_frame(
                         output,
-                        dest,
+                        link,
                         link_info,
                         link_info.last_end,
                         p.config,
@@ -828,7 +828,7 @@ fn add_par_line_marker(
 /// padding.
 fn push_link_frame(
     output: &mut Frame,
-    dest: &Destination,
+    link: &Linkage,
     link_info: &LinkRenderInfo,
     end: Abs,
     config: &Config,
@@ -850,7 +850,7 @@ fn push_link_frame(
     }
 
     let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
-    let modifiers = FrameModifiers::with_dest(dest.clone());
+    let modifiers = FrameModifiers::with_link(link.clone());
     if let Some(max_leading) = link_info.text_leading {
         frame.modify_text(&modifiers, max_leading);
     } else {

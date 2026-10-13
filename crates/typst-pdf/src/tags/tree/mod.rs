@@ -50,13 +50,19 @@ impl Tree {
         self.progressions[self.prog_cursor]
     }
 
-    /// Find the lowest link ancestor in the tree.
-    pub fn parent_link(&self) -> Option<(GroupId, &Packed<LinkMarker>)> {
-        let mut current = self.current();
+    /// Find a link ancestor in the tree.
+    pub fn parent_link(&self, loc: Location) -> Option<(GroupId, &Packed<LinkMarker>)> {
+        let located = self.groups.by_loc(&loc)?;
 
+        // Links are breakable, thus there can be multiple groups that are
+        // mapped to the same location. So we look for a group that is both an
+        // ancestor *and* in the list of groups associated with the location.
+        let mut current = self.current();
         while current != GroupId::INVALID {
             let group = self.groups.get(current);
-            if let Some(link) = group.kind.as_link() {
+            if let Some(link) = group.kind.as_link()
+                && located.ids().contains(&current)
+            {
                 return Some((current, link));
             }
             current = group.parent;
@@ -438,7 +444,7 @@ fn close_group(tree: &mut Tree, surface: &mut Surface, id: GroupId) -> GroupId {
             // multiple parent groups with the same location, only insert the
             // children for the first parent group.
             if let Some(located) = tree.groups.by_loc(&loc)
-                && located.id == id
+                && located.id() == id
                 && let Some(children) = tree.logical_children.get(&loc)
             {
                 tree.groups.push_groups(id, children);

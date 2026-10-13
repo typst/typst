@@ -15,14 +15,12 @@ use comemo::{Track, Tracked, TrackedMut};
 use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
-use typst_library::introspection::{
-    Introspector, Location, Locator, LocatorLink, SplitLocator,
-};
+use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
 use typst_library::layout::{
     Abs, AlignElem, Dir, FixedAlignment, Fragment, HideElem, Size,
 };
 use typst_library::model::{
-    Destination, EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem,
+    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem, Linkage,
     ListElem, ParElem, ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind};
@@ -307,7 +305,7 @@ struct Config {
     /// Costs for various layout decisions.
     costs: Costs,
     /// The link active throughout the whole paragraph.
-    link: Option<(Destination, Location)>,
+    link: Option<Linkage>,
     /// Whether `#hide` is active for the whole paragraph.
     ///
     /// This is needed to decide whether links should be rendered, regardless of
