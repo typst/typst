@@ -196,9 +196,21 @@ fn expand_and_reparse_markup(
         );
 
         if let Some(newborns) = reparsed {
-            // If more children follow, at_start must match its previous value.
-            // Similarly, if we children follow or we not top-level the nesting
-            // must match its previous value.
+            // Generally, `at_start` and `nesting` need to match their previous
+            // values or else the reparse could affect adjacent/surrounding
+            // nodes. For example, `= Head` is only a heading at the start of a
+            // line, not in the middle of some text. And the outer content block
+            // in `#[a[b]c]` would group differently if the first `[` were
+            // deleted.
+            //
+            // But they can safely differ from their previous values under the
+            // right conditions:
+            // - `at_start` can differ if we're at the end of this markup node,
+            //   since no following markup nodes could be affected.
+            // - `nesting` can differ if we're _both_ at the end of this markup
+            //   node and are reparsing the top-level markup node (i.e. we're
+            //   inserting at the very end of a file), since only the top-level
+            //   markup node has no surrounding blocks.
             if (at_end || at_start == prev_at_start_after)
                 && ((at_end && top_level) || nesting == prev_nesting_after)
             {
