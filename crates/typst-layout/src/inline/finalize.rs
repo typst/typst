@@ -43,7 +43,6 @@ pub fn finalize(
         })
         .collect::<Vec<_>>();
 
-
     // Stack the lines into one frame per region.
     lines
         .iter()

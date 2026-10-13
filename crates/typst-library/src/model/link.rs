@@ -217,7 +217,7 @@ pub struct LinkElem {
     /// of the [`LinkMarker`] that applied this change.
     #[internal]
     #[ghost]
-    pub current: Option<(Destination, Location)>,
+    pub current: Option<Linkage>,
 }
 
 impl LinkElem {
@@ -307,6 +307,22 @@ cast! {
 impl From<Destination> for LinkTarget {
     fn from(dest: Destination) -> Self {
         Self::Dest(dest)
+    }
+}
+
+/// A linkage from a [`LinkMarker`] to a [`Destination`].
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct Linkage {
+    /// The location of the [`LinkMarker`] of this link.
+    pub origin: Location,
+    /// The destination of the link.
+    pub dest: Destination,
+}
+
+impl Linkage {
+    /// Create a new linkage.
+    pub fn new(origin: Location, dest: Destination) -> Self {
+        Self { origin, dest }
     }
 }
 
@@ -501,7 +517,8 @@ impl Construct for LinkMarker {
 impl ShowSet for Packed<LinkMarker> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        out.set(LinkElem::current, Some((self.dest.clone(), self.location().unwrap())));
+        let link = Linkage::new(self.location().unwrap(), self.dest.clone());
+        out.set(LinkElem::current, Some(link));
         out
     }
 }

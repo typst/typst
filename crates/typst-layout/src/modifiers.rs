@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
-use typst_library::model::{Destination, LinkElem};
+use typst_library::model::{LinkElem, Linkage};
 
 /// Frame-level modifications resulting from styles that do not impose any
 /// layout structure.
@@ -19,21 +21,21 @@ use typst_library::model::{Destination, LinkElem};
 /// - `LinkElem::dests`
 #[derive(Debug, Clone)]
 pub struct FrameModifiers {
-    /// A destination to link to.
-    dest: Option<Destination>,
+    /// A destination to link to, and the location of its link marker.
+    link: Option<Arc<Linkage>>,
     /// Whether the contents of the frame should be hidden.
     pub(crate) hidden: bool,
 }
 
 impl FrameModifiers {
-    pub(super) fn with_dest(dest: Destination) -> Self {
-        Self { dest: Some(dest), hidden: false }
+    pub(super) fn with_link(link: Linkage) -> Self {
+        Self { link: Some(Arc::new(link)), hidden: false }
     }
 
     /// Retrieve all modifications that should be applied per-frame.
     pub fn get_in(styles: StyleChain) -> Self {
         Self {
-            dest: styles.get_cloned(LinkElem::current).map(|(dest, _)| dest),
+            link: styles.get_cloned(LinkElem::current).map(Arc::new),
             hidden: styles.get(HideElem::hidden),
         }
     }
@@ -96,7 +98,7 @@ impl FrameModifyText for Frame {
     }
 
     fn modify_text_without_links(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers { dest: None, ..FrameModifiers::get_in(styles) };
+        let modifiers = FrameModifiers { link: None, ..FrameModifiers::get_in(styles) };
         modify_frame(self, &modifiers, None);
     }
 }
@@ -106,7 +108,7 @@ pub(super) fn modify_frame(
     modifiers: &FrameModifiers,
     link_box_outset: Option<Sides<Abs>>,
 ) {
-    if let Some(dest) = &modifiers.dest {
+    if let Some(link) = &modifiers.link {
         let mut pos = Point::zero();
         let mut size = frame.size();
         if let Some(outset) = link_box_outset {
@@ -114,7 +116,7 @@ pub(super) fn modify_frame(
             pos.x -= outset.left;
             size += outset.sum_by_axis();
         }
-        frame.push(pos, FrameItem::Link(dest.clone(), size));
+        frame.push(pos, FrameItem::Link(link.clone(), size));
     }
 
     if modifiers.hidden {
@@ -167,13 +169,13 @@ where
     let reset;
     let outer = styles;
     let mut styles = styles;
-    if modifiers.dest.is_some() {
+    if modifiers.link.is_some() {
         reset = LinkElem::current.set(None).wrap();
         styles = outer.chain(&reset);
     }
 
     if !allow_links {
-        modifiers.dest = None;
+        modifiers.link = None;
     }
 
     layout(styles).modified(&modifiers)
