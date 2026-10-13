@@ -591,63 +591,21 @@ impl SyntaxNode {
         }
     }
 
-    /// Replace a range of children and update this node.
-    /// [`Self::renumber_children`] should be called immediately after this.
-    ///
-    /// To increase the stability of span numbers, this does not replace nodes
-    /// at the front/back that are equal to the previous nodes. Returns the
-    /// final indices of the inserted nodes.
-    pub(super) fn replace_children(
-        &mut self,
-        range: Range<usize>,
-        replacement: Vec<SyntaxNode>,
-    ) -> Range<usize> {
-        if let Some(inner) = self.data.inner_mut() {
-            inner.replace_children(range, replacement)
-        } else {
-            unreachable!();
-        }
-    }
-
-    /// Try to assign span numbers to a range of children. If there are not
-    /// enough numbers, retries taking exponentially more children into account.
-    pub(super) fn renumber_children(&mut self, range: Range<usize>) -> NumberingResult {
-        if let Some(inner) = self.data.inner_mut() {
-            inner.renumber_children(self.span, range)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Update this node after one or more of its children were replaced or
-    /// updated.
-    pub(super) fn update_parent(
-        &mut self,
-        prev_len: usize,
-        new_len: usize,
-        prev_descendants: usize,
-        new_descendants: usize,
-        prev_diagnosis: Diagnosis,
-        new_diagnosis: Diagnosis,
-    ) {
-        if let Some(inner) = self.data.inner_mut() {
-            inner.update_parent(
-                prev_len,
-                new_len,
-                prev_descendants,
-                new_descendants,
-                prev_diagnosis,
-                new_diagnosis,
-            );
-        }
-    }
-
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
         match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => self.span.number() + 1,
             NodeRef::Inner(inner) => inner.upper,
         }
+    }
+
+    /// Access an inner node mutably for incremental reparsing. Also returns the
+    /// node's span and syntax kind since those are needed.
+    pub(super) fn reparse_inner_node_mut(
+        &mut self,
+    ) -> Option<(&mut InnerNode, SyntaxKind, Span)> {
+        let kind = self.kind();
+        Some((self.data.inner_mut()?, kind, self.span))
     }
 }
 
@@ -677,18 +635,18 @@ impl Default for SyntaxNode {
 
 /// An inner node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
-struct InnerNode {
+pub(super) struct InnerNode {
     /// The byte length of the node in the source.
-    len: usize,
+    pub len: usize,
     /// The number of nodes in the whole subtree, including this node.
-    descendants: usize,
+    pub descendants: usize,
     /// Whether this node or any of its children contain an error/warning
     /// diagnostic.
-    diagnosis: Diagnosis,
+    pub diagnosis: Diagnosis,
     /// The upper bound of this node's numbering range.
-    upper: u64,
+    pub upper: u64,
     /// This node's children, losslessly make up this node.
-    children: Vec<SyntaxNode>,
+    pub children: Vec<SyntaxNode>,
 }
 
 impl InnerNode {
@@ -709,7 +667,7 @@ impl InnerNode {
 
     /// Assign span numbers `within` an interval to this node's subtree or just
     /// a `range` of its children.
-    fn numberize(
+    pub fn numberize(
         &mut self,
         span: Option<&mut Span>,
         id: FileId,
@@ -772,143 +730,6 @@ impl InnerNode {
                 .all(|(a, b)| a.spanless_eq(b))
     }
 
-    /// Replace a range of children and calls [`Self::update_parent`].
-    /// [`Self::renumber_children`] should be called immediately after this.
-    ///
-    /// To increase the stability of span numbers, this does not replace nodes
-    /// at the front/back that are equal to the previous nodes. Returns the
-    /// final indices of the inserted nodes.
-    fn replace_children(
-        &mut self,
-        mut range: Range<usize>,
-        mut replacement: Vec<SyntaxNode>,
-    ) -> Range<usize> {
-        let mut replacement_range = 0..replacement.len();
-
-        // Trim off common prefix.
-        while range.start < range.end
-            && replacement_range.start < replacement_range.end
-            && self.children[range.start]
-                .spanless_eq(&replacement[replacement_range.start])
-        {
-            range.start += 1;
-            replacement_range.start += 1;
-        }
-
-        // Trim off common suffix.
-        while range.start < range.end
-            && replacement_range.start < replacement_range.end
-            && self.children[range.end - 1]
-                .spanless_eq(&replacement[replacement_range.end - 1])
-        {
-            range.end -= 1;
-            replacement_range.end -= 1;
-        }
-
-        // Compute child information for the `update_parent` call.
-        let new = &replacement[replacement_range.clone()];
-        let new_len = new.iter().map(SyntaxNode::len).sum::<usize>();
-        let new_desc = new.iter().map(SyntaxNode::descendants).sum::<usize>();
-        let new_diag = Diagnosis::any(new);
-
-        let prev = &self.children[range.clone()];
-        let prev_len = prev.iter().map(SyntaxNode::len).sum::<usize>();
-        let prev_desc = prev.iter().map(SyntaxNode::descendants).sum::<usize>();
-        let prev_diag = Diagnosis::any(prev);
-
-        let replaced_range = range.start..range.start + new.len();
-
-        self.children.splice(range, replacement.drain(replacement_range));
-        self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
-
-        replaced_range
-    }
-
-    /// Try to assign span numbers to a range of children. If there are not
-    /// enough numbers, retries taking exponentially more children into account.
-    fn renumber_children(
-        &mut self,
-        span: Span,
-        range: Range<usize>,
-    ) -> NumberingResult {
-        let Some(id) = span.id() else { return Err(Unnumberable) };
-
-        let mut left = 0;
-        let mut right = 0;
-        let max_left = range.start;
-        let max_right = self.children.len() - range.end;
-        loop {
-            let renumber = range.start - left..range.end + right;
-
-            // The minimum assignable number is either
-            // - the upper bound of the node right before the to-be-renumbered
-            //   children,
-            // - or this inner node's span number plus one if renumbering starts
-            //   at the first child.
-            let start_number = renumber
-                .start
-                .checked_sub(1)
-                .and_then(|i| self.children.get(i))
-                .map_or(span.number() + 1, |child| child.upper());
-
-            // The upper bound for renumbering is either
-            // - the span number of the first child after the to-be-renumbered
-            //   children,
-            // - or this node's upper bound if renumbering ends behind the last
-            //   child.
-            let end_number = self
-                .children
-                .get(renumber.end)
-                .map_or(self.upper, |next| next.span().number());
-
-            // Try to renumber.
-            let within = start_number..end_number;
-            if self.numberize(None, id, Some(renumber), within).is_ok() {
-                return Ok(());
-            }
-
-            // If it didn't even work with all children, we give up.
-            if left == max_left && right == max_right {
-                return Err(Unnumberable);
-            }
-
-            // Exponential expansion to both sides.
-            left = (left + 1).next_power_of_two().min(max_left);
-            right = (right + 1).next_power_of_two().min(max_right);
-        }
-    }
-
-    /// Update this node after one or more of its children were replaced or
-    /// updated. The new children must already be in `self.children`.
-    ///
-    /// `prev_*` variables should come from the previous range of children.
-    /// `new_*` are for the new range of children.
-    fn update_parent(
-        &mut self,
-        prev_len: usize,
-        new_len: usize,
-        prev_descendants: usize,
-        new_descendants: usize,
-        prev_diagnosis: Diagnosis,
-        new_diagnosis: Diagnosis,
-    ) {
-        // Length and descendants are numerical, can update with algebra.
-        // Subtract the previous values first to avoid potential overflow.
-        self.len = (self.len - prev_len) + new_len;
-        self.descendants = (self.descendants - prev_descendants) + new_descendants;
-
-        // Our diagnosis is the `OR` of all our children's diagnoses.
-        if !self.diagnosis.either() || new_diagnosis.both() {
-            // We can avoid iterating our children if our previous overall state
-            // had no errors/warnings, or if the new children have both.
-            self.diagnosis = new_diagnosis;
-        } else if prev_diagnosis != new_diagnosis {
-            // Otherwise, we recompute using all the children since we don't
-            // know if there were multiple children with errors or warnings.
-            self.diagnosis = Diagnosis::any(&self.children);
-        }
-    }
-
     /// Write with debug formatting using the node's syntax kind.
     fn debug_fmt_kind(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
         write!(f, "{kind:?}: {}", self.len)?;
@@ -946,7 +767,7 @@ impl Diagnosis {
     }
 
     /// Whether any node in the given slice has errors or warnings.
-    fn any(slice: &[SyntaxNode]) -> Self {
+    pub fn any(slice: &[SyntaxNode]) -> Self {
         slice
             .iter()
             .map(SyntaxNode::diagnosis)
@@ -1856,15 +1677,16 @@ Markup: 1 [
     }
 
     impl SyntaxNode {
-        /// Helper to call [`SyntaxNode::replace_children`] and
-        /// [`SyntaxNode::renumber_children`] more easily.
+        /// Helper to call [`InnerNode::replace_children`] and
+        /// [`InnerNode::renumber_children`] more easily.
         fn replace_and_renumber(
             &mut self,
             range: Range<usize>,
             replacement: &[SyntaxNode],
         ) -> NumberingResult {
-            let replaced_range = self.replace_children(range, replacement.to_vec());
-            self.renumber_children(replaced_range)
+            let inner = self.data.inner_mut().unwrap();
+            let replaced_range = inner.replace_children(range, replacement.to_vec());
+            inner.renumber_children(self.span, replaced_range)
         }
     }
 

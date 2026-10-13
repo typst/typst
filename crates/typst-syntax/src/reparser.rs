@@ -1,7 +1,9 @@
 use std::ops::Range;
 
-use crate::node::NumberingResult;
-use crate::{Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup};
+use crate::node::{InnerNode, NumberingResult, Unnumberable};
+use crate::{
+    Diagnosis, Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup,
+};
 
 /// Refresh the given syntax node with as little parsing as possible.
 ///
@@ -21,8 +23,9 @@ pub fn reparse(
 
     let mut renumber = true;
     let mut reparsed_range = 0..text.len();
-    if let Some((range, num_result)) =
-        try_reparse_and_renumber(text, replaced, replacement_len, None, root, 0)
+    if let Some(inner) = root.reparse_inner_node_mut()
+        && let Some((range, num_result)) =
+            try_reparse_and_renumber(text, replaced, replacement_len, None, inner, 0)
     {
         reparsed_range = range;
         renumber = num_result.is_err();
@@ -71,24 +74,21 @@ fn try_reparse_and_renumber(
     replaced: Range<usize>,
     replacement_len: usize,
     parent_kind: Option<SyntaxKind>,
-    node: &mut SyntaxNode,
+    (node, node_kind, node_span): (&mut InnerNode, SyntaxKind, Span),
     offset: usize,
 ) -> Option<(Range<usize>, NumberingResult)> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
-    let node_kind = node.kind();
-    let children = node.children_mut();
-
-    if let [child] = &mut children[overlap.clone()]
+    if let [child_node] = &mut node.children[overlap.clone()]
+        && let Some((child, child_kind, child_span)) = child_node.reparse_inner_node_mut()
         && start_offset < replaced.start
-        && replaced.end < start_offset + child.len()
-        && child.is_inner()
+        && replaced.end < start_offset + child.len
     {
         // A single child fully surrounds the edit. We either reparse within the
         // child, or reparse the child itself (if the child is a block).
-        let prev_len = child.len();
-        let prev_desc = child.descendants();
-        let prev_diag = child.diagnosis();
+        let prev_len = child.len;
+        let prev_desc = child.descendants;
+        let prev_diag = child.diagnosis;
         let new_len = prev_len + replacement_len - replaced.len();
         let new_range = start_offset..start_offset + new_len;
 
@@ -98,36 +98,36 @@ fn try_reparse_and_renumber(
             replaced.clone(),
             replacement_len,
             Some(node_kind),
-            child,
+            (child, child_kind, child_span),
             start_offset,
         ) {
             // A lower level reparse succeeded! Update this node and return the
             // reparsed range.
-            assert_eq!(child.len(), new_len);
-            let new_desc = child.descendants();
-            let new_diag = child.diagnosis();
+            assert_eq!(child.len, new_len);
+            let new_desc = child.descendants;
+            let new_diag = child.diagnosis;
             node.update_parent(
                 prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
             );
             if num_result.is_err() {
-                num_result = node.renumber_children(overlap);
+                num_result = node.renumber_children(node_span, overlap);
             }
             return Some((new_range, num_result));
         }
 
         // The child is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
-        if child.kind().is_block()
+        if child_kind.is_block()
             && let Some(new_child) = reparse_block(text, new_range.clone())
         {
             let new_desc = new_child.descendants();
             let new_diag = new_child.diagnosis();
-            *child = new_child;
+            *child_node = new_child;
             node.update_parent(
                 prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
             );
             // Reparsing succeeded! Now try to assign span numbers to the nodes.
-            let num_result = node.renumber_children(overlap);
+            let num_result = node.renumber_children(node_span, overlap);
             return Some((new_range, num_result));
         }
     }
@@ -139,7 +139,7 @@ fn try_reparse_and_renumber(
                 text,
                 replaced,
                 replacement_len,
-                node.children().as_slice(),
+                &node.children,
                 overlap,
                 offset,
                 parent_kind.is_none(),
@@ -147,7 +147,7 @@ fn try_reparse_and_renumber(
     {
         let reparsed_children = node.replace_children(prev_children, newborns);
         // Reparsing succeeded! Now try to assign span numbers to the nodes.
-        let num_result = node.renumber_children(reparsed_children);
+        let num_result = node.renumber_children(node_span, reparsed_children);
         Some((new_range, num_result))
     } else {
         None
@@ -276,18 +276,18 @@ fn expand_and_reparse_markup(
 /// Note that the returned `Range<usize>` is the range of children in the
 /// parent, but the returned `usize` is a byte offset in the source text.
 fn overlapping_children(
-    node: &SyntaxNode,
+    node: &InnerNode,
     range: Range<usize>,
     mut offset: usize,
 ) -> Option<(Range<usize>, usize)> {
-    if !node.is_inner() || offset > range.start || range.end > offset + node.len() {
+    if offset > range.start || range.end > offset + node.len {
         // No set of children will fully cover the range, no need to search.
         return None;
     }
     let mut index = 0;
     let mut start = 0;
     let mut start_offset = offset;
-    for child in node.children() {
+    for child in &node.children {
         if offset < range.start {
             start = index;
             start_offset = offset;
@@ -335,12 +335,151 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
     }
 }
 
+impl InnerNode {
+    /// Update this node after one or more of its children were replaced or
+    /// updated. The new children must already be in `self.children`.
+    ///
+    /// `prev_*` variables should come from the previous range of children.
+    /// `new_*` are for the new range of children.
+    fn update_parent(
+        &mut self,
+        prev_len: usize,
+        new_len: usize,
+        prev_descendants: usize,
+        new_descendants: usize,
+        prev_diagnosis: Diagnosis,
+        new_diagnosis: Diagnosis,
+    ) {
+        // Length and descendants are numerical, can update with algebra.
+        // Subtract the previous values first to avoid potential overflow.
+        self.len = (self.len - prev_len) + new_len;
+        self.descendants = (self.descendants - prev_descendants) + new_descendants;
+
+        // Our diagnosis is the `OR` of all our children's diagnoses.
+        if !self.diagnosis.either() || new_diagnosis.both() {
+            // We can avoid iterating our children if our previous overall state
+            // had no errors/warnings, or if the new children have both.
+            self.diagnosis = new_diagnosis;
+        } else if prev_diagnosis != new_diagnosis {
+            // Otherwise, we recompute using all the children since we don't
+            // know if there were multiple children with errors or warnings.
+            self.diagnosis = Diagnosis::any(&self.children);
+        }
+    }
+
+    /// Replace a range of children and calls [`Self::update_parent`].
+    /// [`Self::renumber_children`] should be called immediately after this.
+    ///
+    /// To increase the stability of span numbers, this does not replace nodes
+    /// at the front/back that are equal to the previous nodes. Returns the
+    /// final indices of the inserted nodes.
+    pub fn replace_children(
+        &mut self,
+        mut range: Range<usize>,
+        mut replacement: Vec<SyntaxNode>,
+    ) -> Range<usize> {
+        let mut replacement_range = 0..replacement.len();
+
+        // Trim off common prefix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.start]
+                .spanless_eq(&replacement[replacement_range.start])
+        {
+            range.start += 1;
+            replacement_range.start += 1;
+        }
+
+        // Trim off common suffix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.end - 1]
+                .spanless_eq(&replacement[replacement_range.end - 1])
+        {
+            range.end -= 1;
+            replacement_range.end -= 1;
+        }
+
+        // Compute child information for the `update_parent` call.
+        let new = &replacement[replacement_range.clone()];
+        let new_len = new.iter().map(SyntaxNode::len).sum::<usize>();
+        let new_desc = new.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let new_diag = Diagnosis::any(new);
+
+        let prev = &self.children[range.clone()];
+        let prev_len = prev.iter().map(SyntaxNode::len).sum::<usize>();
+        let prev_desc = prev.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let prev_diag = Diagnosis::any(prev);
+
+        let replaced_range = range.start..range.start + new.len();
+
+        self.children.splice(range, replacement.drain(replacement_range));
+        self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
+
+        replaced_range
+    }
+
+    /// Try to assign span numbers to a range of children. If there are not
+    /// enough numbers, retries taking exponentially more children into account.
+    pub fn renumber_children(
+        &mut self,
+        span: Span,
+        range: Range<usize>,
+    ) -> NumberingResult {
+        let Some(id) = span.id() else { return Err(Unnumberable) };
+
+        let mut left = 0;
+        let mut right = 0;
+        let max_left = range.start;
+        let max_right = self.children.len() - range.end;
+        loop {
+            let renumber = range.start - left..range.end + right;
+
+            // The minimum assignable number is either
+            // - the upper bound of the node right before the to-be-renumbered
+            //   children,
+            // - or this inner node's span number plus one if renumbering starts
+            //   at the first child.
+            let start_number = renumber
+                .start
+                .checked_sub(1)
+                .and_then(|i| self.children.get(i))
+                .map_or(span.number() + 1, |child| child.upper());
+
+            // The upper bound for renumbering is either
+            // - the span number of the first child after the to-be-renumbered
+            //   children,
+            // - or this node's upper bound if renumbering ends behind the last
+            //   child.
+            let end_number = self
+                .children
+                .get(renumber.end)
+                .map_or(self.upper, |next| next.span().number());
+
+            // Try to renumber.
+            let within = start_number..end_number;
+            if self.numberize(None, id, Some(renumber), within).is_ok() {
+                return Ok(());
+            }
+
+            // If it didn't even work with all children, we give up.
+            if left == max_left && right == max_right {
+                return Err(Unnumberable);
+            }
+
+            // Exponential expansion to both sides.
+            left = (left + 1).next_power_of_two().min(max_left);
+            right = (right + 1).next_power_of_two().min(max_right);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
 
     use super::*;
-    use crate::{Diagnosis, FileId, Source};
+    use crate::{FileId, Source};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -619,7 +758,8 @@ mod tests {
         let text = "#[nor~mal] #[warn~ing]".to_string();
         let mut root = parse(&text);
 
-        let second_block = &mut root.children_mut()[4];
+        let root_inner = root.reparse_inner_node_mut().unwrap().0;
+        let second_block = &mut root_inner.children[4];
         assert_eq!(second_block.full_text(), "[warn~ing]");
         // Note how the warning message can include text from within the node
         // arbitrarily. This is the primary reason reparsing within warnings is
@@ -628,7 +768,7 @@ mod tests {
         // We have to update the parent's diagnosis due to the new warning.
         let warning_diagnosis = Diagnosis { warnings: true, errors: false };
         // `{new,prev}_{len,desc}` are 0 since only their difference matters.
-        root.update_parent(0, 0, 0, 0, Diagnosis::default(), warning_diagnosis);
+        root_inner.update_parent(0, 0, 0, 0, Diagnosis::default(), warning_diagnosis);
         assert!(root.diagnosis().warnings);
 
         // Assign initial span numbers so we can properly reparse.
