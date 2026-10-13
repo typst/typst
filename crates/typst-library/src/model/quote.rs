@@ -46,12 +46,12 @@ pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
     /// ```example
-    /// An inline citation would look like
+    /// An inline quote would look like
     /// this: #quote(
     ///   attribution: [René Descartes]
     /// )[
     ///   cogito, ergo sum
-    /// ], and a block equation like this:
+    /// ], and a block quote like this:
     /// #quote(
     ///   block: true,
     ///   attribution: [JFK]
@@ -88,39 +88,50 @@ pub struct QuoteElem {
     /// ```
     pub quotes: Smart<bool>,
 
-    /// The attribution of this quote, usually the author or source. Can be a
-    /// label pointing to a bibliography entry or any content. By default only
-    /// displayed for block quotes, but can be changed using a `{show}` rule.
+    /// The attribution of this quote, usually the author or source. Can be an
+    /// arbitrary content, or a label pointing to a bibliography entry. In the
+    /// latter case, it will be presented as a @cite.form[prose-form] citation.
     ///
-    /// ```example
-    /// #quote(attribution: [René Descartes])[
-    ///   cogito, ergo sum
-    /// ]
+    /// By default, the attribution is only displayed for block quotes, but can
+    /// be changed using a `{show}` rule.
     ///
-    /// #show quote.where(block: false): it => {
-    ///   ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
-    ///   if it.attribution != none [ (#it.attribution)]
-    /// }
+    /// #example(
+    ///   title: [Cite a bibliography entry as the attribution],
+    ///   ```
+    ///   #set quote(block: true)
     ///
-    /// #quote(
-    ///   attribution: link("https://typst.app/home")[typst.app]
-    /// )[
-    ///   Compose papers faster
-    /// ]
+    ///   #quote(attribution: <tolkien54>)[
+    ///     You cannot pass... I am a servant
+    ///     of the Secret Fire, wielder of the
+    ///     flame of Anor. You cannot pass. The
+    ///     dark fire will not avail you, flame
+    ///     of Udûn. Go back to the Shadow! You
+    ///     cannot pass.
+    ///   ]
     ///
-    /// #set quote(block: true)
+    ///   #bibliography("works.bib", style: "apa")
+    ///   ```
+    /// )
     ///
-    /// #quote(attribution: <tolkien54>)[
-    ///   You cannot pass... I am a servant
-    ///   of the Secret Fire, wielder of the
-    ///   flame of Anor. You cannot pass. The
-    ///   dark fire will not avail you, flame
-    ///   of Udûn. Go back to the Shadow! You
-    ///   cannot pass.
-    /// ]
+    /// #example(
+    ///   title: [Display attribution for inline quotes as well],
+    ///   ```example
+    ///   #quote(attribution: [René Descartes])[
+    ///     cogito, ergo sum
+    ///   ]
     ///
-    /// #bibliography("works.bib", style: "apa")
-    /// ```
+    ///   #show quote.where(block: false): it => {
+    ///     ["] + h(0pt, weak: true) + it.body + h(0pt, weak: true) + ["]
+    ///     if it.attribution != none [ (#it.attribution)]
+    ///   }
+    ///
+    ///   #quote(
+    ///     attribution: link("https://typst.app/home")[typst.app]
+    ///   )[
+    ///     Compose papers faster
+    ///   ]
+    ///   ```
+    /// )
     pub attribution: Option<Attribution>,
 
     /// The quote.
