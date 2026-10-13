@@ -792,8 +792,7 @@ mod tests {
         let replaced = Edit::Match("n~i").into_range(source.text());
         let replace_with = "ni";
         let reparsed = source.edit(replaced, replace_with);
-        assert_eq!(&source.text()[reparsed], "warning"); // TODO: "#[normal] #[warning]"
-        // Reparsing should remove the warning:
-        assert!(source.root().diagnosis().warnings); // TODO: Invert
+        assert_eq!(&source.text()[reparsed], "#[normal] #[warning]");
+        assert!(!source.root().diagnosis().warnings);
     }
 }
