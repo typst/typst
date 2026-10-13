@@ -108,34 +108,49 @@ fn try_reparse(
 
     if node_kind == SyntaxKind::Markup
         && matches!(parent_kind, None | Some(SyntaxKind::ContentBlock))
+        && let Some(MarkupReparse { newborns, prev_children, new_range }) =
+            expand_and_reparse_markup(
+                text,
+                replaced,
+                replacement_len,
+                node.children().as_slice(),
+                overlap,
+                offset,
+                parent_kind.is_none(),
+            )
     {
-        expand_and_reparse_markup(
-            text,
-            replaced,
-            replacement_len,
-            node,
-            overlap,
-            offset,
-            parent_kind.is_none(),
-        )
+        // Reparsing succeeded, but we can still fail if we're out of
+        // span numbers to assign to nodes (this is rare).
+        node.replace_children(prev_children, newborns)
+            .is_ok()
+            .then_some(new_range)
     } else {
         None
     }
 }
 
+/// Reparsed markup expressions. We use a struct to avoid ambiguity since the
+/// two [`Range<usize>`] values have different meanings.
+struct MarkupReparse {
+    /// The newly parsed expressions.
+    newborns: Vec<SyntaxNode>,
+    /// The range of children that were replaced.
+    prev_children: Range<usize>,
+    /// The range of new text that was reparsed.
+    new_range: Range<usize>,
+}
+
 /// Reparse a range of markup expressions, expanding the range exponentially on
-/// each iteration.
+/// each iteration until reparsing succeeds.
 fn expand_and_reparse_markup(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
-    node: &mut SyntaxNode,
+    children: &[SyntaxNode],
     overlap: Range<usize>,
     offset: usize,
     top_level: bool,
-) -> Option<Range<usize>> {
-    let children = node.children().as_slice();
-
+) -> Option<MarkupReparse> {
     // Reparse a segment. Retries until it works, taking exponentially more
     // children into account.
     let mut expansion = 1;
@@ -214,25 +229,19 @@ fn expand_and_reparse_markup(
             if (at_end || at_start == prev_at_start_after)
                 && ((at_end && top_level) || nesting == prev_nesting_after)
             {
-                // Reparsing succeeded, but we can still fail if we're out of
-                // span numbers to assign to nodes (this is rare).
-                return node
-                    .replace_children(start..end, newborns)
-                    .is_ok()
-                    .then_some(new_range);
+                let prev_children = start..end;
+                return Some(MarkupReparse { newborns, prev_children, new_range });
             }
         }
 
         // If it didn't even work with all children, we give up.
         if start == 0 && at_end {
-            break;
+            return None;
         }
 
         // Exponential expansion to both sides.
         expansion *= 2;
     }
-
-    None
 }
 
 /// The indices and start offset of the children which overlap a replaced range.
