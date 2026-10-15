@@ -60,6 +60,13 @@ A
 #set page(height: 60pt)
 #lines(3)#footnote[#lines(1)]
 
+--- flow-no-widow-three-lines-with-footnote paged ---
+// Ensure that a footnote in in a 3 line paragraph doesn't create a widow.
+#set page(height: 80pt)
+#lines(1)
+
+#lines(3)#footnote[#lines(1)]
+
 --- flow-no-orphan-with-footnote paged ---
 // Ensure that a footnote in text doesn't create an orphan.
 #set page(height: 65pt)
