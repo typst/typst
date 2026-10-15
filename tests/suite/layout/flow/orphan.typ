@@ -67,6 +67,22 @@ A
 
 #lines(3)#footnote[#lines(1)]
 
+--- flow-widow-empty-last-line paged ---
+// Ensure that the second to last line doesn't stick to what follows the
+// paragraph if the last line is empty.
+#set page(height: 90pt)
+#lines(4) \ #h(1pt)
+#block(height: 40pt, width: 100%, fill: aqua, breakable: false)
+
+--- flow-widow-three-lines-empty-last-line paged ---
+// Ensure that the second of three lines doesn't stick to what follows the
+// paragraph if the last line is empty.
+#set page(height: 80pt)
+#lines(1)
+
+#lines(2) \ #h(1pt)
+#block(height: 40pt, width: 100%, fill: aqua, breakable: false)
+
 --- flow-no-orphan-with-footnote paged ---
 // Ensure that a footnote in text doesn't create an orphan.
 #set page(height: 65pt)

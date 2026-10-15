@@ -205,6 +205,10 @@ impl<'a> Collector<'a, '_, '_> {
         let back_2 = height_at(len.saturating_sub(2));
         let back_1 = height_at(len.saturating_sub(1));
 
+        // If the last line is empty, making the second to last line sticky can
+        // cause it to stick to whatever follows the paragraph.
+        let last_nonempty = lines.last().is_some_and(|line| !line.is_empty());
+
         for (i, frame) in lines.into_iter().enumerate() {
             if i > 0 {
                 self.output.push(Child::Rel(leading.into(), 5));
@@ -219,13 +223,13 @@ impl<'a> Collector<'a, '_, '_> {
                 (all, Some(all))
             } else if prevent_all && i + 2 == len {
                 let all = front_1 + leading + front_2 + leading + back_1;
-                (frame.height(), Some(all))
+                (frame.height(), last_nonempty.then_some(all))
             } else if prevent_orphans && i == 0 {
                 let first_two = front_1 + leading + front_2;
                 (first_two, Some(first_two))
             } else if prevent_widows && i >= 2 && i + 2 == len {
                 let last_two = back_2 + leading + back_1;
-                (last_two, Some(last_two))
+                (last_two, last_nonempty.then_some(last_two))
             } else {
                 (frame.height(), None)
             };
