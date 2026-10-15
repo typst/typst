@@ -539,11 +539,15 @@ impl SyntaxNode {
         }
     }
 
-    /// Traverse the tree in-order, calling `f` on each node and recursing on
-    /// the returned nodes. Note that `f` can prune the traversal at any point
-    /// by yielding `[].iter()` instead of the actual children slice of an inner
-    /// node.
-    fn traverse(&self, mut f: impl FnMut(&Self) -> std::slice::Iter<'_, Self>) {
+    /// Traverse the tree in-order, calling `f` on each node before recursing on
+    /// the returned node slice (normally just `node.children()`).
+    ///
+    /// Note that `f` can prune the traversal at any point by yielding
+    /// `[].iter()` instead of the actual children slice of an inner node.
+    pub(super) fn traverse(
+        &self,
+        mut f: impl FnMut(&Self) -> std::slice::Iter<'_, Self>,
+    ) {
         fn recursive_step(
             node: &SyntaxNode,
             f: &mut impl FnMut(&SyntaxNode) -> std::slice::Iter<'_, SyntaxNode>,

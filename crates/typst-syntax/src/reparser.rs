@@ -345,6 +345,20 @@ mod tests {
         Incr(&'a str),
     }
 
+    /// Assert that all spans in the tree are valid and not detached.
+    #[track_caller]
+    fn check_valid_spans(root: &SyntaxNode) {
+        root.traverse(|node| {
+            assert!(
+                !node.span().is_detached(),
+                "found a detached span for {:?}: '{}'",
+                node.kind(),
+                node.full_text(),
+            );
+            node.children()
+        });
+    }
+
     #[track_caller]
     fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
         let mut source = Source::new(FileId::new_for_test("test_reparse"), text);
@@ -352,7 +366,8 @@ mod tests {
         // `Source::edit()` is the public interface for reparsing.
         let replaced_range = source.edit(edit.into_range(text), with);
         let reparsed_tree = source.root().clone();
-        assert!(!reparsed_tree.span().is_detached(), "should not be detached");
+        check_valid_spans(&orig_tree);
+        check_valid_spans(&reparsed_tree);
         let normal_parse = parse(source.text());
         assert!(normal_parse.span().is_detached(), "should be detached");
         if !reparsed_tree.spanless_eq(&normal_parse) {
@@ -482,5 +497,75 @@ mod tests {
         test("**", Edit::At(1), "__", All);
         test("```warn--empty```", Edit::Match("warn-"), "still", All);
         test("```yes-empty```", Edit::Match("yes-"), "not ", All);
+    }
+
+    /// Test reparsing with deeply nested code and markup blocks.
+    ///
+    /// FUTURE: Above `n == 127`, normal parsing hits the max parsing depth, but
+    /// reparsing doesn't since we don't track the depth anywhere right now.
+    /// This is a bug (it yields different trees when reparsing), but it will
+    /// require a bit more effort to solve.
+    #[test]
+    #[should_panic = "found a detached span for CodeBlock: '{B;C}'"]
+    fn test_reparse_nested_code() {
+        let mut text = "#{A;B}".to_string();
+        let mut prev_n = 1_usize;
+        // Values chosen mostly arbitrarily, but some had interesting span
+        // numbering differences when originally experimenting.
+        for n in [10, 19, 20, 21, 22, 30, 50, 51, 62, 63, 100, 127] {
+            for _ in prev_n..n {
+                text.insert(1, '{');
+                text.push('}');
+            }
+            prev_n = n;
+            println!("n: {n}");
+
+            // Decrease the number of nodes:
+            test(&text, Edit::Match(";"), "1", Reparse::Incr("{A1B}"));
+            test(&text, Edit::Match("A;B"), "2", Reparse::Incr("{2}"));
+
+            assert!(n <= 21, "code edits should be failing below at `n == 21`");
+            // Leave the number of nodes the same:
+            test(&text, Edit::Match("A;B"), "B;C", Reparse::Incr("{B;C}"));
+            test(&text, Edit::Match("A;B"), "A;B", Reparse::Incr("{A;B}"));
+            test(&text, Edit::Match(";"), "+", Reparse::Incr("{A+B}"));
+            test(&text, Edit::After("A"), "3", Reparse::Incr("{A3;B}"));
+
+            // Increase the number of nodes:
+            test(&text, Edit::After("A"), ";5", Reparse::Incr("{A;5;B}"));
+            test(&text, Edit::At(n + 3), "6;", Reparse::Incr("{A;6;B}"));
+        }
+    }
+
+    /// Test reparsing with deeply nested code and markup blocks.
+    #[test]
+    #[should_panic = "found a detached span for Text: '3'"]
+    fn test_reparse_nested_markup() {
+        let mut text = "#[ A~B ]".to_string();
+        let mut prev_n = 1_usize;
+        // Values chosen mostly arbitrarily, but some had interesting span
+        // numbering differences when originally experimenting.
+        for n in [10, 19, 20, 21, 22, 30, 50, 51, 62, 63, 100, 127] {
+            for _ in prev_n..n {
+                text.insert_str(0, "#[");
+                text.push(']');
+            }
+            prev_n = n;
+            println!("n: {n}");
+
+            // Decrease the number of nodes:
+            test(&text, Edit::Match("~"), "1", Reparse::Incr(" A1B "));
+            test(&text, Edit::Match("A~B"), "2", Reparse::Incr(" 2 "));
+
+            assert!(n <= 20, "markup edits should be failing below at `n == 20`");
+            // Leave the number of nodes the same:
+            test(&text, Edit::Match("A~B"), "3~B", Reparse::Incr(" 3~B "));
+            test(&text, Edit::Match("A~B"), "A~B", Reparse::Incr(" A~B "));
+            test(&text, Edit::After("A"), "3", Reparse::Incr(" A3~B "));
+
+            // Increase the number of nodes:
+            test(&text, Edit::After("A"), "~4", Reparse::Incr(" A~4~B "));
+            test(&text, Edit::At(2 * n + 3), "5~", Reparse::Incr(" A~5~B "));
+        }
     }
 }
