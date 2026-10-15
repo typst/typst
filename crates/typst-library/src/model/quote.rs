@@ -88,16 +88,23 @@ pub struct QuoteElem {
     /// ```
     pub quotes: Smart<bool>,
 
-    /// The attribution of this quote, usually the author or source. Can be an
-    /// arbitrary content, or a label pointing to a bibliography entry. In the
-    /// latter case, it will be presented as a @cite.form[prose-form] citation.
+    /// The attribution of this quote, usually the author or source. It can be
+    /// an arbitrary content, or a label pointing to a bibliography entry.
     ///
-    /// By default, the attribution is only displayed for block quotes, but can
-    /// be changed using a `{show}` rule.
+    /// If the attribution is a content, it is displayed only for block quotes
+    /// by default, but this can be changed using a `{show}` rule. If the
+    /// attribution is a label, it is presented as a @cite[citation] in the
+    /// normal or prose @cite.form[form] for inline or block quotes,
+    /// respectively.
     ///
     /// #example(
     ///   title: [Cite a bibliography entry as the attribution],
     ///   ```
+    ///   Gandalf the Grey appeared in the scene
+    ///   #quote(attribution: <tolkien54>)[
+    ///     The Bridge of Khazad-dûm
+    ///   ].
+    ///
     ///   #set quote(block: true)
     ///
     ///   #quote(attribution: <tolkien54>)[
@@ -114,7 +121,7 @@ pub struct QuoteElem {
     /// )
     ///
     /// #example(
-    ///   title: [Display attribution for inline quotes as well],
+    ///   title: [Customize the attribution for inline quotes],
     ///   ```example
     ///   #quote(attribution: [René Descartes])[
     ///     cogito, ergo sum
