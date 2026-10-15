@@ -92,7 +92,8 @@ pub fn module(formats: &[Format]) -> Module {
     format.start_category(crate::Category::Format);
 
     for f in formats {
-        let binding = format.define(f.elem.name(), f.elem);
+        let binding =
+            format.define(f.elem.name(), f.elem).with_documentation(f.elem.into());
         if let Some(feature) = f.feature {
             binding.with_feature(feature);
         }

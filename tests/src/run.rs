@@ -8,7 +8,7 @@ use typst::model::Document;
 use typst_bundle::Bundle;
 use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
-use typst_syntax::Spanned;
+use typst_syntax::{DiagSpan, Spanned};
 
 use crate::collect::{
     FileSize, Test, TestEval, TestOutput, TestOutputKind, TestStage, TestStages,
@@ -795,6 +795,20 @@ impl<'a> Runner<'a> {
             let emitted_hint =
                 Note::emitted(NoteKind::Hint, stage, hint, hint_span, &self.world);
             self.test.body.mark_seen_or_update(emitted_hint);
+        }
+
+        // Check traces.
+        if self.test.attrs.trace {
+            for (Spanned { v: point, span }, i) in diag.trace.iter().zip(1..) {
+                let emitted_hint = Note::emitted(
+                    NoteKind::Trace,
+                    stage,
+                    format!("({i}) {point}"),
+                    DiagSpan::from(*span),
+                    &self.world,
+                );
+                self.test.body.mark_seen_or_update(emitted_hint);
+            }
         }
     }
 }

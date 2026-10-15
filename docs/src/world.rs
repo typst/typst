@@ -64,7 +64,7 @@ impl DocWorld {
     /// and entrypoint file.
     pub fn new(config: &Config) -> Self {
         Self {
-            library: LazyHash::new(library(config.is_dev_version)),
+            library: LazyHash::new(library(config.is_dev_version, &config.sys_inputs)),
             files: FileStore::new(DocsFiles::new(
                 config.input.as_ref(),
                 &config.workspace,
@@ -198,7 +198,13 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// A standard library that is extended for docs compilation. Includes
 /// - an `stdx` module with various utilities
 /// - a few patched show rules
-fn library(is_dev_version: bool) -> Library {
+fn library(is_dev_version: bool, sys_inputs: &[(String, String)]) -> Library {
+    // Convert the input pairs to a dictionary.
+    let inputs: Dict = sys_inputs
+        .iter()
+        .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
+        .collect();
+
     let mut lib = Library::builder([
         typst_html::FORMAT,
         typst_pdf::FORMAT,
@@ -206,6 +212,7 @@ fn library(is_dev_version: bool) -> Library {
         typst_render::FORMAT,
         typst_bundle::FORMAT,
     ])
+    .with_inputs(inputs)
     .with_features(Features::all())
     .build();
     let scope = lib.global.scope_mut();

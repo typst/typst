@@ -1,5 +1,6 @@
 use std::cell::OnceCell;
 
+use ecow::EcoString;
 use krilla::geom as kg;
 use krilla::tagging::{BBox, Identifier, Node, TagKind};
 use typst_library::layout::{Abs, Point, Rect};
@@ -11,7 +12,7 @@ use crate::tags::context::table::build_table;
 use crate::tags::groups::GroupKind;
 use crate::tags::tree::ResolvedTextAttrs;
 use crate::tags::tree::Tree;
-use crate::tags::util::{Id, IdVec};
+use crate::tags::util::{Id, IdVec, PropertyOptRef};
 use crate::util::AbsExt;
 
 pub use crate::tags::context::figure::FigureCtx;
@@ -89,6 +90,15 @@ impl Ctx {
 
     pub fn bbox(&self, kind: &GroupKind) -> Option<&BBoxCtx> {
         Some(self.bboxes.get(kind.bbox()?))
+    }
+
+    pub fn alt<'a>(&'a self, kind: &'a GroupKind) -> Option<&'a EcoString> {
+        match kind {
+            &GroupKind::Figure(id, ..) => self.figures.get(id).elem.alt.opt_ref(),
+            GroupKind::Formula(formula, ..) => formula.alt.opt_ref(),
+            GroupKind::Image(image, ..) => image.alt.opt_ref(),
+            _ => None,
+        }
     }
 }
 

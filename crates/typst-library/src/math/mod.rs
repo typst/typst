@@ -28,7 +28,9 @@ pub use self::underover::*;
 use typst_utils::singleton;
 use unicode_math_class::MathClass;
 
-use crate::foundations::{Content, Module, NativeElement, Scope, StyleChain, elem};
+use crate::foundations::{
+    BindingDocumentation, Content, Module, NativeElement, Scope, Since, StyleChain, elem,
+};
 use crate::layout::{Em, HElem};
 use crate::text::{FontFamily, TextElem};
 
@@ -95,11 +97,94 @@ pub fn module() -> Module {
     op::define(&mut math);
 
     // Spacings.
-    math.define("thin", HElem::new(THIN.into()).pack());
-    math.define("med", HElem::new(MEDIUM.into()).pack());
-    math.define("thick", HElem::new(THICK.into()).pack());
-    math.define("quad", HElem::new(QUAD.into()).pack());
-    math.define("wide", HElem::new(WIDE.into()).pack());
+    math.define("thin", HElem::new(THIN.into()).pack())
+        .with_documentation(BindingDocumentation {
+            name: "thin",
+            title: "Thin space",
+            docs: r"
+            A mathematical space of width one sixth of an em.
+
+            ```example
+            $
+              x y \
+              x thin y
+            $
+            ```
+            ",
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
+    math.define("med", HElem::new(MEDIUM.into()).pack())
+        .with_documentation(BindingDocumentation {
+            name: "med",
+            title: "Medium space",
+            docs: "
+            A mathematical space of width two ninths of an em.
+
+            ```example
+            $ (lambda x. x) med y $
+            ```
+            ",
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
+    math.define("thick", HElem::new(THICK.into()).pack())
+        .with_documentation(BindingDocumentation {
+            name: "thick",
+            title: "Thick space",
+            docs: "
+            A mathematical space of width five eighteenths of an em.
+
+            ```example
+            $ x thick y $
+            ```
+            ",
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
+    math.define("quad", HElem::new(QUAD.into()).pack())
+        .with_documentation(BindingDocumentation {
+            name: "quad",
+            title: "Quad space",
+            docs: r#"
+            A one-em wide mathematical space.
+
+            ```example
+            $
+              f(x) = cases(
+                1/x quad &"if" x != 0,
+                0 quad &"otherwise",
+              )
+            $
+            ```
+            "#,
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
+    math.define("wide", HElem::new(WIDE.into()).pack())
+        .with_documentation(BindingDocumentation {
+            name: "wide",
+            title: "Wide space",
+            docs: r#"
+            A two-em wide mathematical space.
+
+            ```example
+            $
+              f(x) = cases(
+                1/x wide &"if" x != 0,
+                0 wide &"otherwise",
+              )
+            $
+            ```
+            "#,
+            since: Some(Since::Forever),
+            keywords: &[],
+            def_site: None,
+        });
 
     // Symbols.
     crate::symbols::define_math(&mut math);

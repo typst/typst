@@ -765,12 +765,32 @@ async function setUpGlobalSearch() {
       }
       const li = document.createElement("li");
       const a = document.createElement("a");
-      const span = document.createElement("span");
       a.href = url;
-      a.textContent = item.title;
-      span.classList.add("type");
-      span.textContent = item.kind;
-      a.appendChild(span);
+
+      let title;
+      if ("path" in item) {
+        title = document.createElement("code");
+        let first = true;
+        for (const part of item.path.split(".")) {
+          if (!first) {
+            title.append(".");
+            title.appendChild(document.createElement("wbr"));
+          }
+          title.append(part);
+          first = false;
+        }
+      } else {
+        title = document.createElement("span");
+        title.textContent = item.title;
+      }
+      title.classList.add("result-title");
+      a.appendChild(title);
+
+      const type = document.createElement("span");
+      type.classList.add("result-kind");
+      type.textContent = item.kind;
+      a.appendChild(type);
+
       li.appendChild(a);
       return li;
     });
@@ -915,6 +935,7 @@ function scoreItem(item, query) {
     f *
     Math.max(
       scoreText(item.title, query),
+      "path" in item ? scoreText(item.path, query) : 0,
       ...(item.keywords || []).map((keyword) => scoreText(keyword, query)),
     )
   );

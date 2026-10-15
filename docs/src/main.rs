@@ -116,6 +116,8 @@ struct Config {
     output: Option<PathBuf>,
     /// The kind of output to produce.
     output_format: OutputFormat,
+    /// String key-value pairs visible through `sys.inputs`.
+    sys_inputs: Vec<(String, String)>,
     /// Whether to include a "development version" warning in the documentation.
     is_dev_version: bool,
     /// A live reload server for the `watch` subcommand.
@@ -141,6 +143,7 @@ impl Config {
             }),
             workspace,
             output_format: args.format,
+            sys_inputs: args.inputs.clone(),
             is_dev_version: !args.release,
             server: (serve && args.format == OutputFormat::Website)
                 .then(|| HttpServer::new("docs", None, true).unwrap()),

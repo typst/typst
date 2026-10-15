@@ -3214,6 +3214,7 @@ dependencies = [
  "dirs",
  "ecow",
  "fs_extra",
+ "image",
  "memchr",
  "open",
  "parking_lot",
