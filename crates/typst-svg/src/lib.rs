@@ -77,21 +77,22 @@ pub fn svg_in_bundle(
 
 /// Export a frame into an SVG suitable for embedding into HTML.
 ///
+/// Glyphs, clip paths, gradients and tilings are collected into `<defs>`
+/// rather than written into the frame.
+///
 /// Takes additional `anchor` locations that will be serialized as linkable
 /// points. This enables other documents in the bundle to link into the
-/// resulting SVG. Also takes a `link_resolver` for resolving links between the
-/// frame and remaining document.
+/// resulting SVG.
 #[typst_macros::time(name = "svg in html")]
 pub fn svg_in_html(
+    defs: &mut HtmlDefs,
     frame: &Frame,
     text_size: Abs,
     pretty: bool,
     id: Option<&str>,
     styles: &str,
     anchors: &[(Point, EcoString)],
-    link_resolver: Tracked<LateLinkResolver>,
 ) -> String {
-    let mut renderer = SVGRenderer::with_options(Some(link_resolver));
     let mut xml = XmlWriter::new(xml_options(pretty));
     let mut svg = svg_header_with_custom_attrs(&mut xml, frame.size(), |svg| {
         if let Some(id) = id {
@@ -112,14 +113,56 @@ pub fn svg_in_html(
     });
 
     let state = State::new(frame.size());
-    renderer.render_frame(&mut svg, &state, frame);
+    defs.renderer.render_frame(&mut svg, &state, frame);
 
     for (pos, id) in anchors {
-        renderer.render_anchor(&mut svg, *pos, id);
+        defs.renderer.render_anchor(&mut svg, *pos, id);
     }
 
-    renderer.finalize(svg);
+    drop(svg);
     xml.end_document()
+}
+
+/// The definitions shared by the frames of one HTML document.
+pub struct HtmlDefs<'a> {
+    renderer: SVGRenderer<'a>,
+}
+
+impl<'a> HtmlDefs<'a> {
+    /// Creates an empty set of definitions.
+    ///
+    /// The `link_resolver` resolves links between a frame and the rest of the
+    /// document.
+    pub fn new(link_resolver: Tracked<'a, LateLinkResolver<'a>>) -> Self {
+        Self {
+            renderer: SVGRenderer::with_options(Some(link_resolver)),
+        }
+    }
+
+    /// Takes the collected definitions as an `<svg>` element, or `None` if
+    /// there are none.
+    ///
+    /// The frames reference it by ID, so it must end up in the same document.
+    pub fn take_svg(&mut self, pretty: bool) -> Option<String> {
+        if self.renderer.is_empty() {
+            return None;
+        }
+
+        let link_resolver = self.renderer.link_resolver;
+        let renderer = std::mem::replace(
+            &mut self.renderer,
+            SVGRenderer::with_options(link_resolver),
+        );
+
+        let mut xml = XmlWriter::new(xml_options(pretty));
+        let mut svg = SvgElem::new(&mut xml, "svg");
+        svg.attr("style", "position: absolute; width: 0; height: 0");
+        svg.attr("aria-hidden", "true");
+        svg.attr("xmlns", "http://www.w3.org/2000/svg");
+        svg.attr("xmlns:xlink", "http://www.w3.org/1999/xlink");
+        renderer.finalize(svg);
+        Some(xml.end_document())
+    }
 }
 
 /// Export a document with potentially multiple pages into a single SVG file.
@@ -419,6 +462,17 @@ impl<'a> SVGRenderer<'a> {
         svg.elem("g")
             .attr("id", id)
             .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));
+    }
+
+    /// Whether anything that `finalize` would write has been collected.
+    fn is_empty(&self) -> bool {
+        !self.has_glyph_defs()
+            && self.clip_paths.is_empty()
+            && self.gradients.is_empty()
+            && self.gradient_refs.is_empty()
+            && self.conic_subgradients.is_empty()
+            && self.tilings.is_empty()
+            && self.tiling_refs.is_empty()
     }
 
     /// Finalize the SVG file. This must be called after all rendering is done.
