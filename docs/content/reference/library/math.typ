@@ -214,7 +214,7 @@ The default math font is `New Computer Modern Math`. As demonstrated below, you 
   ```
 )
 
-As in the regular text layout, the @text.font[`font`] parameter also accepts a priority list of font family descriptor. In the example below, the font `Noto Sans Math` covers capital serif italic letters, and the default font `New Computer Modern Math` covers the others. The letters `𝐴` and `𝑍` in the @regex are #link("https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols")[mathematical alphanumeric symbols] defined in the Unicode standard, instead of the regular `A` and `Z` in ASCII. Besides, some characters do not belong to this Unicode block for historic reasons, making it harder to match other ranges. For example, `{regex("[𝑎-𝑧]")}` does not match `ℎ` and the dotless `𝚤` and `𝚥`.
+As in the regular text layout, the @text.font[`font`] parameter also accepts a priority list of font family descriptors. In the example below, the font `Noto Sans Math` covers capital serif italic letters, and the default font `New Computer Modern Math` covers the others. The letters `𝐴` and `𝑍` in the @regex are #link("https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols")[mathematical alphanumeric symbols] defined in the Unicode standard, instead of the regular `A` and `Z` in ASCII. Besides, some characters do not belong to this Unicode block for historic reasons, making it harder to match other ranges. For example, `{regex("[𝑎-𝑧]")}` does not match `ℎ` and the dotless `𝚤` and `𝚥`.
 
 #example(
   title: "Change the font for a range of characters",
@@ -247,7 +247,7 @@ In addition to @text.font[`font`], the rule can also change OpenType @text.featu
   ```
 )
 
-Note that typesetting maths involves complex positioning and spacing, requiring a specially designed #link("https://learn.microsoft.com/typography/opentype/spec/math")[OpenType math font]. Typst will take the first font without any @text.font[`covers`] as the base font, and extract typographic metrics for maths from it. If you have to use non-math fonts for certain glyphs, specify a coverage to tell Typst select the base from other fonts.
+Note that typesetting maths involves complex positioning and spacing, requiring a specially designed #link("https://learn.microsoft.com/typography/opentype/spec/math")[OpenType math font]. Typst will take the first font without any @text.font[`covers`] as the base font, and extract typographic metrics for maths from it. If you have to use non-math fonts for certain glyphs, specify a coverage to tell Typst to select the base from other fonts.
 
 ```example
 >>> #set page(width: auto)
