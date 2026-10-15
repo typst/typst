@@ -14,7 +14,7 @@ use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
     Abs, Axes, Frame, FrameItem, FrameKind, GroupItem, Point, Sides, Size, Transform,
 };
-use typst_library::model::Document;
+use typst_library::model::{Document, FieldWidget};
 use typst_library::visualize::{Color, Geometry, Paint};
 
 /// Export a page into a raster image.
@@ -200,6 +200,9 @@ fn render_frame(canvas: &mut sk::Pixmap, state: State, frame: &Frame) {
                 image::render_image(canvas, state.pre_translate(*pos), image, *size);
             }
             FrameItem::Link(_, _) => {}
+            FrameItem::FieldAppearance(widget) => {
+                render_field(canvas, state, widget);
+            }
             FrameItem::Tag(_) => {}
         }
     }
@@ -272,6 +275,11 @@ fn to_sk_transform(transform: &Transform) -> sk::Transform {
         tx.to_f32(),
         ty.to_f32(),
     )
+}
+
+/// Render a (non-interactive) form field into the canvas.
+fn render_field(canvas: &mut sk::Pixmap, state: State, widget: &FieldWidget) {
+    render_frame(canvas, state, widget.appearance.active_body());
 }
 
 /// Additional methods for [`Abs`].

@@ -201,7 +201,10 @@ impl PagedIntrospectorBuilder {
                         self.frame_link_targets.insert(*loc);
                     }
                 }
-                FrameItem::Text(..) | FrameItem::Shape(..) | FrameItem::Image(..) => {}
+                FrameItem::Text(..)
+                | FrameItem::Shape(..)
+                | FrameItem::Image(..)
+                | FrameItem::FieldAppearance(..) => {}
             }
         }
     }

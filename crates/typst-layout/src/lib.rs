@@ -2,6 +2,7 @@
 
 mod document;
 mod flow;
+mod form;
 mod grid;
 mod image;
 mod inline;

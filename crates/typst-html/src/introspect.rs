@@ -10,7 +10,7 @@ use typst_library::introspection::{
     Introspector, Location,
 };
 use typst_library::layout::{Frame, FrameItem, Point, Transform};
-use typst_library::model::{Destination, LinkElem, Numbering};
+use typst_library::model::{Destination, FormLabelElem, LinkElem, Numbering};
 use typst_syntax::VirtualPath;
 
 use crate::{HtmlNode, HtmlSliceExt, tag};
@@ -51,6 +51,7 @@ impl HtmlIntrospector {
     pub fn link_targets(&self) -> FxHashSet<Location> {
         LinkElem::find_destinations(self)
             .chain(self.frame_link_targets.iter().copied())
+            .chain(FormLabelElem::find_destinations(self))
             .collect()
     }
 
@@ -232,7 +233,10 @@ impl HtmlIntrospectorBuilder {
                         self.frame_link_targets.insert(*loc);
                     }
                 }
-                FrameItem::Text(..) | FrameItem::Shape(..) | FrameItem::Image(..) => {}
+                FrameItem::FieldAppearance(..)
+                | FrameItem::Text(..)
+                | FrameItem::Shape(..)
+                | FrameItem::Image(..) => {}
             }
         }
     }
