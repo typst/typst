@@ -178,7 +178,7 @@ impl Frame {
     /// Automatically decides whether to inline the frame or to include it as a
     /// group based on the number of items in it.
     pub fn push_frame(&mut self, pos: Point, frame: Frame) {
-        if self.should_inline(&frame) {
+        if self.should_inline(&frame, pos) {
             self.inline(self.layer(), pos, frame);
         } else {
             self.push(pos, FrameItem::Group(GroupItem::new(frame)));
@@ -211,7 +211,7 @@ impl Frame {
 
     /// Add a frame at a position in the background.
     pub fn prepend_frame(&mut self, pos: Point, frame: Frame) {
-        if self.should_inline(&frame) {
+        if self.should_inline(&frame, pos) {
             self.inline(0, pos, frame);
         } else {
             self.prepend(pos, FrameItem::Group(GroupItem::new(frame)));
@@ -224,9 +224,11 @@ impl Frame {
     }
 
     /// Whether the given frame should be inlined.
-    fn should_inline(&self, frame: &Frame) -> bool {
+    fn should_inline(&self, frame: &Frame, pos: Point) -> bool {
         // We do not inline big frames and hard frames.
-        frame.kind().is_soft() && (self.items.is_empty() || frame.items.len() <= 5)
+        frame.kind().is_soft()
+            && ((self.items.is_empty() && pos.is_zero())
+                || (frame.items.len() <= 5 && Arc::strong_count(&frame.items) == 1))
     }
 
     /// Inline a frame at the given layer.
