@@ -471,7 +471,7 @@ pub fn apply_shift<'a>(
             .find_map(|family| {
                 world
                     .book()
-                    .select(family.as_str(), variant)
+                    .select(family.name(), variant)
                     .and_then(|id| world.font(id))
                     .map(|font| font.instantiate(variant, size, &variations))
             })
