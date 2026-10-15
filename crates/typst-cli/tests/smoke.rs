@@ -231,6 +231,24 @@ fn test_fonts_path() {
 }
 
 #[test]
+fn test_fonts_variants_shadowed() {
+    let fonts = tempfs();
+    let (font, _) = typst_kit::fonts::embedded().next().unwrap();
+    fonts.write("copy.otf", font.data());
+    let output = exec()
+        .arg("fonts")
+        .arg("--variants")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg(fonts.path())
+        .must_succeed();
+    output
+        .stdout
+        .must_contain("copy.otf")
+        .must_contain("Shadowed by: (Embedded)");
+}
+
+#[test]
 fn test_info() {
     let output = exec().arg("info").must_succeed();
     output.stderr.must_start_with("Version");
