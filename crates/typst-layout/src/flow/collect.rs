@@ -221,7 +221,7 @@ impl<'a> Collector<'a, '_, '_> {
             let (need, sticky_need) = if prevent_all && i == 0 {
                 let all = front_1 + leading + front_2 + leading + back_1;
                 (all, Some(all))
-            } else if prevent_all && i + 2 == len {
+            } else if prevent_all && i == 1 {
                 let all = front_1 + leading + front_2 + leading + back_1;
                 (frame.height(), last_nonempty.then_some(all))
             } else if prevent_orphans && i == 0 {
