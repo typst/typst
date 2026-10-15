@@ -126,8 +126,11 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
         let span = item.value.span;
         let value = std::mem::take(&mut item.value.v);
         let ty = AttrType::convert(attr.ty);
+        let key = HtmlAttr::constant(attr.name);
+        attrs.0.retain(|&mut (k, _)| k != key);
+
         match ty.cast(value).at(span) {
-            Ok(Some(string)) => attrs.push(HtmlAttr::constant(attr.name), string),
+            Ok(Some(string)) => attrs.push(key, string),
             Ok(None) => {}
             Err(diags) => errors.extend(diags),
         }

@@ -185,3 +185,10 @@
 --- html-typed-invalid-body eval ---
 // Error: 10-14 unexpected argument
 #html.img[hi]
+
+--- issue-8507-html-typed-attr-override html ---
+#let attrs = (href: "A")
+#html.a(..attrs, href: "B")[B]
+#html.a(href: "B", ..attrs)[A]
+#html.div(..(id: "a", class: "x"), id: "b")
+#html.div(..(hidden: true), hidden: false)
