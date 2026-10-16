@@ -39,6 +39,10 @@ pub(crate) fn build_metadata(gc: &GlobalContext, doc_lang: Option<Locale>) -> Me
         metadata = metadata.description(description.to_string());
     }
 
+    if let Some(version) = &gc.document.info().version {
+        metadata = metadata.version_id(version.to_string());
+    }
+
     if let Smart::Custom(ident) = gc.options.ident.clone() {
         metadata = metadata.document_id(ident);
     }
