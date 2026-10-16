@@ -207,12 +207,15 @@ fn load_adobe_fonts(db: &mut fontdb::Database) {
 
     let prefix = if cfg!(target_os = "macos") { "." } else { "" };
     let subdirs = [
-        format!("CoreSync/plugins/livetype/{prefix}r"),
-        format!("{prefix}User Owned Fonts"),
+        PathBuf::from("CoreSync")
+            .join("plugins")
+            .join("livetype")
+            .join(format!("{prefix}r")),
+        PathBuf::from(format!("{prefix}User Owned Fonts")),
     ];
 
     for subdir in subdirs {
-        let Ok(entries) = fs::read_dir(base.join(subdir)) else { return };
+        let Ok(entries) = fs::read_dir(base.join(subdir)) else { continue };
         for entry in entries.flatten() {
             // Adobe fonts are stored as files (directories are skipped).
             let Ok(metadata) = entry.metadata() else { continue };
