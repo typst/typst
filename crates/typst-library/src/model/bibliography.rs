@@ -37,8 +37,8 @@ use crate::introspection::{
 use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
-    CitationForm, CitationSupplement, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, ParElem, Url,
+    CitationForm, CitationSupplement, CiteElem, CiteGroup, Destination, DirectLinkElem,
+    FootnoteElem, HeadingElem, LinkElem, ParElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};

@@ -379,7 +379,7 @@ fn to_citation(
             _ => CitationSupplement::default(),
         },
     ));
-  
+
     elem.synthesize(engine, styles)?;
 
     Ok(elem)
