@@ -523,6 +523,10 @@ fn param_completions<'a>(
             }
             ast::Arg::Named(named) => {
                 existing_named.insert(named.name().as_str());
+                // Note that existing custom `data-*` attributes should be
+                // inserted as is. If they are normalized to `"data-*"`, they
+                // will unexpectedly prevent the completion from adding other
+                // custom `data-*` attributes.
             }
             ast::Arg::Spread(_) => {}
         }
@@ -550,10 +554,10 @@ fn param_completions<'a>(
                 continue;
             }
 
-            let apply = if param.name() == Some("caption") {
-                eco_format!("{name}: [${{}}]")
-            } else {
-                eco_format!("{name}: ${{}}")
+            let apply = match name {
+                "caption" => eco_format!("{name}: [${{}}]"),
+                "data-*" => eco_format!("data-${{attr}}: ${{}}"),
+                _ => eco_format!("{name}: ${{}}"),
             };
 
             ctx.completions.push(Completion {
@@ -2020,6 +2024,22 @@ mod tests {
             .must_exclude([q!("yes"), q!("no")]);
         test("#html.input(value: )", -2).must_include(["float", "string", "red", "blue"]);
         test("#html.div(role: )", -2).must_include([q!("alertdialog")]);
+    }
+
+    #[test]
+    fn test_autocomplete_typed_html_data() {
+        // `data-*` should be applied without the `*`.
+        test("#html.div(da)", -2)
+            .at("data-*")
+            .must_apply_as("data-${attr}: ${}");
+
+        // `data-*` should not be confused with `data`.
+        test("#html.object(da)", -2).must_include(["data", "data-*"]);
+
+        // `data-*` can be specified multiple times, but `data` cannot.
+        test(r#"#html.object(data-x: "", data: "", da)"#, -2)
+            .must_include(["data-*"])
+            .must_exclude(["data"]);
     }
 
     #[test]

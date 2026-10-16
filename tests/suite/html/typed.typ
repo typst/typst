@@ -106,6 +106,12 @@
 // Icon size.
 #html.link(rel: "icon", sizes: ((32, 24), (64, 48)))
 
+// Custom `data-*` attributes.
+#html.img(id: "tower5", data-x: "12", data-ability: "flames", src: "rocket.png")
+#html.div(data-kebab-case: "foo", data-empty: "")
+// Not to be confused with the data attribute.
+#html.object(data: "clock.html", data-clock: "okay")
+
 --- html-typed-dir-str eval ---
 // Error: 16-21 expected direction or auto, found string
 #html.div(dir: "ltr")
@@ -185,3 +191,45 @@
 --- html-typed-invalid-body eval ---
 // Error: 10-14 unexpected argument
 #html.img[hi]
+
+--- html-typed-data-name-valid-though-not-recommended html ---
+#html.div(data-xml: "not XML-compatible")
+#html.div(..("data-xml:lang": "contain colon characters"))
+
+#html.div(data--foo: "not available in `element.dataset`")
+#html.div(data-foo-1: "hard to access in JavaScript")
+
+#html.div(..("data-valid.in.html": "", "data-*": "hard to enter in Typst"))
+#html.div(data-_schön_始料不及_π: "valid in HTML")
+
+--- html-typed-data-name-invalid-empty eval ---
+// Error: 11-20 `data-` is not a valid custom `data-*` attribute
+// Hint: 11-20 it should have at least one character after `data-`
+#html.div(data-: "")
+
+--- html-typed-data-name-invalid-hyphen eval ---
+// Error: 11-23 `data_foo` is not a valid custom `data-*` attribute
+// Hint: 11-23 did you mean `data-foo`?
+#html.div(data_foo: "")
+
+--- html-typed-data-name-invalid-upper eval ---
+// Error: 11-26 `data-FooBar` is not a valid custom `data-*` attribute
+// Hint: 11-26 it should contain no ASCII upper alphas or special characters
+#html.div(data-FooBar: "")
+
+--- html-typed-data-name-invalid-special-char-B eval ---
+// Error: 11-27 `data-/` is not a valid custom `data-*` attribute
+// Hint: 11-27 it should contain no ASCII upper alphas or special characters
+#html.div(..("data-/": ""))
+
+--- html-typed-data-name-invalid-special-char-A eval ---
+// Error: 11-28 the character "\"" is not valid in an attribute name
+#html.div(..("data-\"": ""))
+
+--- html-typed-data-name-duplicate eval ---
+// Error: 26-34 duplicate argument: data-foo
+#html.div(data-foo: "a", data-foo: "b")
+
+--- html-typed-data-value-invalid eval ---
+// Error: 21-22 expected string, found integer
+#html.div(data-foo: 5)
