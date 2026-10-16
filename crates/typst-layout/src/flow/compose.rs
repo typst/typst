@@ -15,7 +15,8 @@ use typst_library::layout::{
 };
 use typst_library::model::ArtifactKind;
 use typst_library::model::{
-    FootnoteElem, FootnoteEntry, LineNumberingScope, Numbering, ParLineMarker,
+    FootnoteElem, FootnoteEntry, FootnoteGroup, LineNumberingScope, Numbering,
+    ParLineMarker,
 };
 use typst_syntax::Span;
 use typst_utils::{NonZeroExt, Numeric};
@@ -569,12 +570,25 @@ impl<'a, 'b> Composer<'a, 'b, '_, '_> {
 
         // Search for footnotes.
         let mut notes = vec![];
+        let mut note_groups = vec![];
         for tag in &self.work.tags {
             let Tag::Start(elem, _) = tag else { continue };
-            let Some(note) = elem.to_packed::<FootnoteElem>() else { continue };
-            notes.push((Abs::zero(), note.clone()));
+            if let Some(note) = elem.to_packed::<FootnoteElem>() {
+                notes.push((Abs::zero(), note.clone()));
+            }
+            if let Some(group) = elem.to_packed::<FootnoteGroup>() {
+                note_groups.push((Abs::zero(), group.clone()));
+            }
         }
         find_in_frame_impl::<FootnoteElem>(&mut notes, frame, Abs::zero());
+        find_in_frame_impl::<FootnoteGroup>(&mut note_groups, frame, Abs::zero());
+        // Expand each group into its constituent footnotes (using the group's
+        // y-position as the position for all children in the group).
+        for (y, group) in &note_groups {
+            for child in &group.children {
+                notes.push((*y, child.clone()));
+            }
+        }
         if notes.is_empty() {
             return Ok(());
         }

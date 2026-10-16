@@ -13,16 +13,16 @@ use typst_library::introspection::{
     Counter, DocumentIntrospection, Locator, QueryIntrospection,
 };
 use typst_library::layout::resolve::{Cell, CellGrid, Entry, Header};
-use typst_library::layout::{BlockElem, HElem, OuterVAlignment, Sizing};
+use typst_library::layout::{BlockElem, OuterVAlignment, Sizing};
 use typst_library::math::EquationElem;
 use typst_library::math::ir::resolve_equation;
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EarlyLinkResolver, EmphElem, EnumElem,
     FigureCaption, FigureElem, FootnoteContainer, FootnoteElem, FootnoteEntry,
-    FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem, OutlineElem,
-    OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FootnoteGroup, FootnoteMarker, HeadingElem, LinkElem, LinkTarget, ListElem,
+    OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::routines::Arenas;
 use typst_library::text::{
@@ -54,7 +54,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Html, FIGURE_RULE);
     rules.register(Html, FIGURE_CAPTION_RULE);
     rules.register(Html, QUOTE_RULE);
-    rules.register(Html, FOOTNOTE_RULE);
+    rules.register(Html, FOOTNOTE_GROUP_RULE);
     rules.register(Html, FOOTNOTE_MARKER_RULE);
     rules.register(Html, FOOTNOTE_CONTAINER_RULE);
     rules.register(Html, FOOTNOTE_ENTRY_RULE);
@@ -327,21 +327,13 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    let span = elem.span();
-
-    // The footnote number that links to the footnote entry.
-    let link = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(link)
-        .pack()
-        .styled(HtmlElem::role.set(Some("doc-noteref".into())))
-        .spanned(span);
-
-    // Indicates the presence of a default footnote rule to emit an error when
-    // no footnote container is available.
-    let marker = FootnoteMarker::new().pack().spanned(span);
-
-    Ok(HElem::hole().clone() + sup + marker)
+const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
+    elem.realize_with(engine, styles, |note, sup| {
+        let span = note.span();
+        let sup = sup.styled(HtmlElem::role.set(Some("doc-noteref".into())));
+        let marker = FootnoteMarker::new().pack().spanned(span);
+        sup + marker
+    })
 };
 
 const FOOTNOTE_MARKER_RULE: ShowFn<FootnoteMarker> = |_, _, _| Ok(Content::empty());

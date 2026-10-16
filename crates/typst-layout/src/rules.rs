@@ -19,9 +19,9 @@ use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    FigureElem, FootnoteEntry, FootnoteGroup, HeadingElem, LinkElem, LinkMarker,
+    ListElem, OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem,
+    StrongElem, TableCell, TableElem, TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
@@ -54,7 +54,7 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, FIGURE_RULE);
     rules.register(Paged, FIGURE_CAPTION_RULE);
     rules.register(Paged, QUOTE_RULE);
-    rules.register(Paged, FOOTNOTE_RULE);
+    rules.register(Paged, FOOTNOTE_GROUP_RULE);
     rules.register(Paged, FOOTNOTE_ENTRY_RULE);
     rules.register(Paged, OUTLINE_RULE);
     rules.register(Paged, OUTLINE_ENTRY_RULE);
@@ -391,11 +391,8 @@ const QUOTE_RULE: ShowFn<QuoteElem> = |elem, _, styles| {
     Ok(realized)
 };
 
-const FOOTNOTE_RULE: ShowFn<FootnoteElem> = |elem, engine, styles| {
-    // The footnote number that links to the footnote entry.
-    let link = elem.realize(engine, styles)?;
-    let sup = SuperElem::new(link).pack().spanned(elem.span());
-    Ok(HElem::hole().clone() + PdfMarkerTag::Label(sup))
+const FOOTNOTE_GROUP_RULE: ShowFn<FootnoteGroup> = |elem, engine, styles| {
+    elem.realize_with(engine, styles, |_, sup| PdfMarkerTag::Label(sup))
 };
 
 const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
