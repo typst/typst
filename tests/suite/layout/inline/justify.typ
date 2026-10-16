@@ -294,3 +294,15 @@ int main() {
 #space;Foo Bar Buzz
 
 #space;Foo Bar#sym.zws;Buzz
+
+--- issue-8931-justify-trailing-tracking paged ---
+// Test that trailing tracking is not retained when the line is justified, which
+// would leave a gutter at the right edge.
+#set page(width: 10cm)
+#set text(overhang: false, tracking: 0.5em)
+#set par(justify: true)
+#block(
+  width: 100%,
+  fill: green,
+  lorem(50)
+)
