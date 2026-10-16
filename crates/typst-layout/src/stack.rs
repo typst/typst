@@ -243,7 +243,7 @@ impl<'a> StackLayouter<'a> {
             block,
             self.locator.next(&block.span()),
             styles,
-            self.regions,
+            self.child_regions(),
         )?;
 
         self.layout_fragment(align, fragment)
@@ -262,9 +262,19 @@ impl<'a> StackLayouter<'a> {
 
         let align = styles.get(AlignElem::alignment).resolve(styles);
 
-        let fragment = layouter(engine, styles, self.regions)?;
+        let fragment = layouter(engine, styles, self.child_regions())?;
 
         self.layout_fragment(align, fragment)
+    }
+
+    /// Restore the initial height for a child if no later region exists.
+    /// The stack still tracks consumed space in `self.regions`.
+    fn child_regions(&self) -> Regions<'a> {
+        let mut regions = self.regions;
+        if self.axis == Axis::Y && !regions.may_progress() {
+            regions.size.y = self.initial.y;
+        }
+        regions
     }
 
     /// Store laid out content, coming from either a block or a custom layouter.
@@ -300,6 +310,9 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Advance to the next region.
+    ///
+    /// If a bottom-to-top stack overflows with no later region, place its
+    /// children relative to the output frame so the excess extends above it.
     fn finish_region(&mut self) -> SourceResult<()> {
         // Determine the size of the stack in this region depending on whether
         // the region expands.
@@ -324,6 +337,17 @@ impl<'a> StackLayouter<'a> {
         let mut cursor = Abs::zero();
         let mut ruler: FixedAlignment = self.dir.start().into();
 
+        // The used height can exceed the output frame's height. Capping the
+        // placement extent keeps the bottom edge fixed in this case.
+        let extent = if self.axis == Axis::Y
+            && !self.dir.is_positive()
+            && !self.regions.may_progress()
+        {
+            self.used.main.min(size.get(self.axis))
+        } else {
+            self.used.main
+        };
+
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
@@ -339,11 +363,11 @@ impl<'a> StackLayouter<'a> {
                     // Align along the main axis.
                     let parent = size.get(self.axis);
                     let child = frame.size().get(self.axis);
-                    let main = ruler.position(parent - self.used.main)
+                    let main = ruler.position(parent - extent)
                         + if self.dir.is_positive() {
                             cursor
                         } else {
-                            self.used.main - child - cursor
+                            extent - child - cursor
                         };
 
                     // Align along the cross axis.

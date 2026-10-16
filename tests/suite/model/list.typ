@@ -4,6 +4,17 @@
 _Shopping list_
 #list[Apples][Potatoes][Juice]
 
+--- issue-8790-list-overflow paged ---
+// List items use stack's custom child layouter and must not collapse.
+#set page(width: 110pt, height: 100pt, margin: 10pt)
+#block(width: 90pt, height: 44pt, breakable: false, clip: false)[
+  #list(
+    [#block(width: 50pt, height: 22pt, fill: eastern)],
+    [#block(width: 50pt, height: 22pt, fill: conifer)],
+    [#block(width: 50pt, height: 22pt, fill: forest)],
+  )
+]
+
 --- list-nested paged ---
 - First level.
 
