@@ -269,22 +269,6 @@ impl Packed<OutlineElem> {
             })
     }
 
-    /// Realizes the entries in a flat fashion.
-    pub fn realize_flat(
-        &self,
-        engine: &mut Engine,
-        styles: StyleChain,
-    ) -> SourceResult<Vec<Packed<OutlineEntry>>> {
-        let mut entries = vec![];
-        for result in self.realize_iter(engine, styles) {
-            let (entry, _, included) = result?;
-            if included {
-                entries.push(entry);
-            }
-        }
-        Ok(entries)
-    }
-
     /// Realizes the entries in a tree fashion.
     pub fn realize_tree(
         &self,

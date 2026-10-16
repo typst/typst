@@ -46,6 +46,8 @@ a2c6af5f2ff65534067dc2e2e2f49cc6 grid-tags-internal-grid-layout-breaking-bibliog
 823b53d909fa38c71d03bf35b4ba1a44 heading-offset
 c5c5effc40e0e84c792e22d66fc28a9d heading-tags-basic
 ccf6779f5948fdcd0fd5f59366acb514 heading-tags-complex
+89d87c82af98e1fade691e0c551c0bbc issue-5615-outline-skip-level
+ddf27acd3cc48804d574ae287ede2371 issue-5615-outline-skip-multiple-levels
 fd0d61d4bd3970d6e68cf6712f970270 issue-7020-break-tags
 48176e7c86707d8a69eccbcf4e17e23b issue-7301-link-tags-empty-link-body
 1ce8f02c1a8be1ec36d8a288b404cc3e issue-7301-link-tags-empty-link-body-footnote

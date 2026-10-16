@@ -339,3 +339,33 @@ A
 
 = 测
 = 很
+
+--- issue-5615-outline-skip-level html pdftags ---
+#set heading(numbering: "1.")
+
+#outline(indent: 2em)
+
+= A.1
+#heading("B.1", level: 2, outlined: false, bookmarked: false)
+=== C.1
+=== C.2
+=== C.3
+
+#heading("A.2", level: 1, outlined: false, bookmarked: false)
+== B.2
+=== C.4
+=== C.5
+
+--- issue-5615-outline-skip-multiple-levels html pdftags ---
+#set heading(numbering: "1.")
+
+#outline(indent: 2em)
+
+= A
+#heading("B", level: 2, outlined: false, bookmarked: false)
+#heading("C", level: 3, outlined: false, bookmarked: false)
+==== D
+#heading("A", level: 1, outlined: false, bookmarked: false)
+#heading("B", level: 2, outlined: false, bookmarked: false)
+#heading("C", level: 3, outlined: false, bookmarked: false)
+=== C
