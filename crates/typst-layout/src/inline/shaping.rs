@@ -459,7 +459,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify_text(self.styles);
+        frame.modify_text_without_links(self.styles);
         frame
     }
 

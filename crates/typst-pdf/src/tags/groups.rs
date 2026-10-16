@@ -4,6 +4,7 @@ use krilla::configure::PdfVersion;
 use krilla::geom as kg;
 use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use typst_library::format::Complete;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
@@ -31,7 +32,7 @@ impl GroupId {
 
 #[derive(Debug)]
 pub struct Groups {
-    locations: FxHashMap<Location, LocatedGroup>,
+    pub locations: FxHashMap<Location, LocatedGroup>,
     pub list: IdVec<Group>,
     pub tags: TagStorage,
 }
@@ -45,8 +46,8 @@ impl Groups {
         }
     }
 
-    pub fn by_loc(&self, loc: &Location) -> Option<LocatedGroup> {
-        self.locations.get(loc).copied()
+    pub fn by_loc(&self, loc: &Location) -> Option<&LocatedGroup> {
+        self.locations.get(loc)
     }
 
     #[cfg_attr(debug_assertions, track_caller)]
@@ -86,10 +87,11 @@ impl Groups {
                 // placed again. Create a new group that doesn't have
                 // a location mapping.
                 let located = occupied.into_mut();
+                located.ids.push(id);
                 located.multiple_parents = true;
             }
             Entry::Vacant(vacant) => {
-                vacant.insert(LocatedGroup { id, multiple_parents: false });
+                vacant.insert(LocatedGroup::new(id));
             }
         }
         id
@@ -187,12 +189,18 @@ impl Groups {
 
     /// NOTE: this needs to be kept in sync with [`Groups::breakable`].
     pub fn break_group(&mut self, id: GroupId, new_parent: GroupId) -> GroupId {
-        let group = self.get(id);
+        let group = self.list.get(id);
         let span = group.span;
 
+        let new_id = self.list.next_id();
         let new_kind = match &group.kind {
             GroupKind::Artifact(ty) => GroupKind::Artifact(*ty),
-            GroupKind::Link(elem, _) => GroupKind::Link(elem.clone(), None),
+            GroupKind::Link(elem, _) => {
+                if let Some(located) = self.locations.get_mut(&elem.location().unwrap()) {
+                    located.ids.push(new_id);
+                }
+                GroupKind::Link(elem.clone(), None)
+            }
             GroupKind::Par(_) => GroupKind::Par(None),
             GroupKind::TextAttr(attr) => GroupKind::TextAttr(attr.clone()),
             GroupKind::Standard(old, _) => {
@@ -224,7 +232,9 @@ impl Groups {
             | GroupKind::CodeBlockLine(..)
             | GroupKind::Transparent => unreachable!(),
         };
-        self.list.push(Group::weak(new_parent, span, new_kind))
+        self.list.push(Group::weak(new_parent, span, new_kind));
+
+        new_id
     }
 }
 
@@ -353,10 +363,32 @@ impl TagStorage {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub struct LocatedGroup {
-    pub id: GroupId,
+    /// INVARIANT: This is always non-empty.
+    ids: SmallVec<[GroupId; 4]>,
     pub multiple_parents: bool,
+}
+
+impl LocatedGroup {
+    fn new(id: GroupId) -> Self {
+        Self {
+            ids: SmallVec::from_iter([id]),
+            multiple_parents: false,
+        }
+    }
+
+    /// The first group ID of this located group.
+    pub fn id(&self) -> GroupId {
+        *self.ids.first().unwrap()
+    }
+
+    /// The complete list of group IDs of this loated group.
+    /// This can only contain multiple entries, if either two elements with the
+    /// same location exist, or if a group has be broken up.
+    pub fn ids(&self) -> &[GroupId] {
+        &self.ids
+    }
 }
 
 #[derive(Debug)]
