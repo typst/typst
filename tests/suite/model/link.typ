@@ -89,6 +89,11 @@ Text <hey>
 --- link-empty-block paged ---
 #link("https://example.com", block(height: 10pt, width: 100%))
 
+--- link-dir-rtl paged ---
+start
+#set text(dir: rtl)
+unlinked #link("https://amogus.com")[linked]
+
 --- issue-758-link-repeat paged ---
 #let url = "https://typst.org/"
 #let body = [Hello #box(width: 1fr, repeat[.])]
