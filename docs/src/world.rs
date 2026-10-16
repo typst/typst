@@ -333,6 +333,7 @@ fn eval_mapped(
         engine.library,
         TrackedMut::reborrow_mut(&mut engine.sink),
         EmptyIntrospector.track(),
+        engine.route.track(),
         Context::none().track(),
         &text,
         spans,

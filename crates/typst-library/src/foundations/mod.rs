@@ -313,6 +313,7 @@ pub fn eval(
         // when calling `eval` from within a context expression, but this should
         // be well-considered.
         EmptyIntrospector.track(),
+        engine.route.track(),
         Context::none().track(),
         &text,
         SpanMode::Uniform(span),

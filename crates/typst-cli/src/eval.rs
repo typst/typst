@@ -13,7 +13,11 @@ use typst::syntax::{
     FileId, RangeMapper, RootedPath, Source, Span, SyntaxMode, VirtualPath, VirtualRoot,
 };
 use typst::text::{Font, FontBook};
-use typst::{World, engine::Sink, introspection::Introspector};
+use typst::{
+    World,
+    engine::{Route, Sink},
+    introspection::Introspector,
+};
 use typst_bundle::Bundle;
 use typst_eval::eval_string;
 use typst_html::HtmlDocument;
@@ -118,6 +122,7 @@ fn evaluate_expression(
         library,
         sink.track_mut(),
         introspector.track(),
+        Route::default().track(),
         Context::new(None, Some(StyleChain::new(&library.styles))).track(),
         expression,
         spans,
