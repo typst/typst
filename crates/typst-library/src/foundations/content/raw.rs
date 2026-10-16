@@ -271,13 +271,13 @@ impl RawContent {
         // Safety: The vtable comes from the `Capable` implementation which
         // guarantees to return a matching vtable for `Packed<T>` and `C`. Since
         // any `Packed<T>` is repr(transparent) with `Content` and `RawContent`,
-        // we can also use a `*const Content` pointer.
+        // we can also use a `*mut RawContent` pointer.
         //
-        // The resulting trait object contains an `&mut Packed<T>`. We do _not_
-        // need to ensure that we hold the only reference to the `Arc` here
-        // because `Packed<T>`'s DerefMut impl will take care of that if mutable
-        // access is required.
+        // The resulting trait object contains an `&mut Packed<T>`, so we call
+        // `self.make_unique()` first to ensure exclusive access to the backing
+        // allocation before forming the mutable reference.
         let vtable = (self.elem.vtable().capability)(TypeId::of::<C>())?;
+        self.make_unique();
         let data = self as *mut Self as *mut ();
         Some(unsafe { &mut *fat::from_raw_parts_mut(data, vtable.as_ptr()) })
     }
