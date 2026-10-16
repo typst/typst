@@ -135,6 +135,8 @@ pub struct ShapedGlyph {
     pub font: FontInstance,
     /// The glyph's index in the font.
     pub glyph_id: u16,
+    /// Whether tracking was applied to the advance width.
+    pub tracking_applied: bool,
     /// The advance width of the glyph.
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
@@ -621,6 +623,7 @@ impl<'a> ShapedText<'a> {
                 glyphs: Glyphs::from_vec(vec![ShapedGlyph {
                     font,
                     glyph_id: glyph_id.0,
+                    tracking_applied: false,
                     x_advance,
                     x_offset: Em::zero(),
                     y_offset: Em::zero(),
@@ -1090,6 +1093,7 @@ fn shape_segment<'a>(
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
                 glyph_id: info.glyph_id as u16,
+                tracking_applied: false,
                 // TODO: Don't ignore y_advance.
                 x_advance,
                 x_offset: font.to_em(pos[i].x_offset) + script_compensation,
@@ -1242,6 +1246,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
             glyph_id: 0,
+            tracking_applied: false,
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
@@ -1297,6 +1302,7 @@ fn apply_tracking(ctx: &mut ShapingContext) {
             .is_some_and(|next| glyph.range.start != next.range.start)
         {
             glyph.x_advance += Em::from_length(tracking, glyph.size);
+            glyph.tracking_applied = true;
         }
     }
 }

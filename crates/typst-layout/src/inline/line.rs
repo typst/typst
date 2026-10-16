@@ -182,6 +182,9 @@ pub fn line<'a>(
     // Ensure that there is no weak spacing at the start and end of the line.
     trim_weak_spacing(&mut items);
 
+    // Deal with glyph tracking at the end of the line.
+    adjust_glyph_tracking_at_line_end(&mut items);
+
     // Deal with CJ characters at line boundaries.
     // Use the trimmed range for robust boundary checks.
     adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
@@ -424,6 +427,18 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
         glyph.x_advance -= shrink;
         glyph.adjustability.shrinkability.1 = Em::zero();
+    }
+}
+
+// Remove tracking from the last glyph if it has been applied.
+fn adjust_glyph_tracking_at_line_end(items: &mut Items) {
+    let Some(shaped) = items.trailing_text_mut() else { return };
+    let Some(glyph) = shaped.glyphs.last() else { return };
+
+    if glyph.tracking_applied {
+        let tracking = Em::from_length(shaped.styles.get(TextElem::tracking), glyph.size);
+        let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
+        glyph.x_advance -= tracking;
     }
 }
 
