@@ -6,7 +6,9 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, error};
+use crate::diag::{
+    At, CallSpanned, SourceDiagnostic, SourceResult, StrResult, bail, error,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Dict, FromValue, Func, IntoValue, Repr, Str, Value, cast, func, repr,
@@ -405,13 +407,9 @@ impl Args {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<Args> {
-        let mut run_test = |v: &Value| {
-            test.call(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span())
-        };
+        let mut run_test = |v: &Value| test.call::<bool>(engine, context, [v.clone()]);
         self.into_iter()
             .filter_map(|arg| {
                 run_test(&arg.value.v).map(|b| b.then_some(arg)).transpose()
@@ -434,7 +432,7 @@ impl Args {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value.
-        mapper: Func,
+        mapper: Spanned<Func>,
     ) -> SourceResult<Args> {
         self.into_iter()
             .map(|arg| {
