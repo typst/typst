@@ -88,6 +88,20 @@ $ mat(1, 2; 3, 4) $
 $ mat(column-gap: #1em, 1, 2; 3, 4)
   mat(row-gap: #2em, 1, 2; 3, 4) $
 
+--- math-mat-transpose paged html ---
+$ mat(1, 2, 3; 4, 5, 6; transpose: #true) $
+
+#set math.mat(transpose: true)
+$ mat(a, b; c, d; e, f) $
+
+--- math-mat-transpose-augment paged html ---
+$ mat(
+  1, 2, 3;
+  4, 5, 6;
+  augment: #(hline: 1, vline: 2),
+  transpose: #true,
+) $
+
 --- math-mat-augment paged ---
 // Test matrix line drawing (augmentation).
 #grid(

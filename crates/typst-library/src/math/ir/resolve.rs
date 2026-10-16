@@ -1033,12 +1033,28 @@ fn resolve_mat<'a>(
 ) -> SourceResult<()> {
     let span = elem.span();
 
-    let rows: Vec<Vec<&Content>> =
-        elem.rows.iter().map(|row| row.iter().collect()).collect();
-    let nrows = rows.len();
-    let ncols = rows.first().map_or(0, |row| row.len());
+    let transpose = elem.transpose.get(styles);
+    let source_nrows = elem.rows.len();
+    let source_ncols = elem.rows.first().map_or(0, Vec::len);
+    let rows: Vec<Vec<&Content>> = if transpose {
+        (0..source_ncols)
+            .map(|col| (0..source_nrows).map(|row| &elem.rows[row][col]).collect())
+            .collect()
+    } else {
+        elem.rows.iter().map(|row| row.iter().collect()).collect()
+    };
+    let (nrows, ncols) = if transpose {
+        (source_ncols, source_nrows)
+    } else {
+        (source_nrows, source_ncols)
+    };
 
-    let augment = elem.augment.resolve(styles);
+    let augment = elem.augment.resolve(styles).map(|mut augment| {
+        if transpose {
+            std::mem::swap(&mut augment.hline, &mut augment.vline);
+        }
+        augment
+    });
     if let Some(aug) = &augment {
         for &offset in &aug.hline.0 {
             if offset > nrows as isize || offset.unsigned_abs() > nrows {
