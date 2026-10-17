@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use crate::node::NumberingResult;
 use crate::{Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup};
 
 /// Refresh the given syntax node with as little parsing as possible.
@@ -16,18 +17,33 @@ pub fn reparse(
     replaced: Range<usize>,
     replacement_len: usize,
 ) -> Range<usize> {
-    try_reparse(text, replaced, replacement_len, None, root, 0).unwrap_or_else(|| {
-        let id = root.span().id();
+    let root_id = root.span().id();
+
+    let mut renumber = true;
+    let mut reparsed_range = 0..text.len();
+    if let Some((range, num_result)) =
+        try_reparse_and_renumber(text, replaced, replacement_len, None, root, 0)
+    {
+        reparsed_range = range;
+        renumber = num_result.is_err();
+    } else {
         *root = parse(text);
-        if let Some(id) = id {
-            root.numberize(id, Span::FULL).unwrap();
-        }
-        0..text.len()
-    })
+    }
+
+    if renumber && let Some(id) = root_id {
+        root.numberize(id, Span::FULL).unwrap();
+    }
+
+    reparsed_range
 }
 
-/// Try to reparse inside the given node, returning the range that was
-/// ultimately reparsed.
+/// Try to reparse inside the given node, returning the range of new text that
+/// was ultimately reparsed.
+///
+/// If reparsing succeeds, also tries to assign span numbers to the new nodes,
+/// returning a [`NumberingResult`]. If the numbering result is an error, i.e.
+/// we're out of span numbers at this level, the caller is in charge of
+/// assigning span numbers (this should be rare).
 ///
 /// We start by doing a depth-first search for the innermost node or nodes which
 /// fully surround the replaced range. This can be a single node that is a
@@ -43,21 +59,21 @@ pub fn reparse(
 /// inside lists or headings, etc. In the past we did reparse those, but the
 /// implementation was very buggy due to edge cases surrounding indentation and
 /// newlines, and was eventually removed without much performance impact. It's
-/// still potentially desireable to handle some of those cases (individual list
+/// still potentially desirable to handle some of those cases (individual list
 /// items can get quite long in practice), but only if the implementation can be
 /// easily reasoned as correct and shows a measured performance improvement.
 ///
 /// We also do not currently reparse math in any capacity, but it would not be
 /// too difficult to include equations as another kind of block, or reparse math
 /// expressions similarly to markup expressions.
-fn try_reparse(
+fn try_reparse_and_renumber(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
     parent_kind: Option<SyntaxKind>,
     node: &mut SyntaxNode,
     offset: usize,
-) -> Option<Range<usize>> {
+) -> Option<(Range<usize>, NumberingResult)> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
     let node_kind = node.kind();
@@ -77,7 +93,7 @@ fn try_reparse(
         let new_range = start_offset..start_offset + new_len;
 
         // Recursively descend and try to reparse at a lower level.
-        if let Some(range) = try_reparse(
+        if let Some((new_range, mut num_result)) = try_reparse_and_renumber(
             text,
             replaced.clone(),
             replacement_len,
@@ -93,7 +109,10 @@ fn try_reparse(
             node.update_parent(
                 prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
             );
-            return Some(range);
+            if num_result.is_err() {
+                num_result = node.renumber_children(overlap);
+            }
+            return Some((new_range, num_result));
         }
 
         // The child is the innermost block which fully surrounds the text (and
@@ -107,9 +126,9 @@ fn try_reparse(
             node.update_parent(
                 prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
             );
-            // Reparsing succeeded, but we can still fail if we're out of span
-            // numbers to assign to nodes (this is rare).
-            return node.renumber_children(overlap).is_ok().then_some(new_range);
+            // Reparsing succeeded! Now try to assign span numbers to the nodes.
+            let num_result = node.renumber_children(overlap);
+            return Some((new_range, num_result));
         }
     }
 
@@ -127,9 +146,9 @@ fn try_reparse(
             )
     {
         let reparsed_children = node.replace_children(prev_children, newborns);
-        // Reparsing succeeded, but we can still fail if we're out of
-        // span numbers to assign to nodes (this is rare).
-        node.renumber_children(reparsed_children).is_ok().then_some(new_range)
+        // Reparsing succeeded! Now try to assign span numbers to the nodes.
+        let num_result = node.renumber_children(reparsed_children);
+        Some((new_range, num_result))
     } else {
         None
     }
@@ -533,7 +552,6 @@ mod tests {
     /// This is a bug (it yields different trees when reparsing), but it will
     /// require a bit more effort to solve.
     #[test]
-    #[should_panic = "left: Incr(\"{{A;B}}\")\n right: Incr(\"{A;B}\")"]
     fn test_reparse_nested_code() {
         let mut text = "#{A;B}".to_string();
         let mut prev_n = 1_usize;
@@ -551,7 +569,6 @@ mod tests {
             test(&text, Edit::Match(";"), "1", Reparse::Incr("{A1B}"));
             test(&text, Edit::Match("A;B"), "2", Reparse::Incr("{2}"));
 
-            assert!(n <= 21, "code edits should be failing below at `n == 21`");
             // Leave the number of nodes the same:
             test(&text, Edit::Match("A;B"), "A;B", Reparse::Incr("{A;B}"));
             test(&text, Edit::Match("A;B"), "B;C", Reparse::Incr("{B;C}"));
@@ -566,7 +583,6 @@ mod tests {
 
     /// Test reparsing with deeply nested code and markup blocks.
     #[test]
-    #[should_panic = "left: Incr(\"[ 3~B ]\")\n right: Incr(\" 3~B \")"]
     fn test_reparse_nested_markup() {
         let mut text = "#[ A~B ]".to_string();
         let mut prev_n = 1_usize;
@@ -584,7 +600,6 @@ mod tests {
             test(&text, Edit::Match("~"), "1", Reparse::Incr(" A1B "));
             test(&text, Edit::Match("A~B"), "2", Reparse::Incr(" 2 "));
 
-            assert!(n <= 20, "markup edits should be failing below at `n == 20`");
             // Leave the number of nodes the same:
             test(&text, Edit::Match("A~B"), "A~B", Reparse::Incr(" A~B "));
             test(&text, Edit::Match("A~B"), "3~B", Reparse::Incr(" 3~B "));
