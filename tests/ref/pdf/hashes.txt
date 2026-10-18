@@ -1884,6 +1884,7 @@ dd2f0fb45818f40e1225300381aad1bb text-chinese-basic
 ba1a8b3bf01d76d8f1578b6bf3c70d3e text-cjk-latin-spacing
 d3434cee241e1b07c4a208f81920a80a text-colr-svg-glyphs-different-size
 2f55dc86a554b1c78cc101203ca1fe6b text-copy-paste-ligatures
+65669c2937b6ae648c2b060b97c4b927 text-copy-paste-long-multi-byte-word
 042537f9a0cde7fc71e430e06f0e9dce text-edge
 033e1b0574f72e436ba0ca5e50829455 text-features
 e3f9726005d8b13dd6b1dcaff216fa19 text-font-change-after-space

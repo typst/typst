@@ -349,6 +349,9 @@ impl<'a> ShapedText<'a> {
             .glyphs
             .all()
             .group_by_key(|g| (g.font.clone(), g.y_offset, g.size))
+            .flat_map(|(key, group)| {
+                split_by_text_len(group).map(move |chunk| (key.clone(), chunk))
+            })
         {
             let mut range = group[0].range.clone();
             for glyph in group {
@@ -1352,6 +1355,27 @@ fn nbsp_delta(font: &FontInstance) -> Option<Em> {
     let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
     Some(font.x_advance(nbsp)? - font.x_advance(space)?)
+}
+
+/// Splits a run of glyphs into chunks whose text fits into the `u16` glyph
+/// ranges of a [`TextItem`], without separating glyphs of the same cluster.
+fn split_by_text_len(mut glyphs: &[ShapedGlyph]) -> impl Iterator<Item = &[ShapedGlyph]> {
+    std::iter::from_fn(move || {
+        let mut range = glyphs.first()?.range.clone();
+        let mut len = glyphs.len();
+        for (i, pair) in glyphs.windows(2).enumerate() {
+            let start = range.start.min(pair[1].range.start);
+            let end = range.end.max(pair[1].range.end);
+            if end - start > usize::from(u16::MAX) && pair[0].range != pair[1].range {
+                len = i + 1;
+                break;
+            }
+            range = start..end;
+        }
+        let (chunk, rest) = glyphs.split_at(len);
+        glyphs = rest;
+        Some(chunk)
+    })
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
