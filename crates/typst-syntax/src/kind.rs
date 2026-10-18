@@ -231,6 +231,14 @@ pub enum SyntaxKind {
     Numeric,
     /// A quoted string: `"..."`.
     Str,
+    /// Plain string text without escapes or interpolations.
+    StrText,
+    /// A string escape sequence: `\n`, `\#`, `\u{1F5FA}`.
+    StrEscape,
+    /// A string interpolation: `#foo`.
+    StrInterpolation,
+    /// The delimiter of quoted string: `"`.
+    StrQuote,
     /// A code block: `{ let x = 1; x + 2 }`.
     CodeBlock,
     /// A content block: `[*Hi* there!]`.
@@ -298,7 +306,7 @@ pub enum SyntaxKind {
 }
 
 impl SyntaxKind {
-    /// Is this a bracket, brace, or parenthesis?
+    /// Is this a bracket, brace, parenthesis, or double quote?
     pub fn is_grouping(self) -> bool {
         matches!(
             self,
@@ -308,6 +316,7 @@ impl SyntaxKind {
                 | Self::RightBracket
                 | Self::RightBrace
                 | Self::RightParen
+                | Self::StrQuote
         )
     }
 
@@ -379,6 +388,11 @@ impl SyntaxKind {
                 | Self::SpaceWithNewline
                 | Self::Parbreak
         )
+    }
+
+    /// Whether this is one of the mode dependent text kinds.
+    pub fn is_text(self) -> bool {
+        matches!(self, Self::Text | Self::StrText | Self::MathText)
     }
 
     /// Whether this is an error.
@@ -495,6 +509,10 @@ impl SyntaxKind {
             Self::Float => "float",
             Self::Numeric => "numeric value",
             Self::Str => "string",
+            Self::StrText => "string",
+            Self::StrEscape => "string",
+            Self::StrInterpolation => "string",
+            Self::StrQuote => "double quote",
             Self::CodeBlock => "code block",
             Self::ContentBlock => "content block",
             Self::Parenthesized => "group",
@@ -550,6 +568,9 @@ pub(crate) enum ModeAfter {
     /// Dollar signs in an equation. After the opening dollar sign is math mode,
     /// after the closing dollar sign is the same as the parent `Equation`.
     Dollar,
+    /// Quotes in a string. After the opening quote is string is string mode,
+    /// after the closing quote is the same as the parent `String`.
+    Quote,
     /// Spaces are usually only based on their parent, but an edge case with
     /// `Equation` requires special handling.
     ///
@@ -695,6 +716,10 @@ impl SyntaxKind {
             Self::Float => Known(Code),
             Self::Numeric => Known(Code),
             Self::Str => Embeddable, // code/math: expr
+            Self::StrText => Known(SyntaxMode::String),
+            Self::StrEscape => Known(SyntaxMode::String),
+            Self::StrInterpolation => Known(SyntaxMode::String),
+            Self::StrQuote => Quote,
             Self::CodeBlock => Known(Code),
             Self::ContentBlock => Embeddable, // code: expr | markup: Ref
             Self::Parenthesized => Known(Code),
@@ -733,6 +758,8 @@ impl SyntaxKind {
 
 #[cfg(test)]
 mod test {
+    use crate::package::PreferredCompilerVersion;
+
     use super::*;
     use crate::{LinkedNode, Side, Source};
 
@@ -742,7 +769,8 @@ mod test {
         cursors: impl IntoIterator<Item = usize>,
         expected: Option<SyntaxMode>,
     ) {
-        let source = Source::detached(text);
+        // TODO(tinger): Test with string interpolation
+        let source = Source::detached(text, PreferredCompilerVersion::default());
         let root = LinkedNode::new(source.root());
         for cursor in cursors {
             let leaf = root.leaf_at(cursor, Side::After).unwrap();
@@ -786,7 +814,7 @@ mod test {
         test_mode("#{x;1}", [0, 1, 2, 3, 4], Some(Code));
         test_mode("#(x)", [1, 2, 3], Some(Code));
         test_mode("#(1,2,)", [1, 2, 3, 5, 6], Some(Code));
-        test_mode("#(a:1,\"b\":2)", [1, 2, 3, 4, 5, 6, 7, 8, 9, 11], Some(Code));
+        test_mode("#(a:1,\"b\":2)", [1, 2, 3, 4, 5, 9, 11], Some(Code));
         test_mode("#{-x}", [2], Some(Code));
         test_mode("#{a / b}", [4], Some(Code));
         test_mode("#a.b", [1, 2, 3], Some(Code));
@@ -802,11 +830,21 @@ mod test {
         test_mode("#while true {break;continue;}", [1, 13, 19], Some(Code));
         test_mode("#for a in b {}", [1, 7], Some(Code));
         test_mode("#if true {} else {}", [1, 12], Some(Code));
-        test_mode("#import \"lib.typ\" : a, b as d, e.f", [2, 8, 21, 25, 32], Some(Code));
+        test_mode("#import \"lib.typ\" : a, b as d, e.f", [2, 21, 25, 32], Some(Code));
         test_mode("#include \"lib.typ\"", [1], Some(Code));
         test_mode("#let f() = { return 1 }", [13], Some(Code));
         test_mode("#{(x, _, ..y) = (1, 2, ..z)}", [2, 14], Some(Code));
         test_mode("= #1.1", [2, 3], Some(Code));
+
+        // Strings and Embedded Code
+        test_mode("#\"\"", [1], Some(SyntaxMode::String)); // Opening quote is string
+        test_mode("#\"\"", [2], Some(Code)); // Closing quote is parent
+        test_mode("#\"a b\"", [1, 2, 3, 4], Some(SyntaxMode::String));
+        test_mode("#\"#x\"", [2, 3], Some(Code)); // Interpolation can be continued
+        test_mode("#\"#x;\"", [4], Some(SyntaxMode::String)); // After semicolon is string
+        test_mode("#\"a#x.b()c\"", [1, 2], Some(SyntaxMode::String));
+        test_mode("#\"a#x.b()c\"", [3, 4, 5, 6, 7, 8], Some(Code));
+        test_mode("#\"a#x.b()c\"", [9], Some(SyntaxMode::String)); // Text after it
 
         // Math
         test_mode("$$", [0], Some(Math)); // Opening dollar is math

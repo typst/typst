@@ -1,6 +1,9 @@
 use std::ops::Range;
 
-use crate::{Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup};
+use crate::{
+    PreferredCompilerVersion, Span, SyntaxKind, SyntaxNode, parse, reparse_block,
+    reparse_markup,
+};
 
 /// Refresh the given syntax node with as little parsing as possible.
 ///
@@ -15,15 +18,17 @@ pub fn reparse(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
+    preferred_version: PreferredCompilerVersion,
 ) -> Range<usize> {
-    try_reparse(text, replaced, replacement_len, None, root, 0).unwrap_or_else(|| {
-        let id = root.span().id();
-        *root = parse(text);
-        if let Some(id) = id {
-            root.numberize(id, Span::FULL).unwrap();
-        }
-        0..text.len()
-    })
+    try_reparse(text, replaced, replacement_len, None, root, 0, preferred_version)
+        .unwrap_or_else(|| {
+            let id = root.span().id();
+            *root = parse(text, preferred_version);
+            if let Some(id) = id {
+                root.numberize(id, Span::FULL).unwrap();
+            }
+            0..text.len()
+        })
 }
 
 /// Try to reparse inside the given node, returning the range that was
@@ -57,6 +62,7 @@ fn try_reparse(
     parent_kind: Option<SyntaxKind>,
     node: &mut SyntaxNode,
     offset: usize,
+    preferred_version: PreferredCompilerVersion,
 ) -> Option<Range<usize>> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
@@ -83,6 +89,7 @@ fn try_reparse(
             Some(node_kind),
             child,
             start_offset,
+            preferred_version,
         ) {
             // A lower level reparse succeeded! Update this node and return the
             // reparsed range.
@@ -95,7 +102,8 @@ fn try_reparse(
         // This is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
         if child.kind().is_block()
-            && let Some(reparsed) = reparse_block(text, new_range.clone())
+            && let Some(reparsed) =
+                reparse_block(text, new_range.clone(), preferred_version)
         {
             // Reparsing succeeded, but we can still fail if we're out of span
             // numbers to assign to nodes (this is rare).
@@ -111,6 +119,7 @@ fn try_reparse(
     {
         expand_and_reparse_markup(
             text,
+            preferred_version,
             replaced,
             replacement_len,
             node,
@@ -125,8 +134,10 @@ fn try_reparse(
 
 /// Reparse a range of markup expressions, expanding the range exponentially on
 /// each iteration.
+#[expect(clippy::too_many_arguments)]
 fn expand_and_reparse_markup(
     text: &str,
+    preferred_version: PreferredCompilerVersion,
     replaced: Range<usize>,
     replacement_len: usize,
     node: &mut SyntaxNode,
@@ -189,6 +200,7 @@ fn expand_and_reparse_markup(
         // Reparse!
         let reparsed = reparse_markup(
             text,
+            preferred_version,
             new_range.clone(),
             &mut at_start,
             &mut nesting,
@@ -293,7 +305,7 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use crate::{Source, Span, parse};
+    use crate::{PreferredCompilerVersion, Source, Span, parse};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -346,12 +358,14 @@ mod tests {
 
     #[track_caller]
     fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
-        let mut source = Source::detached(text);
+        // TODO(tinger): Test with string interpolation?
+        let mut source = Source::detached(text, PreferredCompilerVersion::default());
         let orig_tree = source.root().clone();
         // `Source::edit()` is the public interface for reparsing.
-        let replaced_range = source.edit(edit.into_range(text), with);
+        let replaced_range =
+            source.edit(edit.into_range(text), with, PreferredCompilerVersion::default());
         let mut reparsed_tree = source.root().clone();
-        let mut normal_parse = parse(source.text());
+        let mut normal_parse = parse(source.text(), PreferredCompilerVersion::default());
         reparsed_tree.synthesize(Span::detached());
         normal_parse.synthesize(Span::detached());
         if reparsed_tree != normal_parse {
@@ -460,12 +474,12 @@ mod tests {
         test("#import \"@preview/pkg", Edit::End, "\"", All);
         test("#import [a\nb\nc", Edit::End, "]", All);
         test("#import $a\nb\nc", Edit::End, "$", All);
-        test("#set thing\"a\n", Edit::End, "\"", All);
+        test("#set thing\"a\n", Edit::End, "\"", Incr("\"a\n\""));
         test("#let x = \"a\nb\nc", Edit::End, "\"", All);
         test("#let x = {\"a\nb\nc}", Edit::After("c"), "\"", Incr("{\"a\nb\nc\"}"));
         test("#if x {\"a\nb\nc", Edit::End, "\"", All);
-        test("#if x \"a\nb\nc", Edit::End, "\"", All);
-        test("#if x \"a\nb\nc", Edit::After("x "), "{}", All);
+        test("#if x \"a\nb\nc", Edit::End, "\"", Incr("b\nc\""));
+        test("#if x \"a\nb\nc", Edit::After("x "), "{}", Incr("#if x {}\"a\n"));
         test("#if x $a\nb\nc", Edit::End, "$", All);
         test("#for x in \"a\nb\nc", Edit::End, "\"", All);
         test("#for x \"a\nb\nc", Edit::After("x "), "in ", All);

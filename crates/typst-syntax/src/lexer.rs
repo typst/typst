@@ -19,6 +19,9 @@ pub(super) struct Lexer<'s> {
     /// The mode the lexer is in. This determines which kinds of tokens it
     /// produces.
     mode: SyntaxMode,
+    /// Whether the string interpolation sub tokens are emitted instead of
+    /// string literals.
+    string_interpolation: bool,
     /// An error plus hints for the current token being produced. This is always
     /// `None` between calls to [`Lexer::next`].
     error: Option<(EcoString, EcoVec<EcoString>)>,
@@ -26,8 +29,13 @@ pub(super) struct Lexer<'s> {
 
 impl<'s> Lexer<'s> {
     /// Create a new lexer with the given mode.
-    pub fn new(text: &'s str, mode: SyntaxMode) -> Self {
-        Self { s: Scanner::new(text), mode, error: None }
+    pub fn new(text: &'s str, mode: SyntaxMode, string_interpolation: bool) -> Self {
+        Self {
+            s: Scanner::new(text),
+            mode,
+            error: None,
+            string_interpolation,
+        }
     }
 
     /// Get the current lexing mode.
@@ -84,11 +92,17 @@ impl Lexer<'_> {
         let start = self.s.cursor();
 
         let kind = match self.s.eat() {
-            Some(c) if is_space(c, self.mode) => self.whitespace(start, c),
+            Some(c) if self.mode != SyntaxMode::String && is_space(c, self.mode) => {
+                self.whitespace(start, c)
+            }
             Some('#') if start == 0 && self.s.eat_if('!') => self.shebang(),
-            Some('/') if self.s.eat_if('/') => self.line_comment(),
-            Some('/') if self.s.eat_if('*') => self.block_comment(),
-            Some('*') if self.s.eat_if('/') => {
+            Some('/') if self.mode != SyntaxMode::String && self.s.eat_if('/') => {
+                self.line_comment()
+            }
+            Some('/') if self.mode != SyntaxMode::String && self.s.eat_if('*') => {
+                self.block_comment()
+            }
+            Some('*') if self.mode != SyntaxMode::String && self.s.eat_if('/') => {
                 let error = self.error("unexpected end of block comment");
                 self.hint(
                     "consider escaping the `*` with a backslash or \
@@ -96,9 +110,14 @@ impl Lexer<'_> {
                 );
                 error
             }
-            Some('`') if self.mode != SyntaxMode::Math => return self.raw(),
+            Some('`')
+                if self.mode != SyntaxMode::String && self.mode != SyntaxMode::Math =>
+            {
+                return self.raw();
+            }
             Some(c) => match self.mode {
                 SyntaxMode::Markup => self.markup(start, c),
+                SyntaxMode::String => self.string(c),
                 SyntaxMode::Math => match self.math(start, c) {
                     (kind, None) => kind,
                     (kind, Some(node)) => return (kind, node),
@@ -510,6 +529,12 @@ impl Lexer<'_> {
     }
 
     fn backslash(&mut self) -> SyntaxKind {
+        let escape_kind = if self.mode == SyntaxMode::String {
+            SyntaxKind::StrEscape
+        } else {
+            SyntaxKind::Escape
+        };
+
         if self.s.eat_if("u{") {
             let hex = self.s.eat_while(char::is_ascii_alphanumeric);
             if !self.s.eat_if('}') {
@@ -524,14 +549,16 @@ impl Lexer<'_> {
                 return self.error(eco_format!("invalid Unicode codepoint: {hex}"));
             }
 
-            return SyntaxKind::Escape;
+            return escape_kind;
         }
 
-        if self.s.done() || self.s.at(char::is_whitespace) {
+        if self.mode != SyntaxMode::String
+            && (self.s.done() || self.s.at(char::is_whitespace))
+        {
             SyntaxKind::Linebreak
         } else {
             self.s.eat();
-            SyntaxKind::Escape
+            escape_kind
         }
     }
 
@@ -656,7 +683,7 @@ impl Lexer<'_> {
     fn math(&mut self, start: usize, c: char) -> (SyntaxKind, Option<SyntaxNode>) {
         let kind = match c {
             '\\' => self.backslash(),
-            '"' => self.string(),
+            '"' => SyntaxKind::StrQuote,
 
             '-' if self.s.eat_if(">>") => SyntaxKind::MathShorthand,
             '-' if self.s.eat_if('>') => SyntaxKind::MathShorthand,
@@ -843,7 +870,7 @@ impl Lexer<'_> {
             '<' if self.s.at(is_id_continue) => self.label(),
             '0'..='9' => self.number(start, c),
             '.' if self.s.at(char::is_ascii_digit) => self.number(start, c),
-            '"' => self.string(),
+            '"' => SyntaxKind::StrQuote,
 
             '=' if self.s.eat_if('=') => SyntaxKind::EqEq,
             '!' if self.s.eat_if('=') => SyntaxKind::ExclEq,
@@ -1053,19 +1080,22 @@ impl Lexer<'_> {
         }
     }
 
-    fn string(&mut self) -> SyntaxKind {
-        let mut escaped = false;
-        self.s.eat_until(|c| {
-            let stop = c == '"' && !escaped;
-            escaped = c == '\\' && !escaped;
-            stop
-        });
-
-        if !self.s.eat_if('"') {
-            return self.error("unclosed string");
+    fn string(&mut self, c: char) -> SyntaxKind {
+        match c {
+            '\\' => self.backslash(),
+            '"' => SyntaxKind::StrQuote,
+            '#' if self.string_interpolation => SyntaxKind::Hash,
+            _ => {
+                if self.string_interpolation {
+                    self.s.eat_while(|c: char| {
+                        !matches!(c, '\\' | '"' | '#') && !is_newline(c)
+                    });
+                } else {
+                    self.s.eat_while(|c: char| !matches!(c, '\\' | '"'));
+                }
+                SyntaxKind::StrText
+            }
         }
-
-        SyntaxKind::Str
     }
 }
 

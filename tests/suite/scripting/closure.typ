@@ -26,6 +26,13 @@
   test(h(2), 5)
 }
 
+--- closure-compat eval ---
+// The closure from the package receives the same preferred version as the
+// package. Use an explicit version here to ensure we're not accidentally
+// using the current one for both.
+#import "@test/compat-preferred:0.1.0": preferred, preferred-deferred
+#test(preferred, preferred-deferred())
+
 --- closure-capture-from-popped-stack-frame eval ---
 // Capture environment.
 #{
