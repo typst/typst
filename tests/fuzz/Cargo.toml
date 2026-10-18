@@ -23,6 +23,10 @@ libfuzzer-sys = { workspace = true }
 [lints]
 workspace = true
 
+[lib]
+test = false
+doc = false
+
 [[bin]]
 name = "parse"
 path = "src/bin/parse.rs"
