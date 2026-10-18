@@ -60,6 +60,20 @@ impl<'a> GridLayouter<'a> {
         // Assuming non-conflicting headers sorted by increasing y, this must
         // be the header with the lowest level (sorted by increasing levels).
         let first_level = first_header.level;
+        let short_lived = consecutive_headers.last().is_some_and(|h| h.short_lived);
+
+        if short_lived {
+            // No chance of orphans as we're immediately placing conflicting
+            // headers afterwards, which basically are not headers, for all intents
+            // and purposes. It is therefore guaranteed that all new headers have
+            // been placed at least once.
+            //
+            // This must happen before removing conflicting headers below, as
+            // the heights of pending headers are already stored in
+            // 'repeating_header_heights', so they have to be moved to
+            // 'repeating_headers' first to keep both vectors in sync.
+            self.flush_orphans();
+        }
 
         // Stop repeating conflicting headers, even if the new headers are
         // short-lived or won't repeat.
@@ -80,13 +94,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // Layout short-lived headers immediately.
-        if consecutive_headers.last().is_some_and(|h| h.short_lived) {
-            // No chance of orphans as we're immediately placing conflicting
-            // headers afterwards, which basically are not headers, for all intents
-            // and purposes. It is therefore guaranteed that all new headers have
-            // been placed at least once.
-            self.flush_orphans();
-
+        if short_lived {
             // Layout each conflicting header independently, without orphan
             // prevention (as they don't go into 'pending_headers').
             // These headers are short-lived as they are immediately followed by a
