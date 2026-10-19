@@ -26,6 +26,10 @@ body.docs > .main-grid {
   justify-content: center;
 }
 
+.main-grid > main {
+  min-width: 0;
+}
+
 @media screen and (max-width: 1024px) {
   .main-grid {
     display: grid;
@@ -247,8 +251,12 @@ math {
 
 main table {
   border-collapse: collapse;
-  margin-block: 16px;
   width: 100%;
+}
+
+.docs-table-scroll {
+  margin-block: 16px;
+  overflow-x: auto;
 }
 
 main table thead {

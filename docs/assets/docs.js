@@ -50,7 +50,9 @@ function setUpKeyboardNavigation() {
   const nextBtn = document.querySelector(".page-end-buttons a.next");
 
   window.addEventListener("keyup", (e) => {
-    const inputs = document.querySelectorAll("textarea:focus, input:focus");
+    const inputs = document.querySelectorAll(
+      "textarea:focus, input:focus, .docs-table-scroll:focus-within",
+    );
     if (inputs.length > 0) {
       return;
     }
