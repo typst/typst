@@ -600,3 +600,15 @@
   grid.header([2], level: 3),
   rect(width: 10pt, height: 3em, fill: red),
 )
+
+--- issue-8954-grid-subheaders-short-lived-after-pending paged ---
+// A short-lived subheader placed right after a pending header must not
+// discard the pending header's height.
+#set page(height: 8em)
+#grid(
+  [w],
+  grid.header([a]),
+  grid.header(level: 2, [b]),
+  grid.header(level: 2, [c]),
+  ..([z],) * 6,
+)
