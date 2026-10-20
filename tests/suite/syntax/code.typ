@@ -82,3 +82,13 @@
   // Hint: 3-5 in Typst, `!=` is used for not-equal
   ~=
 }
+
+--- length-space-hint eval ---
+// Error: 15 expected comma
+// Hint: 15 did you mean `1pt`?
+#box(stroke: 1 pt)[H]
+
+--- length-space-no-hint eval ---
+// Error: 15 expected comma
+#box(stroke: a pt)[H]
+

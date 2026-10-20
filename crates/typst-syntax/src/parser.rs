@@ -1173,6 +1173,10 @@ fn array_or_dict_item(p: &mut Parser, state: &mut GroupState) {
     }
 }
 
+fn is_length_unit(text: &str) -> bool {
+    matches!(text, "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr")
+}
+
 /// Parses a function call's argument list: `(12pt, y)`.
 fn args(p: &mut Parser) {
     if !p.directly_at(SyntaxKind::LeftParen) && !p.directly_at(SyntaxKind::LeftBracket) {
@@ -1198,7 +1202,42 @@ fn args(p: &mut Parser) {
                 arg(p, &mut seen);
 
                 if !p.current().is_terminator() {
-                    p.expect(SyntaxKind::Comma);
+                    let unit_case =
+                        p.at(SyntaxKind::Ident) && is_length_unit(p.current_text());
+                    let mut found: Option<EcoString> = None;
+                    for node in p.nodes.iter().rev() {
+                        if node.kind().is_trivia() {
+                            continue;
+                        }
+                        if matches!(node.kind(), SyntaxKind::Int | SyntaxKind::Float) {
+                            found = Some(node.leaf_text().clone());
+                        } else if node.children().len() != 0 {
+                            for node_child in node.children().rev() {
+                                if node_child.kind().is_trivia() {
+                                    continue;
+                                } else if matches!(
+                                    node_child.kind(),
+                                    SyntaxKind::Int | SyntaxKind::Float
+                                ) {
+                                    found = Some(node_child.leaf_text().clone());
+                                }
+                            }
+                        }
+                        break;
+                    }
+                    if unit_case {
+                        if let Some(num) = found {
+                            let unit = p.current_text();
+                            p.expected("comma");
+                            p.hint(
+                                eco_format!("did you mean `{}{}`?", num, unit).as_str(),
+                            );
+                        } else {
+                            p.expect(SyntaxKind::Comma);
+                        }
+                    } else {
+                        p.expect(SyntaxKind::Comma);
+                    }
                 }
             }
 
