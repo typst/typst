@@ -215,7 +215,7 @@ pub struct EvalCommand {
     pub target: Target,
 
     /// The format to serialize in.
-    #[clap(long = "format", default_value_t)]
+    #[clap(long = "format", short = 'f', default_value_t)]
     pub format: EvalSerializationFormat,
 
     /// Whether to pretty-print the serialized output.
