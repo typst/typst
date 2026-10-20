@@ -230,7 +230,6 @@ impl ShapedGlyph {
         &self,
         style: CjkPunctStyle,
         limits: &JustificationLimits,
-        font_size: Abs,
         stretchable: bool,
     ) -> Adjustability {
         let width = self.x_advance;
@@ -249,7 +248,7 @@ impl ShapedGlyph {
                 stretchability: (
                     Em::zero(),
                     (max - Rel::one())
-                        .map(|length| Em::from_length(length, font_size))
+                        .map(|length| Em::from_length(length, self.size))
                         .relative_to(width)
                         .max(Em::zero()),
                 ),
@@ -257,7 +256,7 @@ impl ShapedGlyph {
                     Em::zero(),
                     limited(
                         (Rel::one() - min)
-                            .map(|length| Em::from_length(length, font_size))
+                            .map(|length| Em::from_length(length, self.size))
                             .relative_to(width),
                     ),
                 ),
@@ -281,11 +280,11 @@ impl ShapedGlyph {
             Adjustability {
                 stretchability: (
                     Em::zero(),
-                    Em::from_length(limits.tracking().max, font_size).max(Em::zero()),
+                    Em::from_length(limits.tracking().max, self.size).max(Em::zero()),
                 ),
                 shrinkability: (
                     Em::zero(),
-                    limited(Em::from_length(-limits.tracking().min, font_size)),
+                    limited(Em::from_length(-limits.tracking().min, self.size)),
                 ),
             }
         } else {
@@ -1269,10 +1268,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
 
 /// Apply text spacing to the shaped glyphs.
 fn apply_spacing(ctx: &mut ShapingContext) {
-    let spacing = ctx
-        .styles
-        .resolve(TextElem::spacing)
-        .map(|abs| Em::from_abs(abs, ctx.size));
+    let spacing = ctx.styles.get(TextElem::spacing);
 
     for glyph in &mut ctx.glyphs {
         if glyph.is_space() {
@@ -1280,14 +1276,16 @@ fn apply_spacing(ctx: &mut ShapingContext) {
             if glyph.c == '\u{00A0}' {
                 glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
             }
-            glyph.x_advance = spacing.relative_to(glyph.x_advance);
+            glyph.x_advance = spacing
+                .map(|length| Em::from_length(length, glyph.size))
+                .relative_to(glyph.x_advance);
         }
     }
 }
 
 /// Apply tracking to the shaped glyphs.
 fn apply_tracking(ctx: &mut ShapingContext) {
-    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
+    let tracking = ctx.styles.get(TextElem::tracking);
     if tracking.is_zero() {
         return;
     }
@@ -1298,7 +1296,7 @@ fn apply_tracking(ctx: &mut ShapingContext) {
             .peek()
             .is_some_and(|next| glyph.range.start != next.range.start)
         {
-            glyph.x_advance += tracking;
+            glyph.x_advance += Em::from_length(tracking, glyph.size);
         }
     }
 }
@@ -1308,7 +1306,6 @@ fn apply_tracking(ctx: &mut ShapingContext) {
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
     let limits = ctx.styles.get(ParElem::justification_limits);
-    let font_size = ctx.size;
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
@@ -1317,8 +1314,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
         let stretchable =
             glyphs.peek().is_none_or(|next| glyph.range.start != next.range.start);
 
-        glyph.adjustability =
-            glyph.base_adjustability(style, &limits, font_size, stretchable);
+        glyph.adjustability = glyph.base_adjustability(style, &limits, stretchable);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
