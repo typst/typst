@@ -137,25 +137,6 @@ impl Segment<'_> {
     }
 }
 
-#[derive(Default)]
-struct EventCollectionState<'a> {
-    /// Events with no matching start tag, carried over from previous paragraphs.
-    initial_events: Vec<Event>,
-
-    /// Paragraph-wide link, according to the flow layouter. Normally, this link
-    /// is applied at the very end of the paragraph (this is then set to
-    /// `None`), unless the whole paragraph is a #link[...], in which case we
-    /// must not apply it again.
-    shared_link: Option<&'a Linkage>,
-
-    /// The link active in the previously collected item. Used to detect changes
-    /// in links.
-    prev_link: Option<&'a Linkage>,
-
-    /// Links with currently unclosed marker tags.
-    active_links: Vec<Linkage>,
-}
-
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
@@ -289,21 +270,17 @@ pub fn collect<'a>(
                     collector.push_item(Item::Tag(&elem.tag));
 
                     if let Some(link_marker) = content.to_packed::<LinkMarker>()
-                        && !FrameModifiers::get_in(styles).hidden
+                        && !styles.get(HideElem::hidden)
                     {
-                        let dest = link_marker.dest.clone();
                         let location = elem.tag.location();
+                        let dest = link_marker.dest.clone();
                         let link = Linkage::new(location, dest);
                         collector.push_event(Event::StartLink(link.clone()));
                         events.active_links.push(link);
 
-                        if let Some(l) = events.shared_link
-                            && l.origin == location
-                        {
-                            // Link spanning the entire paragraph starts and
-                            // ends within it, so don't apply it twice.
-                            events.shared_link = None;
-                        }
+                        // If a link spanning the entire paragraph starts within
+                        // it, don't apply it twice.
+                        events.shared_link.take_if(|l| l.origin == location);
                     }
                 }
                 Tag::End(location, _, _) => {
@@ -312,22 +289,21 @@ pub fn collect<'a>(
                     {
                         collector.push_event(Event::EndLink(link));
 
-                    // End tag doesn't contain a link's destination - in fact,
-                    // we can't even know if this is ending a link or some other
-                    // element.
+                    // An end tag doesn't contain a link's destination - in
+                    // fact, we can't even know if this is ending a link or some
+                    // other element.
                     //
-                    // So, instead, check for changes in the stylechain before
+                    // So, instead, check for changes in the style chain before
                     // and after this end tag.
                     //
-                    // Empirically, we see that the link style is already
-                    // reverted at the end tag, so we compare with the previous
-                    // link style. If it changed, means this tag was ending a
-                    // link marker element.
+                    // The link style is already reverted at the end tag, so we
+                    // compare with the previous link style. If it changed,
+                    // it means this tag was ending a link marker element.
                     } else if let Some(link) = events.prev_link
                         && link.origin == *location
-                        && !FrameModifiers::get_in(styles).hidden
+                        && !styles.get(HideElem::hidden)
                     {
-                        events.initial_events.push(Event::StartLink(link.clone()));
+                        events.initial.push(Event::StartLink(link.clone()));
                         collector.push_event(Event::EndLink(link.clone()));
                     }
 
@@ -356,16 +332,16 @@ pub fn collect<'a>(
     if let Some(link) = events.shared_link
         && !config.hidden
     {
-        events.initial_events.push(Event::StartLink(link.clone()));
+        events.initial.push(Event::StartLink(link.clone()));
         collector.push_event(Event::EndLink(link.clone()));
     }
 
-    // Note that we return the 'initial_events' vector directly instead of
+    // Note that we return the `initial` events vector directly instead of
     // prepending it to segments as that is a potentially much more costly
     // operation, whereas we can just have lines treat those events as events
     // that started in a previous line (even though they didn't, the effect is
     // the same: they didn't start in the current line).
-    Ok((collector.full, events.initial_events, collector.segments, collector.spans))
+    Ok((collector.full, events.initial, collector.segments, collector.spans))
 }
 
 /// Collects segments.
@@ -427,6 +403,23 @@ impl<'a> Collector<'a> {
     fn push_event(&mut self, event: Event) {
         self.segments.push(Segment::Event(event));
     }
+}
+
+/// State for turning link start/end tags into matched events.
+#[derive(Default)]
+struct EventCollectionState<'c> {
+    /// Events with no matching start tag, carried over from previous paragraphs.
+    initial: Vec<Event>,
+    /// Paragraph-wide link, according to the flow layouter. Normally, this link
+    /// is applied at the very end of the paragraph (this is then set to
+    /// `None`), unless the whole paragraph is a `#link[...]`, in which case we
+    /// must not apply it again.
+    shared_link: Option<&'c Linkage>,
+    /// The link active in the previously collected item. Used to detect changes
+    /// in links.
+    prev_link: Option<&'c Linkage>,
+    /// Links with currently unclosed marker tags.
+    active_links: Vec<Linkage>,
 }
 
 /// Maps byte offsets back to spans.

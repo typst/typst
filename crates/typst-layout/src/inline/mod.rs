@@ -304,7 +304,7 @@ struct Config {
     cjk_latin_spacing: bool,
     /// Costs for various layout decisions.
     costs: Costs,
-    /// The link active throughout the whole paragraph.
+    /// A link that is active throughout the whole paragraph, if any.
     link: Option<Linkage>,
     /// Whether `#hide` is active for the whole paragraph.
     ///

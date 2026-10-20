@@ -139,7 +139,8 @@ where
     layout_and_modify_internal(modifiers, styles, layout, true)
 }
 
-/// Performs layout and modification in one step, except for links, which are handled by other parts of layout.
+/// Performs layout and modification in one step, except for links, which are
+/// handled by other parts of layout.
 pub fn layout_and_modify_without_links<F, R>(styles: StyleChain<'_>, layout: F) -> R
 where
     F: FnOnce(StyleChain) -> R,
@@ -149,7 +150,7 @@ where
 
     // While we could set 'modifiers.dest = None' directly here, a boolean
     // argument is used so the function remembers to reset the link in the
-    // stylechain before removing it from modifiers.
+    // style chain before removing it from modifiers.
     layout_and_modify_internal(modifiers, styles, layout, false)
 }
 
