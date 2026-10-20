@@ -26,6 +26,7 @@ e99a2f88fc6c9b8dd53f93dff7349e69 bibliography-basic
 8aff142e3b3fa2346adf9fa8ba26a2c3 bibliography-custom-title
 996fb89951494a51c46665602c09aed6 bibliography-full
 b3bda22e80497127c0723feb2567b014 bibliography-grid-par
+ad5fd9d9f767d25fcb8f590a0d5ab874 bibliography-hanging-indent
 1e0bc923295d21dd96ee8294b754fbd0 bibliography-indent-par
 61f10efa6ef4c9a673d6fe67db1459af bibliography-math
 43e7375fde2ad3513fe9bbb0391326dd bibliography-multiple-files
@@ -648,6 +649,9 @@ d7e747618f807797dfc14a5b8e095722 image-png
 38e2825888ec001ab03967a9e826313a image-sizing
 2245747605a5a367af3307269a6b6fb9 image-svg-auto-detection
 2dc50c9b4b068365275a73a2d7938c3d image-svg-complex
+729298263697063e6b4e2284507e45f4 image-svg-foreign-object-inside-switch-svg1-1
+cacfda0d293e21b5d34407e9bd6e037b image-svg-foreign-object-inside-switch-svg2-0
+6b4a82bc71c8ff9f2ae9ac46173641a5 image-svg-foreign-object-warning
 820c430cc968099a09f5e4cba90add3a image-svg-linked-jpg1
 25605f669b104dd08db5ead2b4ce15e9 image-svg-linked-jpg2
 1d1897157b1d9014307a3f8120c1d72b image-svg-linked-many-formats

@@ -543,7 +543,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
             self.composer.float(
                 placed,
                 &self.regions,
-                self.items.iter().any(|item| matches!(item, Item::Frame(..))),
+                self.has_frame(),
                 Migration::ALLOW,
             )?;
             self.use_height(weak_spacing);
@@ -716,6 +716,11 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
         }
 
         Ok((output, used_height_without_fr))
+    }
+
+    /// Whether we already distributed an in-flow frame into this region.
+    fn has_frame(&self) -> bool {
+        self.items.iter().any(|item| matches!(item, Item::Frame(..)))
     }
 
     /// Create a snapshot of the work and items.

@@ -1,4 +1,5 @@
 use ecow::eco_format;
+use typst_syntax::Spanned;
 use typst_utils::singleton;
 
 use crate::diag::{HintedStrResult, SourceResult, StrResult, bail};
@@ -951,7 +952,7 @@ impl Construct for ParLineMarker {
 }
 
 impl Count for Packed<ParLineMarker> {
-    fn update(&self) -> Option<CounterUpdate> {
+    fn update(&self) -> Option<Spanned<CounterUpdate>> {
         // The line counter must be updated manually by the root flow.
         None
     }

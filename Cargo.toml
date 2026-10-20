@@ -30,9 +30,9 @@ typst-pdf = { path = "crates/typst-pdf", version = "0.15.1" }
 typst-realize = { path = "crates/typst-realize", version = "0.15.1" }
 typst-render = { path = "crates/typst-render", version = "0.15.1" }
 typst-svg = { path = "crates/typst-svg", version = "0.15.1" }
-typst-syntax = { path = "crates/typst-syntax", version = "0.15.1" }
+typst-syntax = { path = "crates/typst-syntax", version = "0.15.1", features = ["timing"] }
 typst-timing = { path = "crates/typst-timing", version = "0.15.1" }
-typst-utils = { path = "crates/typst-utils", version = "0.15.1" }
+typst-utils = { path = "crates/typst-utils", version = "0.15.1", default-features = false }
 typst-assets = { git = "https://github.com/typst/typst-assets", rev = "94dcb99" }
 typst-dev-assets = { git = "https://github.com/typst/typst-dev-assets", rev = "e26d7ca" }
 arrayvec = "0.7.4"

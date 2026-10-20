@@ -21,7 +21,7 @@ typst-macros = { workspace = true }
 typst-realize = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 arrayvec = { workspace = true }
 comemo = { workspace = true }
 ecow = { workspace = true }

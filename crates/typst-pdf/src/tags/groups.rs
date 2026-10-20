@@ -503,6 +503,10 @@ impl GroupKind {
         matches!(self, Self::Link(..))
     }
 
+    pub fn is_figure(&self) -> bool {
+        matches!(self, Self::Figure(..) | Self::Image(..))
+    }
+
     pub fn to_artifact(
         &self,
         options: &PdfOptions<Complete>,

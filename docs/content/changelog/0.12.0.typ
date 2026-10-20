@@ -157,7 +157,7 @@
 - Added @int.from-bytes, @int.to-bytes, @float.from-bytes, and @float.to-bytes
 - Added proper support for negative values of the `digits` parameter of @calc.round (the behaviour existed before but was subtly broken)
 - Conversions from @int to @float will now error instead of saturating if the float is too large *(Minor breaking change)*
-- Added `float.nan` and `float.inf`, removed `calc.nan` *(Minor breaking change)*
+- Added @float.nan and @float.inf, removed `{calc.nan}` *(Minor breaking change)*
 - Certain symbols are now generally callable like functions and not only specifically in math. Examples are accents or @math.floor[`floor`] and @math.ceil[`ceil`].
 - Improved @repr of relative values, sequences, infinities, NaN, `{type(none)}` and `{type(auto)}`
 - Fixed crash on whole packages (rather than just files) cyclically importing each other

@@ -49,9 +49,6 @@ pub const DOCS_ROOT: PackageSpec = PackageSpec {
     version: PackageVersion { major: 0, minor: 0, patch: 0 },
 };
 
-/// The default entrypoint into the docs.
-const ENTRYPOINT: &str = "docs/main.typ";
-
 /// A world for docs compilation.
 pub struct DocWorld {
     /// Typst's standard library, extended with docs-specific functionality.
@@ -67,8 +64,11 @@ impl DocWorld {
     /// and entrypoint file.
     pub fn new(config: &Config) -> Self {
         Self {
-            library: LazyHash::new(library(config.is_dev_version)),
-            files: FileStore::new(DocsFiles::new(config.input.as_deref())),
+            library: LazyHash::new(library(config.is_dev_version, &config.sys_inputs)),
+            files: FileStore::new(DocsFiles::new(
+                config.input.as_ref(),
+                &config.workspace,
+            )),
             now: Time::system(),
         }
     }
@@ -137,9 +137,9 @@ struct DocsFiles {
 }
 
 impl DocsFiles {
-    fn new(input: Option<&Path>) -> Self {
+    fn new(input: &Path, workspace: &Path) -> Self {
         // Resolve the system-global input path.
-        let path = input.unwrap_or(Path::new(ENTRYPOINT)).canonicalize().unwrap();
+        let path = input.canonicalize().unwrap();
 
         // Resolve the system-global root directory.
         let root: PathBuf = path.parent().unwrap().into();
@@ -154,8 +154,8 @@ impl DocsFiles {
         Self {
             main,
             project: FsRoot::new(root),
-            repo: FsRoot::new(".".into()),
-            docs: FsRoot::new("docs".into()),
+            repo: FsRoot::new(workspace.into()),
+            docs: FsRoot::new(workspace.join("docs")),
         }
     }
 
@@ -198,7 +198,13 @@ pub static FONTS: LazyLock<(LazyHash<FontBook>, Vec<Font>)> = LazyLock::new(|| {
 /// A standard library that is extended for docs compilation. Includes
 /// - an `stdx` module with various utilities
 /// - a few patched show rules
-fn library(is_dev_version: bool) -> Library {
+fn library(is_dev_version: bool, sys_inputs: &[(String, String)]) -> Library {
+    // Convert the input pairs to a dictionary.
+    let inputs: Dict = sys_inputs
+        .iter()
+        .map(|(k, v)| (k.as_str().into(), v.as_str().into_value()))
+        .collect();
+
     let mut lib = Library::builder([
         typst_html::FORMAT,
         typst_pdf::FORMAT,
@@ -206,6 +212,7 @@ fn library(is_dev_version: bool) -> Library {
         typst_render::FORMAT,
         typst_bundle::FORMAT,
     ])
+    .with_inputs(inputs)
     .with_features(Features::all())
     .build();
     let scope = lib.global.scope_mut();

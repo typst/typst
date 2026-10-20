@@ -23,7 +23,7 @@ $bird "or" 🐦‍⬛$
 #set text(font: "Noto Color Emoji")
 #show math.equation: set text(font: "Noto Color Emoji")
 #bird or 🐦‍⬛
-// Warning: 1-16 current font is not designed for math
+// Warning: 1-16 font family is not designed for math: Noto Color Emoji
 // Hint: 1-16 rendering may be poor
 $bird "or" 🐦‍⬛$
 
@@ -60,7 +60,7 @@ $ cal(P)_i (X) * cal(C)_1 $
 
 --- math-font-warning paged ---
 #show math.equation: set text(font: "Libertinus Serif")
-// Warning: 1-14 current font is not designed for math
+// Warning: 1-14 font family is not designed for math: Libertinus Serif
 // Hint: 1-14 rendering may be poor
 $ x + y = z $
 

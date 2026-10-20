@@ -18,7 +18,7 @@ typst-library = { workspace = true }
 typst-macros = { workspace = true }
 typst-syntax = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 arrayvec = { workspace = true }
 bumpalo = { workspace = true }
 codex = { workspace = true }

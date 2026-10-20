@@ -376,18 +376,44 @@ fn to_u32_saturated(value: usize) -> u32 {
     value.try_into().unwrap_or(u32::MAX)
 }
 
+/// A [`Spanned`] value whose `span` does not participate in its [`PartialEq`]
+/// implementation.
+pub type LooselySpanned<T, S = Span> = Spanned<T, S, false>;
+
 /// A value with a span locating it in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Hash)]
 #[expect(private_bounds)]
-pub struct Spanned<T, S: Copy + SpanDetached = Span> {
+pub struct Spanned<T, S: Copy + SpanDetached = Span, const SPAN_EQ: bool = true> {
     /// The spanned value.
     pub v: T,
     /// The value's location in source code.
     pub span: S,
 }
 
+impl<T: Eq, S: Copy + SpanDetached + Eq> Eq for Spanned<T, S, true> {}
+
+impl<T, S> PartialEq for Spanned<T, S, true>
+where
+    T: PartialEq,
+    S: Copy + SpanDetached + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.v == other.v && self.span == other.span
+    }
+}
+
+impl<T, S> PartialEq for Spanned<T, S, false>
+where
+    T: PartialEq,
+    S: Copy + SpanDetached + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.v == other.v
+    }
+}
+
 #[expect(private_bounds)]
-impl<T, S: Copy + SpanDetached> Spanned<T, S> {
+impl<T, S: Copy + SpanDetached, const SPAN_EQ: bool> Spanned<T, S, SPAN_EQ> {
     /// Create a new instance from a value and its span.
     pub const fn new(v: T, span: S) -> Self {
         Self { v, span }
@@ -399,19 +425,29 @@ impl<T, S: Copy + SpanDetached> Spanned<T, S> {
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
-    pub const fn as_ref(&self) -> Spanned<&T, S> {
+    pub const fn as_ref(&self) -> Spanned<&T, S, SPAN_EQ> {
         Spanned { v: &self.v, span: self.span }
     }
 
     /// Map the value using a function.
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U, S> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U, S, SPAN_EQ> {
         Spanned { v: f(self.v), span: self.span }
     }
 }
 
-impl<T: Debug, S: Copy + SpanDetached> Debug for Spanned<T, S> {
+impl<T: Debug, S: Copy + SpanDetached, const SPAN_EQ: bool> Debug
+    for Spanned<T, S, SPAN_EQ>
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)
+    }
+}
+
+impl<T: Default, S: Copy + SpanDetached, const SPAN_EQ: bool> Default
+    for Spanned<T, S, SPAN_EQ>
+{
+    fn default() -> Self {
+        Self { v: Default::default(), span: S::SPAN_DETACHED }
     }
 }
 

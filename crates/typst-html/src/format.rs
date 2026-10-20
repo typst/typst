@@ -87,7 +87,7 @@ pub const FORMAT: Format = Format::new::<HtmlFormat>().with_feature(Feature::Htm
 ///   (
 ///     name: "typed",
 ///     title: "Typed HTML",
-///     items: dictionary(stdx.describe(html).scope)
+///     definitions: dictionary(stdx.describe(html).scope)
 ///       .filter(val => "typed-html" in stdx.describe(val).keywords),
 ///     description: "Documentation for the typed HTML API.",
 ///     docs: [

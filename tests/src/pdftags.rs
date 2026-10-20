@@ -304,6 +304,31 @@ fn format_annotation(f: &mut Formatter, page_ref: ObjRef, annot: &Dict) -> StrRe
             format_attr(f, "URI", val, format_str)?;
         }
     }
+    if let Some(val) = annot.get::<Object>(keys::RECT) {
+        format_attr(f, "Rect", val, |f, val| format_array(f, val, format_float))?;
+    }
+    if let Some(val) = annot.get::<Object>(keys::QUADPOINTS) {
+        format_attr(f, "QuadPoints", val, |f, val| {
+            let Object::Array(array) = val else { return Err(()) };
+            let mut iter = array.iter::<Object>();
+
+            while let quad = [(); 8].map(|()| iter.next())
+                && quad.iter().flatten().count() != 0
+            {
+                writeln!(f).ok();
+                write!(f, "- [").ok();
+                for (i, val) in quad.iter().flatten().enumerate() {
+                    if i != 0 {
+                        write!(f, ", ").ok();
+                    }
+                    format_float(f, val)?;
+                }
+                write!(f, "]").ok();
+            }
+            {}
+            Ok(())
+        })?;
+    }
     f.indent -= 1;
 
     Ok(())

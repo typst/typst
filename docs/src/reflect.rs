@@ -55,7 +55,13 @@ pub fn binding(scope: ToScope, name: EcoString) -> Option<Dict> {
         "deprecation" => binding.deprecation().map(|d| dict! {
             "message" => d.message(),
             "until" => d.until(),
-        })
+        }),
+        "name" => binding.name(),
+        "title" => binding.title(),
+        "docs" => binding.docs(),
+        "since" => binding.since(),
+        "keywords" => binding.keywords(),
+        "def-site" => binding.def_site().map(describe_def_site),
     })
 }
 

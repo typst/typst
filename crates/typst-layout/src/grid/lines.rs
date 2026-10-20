@@ -3,6 +3,7 @@ use std::sync::Arc;
 use typst_library::foundations::{AlternativeFold, Fold};
 use typst_library::layout::Abs;
 use typst_library::layout::grid::resolve::{CellGrid, Line, Repeatable};
+use typst_library::layout::resolve::GridStroke;
 use typst_library::visualize::Stroke;
 
 use super::RowPiece;
@@ -89,7 +90,7 @@ where
             &CellGrid,
             usize,
             usize,
-            Option<Option<Arc<Stroke<Abs>>>>,
+            GridStroke<Abs>,
         ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)>
         + 'grid,
     I: IntoIterator<Item = (usize, Abs)>,
@@ -276,7 +277,7 @@ pub fn vline_stroke_at_row(
     grid: &CellGrid,
     x: usize,
     y: usize,
-    stroke: Option<Option<Arc<Stroke<Abs>>>>,
+    stroke: GridStroke<Abs>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
     // When the vline isn't at the border, we need to check if a colspan would
     // be present between columns 'x' and 'x-1' at row 'y', and thus overlap
@@ -401,7 +402,7 @@ pub fn hline_stroke_at_column(
     in_last_region: bool,
     y: usize,
     x: usize,
-    stroke: Option<Option<Arc<Stroke<Abs>>>>,
+    stroke: GridStroke<Abs>,
 ) -> Option<(Arc<Stroke<Abs>>, StrokePriority)> {
     // When the hline isn't at the border, we need to check if a rowspan
     // would be present between rows 'y' and 'y-1' at column 'x', and thus
