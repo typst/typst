@@ -155,3 +155,12 @@ foo #box[foo] foo
   set text(font: ("Noto Color Emoji", "Libertinus Serif"), fallback: false)
   [A#emoji.checkmark.box]
 })
+
+--- issue-text-tracking-cjk-punctuation-adjustment paged empty ---
+// Test that tracking is not considered part of the adjustability.
+#set text(lang: "zh", font: "Noto Serif CJK SC")
+#let t = [。」]
+#context test(
+  measure(text(tracking: 1em, t)).width,
+  measure(t).width + 1em.to-absolute(),
+)

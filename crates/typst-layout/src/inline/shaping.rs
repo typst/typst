@@ -18,7 +18,7 @@ use typst_library::text::{
     ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
     is_default_ignorable, language, variant,
 };
-use typst_utils::SliceExt;
+use typst_utils::{Numeric, SliceExt};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -811,8 +811,9 @@ fn shape<'a>(
         shape_segment(&mut ctx, base, text, families(styles));
     }
 
-    track_and_space(&mut ctx);
+    apply_spacing(&mut ctx);
     calculate_adjustability(&mut ctx, lang, region);
+    apply_tracking(&mut ctx);
 
     #[cfg(debug_assertions)]
     assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
@@ -1266,25 +1267,33 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
     }
 }
 
-/// Apply tracking and spacing to the shaped glyphs.
-fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
+/// Apply text spacing to the shaped glyphs.
+fn apply_spacing(ctx: &mut ShapingContext) {
     let spacing = ctx
         .styles
         .resolve(TextElem::spacing)
         .map(|abs| Em::from_abs(abs, ctx.size));
 
-    let mut glyphs = ctx.glyphs.iter_mut().peekable();
-    while let Some(glyph) = glyphs.next() {
-        // Make non-breaking space same width as normal space.
-        if glyph.c == '\u{00A0}' {
-            glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
-        }
-
+    for glyph in &mut ctx.glyphs {
         if glyph.is_space() {
+            // Make non-breaking space same width as normal space.
+            if glyph.c == '\u{00A0}' {
+                glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
+            }
             glyph.x_advance = spacing.relative_to(glyph.x_advance);
         }
+    }
+}
 
+/// Apply tracking to the shaped glyphs.
+fn apply_tracking(ctx: &mut ShapingContext) {
+    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
+    if tracking.is_zero() {
+        return;
+    }
+
+    let mut glyphs = ctx.glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
         if glyphs
             .peek()
             .is_some_and(|next| glyph.range.start != next.range.start)
