@@ -365,7 +365,7 @@ impl TagStorage {
 
 #[derive(Debug, Clone)]
 pub struct LocatedGroup {
-    /// INVARIANT: This is always non-empty.
+    /// Invariant: This is always non-empty.
     ids: SmallVec<[GroupId; 4]>,
     pub multiple_parents: bool,
 }
@@ -383,9 +383,10 @@ impl LocatedGroup {
         *self.ids.first().unwrap()
     }
 
-    /// The complete list of group IDs of this loated group.
-    /// This can only contain multiple entries, if either two elements with the
-    /// same location exist, or if a group has be broken up.
+    /// The complete list of group IDs of this located group.
+    ///
+    /// This can only contain multiple entries if either two elements with the
+    /// same location exist, or if a group has been broken up.
     pub fn ids(&self) -> &[GroupId] {
         &self.ids
     }
