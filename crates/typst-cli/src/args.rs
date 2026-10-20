@@ -20,7 +20,7 @@ use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// The character typically used to separate path components
 /// in environment variables.
-const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
+pub const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
 /// The overall structure of the help.
 #[rustfmt::skip]
