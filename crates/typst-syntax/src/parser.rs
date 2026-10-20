@@ -1215,7 +1215,8 @@ fn args(p: &mut Parser) {
                             for node_child in node.children().rev() {
                                 if node_child.kind().is_trivia() {
                                     continue;
-                                } else if matches!(
+                                }
+                                if matches!(
                                     node_child.kind(),
                                     SyntaxKind::Int | SyntaxKind::Float
                                 ) {
