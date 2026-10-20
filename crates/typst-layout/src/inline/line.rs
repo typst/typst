@@ -436,9 +436,10 @@ fn adjust_glyph_tracking_at_line_end(items: &mut Items) {
     let Some(glyph) = shaped.glyphs.last() else { return };
 
     if glyph.tracking_applied {
-        let tracking = Em::from_length(shaped.styles.get(TextElem::tracking), glyph.size);
+        let tracking = shaped.styles.get(TextElem::tracking);
         let glyph = shaped.glyphs.to_mut().last_mut().unwrap();
-        glyph.x_advance -= tracking;
+        glyph.x_advance -= Em::from_length(tracking, glyph.size);
+        glyph.tracking_applied = false;
     }
 }
 
