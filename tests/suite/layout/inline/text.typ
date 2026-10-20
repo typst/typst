@@ -155,3 +155,29 @@ foo #box[foo] foo
   set text(font: ("Noto Color Emoji", "Libertinus Serif"), fallback: false)
   [A#emoji.checkmark.box]
 })
+
+--- issue-text-tracking-cjk-punctuation-adjustment paged empty ---
+// Test that tracking is not considered part of the adjustability.
+#set text(lang: "zh", font: "Noto Serif CJK SC")
+#let t = [。」]
+#context test(
+  measure(text(tracking: 1em, t)).width,
+  measure(t).width + 1em.to-absolute(),
+)
+
+--- issue-text-tracking-synthesized-scripts paged empty ---
+// Check that we add the right tracking amount of tracking even with scaled-down
+// synthesized superscripts. Absolute tracking should stay as-is while em-based
+// tracking should be relative to the script size.
+#set super(typographic: false, size: 0.5em)
+#context test(
+  measure(super(text(tracking: 1pt + 1em)[A B])).width,
+  measure(super[A B]).width + 2 * (1pt + 0.5em.to-absolute()),
+)
+
+--- issue-text-spacing-synthesized-scripts paged empty ---
+#set super(typographic: false, size: 0.5em)
+#context test(
+  measure(super(text(spacing: 100% + 1pt + 1em)[A B])).width,
+  measure(super[A B]).width + 1pt + 0.5em.to-absolute(),
+)
