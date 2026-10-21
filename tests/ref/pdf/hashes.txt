@@ -1784,6 +1784,7 @@ b27a6e7991ac5caff0b8beaa8a14d127 space-collapsing-linebreaks
 b5655c565b9bf3eb7c2109d59dee24ba space-trailing-linebreak
 72fd80d34eed802258a78c1a6e0b292a spacing-fr-negative-total-negative
 c37f51076e3fec28411b865b1a7d6ee1 spacing-fr-negative-total-positive
+d20962d482ce088e0ba73f42dcac1df0 spacing-fr-overflow
 69ffd40d3c4dd98351a8b8636a56433b spacing-fr-weak-collapse
 e3f7430355741b2ac7fb4701577ee627 spacing-fr-weak-destructs-rel-abs
 d1a73098303b73194446d0919d1cdf1d spacing-fr-weak-destructs-smaller

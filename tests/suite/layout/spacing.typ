@@ -134,6 +134,13 @@ A #h(1fr) B
   box(width: -2fr, stroke: green, height: 100%)
 }
 
+--- spacing-fr-overflow paged ---
+// When the region is already overflowing, fr spacing should resolve relative to
+// 0pt rather than the negative remaining space.
+#set page(height: 40pt)
+#v(1fr)
+#rect(height: 60pt)
+
 --- spacing-missing-amount eval ---
 // Missing spacing.
 // Error: 10-13 missing argument: amount
