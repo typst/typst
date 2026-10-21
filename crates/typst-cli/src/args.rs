@@ -20,7 +20,7 @@ use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// The character typically used to separate path components
 /// in environment variables.
-const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
+pub const ENV_PATH_SEP: char = if cfg!(windows) { ';' } else { ':' };
 
 /// The overall structure of the help.
 #[rustfmt::skip]
@@ -215,7 +215,7 @@ pub struct EvalCommand {
     pub target: Target,
 
     /// The format to serialize in.
-    #[clap(long = "format", default_value_t)]
+    #[clap(long = "format", short = 'f', default_value_t)]
     pub format: EvalSerializationFormat,
 
     /// Whether to pretty-print the serialized output.

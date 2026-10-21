@@ -73,6 +73,7 @@ features = [
 
 [dev-dependencies]
 typst-dev-assets = { workspace = true }
+image = { workspace = true }
 memchr = { workspace = true }
 tempfile = { workspace = true }
 

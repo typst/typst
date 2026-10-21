@@ -107,6 +107,26 @@ A #h(1fr) B
 #v(1fr, weak: true)
 2
 
+--- spacing-fr-h-negative paged ---
+1 #h(2fr) 2 #h(-1fr) 3 #h(2fr) 4 \
+1 #h(-2fr) 2 #h(1fr) 3 #h(-2fr) 4
+
+--- spacing-fr-v-negative paged ---
+#set page(height: 100pt, width: 40pt)
+#grid(
+  columns: (1fr, 1fr),
+  align: (left, right),
+  [1 #v(2fr) 2 #v(-1fr) 3 #v(2fr) 4],
+  [1 #v(-2fr) 2 #v(1fr) 3 #v(-2fr) 4],
+)
+
+--- spacing-fr-overflow paged ---
+// When the region is already overflowing, fr spacing should resolve relative to
+// 0pt rather than the negative remaining space.
+#set page(height: 40pt)
+#v(1fr)
+#rect(height: 60pt)
+
 --- spacing-missing-amount eval ---
 // Missing spacing.
 // Error: 10-13 missing argument: amount

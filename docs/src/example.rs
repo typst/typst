@@ -160,9 +160,7 @@ fn page_to_image(page: Page) -> Content {
     // NOTE: This discards format options set by the document.
     let opts = RenderOptions::<Complete> {
         render_bleed: false,
-        format: PngFormatOptions {
-            pixel_per_pt: SpannedValue::detached(Scalar::new(2.0)),
-        },
+        format: PngFormatOptions { ppi: SpannedValue::detached(Scalar::new(144.0)) },
     };
     let pixmap = typst_render::render(&page, &opts);
     let format = ImageFormat::Raster(RasterFormat::Pixel(PixelFormat {

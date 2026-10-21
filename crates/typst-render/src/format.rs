@@ -97,22 +97,20 @@ impl Construct for PngFormat {
 /// Document settings for PNG export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct PngFormatOptions<F: Fields = Complete> {
-    /// The number of pixels per point to render at when exporting a PNG.
-    pub pixel_per_pt: F::Value<PngFormat, { PngFormat::ppi.index() }>,
+    /// The PPI (pixels per inch) to render at when exporting a PNG.
+    pub ppi: F::Value<PngFormat, { PngFormat::ppi.index() }>,
 }
 
 impl Populate for PngFormatOptions {
     fn populate(&mut self, styles: Spanned<StyleChain>) {
         // VOLATILE: This must be updated when adding more fields.
-        self.pixel_per_pt.populate(styles);
+        self.ppi.populate(styles);
     }
 }
 
 impl PngFormatOptions<Partial> {
     /// Resolves the [`Partial`] options to [`Complete`] ones, given defaults.
     pub fn resolve(&self, default: &PngFormatOptions) -> PngFormatOptions {
-        PngFormatOptions {
-            pixel_per_pt: Partial::resolve(self.pixel_per_pt, default.pixel_per_pt),
-        }
+        PngFormatOptions { ppi: Partial::resolve(self.ppi, default.ppi) }
     }
 }

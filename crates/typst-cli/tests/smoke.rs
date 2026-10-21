@@ -90,6 +90,55 @@ fn test_compile_no_pdf_tags_deprecated() {
 }
 
 #[test]
+fn test_compile_png_default_ppi() {
+    let project = tempfs();
+
+    let assert_size = |width: u32, height: u32| {
+        let size = image::image_dimensions(project.path().join("hello.png")).unwrap();
+        assert_eq!(size, (width, height));
+    };
+
+    // The default resolution is 144 pixels per inch.
+    let hello = project.write("hello.typ", "#page(width: 2in, height: 1in)[]");
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(144 * 2, 144);
+
+    // Specify via CLI.
+    exec()
+        .arg("compile")
+        .arg(&hello)
+        .arg("--format=png")
+        .arg("--ppi=300")
+        .must_succeed();
+    assert_size(300 * 2, 300);
+
+    // Specify in the style chain.
+    let hello = project.write(
+        "hello.typ",
+        "#set format.png(ppi: 300)\n#page(width: 2in, height: 1in)[]",
+    );
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(300 * 2, 300);
+
+    // Specify in the style chain multiple times.
+    let hello = project.write(
+        "hello.typ",
+        "#set format.png(ppi: 300)\n#set format.png(ppi: 600)\n#page(width: 2in, height: 1in)[]",
+    );
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(600 * 2, 600);
+
+    // CLI overrides the style chain.
+    exec()
+        .arg("compile")
+        .arg(&hello)
+        .arg("--format=png")
+        .arg("--ppi=144")
+        .must_succeed();
+    assert_size(144 * 2, 144);
+}
+
+#[test]
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);
@@ -342,9 +391,49 @@ fn test_tracepoints() {
         .must_contain(r#"include "chap" + "ter1.typ""#);
     output
         .stderr
+        .must_contain("while calling function")
+        .must_contain("main.typ:1:1")
+        .must_contain("show strong:");
+    output
+        .stderr
         .must_contain("while showing strong element at")
         .must_contain("main.typ:2:11")
         .must_contain("*Slightly unusual…*");
+}
+
+#[test]
+fn test_tracepoints_of_bare_show() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#let foo(body) = panic()
+         #show: foo",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    output
+        .stderr
+        .must_contain("while calling `foo`")
+        .must_contain("main.typ:2:1")
+        .must_contain("show: foo");
+}
+
+#[test]
+fn test_tracepoints_of_panic_in_show_rule() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#show strong: _ => panic()
+         *strong*",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    // The tracepoint is filtered out, because its span overlaps with the
+    // `panic()` call.
+    output.stderr.must_not_contain("while calling function");
+    output
+        .stderr
+        .must_contain("while showing strong element at")
+        .must_contain("main.typ:2:9")
+        .must_contain("*strong*");
 }
 
 #[test]
@@ -436,7 +525,13 @@ struct Stream<T = Vec<u8>>(T);
 impl<T: AsRef<[u8]>> Stream<T> {
     #[track_caller]
     fn must_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
-        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}",);
+        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}");
+        self
+    }
+
+    #[track_caller]
+    fn must_not_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
+        assert!(!self.contains(data.as_ref()), "{self:?} did contain {data:?}");
         self
     }
 

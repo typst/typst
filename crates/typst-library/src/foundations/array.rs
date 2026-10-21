@@ -10,7 +10,8 @@ use smallvec::SmallVec;
 use typst_syntax::{Span, Spanned};
 
 use crate::diag::{
-    At, HintedStrResult, HintedString, SourceDiagnostic, SourceResult, StrResult, bail,
+    At, CallSpanned, HintedStrResult, HintedString, SourceDiagnostic, SourceResult,
+    StrResult, bail,
 };
 use crate::engine::Engine;
 use crate::foundations::{
@@ -320,14 +321,10 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
-        searcher: Func,
+        searcher: Spanned<Func>,
     ) -> SourceResult<Option<Value>> {
         for item in self {
-            if searcher
-                .call(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(searcher.span())?
-            {
+            if searcher.call::<bool>(engine, context, [item.clone()])? {
                 return Ok(Some(item.clone()));
             }
         }
@@ -349,14 +346,10 @@ impl Array {
         /// // Or equivalently:
         /// #values.position(calc.even)
         /// ```
-        searcher: Func,
+        searcher: Spanned<Func>,
     ) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
-            if searcher
-                .call(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(searcher.span())?
-            {
+            if searcher.call::<bool>(engine, context, [item.clone()])? {
                 return Ok(Some(i as i64));
             }
         }
@@ -450,15 +443,11 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<Array> {
         let mut kept = EcoVec::new();
         for item in self {
-            if test
-                .call(engine, context, [item.clone()])?
-                .cast::<bool>()
-                .at(test.span())?
-            {
+            if test.call::<bool>(engine, context, [item.clone()])? {
                 kept.push(item.clone());
             }
         }
@@ -473,7 +462,7 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item.
-        mapper: Func,
+        mapper: Spanned<Func>,
     ) -> SourceResult<Array> {
         self.into_iter()
             .map(|item| mapper.call(engine, context, [item]))
@@ -627,7 +616,7 @@ impl Array {
         init: Value,
         /// The folding function. Must have two parameters: One for the
         /// accumulated value and one for an item.
-        folder: Func,
+        folder: Spanned<Func>,
     ) -> SourceResult<Value> {
         let mut acc = init;
         for item in self {
@@ -684,10 +673,10 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<bool> {
         for item in self {
-            if test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
+            if test.call::<bool>(engine, context, [item])? {
                 return Ok(true);
             }
         }
@@ -702,10 +691,10 @@ impl Array {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each item. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<bool> {
         for item in self {
-            if !test.call(engine, context, [item])?.cast::<bool>().at(test.span())? {
+            if !test.call::<bool>(engine, context, [item])? {
                 return Ok(false);
             }
         }
@@ -905,7 +894,7 @@ impl Array {
         /// If given, applies this function to each element in the array to
         /// determine the keys to sort by.
         #[named]
-        key: Option<Func>,
+        key: Option<Spanned<Func>>,
         /// If given, uses this function to compare every two elements in the
         /// array.
         ///
@@ -934,7 +923,7 @@ impl Array {
         /// )
         /// ```
         #[named]
-        by: Option<Func>,
+        by: Option<Spanned<Func>>,
     ) -> SourceResult<Array> {
         // We use `glidesort` instead of the standard library sorting algorithm
         // to prevent panics in case the comparison function does not define a
@@ -1070,7 +1059,7 @@ impl Array {
         /// #("apple", "banana", " apple ").dedup(key: s => s.trim())
         /// ```
         #[named]
-        key: Option<Func>,
+        key: Option<Spanned<Func>>,
     ) -> SourceResult<Array> {
         let mut out = EcoVec::with_capacity(self.0.len());
         let mut key_of = |x: Value| match &key {
@@ -1158,7 +1147,7 @@ impl Array {
         context: Tracked<Context>,
         /// The reducing function. Must have two parameters: One for the
         /// accumulated value and one for an item.
-        reducer: Func,
+        reducer: Spanned<Func>,
     ) -> SourceResult<Value> {
         let mut iter = self.into_iter();
         let mut acc = iter.next().unwrap_or_default();

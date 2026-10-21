@@ -47,6 +47,12 @@ Three
 #let ůñıćóðė = 1
 #test(ůñıćóðė, 1)
 
+--- let-invalid-grapheme-in-ident eval ---
+// Some combining marks, here U+20DD COMBINING ENCLOSING CIRCLE, can extend
+// grapheme clusters, but are not in `xid_continue`.
+// Error: 7-8 the character `⃝` is not valid in code
+#let A⃝BC = 5
+
 --- let-binding-keyword-in-markup eval ---
 // Error: 6-8 expected pattern, found keyword `as`
 // Hint: 6-8 keyword `as` is not allowed as an identifier; try `as_` instead
