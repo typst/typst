@@ -72,6 +72,7 @@ e976d0e7f971a2d6d9856d4f06dadfbf box-clip-radius
 f136d9a1d3f51c3c8c0e8c9fe4c9d10e box-clip-radius-without-stroke
 0ef9894656d2ab1e6e2731f5d83411f9 box-clip-rect
 e8aad04f2aa3cfa1297a4d8e054f0e9f box-fr-width
+ae0683398b1b2a993ceb7d67b0be33d4 box-fr-width-negative
 107b045ec3e3148de75b7b5c058060b3 call-basic
 c2b68c3ee1b4855256637f94efdabfc8 cases-content-symbol
 db780c3eb06dace5b538c9b50bc2a909 cases-content-text
@@ -1782,6 +1783,9 @@ b27a6e7991ac5caff0b8beaa8a14d127 space-collapsing-linebreaks
 9887f7a33ae9bffa3c52b31d76aba3d0 space-ideographic-kept
 0e39c0e9a1356ecc4957d5381c6b8932 space-thin-kept
 b5655c565b9bf3eb7c2109d59dee24ba space-trailing-linebreak
+ebfa9188ec0d697233b5a768af32588c spacing-fr-h-negative
+d20962d482ce088e0ba73f42dcac1df0 spacing-fr-overflow
+e5f770f4b17abfbf23e0af7db92d9fe5 spacing-fr-v-negative
 69ffd40d3c4dd98351a8b8636a56433b spacing-fr-weak-collapse
 e3f7430355741b2ac7fb4701577ee627 spacing-fr-weak-destructs-rel-abs
 d1a73098303b73194446d0919d1cdf1d spacing-fr-weak-destructs-smaller
@@ -1817,6 +1821,7 @@ dc6ada253c99c05148e524d00adae34e square-overflow-forced-width
 d68f24a3786ebd427ca78fea6c5dcccc square-size-beyond-default
 4659e649317a1cace7d2c30a9e7649ba stack-basic
 451d79ae5365d8f2fe7a0d8b87fb9453 stack-fr
+ddc87080a36838fa153cd18fb538e708 stack-fr-negative
 35d5c958784eeda1a859f36fd446b203 stack-overflow
 fd718e32ac291ad184331f695a811203 stack-rtl-align-and-fr
 01b050433f8d6afefdbc1a061bfe3ac3 stack-spacing
