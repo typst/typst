@@ -223,6 +223,8 @@ fn resolve_realized<'a>(
         resolve_undershell(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<OvershellElem>() {
         resolve_overshell(elem, ctx, styles)?;
+    } else if let Some(elem) = elem.to_packed::<AtopElem>() {
+        resolve_atop(elem, ctx, styles)?
     } else if let Some(body) =
         (ctx.engine.library.routines.html_mathml_body)(elem, styles)
     {
@@ -700,11 +702,11 @@ fn resolve_frac<'a>(
             elem.num_deparenthesized.get(styles),
             elem.denom_deparenthesized.get(styles),
         ),
-        FracStyle::Vertical => resolve_vertical_frac_like(
+        FracStyle::Vertical => resolve_atop_like(
             ctx,
             styles,
             &elem.num,
-            std::slice::from_ref(&elem.denom),
+            &elem.denom,
             true,
             None,
             elem.span(),
@@ -718,23 +720,46 @@ fn resolve_binom<'a>(
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    resolve_vertical_frac_like(
+    let lower = ctx.store(Content::sequence(
+        // Add a comma between each element.
+        elem.lower
+            .iter()
+            .flat_map(|a| [SymbolElem::packed(',').spanned(elem.span()), a.clone()])
+            .skip(1),
+    ));
+    resolve_atop_like(
         ctx,
         styles,
         &elem.upper,
-        &elem.lower,
+        &lower,
         false,
-        Some(elem.delim.get(styles)),
+        Some(DelimiterPair::PAREN),
         elem.span(),
     )
 }
 
-/// Resolve a vertical fraction or binomial.
-fn resolve_vertical_frac_like<'a>(
+fn resolve_atop<'a>(
+    elem: &'a Packed<AtopElem>,
+    ctx: &mut MathResolver<'a, '_, '_>,
+    styles: StyleChain<'a>,
+) -> SourceResult<()> {
+    resolve_atop_like(
+        ctx,
+        styles,
+        &elem.upper,
+        &elem.lower,
+        elem.line.get(styles),
+        elem.delim.get(styles),
+        elem.span(),
+    )
+}
+
+/// Resolve an atop, vertical fraction or binomial.
+fn resolve_atop_like<'a>(
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     num: &'a Content,
-    denom: &[Content],
+    denom: &'a Content,
     line: bool,
     delim: Option<DelimiterPair>,
     span: Span,
@@ -745,16 +770,7 @@ fn resolve_vertical_frac_like<'a>(
 
     let numerator = ctx.resolve_into_item(num, bumped_styles.chain(num_style))?;
 
-    let denominator = ctx.resolve_into_item(
-        ctx.store(Content::sequence(
-            // Add a comma between each element.
-            denom
-                .iter()
-                .flat_map(|a| [SymbolElem::packed(',').spanned(span), a.clone()])
-                .skip(1),
-        )),
-        bumped_styles.chain(denom_style),
-    )?;
+    let denominator = ctx.resolve_into_item(denom, bumped_styles.chain(denom_style))?;
 
     let frac =
         FractionItem::create(numerator, denominator, line, FRAC_PADDING, styles, span);

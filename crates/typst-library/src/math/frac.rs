@@ -132,20 +132,6 @@ pub enum FracStyle {
 /// ```
 #[elem(title = "Binomial", since = "forever", Mathy)]
 pub struct BinomElem {
-    /// The delimiter to use.
-    ///
-    /// Can be a single character specifying the left delimiter, in which case
-    /// the right delimiter is inferred. Otherwise, can be an array containing a
-    /// left and a right delimiter.
-    ///
-    /// ```example
-    /// #set math.binom(delim: "[")
-    /// $ binom(1, 2) $
-    /// ```
-    #[default(DelimiterPair::PAREN)]
-    pub delim: DelimiterPair,
-
-    /// The binomial's upper index.
     #[required]
     pub upper: Content,
 
@@ -161,4 +147,37 @@ pub struct BinomElem {
         values.into_iter().map(|spanned| spanned.v.display()).collect()
     )]
     pub lower: Vec<Content>,
+}
+
+/// An expression atop another.
+///
+/// = Example <example>
+/// ```example
+/// $ atop(a, b) $
+/// ```
+#[elem(since = "unreleased", Mathy)]
+pub struct AtopElem {
+    /// The upper expression.
+    #[required]
+    pub upper: Content,
+
+    /// The lower expression.
+    #[required]
+    pub lower: Content,
+
+    /// The delimiter to use.
+    ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
+    /// ```example
+    /// #set math.atop(delim: "[")
+    /// $ atop(1, 2) $
+    /// ```
+    #[default(None)]
+    pub delim: Option<DelimiterPair>,
+
+    #[default(false)]
+    pub line: bool,
 }

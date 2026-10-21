@@ -1,15 +1,13 @@
 use smallvec::{SmallVec, smallvec};
 use typst_syntax::Spanned;
-use typst_utils::{Numeric, default_math_class};
-use unicode_math_class::MathClass;
+use typst_utils::Numeric;
 
-use crate::diag::{At, HintedStrResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult};
 use crate::foundations::{
-    Array, Content, Dict, Fold, NoneValue, Resolve, Smart, StyleChain, Symbol, Value,
-    array, cast, dict, elem,
+    Array, Content, Dict, Fold, Resolve, Smart, StyleChain, Value, cast, dict, elem,
 };
 use crate::layout::{Abs, Em, HAlignment, Length, Rel};
-use crate::math::Mathy;
+use crate::math::{DelimiterPair, Mathy};
 use crate::visualize::Stroke;
 
 const DEFAULT_ROW_GAP: Em = Em::new(0.2);
@@ -270,102 +268,6 @@ pub struct CasesElem {
     /// The branches of the case distinction.
     #[variadic]
     pub children: Vec<Content>,
-}
-
-/// A delimiter is a single character that is used to delimit a matrix, vector
-/// or cases. The character has to be a Unicode codepoint tagged as a math
-/// "opening", "closing" or "fence".
-///
-/// Typically, the delimiter is stretched to fit the height of whatever it
-/// delimits.
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Delimiter(Option<char>);
-
-cast! {
-    Delimiter,
-    self => self.0.into_value(),
-    _: NoneValue => Self::none(),
-    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "expected a single-codepoint symbol")?)?,
-    v: char => Self::char(v)?,
-}
-
-impl Delimiter {
-    pub fn none() -> Self {
-        Self(None)
-    }
-
-    pub fn char(c: char) -> StrResult<Self> {
-        if !matches!(
-            default_math_class(c),
-            Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
-        ) {
-            bail!("invalid delimiter: \"{c}\"")
-        }
-        Ok(Self(Some(c)))
-    }
-
-    pub fn get(self) -> Option<char> {
-        self.0
-    }
-
-    pub fn find_matching(self) -> Self {
-        match self.0 {
-            None => Self::none(),
-            Some('[') => Self(Some(']')),
-            Some(']') => Self(Some('[')),
-            Some('{') => Self(Some('}')),
-            Some('}') => Self(Some('{')),
-            Some(c) => match default_math_class(c) {
-                Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
-                Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
-                _ => Self(Some(c)),
-            },
-        }
-    }
-}
-
-/// A pair of delimiters (one closing, one opening) used for matrices, vectors
-/// and cases.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct DelimiterPair {
-    open: Delimiter,
-    close: Delimiter,
-}
-
-cast! {
-    DelimiterPair,
-
-    self => array![self.open, self.close].into_value(),
-
-    v: Array => match v.as_slice() {
-        [open, close] => Self {
-            open: open.clone().cast()?,
-            close: close.clone().cast()?,
-        },
-        _ => bail!("expected 2 delimiters, found {}", v.len())
-    },
-    v: Delimiter => Self { open: v, close: v.find_matching() }
-}
-
-impl DelimiterPair {
-    pub const PAREN: Self = Self {
-        open: Delimiter(Some('(')),
-        close: Delimiter(Some(')')),
-    };
-    const BRACE: Self = Self {
-        open: Delimiter(Some('{')),
-        close: Delimiter(Some('}')),
-    };
-
-    /// The delimiter's opening character.
-    pub fn open(self) -> Option<char> {
-        self.open.get()
-    }
-
-    /// The delimiter's closing character.
-    pub fn close(self) -> Option<char> {
-        self.close.get()
-    }
 }
 
 /// Parameters specifying how augmentation lines
