@@ -351,6 +351,57 @@ fn test_path_to_package() {
 }
 
 #[test]
+fn test_template_path_escapes() {
+    let package = tempfs();
+    package.write(
+        "local/escaping/0.1.0/typst.toml",
+        r#"[package]
+           name = "escaping"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "../escaping"
+           entrypoint = "main.typ""#,
+    );
+    let output = exec()
+        .arg("init")
+        .arg("@local/escaping:0.1.0")
+        .arg("--package-path")
+        .arg(package.path())
+        .must_fail();
+    output
+        .stderr
+        .must_contain("error: package manifest is malformed (path escapes root)");
+}
+
+#[test]
+fn test_template_path_absolute() {
+    let project = tempfs();
+    let package = tempfs();
+    package.write(
+        "local/absolute/0.1.0/typst.toml",
+        r#"[package]
+           name = "absolute"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "/template"
+           entrypoint = "main.typ""#,
+    );
+    package.write("local/absolute/0.1.0/template/main.typ", "Hello");
+    exec()
+        .arg("init")
+        .arg("@local/absolute:0.1.0")
+        .arg(project.path().join("project"))
+        .arg("--package-path")
+        .arg(package.path())
+        .must_succeed();
+    project.read("project/main.typ").must_match_lines(["Hello"]);
+}
+
+#[test]
 fn test_network_access_hint() {
     // Using a CLI test because the error message differs across operating
     // systems. If the test runner could handle that, we could migrate to a
