@@ -70,8 +70,7 @@ ee64bf3aa4adc633f4435cb2a142cc5d block-sticky-many
 6b1f56871f9def6e4f4038dc3196e6fc box-clip-radius-without-stroke
 151fea019531ac99c9192b2e86da3c94 box-clip-rect
 b5e2bd8b97bdd2add0c84ddabef5e62f box-fr-width
-d401f93eb08160f419f7283ef11a28f4 box-fr-width-negative-total-negative
-d401f93eb08160f419f7283ef11a28f4 box-fr-width-negative-total-positive
+4431e49111d0d157eacba5fb76bf266d box-fr-width-negative
 e6f997715c0c8094c01108a8eae82a88 call-basic
 67a6e9467b00342d23003a771bfd64a3 cases-content-symbol
 c749652f96c8c5b2f3af9673a216740a cases-content-text
@@ -1778,7 +1777,9 @@ a48a9dfa4e0055f58be4cf6f81864e55 space-collapsing-stringy-linebreak
 24d788e5767b589ecda50b3b625ff51c space-ideographic-kept
 9544d3d7a5ca3455555d791f76398114 space-thin-kept
 3f621a90b2679a1d71b3d1b481a78e55 space-trailing-linebreak
+db5a8b5f4eaa2fda849317a33bbb4be2 spacing-fr-h-negative
 3f3a08188280ea85d1faad3643718a01 spacing-fr-overflow
+37b4f98562bbf07c160bcd34ec103bf6 spacing-fr-v-negative
 4af6a4906002920895f8a2f08a41b771 spacing-fr-weak-collapse
 57aed0d5b1a76bf9b69655e829110d35 spacing-fr-weak-destructs-rel-abs
 c6b09a5b69e19a1e340200a1de5d9433 spacing-fr-weak-destructs-smaller
@@ -1814,6 +1815,7 @@ f5cf9c78e575e43170e98a5fda06df74 square-relatively-sized-child
 c6dc189d760267cca321f44f005b1b85 square-size-beyond-default
 7aaf7a72095bee4d6c62f74d155aee03 stack-basic
 a13ff8338c484da35db206f43deba728 stack-fr
+cd795a08272e394474f921b0b344b6e3 stack-fr-negative
 414b8c217e9b8024334726f278d3a348 stack-overflow
 b5f9c0d3c7124d192000bd2f61d1f14e stack-rtl-align-and-fr
 6b77f987ca8d8c59adc30e19e2abecef stack-spacing
