@@ -624,7 +624,7 @@ impl<'a, 'b> Distributor<'a, 'b, '_, '_, '_> {
 
         // When we have fractional spacing, occupy the remaining space with it.
         let mut fr_space = Abs::zero();
-        if frs.get() > 0.0 && region.size.y.is_finite() {
+        if !frs.is_zero() && region.size.y.is_finite() {
             fr_space = region.size.y - self.used.y;
             self.used.y = region.size.y;
         }
