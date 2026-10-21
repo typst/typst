@@ -371,7 +371,7 @@ pub(crate) fn handle_frame(
             FrameItem::Image(image, size, span) => {
                 handle_image(gc, fc, image, *size, surface, *span)?;
             }
-            FrameItem::Link(dest, size) => handle_link(fc, gc, dest, *size)?,
+            FrameItem::Link(link, size) => handle_link(fc, gc, link, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
                     tags::handle_start(gc, fc, surface);

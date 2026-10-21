@@ -83,12 +83,12 @@ d680b5e49eeff1beb5c1b332958b9e33 circle-directly-in-rect
 9b57c4018fa0cfa1b8a5ad541e18c020 circle-relative-sizing
 8937257e563ed7ad0c7df6698a8330ae circle-size-beyond-default
 225f733c92a03fba1a3a00786fe02e7a circle-sizing-options
-ad4849f71b1eb528a406e1b1c1d24b8e cite-chicago-fullnotes-warning
+8c54aa96de6b81fc5d44361efb093235 cite-chicago-fullnotes-warning
 286f9c9418f88a46272d285a0fc26890 cite-footnote
 d25349a4d0d89992cf16ea59fffc975d cite-form
 4a58463d2eda19958eca99c552706275 cite-group
 088eb9735e91dca29eae32c9db726a1c cite-grouping-and-ordering
-340cb4ac2d24fd403726b33225451cf2 cite-supplements-and-ibid
+c245e978a1ef1bbe90a0b67a7b196650 cite-supplements-and-ibid
 b2f406383459a06672f7aefd0698da31 cjk-punctuation-adjustment-1
 10d53aa94a7e03a195072090316bd20f cjk-punctuation-adjustment-2
 f382ed18c8e52c6462d61a2ee2d88cd4 cjk-punctuation-adjustment-3
@@ -818,7 +818,7 @@ fb3f6d56998b5e1c5599a4d69783f808 issue-5719-list-nested
 e1c17bc3f11a539dc82a38f787fccf9a issue-5719-terms-nested
 a6c8630d31d7704412beb13a441b5444 issue-5723-grid-heading-numbering
 afb730f0d633b65bc65f4c8174fda44a issue-5760-disable-cjk-latin-spacing-in-raw
-2d19af94a7a00804419787bedc50986d issue-5775-cite-order-rtl
+3340532862d93817825d8f4be17a7978 issue-5775-cite-order-rtl
 291662f8fd9cb66bed291557ff82ad40 issue-5831-par-constructor-args
 c7e12917b1448ff19178641723dba4af issue-5855-misaligned-descender
 3dfda3a3af702fc21e8c723c0f03f993 issue-5930-symbol-label
@@ -829,7 +829,7 @@ f36c45bb93c9b00e23853ee255d7babc issue-6062-justify-cjk-latin-spacing
 dd874c978de00d0377a588d64f682231 issue-6125-block-place-width-limited
 09e1be520440eafc9d57fb77967155fd issue-6162-coincident-gradient-stops-export-png
 6ed0d8098cb16b3823aa4e7e51e8f3fb issue-6170-equation-stroke
-da57aa8dd14a7b2197c07671b14d280f issue-622-hide-meta-cite
+c8bfc870e2c22600bc5400b72e9c3a5d issue-622-hide-meta-cite
 4099f8045934b2ac6b649d780bb58d2d issue-622-hide-meta-outline
 eb78b55109a3d59ec64e9be46fe3f97a issue-6242-tight-list-attach-spacing
 a299c14bf02d941242fd1e5ac1d5f1cf issue-6267-clip-anti-alias
@@ -857,8 +857,8 @@ a3836e1a71f0aabab64202c1a232016b issue-7292-page-width-auto-margin-zero
 e1d3eb6301fb147a71e6da0a5b305df6 issue-7428-heading-numbering-errors
 b65136a2425a4de64f20ee6d074818af issue-7437-math-accent-text-presentation
 abe703183168222efdea9e9fad4b45fc issue-7541-justify-with-zero-width-space
-ae20f6aff17916fdeb8c306e03357c63 issue-758-link-repeat
-f56795c728b71c3362c549303cd72cee issue-785-cite-locate
+a4164a65e3e154be971a934a4d22bd78 issue-758-link-repeat
+fb7a04d26ef735a9e3f10b9415c7991f issue-785-cite-locate
 8df622e20e954ba4703dbc3e8741ed70 issue-7872-negative-scale
 6d78160f24ae092b4b9aa84da23b96c2 issue-7901-rect-negative-dimensions-radius
 492894c4981d4cf7ffaffa9d8dfcb6b0 issue-792-newline-space-discarding
@@ -977,6 +977,7 @@ f09c93f450eb2ce0e98b87e48108d729 linebreak-narrow-nbsp
 0151d631e11eb365dc85e872f5e9eaf8 link-basic
 09197ce8c8f057be5ec4231edc87e7b3 link-bracket-balanced
 0fe958e348641411e898e1f20c95abc8 link-bracket-unbalanced-closing
+248141c105d25f42addb59e703284824 link-dir-rtl
 19f6e084e4117abf35df241a14594a25 link-empty-block
 f5e7b62e2921ad0ed5050758c90a456f link-on-block
 73d6ab91727201a69f810845ffa76ece link-show
@@ -1576,7 +1577,7 @@ ab6e4aa0424d94ba6a60aeee7187a735 place-horizon-in-boxes
 e019a79ee42434b4e2e16e5c137d4b4f quote-block-spacing
 710a6d8aa173a7b1392e367e50365c6d quote-cite-format-author-date
 a64bab832fa87ef775e9dd24b62ddcb8 quote-cite-format-label-or-numeric
-445e3dd5fd77c185e33a58cefbcc5bab quote-cite-format-note
+82a364d052eace26b142471294704cec quote-cite-format-note
 2dfb2ea10fc9ea361110293521163376 quote-dir-align
 6a0822d9448e1d83a3ea7b7d47e41334 quote-dir-author-pos
 58b4b368fa1c91b56b6eaef7a2fad8ce quote-inline
@@ -1718,7 +1719,7 @@ fc0d5d21d1119bba6050466dafd04235 show-text-after-normal-show
 d15c0e13dcfac0ed148c69eef0442fb5 show-text-cyclic-raw
 61a216a8b94384c18b16ce072a34eb60 show-text-exactly-once
 d92716dfe456afd80c5ab16b16fbdd4f show-text-get-text-on-it
-5e2bf2d742947794253b560896ae028b show-text-in-citation
+03fb7a28ac98cd1b5a6d1e5ea5d680a7 show-text-in-citation
 134b5858fb9837224a0427864e1102e2 show-text-in-other-show
 791297c4910122931c6b9c982292dee4 show-text-indirectly-cyclic
 2c1e75f4bc76a80ce286e0eb629031f5 show-text-isolated-space
