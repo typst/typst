@@ -430,7 +430,7 @@ fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
     }
 }
 
-// Remove tracking from the last glyph if it has been applied.
+/// Remove tracking from the last glyph if it has been applied.
 fn adjust_glyph_tracking_at_line_end(items: &mut Items) {
     let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.last() else { return };
