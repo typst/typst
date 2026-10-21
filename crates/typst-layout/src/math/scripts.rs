@@ -1,5 +1,6 @@
 // Can be re-enabled once `Option::map_or_default` is stable in our MSRV.
 #![allow(unstable_name_collisions)]
+#![allow(clippy::incompatible_msrv)]
 
 // Is unused in compiler versions where `Option::map_or_default` is stable.
 #[allow(unused_imports)]

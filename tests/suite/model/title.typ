@@ -1,6 +1,7 @@
 // Test title element.
 
---- title paged html pdftags pdfstandard(ua-1) ---
+--- title paged html pdftags ---
+#set pdf(standard: "ua-1")
 #set document(title: [My title])
 #title()
 = A level one heading

@@ -8,7 +8,7 @@ use syn::{Ident, Result, Token};
 use crate::util::{
     BlockWithReturn, Since, determine_name_and_title, documentation, foundations,
     has_attr, kw, oneliner, parse_attr, parse_flag, parse_key_value, parse_string,
-    parse_string_array, validate_attrs,
+    parse_string_array, quote_option, validate_attrs,
 };
 
 /// Expand the `#[elem]` macro.
@@ -161,7 +161,7 @@ fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         Some(|base| base.trim_end_matches("Elem")),
     )?;
 
-    let docs = documentation(&body.attrs);
+    let docs = documentation(&body.attrs)?;
 
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
@@ -217,7 +217,7 @@ fn parse_field(field: &syn::Field) -> Result<Field> {
         vis: field.vis.clone(),
         ty: field.ty.clone(),
         name: ident.to_string().to_kebab_case(),
-        docs: documentation(&attrs),
+        docs: documentation(&attrs)?,
         positional,
         required,
         variadic,
@@ -388,16 +388,14 @@ fn create_native_elem_impl(element: &Elem) -> Result<TokenStream> {
     } = element;
     let def_site_key = ident.to_string();
 
-    let since = if let Some(since) = since {
-        quote! { Some(#since) }
-    } else {
-        quote! { None }
-    };
+    let since = quote_option(since);
 
     let fields = element.fields.iter().filter(|field| !field.internal).map(|field| {
         let i = field.i;
         if field.external {
-            quote! { #foundations::ExternalFieldData::<#ident, #i>::vtable() }
+            let positional = field.positional;
+            let required = field.required;
+            quote! { #foundations::ExternalFieldData::<#ident, #i>::vtable(#positional, #required) }
         } else if field.variadic {
             quote! { #foundations::RequiredFieldData::<#ident, #i>::vtable_variadic() }
         } else if field.required {

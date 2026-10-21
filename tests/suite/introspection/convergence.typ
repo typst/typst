@@ -84,7 +84,7 @@
 #switch(n => v(n * 10pt) + [= Heading])
 
 // Warning: 10-36 heading position did not stabilize
-// Hint: 10-36 the following positions were observed:\n- run 1: page 1 at (0pt, 0pt)\n- run 2: page 1 at (10pt, 20pt)\n- run 3: page 1 at (10pt, 30pt)\n- run 4: page 1 at (10pt, 40pt)\n- run 5: page 1 at (10pt, 50pt)\n- final: page 1 at (10pt, 60pt)
+// Hint: 10-36 the following positions were observed:\n- run 1: none\n- run 2: page 1 at (10pt, 20pt)\n- run 3: page 1 at (10pt, 30pt)\n- run 4: page 1 at (10pt, 40pt)\n- run 5: page 1 at (10pt, 50pt)\n- final: page 1 at (10pt, 60pt)
 #context locate(heading).position().y
 
 --- convergence-page paged ---
@@ -100,7 +100,7 @@
 // Warning: 10-25 query for a unique heading element did not stabilize
 // Hint: 10-25 the following numbers of elements were observed:\n- run 1: 0\n- run 2: 0\n- run 3: 0\n- run 4: 0\n- run 5: 1\n- final: 0
 // Warning: 10-32 page number of the element did not stabilize
-// Hint: 10-32 the following page numbers were observed:\n- run 1: page 1\n- run 2: page 1\n- run 3: page 1\n- run 4: page 1\n- run 5: page 2\n- final: page 1
+// Hint: 10-32 the following page numbers were observed:\n- run 1: none\n- run 2: none\n- run 3: none\n- run 4: none\n- run 5: page 2\n- final: none
 #context locate(heading).page()
 
 --- convergence-page-supplement paged ---

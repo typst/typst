@@ -25,7 +25,7 @@ typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-svg = { workspace = true }
 typst-syntax = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 base64 = { workspace = true }
 bitflags = { workspace = true }
 clap = { workspace = true }

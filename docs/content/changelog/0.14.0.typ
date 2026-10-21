@@ -2,7 +2,7 @@
 
 = Highlights <highlights>
 - Typst now produces @guides:accessibility[_accessible_ PDFs] out of the box, with opt-in support for stricter checks and conformance to PDF/UA-1
-- Typst now supports all @pdf:pdf-a[PDF/A standards]
+- Typst now supports all @pdf.standard:pdf-a[PDF/A standards]
 - PDFs can now be used as @image.format[images] (thanks to #gh("LaurenzV"))
 - Added support for @par.justification-limits[character-level justification] (can significantly improve the appearance of justified text)
 - Added support for many more built-in elements in HTML export
@@ -19,8 +19,8 @@ PDF export was fully rewritten to use the new #link("https://github.com/LaurenzV
   - In addition, Typst can now emit documents conforming to the PDF/UA-1 standard. (PDF/UA-2 is not yet supported, but planned.)
   - There is an increasing amount of existing and upcoming legislation requiring documents to be accessible, for instance, the European Accessibility Act and the Americans with Disabilities Act.
   - For more details on all of this, read the new @guides:accessibility[Accessibility Guide].
-- Typst now supports all PDF/A standards: PDF/A-1b, PDF/A-1a, PDF/A-2b, PDF/A-2u, PDF/A-2a, PDF/A-3b, PDF/A-3u, PDF/A-3a, PDF/A-4, PDF/A-4f, and PDF/A-4e. See the @pdf:pdf-a[expanded PDF/A documentation] for guidance on how to select a suitable standard. #pr(5420) #pr(7038)
-- Typst now supports the PDF versions 1.4, 1.5, 1.6, and 2.0 in addition to PDF 1.7. See the @pdf:pdf-versions[relevant section of the PDF documentation] for details. #pr(5420)
+- Typst now supports all PDF/A standards: PDF/A-1b, PDF/A-1a, PDF/A-2b, PDF/A-2u, PDF/A-2a, PDF/A-3b, PDF/A-3u, PDF/A-3a, PDF/A-4, PDF/A-4f, and PDF/A-4e. See the @pdf.standard:pdf-a[expanded PDF/A documentation] for guidance on how to select a suitable standard. #pr(5420) #pr(7038)
+- Typst now supports the PDF versions 1.4, 1.5, 1.6, and 2.0 in addition to PDF 1.7. See the @pdf.standard:pdf-versions[relevant section of the PDF documentation] for details. #pr(5420)
 - Added @pdf.artifact function for marking content as not semantically meaningful #pr(6619)
 - Added experimental @pdf.header-cell, @pdf.data-cell, and @pdf.table-summary functions for enhancing accessibility of documents with complex tables. These functions are guarded by the `a11y-extras` feature. They do not have a final interface and will be removed in the future, either through integration into table functions or through full removal. #pr(6619)
 - PDF heading bookmarks now contain the heading's numbering #pr(6622)

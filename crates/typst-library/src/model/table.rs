@@ -2,6 +2,8 @@ use std::num::{NonZeroU32, NonZeroUsize};
 use std::sync::Arc;
 
 use ecow::EcoString;
+use typst_macros::Cast;
+use typst_syntax::{LooselySpanned, Spanned};
 use typst_utils::NonZeroExt;
 
 use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
@@ -9,13 +11,12 @@ use crate::engine::Engine;
 use crate::foundations::{
     Content, Packed, Smart, StyleChain, Synthesize, cast, elem, scope,
 };
-use crate::layout::resolve::{CellGrid, table_to_cellgrid};
+use crate::layout::resolve::{CellGrid, GridStroke, table_to_cellgrid};
 use crate::layout::{
     Abs, Alignment, Celled, GridCell, GridFooter, GridHLine, GridHeader, GridVLine,
     Length, OuterHAlignment, OuterVAlignment, Rel, Sides, TrackSizings,
 };
 use crate::model::Figurable;
-use crate::pdf::TableCellKind;
 use crate::text::LocalName;
 use crate::visualize::{Paint, Stroke};
 
@@ -192,8 +193,8 @@ pub struct TableElem {
     /// )
     /// ```
     #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into()))))]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+    #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Abs::pt(5.0).into())))))]
+    pub inset: LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
 
     /// How to align the cells' content.
     ///
@@ -215,7 +216,7 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    pub align: Celled<Smart<Alignment>>,
+    pub align: LooselySpanned<Celled<Smart<Alignment>>>,
 
     /// How to fill the cells.
     ///
@@ -243,7 +244,7 @@ pub struct TableElem {
     ///   [Profit:], [500 €], [1000 €], [1500 €],
     /// )
     /// ```
-    pub fill: Celled<Option<Paint>>,
+    pub fill: LooselySpanned<Celled<Option<Paint>>>,
 
     /// How to @stroke[stroke] the cells.
     ///
@@ -265,8 +266,10 @@ pub struct TableElem {
     ///
     /// See the @guides:tables:strokes[Table Guide] for more details.
     #[fold]
-    #[default(Celled::Value(Sides::splat(Some(Some(Arc::new(Stroke::default()))))))]
-    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
+    #[default(Spanned::detached(Celled::Value(Sides::splat(Some(Some(
+        Arc::new(Stroke::default())
+    ))))))]
+    pub stroke: LooselySpanned<Celled<Sides<GridStroke>>>,
 
     /// A summary of the purpose and structure of complex tables.
     ///
@@ -455,7 +458,7 @@ impl TryFrom<Content> for TableItem {
 /// header cell. Likewise, you can use @pdf.data-cell to mark cells in this
 /// function as data cells. Note that these functions are not final and thus
 /// only available when you enable the `a11y-extras` feature (see the
-/// @pdf[PDF module documentation] for details).
+/// @pdf[PDF format documentation] for details).
 ///
 /// ```example
 /// #set page(height: 11.5em)
@@ -762,7 +765,7 @@ pub struct TableCell {
 
     /// The cell's @table.stroke[stroke] override.
     #[fold]
-    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+    pub stroke: Sides<GridStroke>,
 
     /// Whether rows spanned by this cell can be placed in different pages. When
     /// equal to `{auto}`, a cell spanning only fixed-size rows is unbreakable,
@@ -799,5 +802,47 @@ impl Default for Packed<TableCell> {
 impl From<Content> for TableCell {
     fn from(value: Content) -> Self {
         value.unpack::<Self>().unwrap_or_else(Self::new)
+    }
+}
+
+/// Describes what kind of table cell this is.
+///
+/// The full Typst table model only supports header and footer rows, this is
+/// currently only used for PDF export.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TableCellKind {
+    Header(NonZeroU32, TableHeaderScope),
+    Footer,
+    #[default]
+    Data,
+}
+
+/// Which table track a header cell labels.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TableHeaderScope {
+    /// The header cell refers to both the row and the column.
+    Both,
+    /// The header cell refers to the column.
+    #[default]
+    Column,
+    /// The header cell refers to the row.
+    Row,
+}
+
+impl TableHeaderScope {
+    pub fn refers_to_column(&self) -> bool {
+        match self {
+            TableHeaderScope::Both => true,
+            TableHeaderScope::Column => true,
+            TableHeaderScope::Row => false,
+        }
+    }
+
+    pub fn refers_to_row(&self) -> bool {
+        match self {
+            TableHeaderScope::Both => true,
+            TableHeaderScope::Column => false,
+            TableHeaderScope::Row => true,
+        }
     }
 }

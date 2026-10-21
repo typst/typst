@@ -257,7 +257,8 @@ A
 $ x $
 B
 
---- line-numbers-pdf-2-0 pdf pdfstandard(2.0) ---
+--- line-numbers-pdf-2-0 pdf ---
+#set pdf(standard: "2.0")
 #set page(margin: (left: 2.5em))
 #set par.line(numbering: "1")
 

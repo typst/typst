@@ -18,7 +18,7 @@ use typst_library::text::{
     ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
     is_default_ignorable, language, variant,
 };
-use typst_utils::SliceExt;
+use typst_utils::{Numeric, SliceExt};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -230,7 +230,6 @@ impl ShapedGlyph {
         &self,
         style: CjkPunctStyle,
         limits: &JustificationLimits,
-        font_size: Abs,
         stretchable: bool,
     ) -> Adjustability {
         let width = self.x_advance;
@@ -249,7 +248,7 @@ impl ShapedGlyph {
                 stretchability: (
                     Em::zero(),
                     (max - Rel::one())
-                        .map(|length| Em::from_length(length, font_size))
+                        .map(|length| Em::from_length(length, self.size))
                         .relative_to(width)
                         .max(Em::zero()),
                 ),
@@ -257,7 +256,7 @@ impl ShapedGlyph {
                     Em::zero(),
                     limited(
                         (Rel::one() - min)
-                            .map(|length| Em::from_length(length, font_size))
+                            .map(|length| Em::from_length(length, self.size))
                             .relative_to(width),
                     ),
                 ),
@@ -281,11 +280,11 @@ impl ShapedGlyph {
             Adjustability {
                 stretchability: (
                     Em::zero(),
-                    Em::from_length(limits.tracking().max, font_size).max(Em::zero()),
+                    Em::from_length(limits.tracking().max, self.size).max(Em::zero()),
                 ),
                 shrinkability: (
                     Em::zero(),
-                    limited(Em::from_length(-limits.tracking().min, font_size)),
+                    limited(Em::from_length(-limits.tracking().min, self.size)),
                 ),
             }
         } else {
@@ -811,8 +810,9 @@ fn shape<'a>(
         shape_segment(&mut ctx, base, text, families(styles));
     }
 
-    track_and_space(&mut ctx);
+    apply_spacing(&mut ctx);
     calculate_adjustability(&mut ctx, lang, region);
+    apply_tracking(&mut ctx);
 
     #[cfg(debug_assertions)]
     assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
@@ -1266,30 +1266,37 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
     }
 }
 
-/// Apply tracking and spacing to the shaped glyphs.
-fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
-    let spacing = ctx
-        .styles
-        .resolve(TextElem::spacing)
-        .map(|abs| Em::from_abs(abs, ctx.size));
+/// Apply text spacing to the shaped glyphs.
+fn apply_spacing(ctx: &mut ShapingContext) {
+    let spacing = ctx.styles.get(TextElem::spacing);
+
+    for glyph in &mut ctx.glyphs {
+        if glyph.is_space() {
+            // Make non-breaking space same width as normal space.
+            if glyph.c == '\u{00A0}' {
+                glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
+            }
+            glyph.x_advance = spacing
+                .map(|length| Em::from_length(length, glyph.size))
+                .relative_to(glyph.x_advance);
+        }
+    }
+}
+
+/// Apply tracking to the shaped glyphs.
+fn apply_tracking(ctx: &mut ShapingContext) {
+    let tracking = ctx.styles.get(TextElem::tracking);
+    if tracking.is_zero() {
+        return;
+    }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
-        // Make non-breaking space same width as normal space.
-        if glyph.c == '\u{00A0}' {
-            glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
-        }
-
-        if glyph.is_space() {
-            glyph.x_advance = spacing.relative_to(glyph.x_advance);
-        }
-
         if glyphs
             .peek()
             .is_some_and(|next| glyph.range.start != next.range.start)
         {
-            glyph.x_advance += tracking;
+            glyph.x_advance += Em::from_length(tracking, glyph.size);
         }
     }
 }
@@ -1299,7 +1306,6 @@ fn track_and_space(ctx: &mut ShapingContext) {
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
     let limits = ctx.styles.get(ParElem::justification_limits);
-    let font_size = ctx.size;
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
@@ -1308,8 +1314,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
         let stretchable =
             glyphs.peek().is_none_or(|next| glyph.range.start != next.range.start);
 
-        glyph.adjustability =
-            glyph.base_adjustability(style, &limits, font_size, stretchable);
+        glyph.adjustability = glyph.base_adjustability(style, &limits, stretchable);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
@@ -1383,11 +1388,13 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
 }
 
 // The CJK punctuation that can appear at the beginning or end of a line.
-pub const BEGIN_PUNCT_PAT: &[char] =
-    &['“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛'];
+pub const BEGIN_PUNCT_PAT: &[char] = &[
+    '“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛', '｟', '〘',
+    '〝',
+];
 pub const END_PUNCT_PAT: &[char] = &[
     '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
-    '〗', '〕', '］', '｝', '？', '！',
+    '〗', '〕', '］', '｝', '｠', '〙', '〟', '？', '！',
 ];
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -1455,8 +1462,23 @@ fn is_cjk_left_aligned_punctuation(
         return true;
     }
 
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '》' | '）' | '』' | '」' | '】' | '〗' | '〕' | '〉' | '］' | '｝')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.2 https://www.w3.org/TR/jlreq/?lang=ja#cl-02
+    matches!(
+        c,
+        '》' | '）'
+            | '』'
+            | '」'
+            | '】'
+            | '〗'
+            | '〕'
+            | '〉'
+            | '］'
+            | '｝'
+            | '｠'
+            | '〙'
+            | '〟'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
@@ -1470,8 +1492,23 @@ fn is_cjk_right_aligned_punctuation(
     if matches!(c, '“' | '‘') && x_advance + stretchability.0 == Em::one() {
         return true;
     }
-    // See appendix A.3 https://www.w3.org/TR/clreq/#tables_of_chinese_punctuation_marks
-    matches!(c, '《' | '（' | '『' | '「' | '【' | '〖' | '〔' | '〈' | '［' | '｛')
+    // See CLReq appendix A.3 https://www.w3.org/TR/clreq/#table_of_bracket_indication_punctuation_marks
+    // and JLReq appendix A.1 https://www.w3.org/TR/jlreq/?lang=ja#cl-01
+    matches!(
+        c,
+        '《' | '（'
+            | '『'
+            | '「'
+            | '【'
+            | '〖'
+            | '〔'
+            | '〈'
+            | '［'
+            | '｛'
+            | '｟'
+            | '〘'
+            | '〝'
+    )
 }
 
 /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>

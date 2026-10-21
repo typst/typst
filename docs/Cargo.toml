@@ -19,7 +19,7 @@ typst-library = { workspace = true }
 typst-pdf = { workspace = true }
 typst-render = { workspace = true }
 typst-timing = { workspace = true }
-typst-utils = { workspace = true }
+typst-utils = { workspace = true, features = ["full"] }
 az = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }

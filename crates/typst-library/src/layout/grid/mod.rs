@@ -5,15 +5,16 @@ use std::sync::Arc;
 
 use comemo::Track;
 use smallvec::{SmallVec, smallvec};
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{At, HintedStrResult, HintedString, SourceResult, bail};
+use crate::diag::{HintedStrResult, HintedString, SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, CastInfo, Content, Context, Fold, FromValue, Func, IntoValue, Packed, Reflect,
     Resolve, Smart, StyleChain, Synthesize, Value, cast, elem, scope,
 };
-use crate::layout::resolve::{CellGrid, grid_to_cellgrid};
+use crate::layout::resolve::{CellGrid, GridStroke, grid_to_cellgrid};
 use crate::layout::{
     Alignment, Length, OuterHAlignment, OuterVAlignment, Rel, Sides, Sizing,
 };
@@ -234,7 +235,7 @@ pub struct GridElem {
     ///
     /// In addition, you can find an example at the @table.inset parameter.
     #[fold]
-    pub inset: Celled<Sides<Option<Rel<Length>>>>,
+    pub inset: LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
 
     /// How to align the cells' content.
     ///
@@ -248,7 +249,7 @@ pub struct GridElem {
     /// See the @grid:styling[styling section] above for details.
     ///
     /// In addition, you can find an example at the @table.align parameter.
-    pub align: Celled<Smart<Alignment>>,
+    pub align: LooselySpanned<Celled<Smart<Alignment>>>,
 
     /// How to fill the cells.
     ///
@@ -274,7 +275,7 @@ pub struct GridElem {
     ///   [O], [X], [O], [X],
     /// )
     /// ```
-    pub fill: Celled<Option<Paint>>,
+    pub fill: LooselySpanned<Celled<Option<Paint>>>,
 
     /// How to @stroke[stroke] the cells.
     ///
@@ -405,7 +406,7 @@ pub struct GridElem {
     ///   ```
     /// )
     #[fold]
-    pub stroke: Celled<Sides<Option<Option<Arc<Stroke>>>>>,
+    pub stroke: LooselySpanned<Celled<Sides<GridStroke>>>,
 
     #[internal]
     #[synthesized]
@@ -849,7 +850,7 @@ pub struct GridCell {
 
     /// The cell's @grid.stroke[stroke] override.
     #[fold]
-    pub stroke: Sides<Option<Option<Arc<Stroke>>>>,
+    pub stroke: Sides<GridStroke>,
 
     #[internal]
     #[parse(Some(false))]
@@ -905,13 +906,13 @@ impl<T: Default + Clone + FromValue> Celled<T> {
         styles: StyleChain,
         x: usize,
         y: usize,
+        span: Span,
     ) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), [x, y])?
-                .cast()
-                .at(func.span())?,
+            Self::Func(func) => {
+                func.call(engine, Context::new(None, Some(styles)).track(), [x, y], span)?
+            }
             Self::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))
@@ -1006,13 +1007,17 @@ where
         styles: StyleChain,
         x: usize,
         y: usize,
+        span: Span,
     ) -> SourceResult<T::Output> {
         Ok(match &self.0 {
             Celled::Value(value) => value.clone(),
             Celled::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), [x, y])?
-                .cast::<T>()
-                .at(func.span())?
+                .call::<T>(
+                    engine,
+                    Context::new(None, Some(styles)).track(),
+                    [x, y],
+                    span,
+                )?
                 .resolve(styles),
             Celled::Array(array) => x
                 .checked_rem(array.len())

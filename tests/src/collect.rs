@@ -9,7 +9,6 @@ use ecow::EcoString;
 use rustc_hash::{FxHashMap, FxHashSet};
 use typst::foundations::Target;
 use typst::{Feature, Features};
-use typst_pdf::PdfStandard;
 use typst_syntax::{is_id_continue, is_ident, is_newline};
 use unscanny::Scanner;
 
@@ -88,6 +87,7 @@ bitflags! {
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
         const EMPTY = 1 << 1;
+        const TRACE = 1 << 2;
     }
 }
 
@@ -96,8 +96,9 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
+    /// Whether to insert [`Tracepoint`]s as notes.
+    pub trace: bool,
     pub features: Option<Features>,
-    pub pdf_standard: Vec<PdfStandard>,
     /// Tolerance for image comparisons. Render tests are not 100% reproducible.
     /// By default, we allow a byte difference of 1, but in rare cases, we need
     /// to increase it. This can for example happen due to cross-platform
@@ -666,7 +667,7 @@ impl<'a> Parser<'a> {
             }
 
             let body = self.s.from(start);
-            let body = parse_test_body(pos, body, &mut self.collector.errors);
+            let body = parse_test_body(pos, &attrs, body, &mut self.collector.errors);
 
             self.collector.tests.push(Test { name, attrs, body });
         }
@@ -692,9 +693,7 @@ impl<'a> Parser<'a> {
         let mut stages = TestStages::empty();
         let mut flags = AttrFlags::empty();
         let mut features = None;
-        let mut pdf_standard = Vec::new();
         let mut tolerance = None;
-
         while !self.s.eat_if("---") {
             let attr_name = self.s.eat_while(is_id_continue);
             let mut attr_params = None;
@@ -713,16 +712,6 @@ impl<'a> Parser<'a> {
                 "paged" => self.set_attr(attr_name, &mut stages, TestStages::PAGED),
                 "pdf" => self.set_attr(attr_name, &mut stages, TestStages::PDF),
                 "pdftags" => self.set_attr(attr_name, &mut stages, TestStages::PDFTAGS),
-                "pdfstandard" => {
-                    let Some(params) = attr_params.take() else {
-                        self.error("expected parameter for `pdfstandard`");
-                        continue;
-                    };
-                    pdf_standard =
-                        self.parse_attr_param_list(params, "pdf standard", |s| {
-                            serde_yaml::from_str(s)
-                        });
-                }
                 "tolerance" => {
                     let Some(param) = attr_params.take() else {
                         self.error("expected parameter for `tolerance`");
@@ -737,6 +726,7 @@ impl<'a> Parser<'a> {
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
                 "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),
+                "trace" => self.set_attr(attr_name, &mut flags, AttrFlags::TRACE),
                 "features" => {
                     let Some(params) = attr_params.take() else {
                         self.error("expected parameter for `features`");
@@ -781,8 +771,8 @@ impl<'a> Parser<'a> {
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
             empty: flags.contains(AttrFlags::EMPTY),
+            trace: flags.contains(AttrFlags::TRACE),
             features,
-            pdf_standard,
             stages,
             tolerance,
         }

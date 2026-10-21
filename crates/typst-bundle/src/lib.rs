@@ -2,12 +2,12 @@
 
 #[path = "export.rs"]
 mod export_;
+mod format;
 mod introspect;
 mod link;
 
-use crate::introspect::BundleIntrospector;
-
 pub use self::export_::{BundleOptions, VirtualFs, export};
+pub use self::format::{AssetData, AssetElem, BundleFormat, FORMAT};
 
 use std::collections::hash_map::Entry;
 use std::sync::Arc;
@@ -20,6 +20,7 @@ use typst_html::HtmlDocument;
 use typst_layout::PagedDocument;
 use typst_library::diag::{At, CollectCombinedResult, SourceResult, bail, error};
 use typst_library::engine::{Engine, Route, Sink, Traced};
+use typst_library::format::DocumentFormatOptions;
 use typst_library::foundations::{
     Bytes, Content, Output, Packed, StyleChain, Target, TargetElem,
 };
@@ -27,12 +28,14 @@ use typst_library::introspection::{
     Introspector, Location, Locator, SplitLocator, Tag, TagElem,
 };
 use typst_library::model::{
-    AssetElem, Document, DocumentElem, DocumentFormat, DocumentInfo, PagedFormat,
+    Document, DocumentElem, DocumentFormat, DocumentInfo, PagedFormat,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::{Feature, Library, World};
 use typst_syntax::VirtualPath;
 use typst_utils::{LazyHash, Protected};
+
+use crate::introspect::BundleIntrospector;
 
 /// A collection of files resulting from compilation.
 ///
@@ -96,6 +99,13 @@ impl Document for BundleDocument {
         match self {
             BundleDocument::Paged(doc, _) => doc.info(),
             BundleDocument::Html(doc) => doc.info(),
+        }
+    }
+
+    fn options(&self) -> &DocumentFormatOptions {
+        match self {
+            BundleDocument::Paged(doc, _) => doc.options(),
+            BundleDocument::Html(doc) => doc.options(),
         }
     }
 }

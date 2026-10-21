@@ -12,7 +12,7 @@ use typst::foundations::{
 use typst::layout::{Alignment, Dir};
 use typst::syntax::ast::AstNode;
 use typst::syntax::{
-    FileId, LinkedNode, Side, Source, SyntaxKind, SyntaxMode, ast, is_id_continue,
+    LinkedNode, Side, Source, SyntaxKind, SyntaxMode, VirtualPath, ast, is_id_continue,
     is_id_start, is_ident,
 };
 use typst::text::{FontFlags, RawElem};
@@ -116,7 +116,7 @@ pub enum CompletionKind {
 fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     let (after_dot, textual_dot) = match ctx.leaf.kind() {
         SyntaxKind::Dot => (true, false),
-        SyntaxKind::Text | SyntaxKind::MathText if ctx.leaf.leaf_text() == "." => {
+        SyntaxKind::Text | SyntaxKind::MathSymbol if ctx.leaf.leaf_text() == "." => {
             (true, true)
         }
         _ => (false, false),
@@ -126,7 +126,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
     if after_dot
         && let Some(prev) = ctx.leaf.prev_sibling()
         // We don't complete when we had trivia between the previous node
-        // and a textual dot: `[#x .|]`
+        // and a textual dot: `[#x .|]` or `$arrow .|$`
         && (!textual_dot || prev.range().end == ctx.leaf.range().start)
         && prev.is::<ast::Expr>() // The dot must comes after an expression.
         // And that expression must allow field access
@@ -798,7 +798,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
     debug_assert_eq!(ctx.leaf.mode_after(), Some(SyntaxMode::Math));
 
     // Behind existing atom or identifier: "$a|$" or "$abc|$".
-    if matches!(ctx.leaf.kind(), SyntaxKind::MathText | SyntaxKind::MathIdent) {
+    if matches!(ctx.leaf.kind(), SyntaxKind::MathLetter | SyntaxKind::MathIdent) {
         ctx.from = ctx.leaf.offset();
         math_completions(ctx);
         return true;
@@ -1161,16 +1161,19 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all available files.
-    fn file_completions(&mut self, mut filter: impl FnMut(FileId) -> bool) {
+    fn file_completions(&mut self, mut filter: impl FnMut(&VirtualPath) -> bool) {
         let Some(current_id) = self.leaf.span().id() else { return };
         let Some(current_dir) = current_id.vpath().parent() else { return };
 
+        let prefix =
+            Some(self.before[self.from..].trim_matches('\"')).filter(|s| !s.is_empty());
+
         let mut paths: Vec<EcoString> = self
             .world
-            .files()
+            .files(current_id, prefix)
             .iter()
-            .filter(|&&id| id != current_id && filter(id))
-            .map(|id| id.vpath().relative_from(&current_dir))
+            .filter(|&path| path != current_id.vpath() && filter(path))
+            .map(|path| path.relative_from(&current_dir))
             .collect();
 
         paths.sort();
@@ -1187,9 +1190,8 @@ impl<'a> CompletionContext<'a> {
         if extensions.is_empty() {
             self.file_completions(|_| true);
         }
-        self.file_completions(|id| {
-            let ext = id
-                .vpath()
+        self.file_completions(|path| {
+            let ext = path
                 .extension()
                 .map(EcoString::from)
                 .unwrap_or_default()
@@ -1917,6 +1919,36 @@ mod tests {
                 q!("../data/example.csv"),
             ])
             .must_exclude([q!("f.typ")]);
+    }
+
+    #[test]
+    fn test_autocomplete_file_path_with_prefix() {
+        let world = TestWorld::new("")
+            .with_source("content/main.typ", "#read(\"a\")")
+            .with_source("content/test1.typ", "#read(\"\")")
+            .with_source("content/test2.typ", "#read(\"..\")")
+            .with_source("content/test3.typ", "#read(\"../assets/r\")")
+            .with_source("content/aux.typ", "")
+            .with_asset_at("assets/tiger.jpg", "tiger.jpg")
+            .with_asset_at("assets/rhino.png", "rhino.png");
+
+        test(&world, ("content/main.typ", -3))
+            .must_include([q!("aux.typ")])
+            .must_exclude([q!("test.typ")]);
+
+        test(&world, ("content/test1.typ", -3)).must_include([
+            q!("aux.typ"),
+            q!("../assets/tiger.jpg"),
+            q!("../assets/tiger.jpg"),
+        ]);
+
+        test(&world, ("content/test2.typ", -3))
+            .must_include([q!("../assets/rhino.png"), q!("../assets/tiger.jpg")])
+            .must_exclude([q!("aux.typ")]);
+
+        test(&world, ("content/test3.typ", -3))
+            .must_include([q!("../assets/rhino.png")])
+            .must_exclude([q!("aux.typ"), q!("../assets/tiger.jpg")]);
     }
 
     #[test]

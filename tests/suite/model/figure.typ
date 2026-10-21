@@ -1,6 +1,7 @@
 // Test figures.
 
---- figure-basic paged pdftags pdfstandard(ua-1) ---
+--- figure-basic paged pdftags ---
+#set pdf(standard: "ua-1")
 #set page(width: 150pt)
 #set figure(numbering: "I")
 

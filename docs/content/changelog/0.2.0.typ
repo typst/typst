@@ -19,7 +19,7 @@
 = Miscellaneous improvements <miscellaneous-improvements>
 - Fixed page numbering in outline
 - Added basic i18n for a few more languages (AR, NB, CS, NN, PL, SL, ES, UA, VI)
-- Added a few numbering patterns (Ihora, Chinese)
+- Added a few numbering patterns (Iroha, Chinese)
 - Added `sinc` @math.op[operator]
 - Fixed bug where math could not be hidden with @hide
 - Fixed sizing issues with box, block, and shapes

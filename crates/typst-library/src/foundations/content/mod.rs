@@ -31,8 +31,9 @@ use crate::foundations::{
 };
 use crate::introspection::Location;
 use crate::layout::{AlignElem, Alignment, Axes, Length, MoveElem, PadElem, Rel, Sides};
-use crate::model::{Destination, EmphElem, LinkElem, LinkMarker, StrongElem};
-use crate::pdf::{ArtifactElem, ArtifactKind};
+use crate::model::{
+    ArtifactElem, ArtifactKind, Destination, EmphElem, LinkElem, LinkMarker, StrongElem,
+};
 use crate::text::UnderlineElem;
 
 /// A piece of document content.

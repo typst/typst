@@ -11,12 +11,14 @@
 #let register-index-item(
   kind: none,
   title: none,
+  path: none,
   dest: none,
   keywords: (),
 ) = labelled(
   metadata((
     kind: kind,
     title: title,
+    path: path,
     dest: dest,
     keywords: keywords,
   )),

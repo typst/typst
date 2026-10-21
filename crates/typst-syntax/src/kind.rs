@@ -22,12 +22,15 @@ pub enum SyntaxKind {
     Markup,
     /// Plain text without markup.
     Text,
-    /// Whitespace. Contains at most one newline in markup, as more indicate a
-    /// paragraph break.
-    Space,
+    /// Whitespace with no newlines.
+    SpaceNoNewline,
+    /// Whitespace with _exactly one_ newline in Markup (more would be a
+    /// `ParBreak`) and _at least one_ newline in Code/Math.
+    SpaceWithNewline,
     /// A forced line break: `\`.
     Linebreak,
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     Parbreak,
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape,
@@ -77,8 +80,25 @@ pub enum SyntaxKind {
     Equation,
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `|`, `[`.
-    MathText,
+    /// A single letter in math, may be exactly one grapheme cluster: `x`, `π`,
+    /// `ℱ`, `ℱ︀`.
+    ///
+    /// Note that `ℱ` and `ℱ︀` are `[U+2131]` and `[U+2131, U+FE00]`
+    /// respectively.
+    ///
+    /// This is always a valid start of an identifier.
+    MathLetter,
+    /// A non-letter symbol in math, may be exactly one grapheme cluster: `+`,
+    /// `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    ///
+    /// Note that `∅` and `∅︀` are `[U+2205]` and `[U+2205, U+FE00]`
+    /// respectively.
+    MathSymbol,
+    /// A number in math: `25`, `2.718`.
+    ///
+    /// Will only ever include a single dot between digits, never at the
+    /// start/end.
+    MathNumber,
     /// An identifier in math: `pi`.
     MathIdent,
     /// A field access in math: `arrow.r.long.double.bar`.
@@ -91,6 +111,14 @@ pub enum SyntaxKind {
     MathCall,
     /// Function arguments in math: `(delim: "[", a, b; ..#($c$,), d)`.
     MathArgs,
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// Also wraps the opening double square bracket shorthand: `[|`.
+    MathOpening,
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// Also wraps the closing double square bracket shorthand: `|]`.
+    MathClosing,
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
@@ -364,6 +392,14 @@ impl SyntaxKind {
         )
     }
 
+    /// Does this produce textual content matching itself?
+    pub fn is_text_like(self) -> bool {
+        matches!(
+            self,
+            Self::Text | Self::MathLetter | Self::MathSymbol | Self::MathNumber
+        )
+    }
+
     /// Whether this kind of node is automatically skipped by the parser in
     /// code and math mode.
     pub fn is_trivia(self) -> bool {
@@ -372,7 +408,8 @@ impl SyntaxKind {
             Self::Shebang
                 | Self::LineComment
                 | Self::BlockComment
-                | Self::Space
+                | Self::SpaceNoNewline
+                | Self::SpaceWithNewline
                 | Self::Parbreak
         )
     }
@@ -392,7 +429,8 @@ impl SyntaxKind {
             Self::BlockComment => "block comment",
             Self::Markup => "markup",
             Self::Text => "text",
-            Self::Space => "space",
+            Self::SpaceNoNewline => "space",
+            Self::SpaceWithNewline => "space",
             Self::Linebreak => "line break",
             Self::Parbreak => "paragraph break",
             Self::Escape => "escape sequence",
@@ -418,13 +456,17 @@ impl SyntaxKind {
             Self::TermMarker => "term marker",
             Self::Equation => "equation",
             Self::Math => "math",
-            Self::MathText => "math text",
+            Self::MathLetter => "math letter",
+            Self::MathSymbol => "math symbol",
+            Self::MathNumber => "math number",
             Self::MathIdent => "math identifier",
             Self::MathFieldAccess => "math field access",
             Self::MathShorthand => "math shorthand",
             Self::MathAlignPoint => "math alignment point",
             Self::MathCall => "math function call",
             Self::MathArgs => "math call arguments",
+            Self::MathOpening => "math opening delimiter",
+            Self::MathClosing => "math closing delimiter",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
@@ -586,9 +628,10 @@ impl SyntaxKind {
             Self::BlockComment => None, // none
 
             Self::Markup => Known(Markup),
-            Self::Text => Text,        // none: Raw | markup: expr
-            Self::Space => Space,      // code/math: part | markup: expr/part
-            Self::Linebreak => Parent, // math/markup: expr
+            Self::Text => Text,              // none: Raw | markup: expr
+            Self::SpaceNoNewline => Space,   // code: part | markup/math: expr/part
+            Self::SpaceWithNewline => Space, // code: part | markup/math: expr/part
+            Self::Linebreak => Parent,       // math/markup: expr
             Self::Parbreak => Known(Markup),
             Self::Escape => Parent, // math/markup: expr
             Self::Shorthand => Known(Markup),
@@ -614,13 +657,17 @@ impl SyntaxKind {
 
             Self::Equation => Embeddable, // code/markup: expr
             Self::Math => Known(Math),
-            Self::MathText => Known(Math),
+            Self::MathLetter => Known(Math),
+            Self::MathSymbol => Known(Math),
+            Self::MathNumber => Known(Math),
             Self::MathIdent => Known(Math),
             Self::MathFieldAccess => Known(Math),
             Self::MathShorthand => Known(Math),
             Self::MathAlignPoint => Known(Math),
             Self::MathCall => Known(Math),
             Self::MathArgs => Known(Math),
+            Self::MathOpening => Known(Math),
+            Self::MathClosing => Known(Math),
             Self::MathDelimited => Known(Math),
             Self::MathAttach => Known(Math),
             Self::MathPrimes => Known(Math),
@@ -849,5 +896,11 @@ mod test {
         test_mode("$ #$x$; $", [2, 5], Some(Code));
         test_mode("#[$x$]", [2, 3], Some(Math));
         test_mode("#[$x$]", [1, 4], Some(Markup));
+
+        // Single newlines at the edges of modes
+        // (since the other tests mostly use normal spaces instead of newlines)
+        test_mode("#[\n$\n#{\nx\n}\n$\n]", [2, 13], Some(Markup));
+        test_mode("#[\n$\n#{\nx\n}\n$\n]", [4, 11], Some(Math));
+        test_mode("#[\n$\n#{\nx\n}\n$\n]", [7, 9], Some(Code));
     }
 }

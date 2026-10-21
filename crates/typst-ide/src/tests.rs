@@ -117,10 +117,20 @@ impl IdeWorld for TestWorld {
         self
     }
 
-    fn files(&self) -> Vec<FileId> {
+    fn files(&self, base: FileId, prefix: Option<&str>) -> Vec<VirtualPath> {
+        let dir = base.vpath().parent();
+
         std::iter::once(self.main.id())
             .chain(self.files.sources.keys().copied())
             .chain(self.files.assets.keys().copied())
+            .map(|id| id.vpath().clone())
+            .filter(|path| {
+                prefix.is_none_or(|prefix| {
+                    dir.as_ref()
+                        .map(|dir| path.relative_from(dir))
+                        .is_none_or(|relative| relative.starts_with(prefix))
+                })
+            })
             .collect()
     }
 
@@ -175,7 +185,15 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = typst::Library::builder().with_features(Features::all()).build();
+    let mut lib = typst::Library::builder([
+        typst_html::FORMAT,
+        typst_pdf::FORMAT,
+        typst_svg::FORMAT,
+        typst_render::FORMAT,
+        typst_bundle::FORMAT,
+    ])
+    .with_features(Features::all())
+    .build();
     lib.styles.set(PageElem::width, Smart::Custom(Abs::pt(120.0).into()));
     lib.styles.set(PageElem::height, Smart::Auto);
     lib.styles.set(

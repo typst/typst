@@ -1,5 +1,5 @@
 FROM --platform=$BUILDPLATFORM tonistiigi/xx:1.9.0 AS xx
-FROM --platform=$BUILDPLATFORM rust:1.95.0-alpine3.23 AS build
+FROM --platform=$BUILDPLATFORM rust:1.98.0-alpine3.23 AS build
 
 COPY --from=xx / /
 

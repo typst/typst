@@ -49,16 +49,16 @@ impl Display for DurationDisplay {
         let nanos = secs * order(3) + self.0.subsec_nanos() as u64;
         let fract = |exp| round_with_precision(nanos as f64 / order(exp) as f64, 2);
 
-        if nanos == 0 || self.0 > Duration::from_secs(1) {
-            // For durations > 5 min, we drop the fractional part.
-            if self.0 > Duration::from_secs(300) {
+        if nanos == 0 || self.0 >= Duration::from_secs(1) {
+            // For durations >= 5 min, we drop the fractional part.
+            if self.0 >= Duration::from_mins(5) {
                 piece!("{secs} s");
             } else {
                 piece!("{} s", fract(3));
             }
-        } else if self.0 > Duration::from_millis(1) {
+        } else if self.0 >= Duration::from_millis(1) {
             piece!("{} ms", fract(2));
-        } else if self.0 > Duration::from_micros(1) {
+        } else if self.0 >= Duration::from_micros(1) {
             piece!("{} µs", fract(1));
         } else {
             piece!("{} ns", fract(0));
@@ -87,6 +87,12 @@ mod tests {
         test(Duration::from_secs_f64(264.776), "4 min 24.78 s");
         test(Duration::from_secs(3), "3 s");
         test(Duration::from_secs_f64(2.8492), "2.85 s");
+        test(Duration::from_millis(999), "999 ms");
+        test(Duration::from_secs(1), "1 s");
+        test(Duration::from_micros(999), "999 µs");
+        test(Duration::from_millis(1), "1 ms");
+        test(Duration::from_nanos(999), "999 ns");
+        test(Duration::from_micros(1), "1 µs");
         test(Duration::from_micros(734), "734 µs");
         test(Duration::from_micros(294816), "294.82 ms");
         test(Duration::from_nanos(1), "1 ns");

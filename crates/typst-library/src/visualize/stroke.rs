@@ -316,7 +316,7 @@ impl<T: Numeric + Repr> Repr for Stroke<T> {
                 }
                 (Smart::Custom(paint), Smart::Auto) => r.push_str(&paint.repr()),
                 (Smart::Auto, Smart::Custom(thickness)) => r.push_str(&thickness.repr()),
-                (Smart::Auto, Smart::Auto) => r.push_str("1pt + black"),
+                (Smart::Auto, Smart::Auto) => r.push_str("stroke()"),
             }
         } else {
             r.push('(');

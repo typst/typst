@@ -64,7 +64,16 @@ impl SystemWorld {
             let features =
                 process_args.features.iter().copied().map(Into::into).collect();
 
-            Library::builder().with_inputs(inputs).with_features(features).build()
+            Library::builder([
+                typst_html::FORMAT,
+                typst_pdf::FORMAT,
+                typst_svg::FORMAT,
+                typst_render::FORMAT,
+                typst_bundle::FORMAT,
+            ])
+            .with_inputs(inputs)
+            .with_features(features)
+            .build()
         };
 
         let now = match world_args.creation_timestamp {

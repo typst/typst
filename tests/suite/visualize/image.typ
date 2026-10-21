@@ -113,6 +113,50 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```.text
 ))
 
+--- image-svg-foreign-object-warning paged ---
+// Warning: 1:2-9:3 image contains foreign object
+// Hint: 1:2-9:3 its content will be omitted because Typst cannot render embedded HTML
+// Hint: 1:2-9:3 see https://github.com/typst/typst/issues/1421 for more information
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="150">
+    <foreignObject width="200" height="150">
+      <div xmlns="http://www.w3.org/1999/xhtml">Rich HTML content</div>
+    </foreignObject>
+  </svg>
+  ```.text
+))
+
+--- image-svg-foreign-object-inside-switch-svg2-0 paged ---
+// SVG 2.0 style, using requiredExtensions
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="150">
+    <switch>
+      <foreignObject requiredExtensions="http://www.w3.org/1999/xhtml" width="200" height="150">
+        <div xmlns="http://www.w3.org/1999/xhtml">Rich HTML content</div>
+      </foreignObject>
+      <text x="10" y="80" font-size="16">fallback text</text>
+    </switch>
+  </svg>
+  ```.text
+))
+
+--- image-svg-foreign-object-inside-switch-svg1-1 paged ---
+// SVG 1.1 style, using requiredFeatures, remaining in draw.io output
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="150">
+    <switch>
+      <foreignObject requiredFeatures="http://www.w3.org/TR/SVG11/feature#Extensibility" width="200" height="150">
+        <div xmlns="http://www.w3.org/1999/xhtml">Rich HTML content</div>
+      </foreignObject>
+      <text x="10" y="80" font-size="16">fallback text</text>
+    </switch>
+  </svg>
+  ```.text
+))
+
 --- image-svg-linked-jpg1 paged ---
 #set page(fill: gray)
 #image(bytes(
@@ -138,7 +182,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 --- image-svg-linked-many-formats paged ---
 #set page(width: auto, height: auto, margin: 1pt)
 #set text(1pt)
-#image("../../../assets/images/linked.svg", width: 39pt)
+#image("/assets/images/linked.svg", width: 39pt)
 
 --- image-svg-linked-file-not-found paged ---
 // Error: 1:8-7:2 failed to load linked image do-not-add-image-with-this-name.png in SVG (file not found, searched at tests/suite/visualize/do-not-add-image-with-this-name.png)
@@ -196,6 +240,16 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   ```
   <svg xmlns="http://www.w3.org/2000/svg">
     <image href="file:///home/user/foo.svg" />
+  </svg>
+  ```.text
+))
+
+--- image-svg-linked-invalid paged ---
+// Error: 1:8-7:2 failed to load linked image ../../../assets/images/bad.svg in SVG (failed to parse SVG)
+#image(bytes(
+  ```
+  <svg xmlns="http://www.w3.org/2000/svg">
+    <image href="../../../assets/images/bad.svg" />
   </svg>
   ```.text
 ))
@@ -383,7 +437,7 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
 // Test that image measurement doesn't turn `inf / some-value` into 0pt.
 #context {
   let size = measure(image("/assets/images/tiger.jpg"))
-  test(size, (width: 1024pt, height: 670pt))
+  test(size, (width: 1024pt, height: 670pt, baseline: 670pt))
 }
 
 --- issue-2051-new-cm-svg paged ---

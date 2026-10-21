@@ -515,7 +515,7 @@ pub(super) fn kern_at_height(
     }?;
 
     let mut i = 0;
-    while i < kern.count() && height > font.to_em(kern.height(i)?.value) {
+    while i < kern.count() && height >= font.to_em(kern.height(i)?.value) {
         i += 1;
     }
 

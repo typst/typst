@@ -18,7 +18,7 @@
 - Added encoding and decoding functions from and to bytes for data formats: `json.decode`, @json.encode, and similar functions for other formats
 - Added @array.intersperse function
 - Added @str.rev function
-- Added `calc.tau` constant
+- Added @calc.tau constant
 - Made @bytes[bytes] joinable and addable
 - Made @array.zip function variadic
 - Fixed bug with @eval when the `mode` was set to `{"math"}`
