@@ -224,7 +224,7 @@ fn resolve_realized<'a>(
     } else if let Some(elem) = elem.to_packed::<OvershellElem>() {
         resolve_overshell(elem, ctx, styles)?;
     } else if let Some(elem) = elem.to_packed::<AtopElem>() {
-        resolve_atop(elem, ctx, styles)?
+        resolve_atop(elem, ctx, styles)?;
     } else if let Some(body) =
         (ctx.engine.library.routines.html_mathml_body)(elem, styles)
     {
@@ -731,7 +731,7 @@ fn resolve_binom<'a>(
         ctx,
         styles,
         &elem.upper,
-        &lower,
+        lower,
         false,
         Some(DelimiterPair::PAREN),
         elem.span(),
