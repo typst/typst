@@ -111,9 +111,7 @@ abc字\
 测#context [a]试
 
 --- issue-7113-cjk-latin-spacing-shift paged ---
-// TODO(font): How can Garamond-Math provide a `.` glyph for the CJ period mark `。`?
-#set text(font: ("Libertinus Serif", "Garamond-Math", "Noto Serif CJK JP", "Noto Serif CJK SC"))
-#show super: set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
+#set text(lang: "zh", font: "Noto Serif CJK SC")
 孔乙己#super[1]与上大人#super[2]。
 
 孔乙己#super[A应保留spacing]与上大人#super[B]。

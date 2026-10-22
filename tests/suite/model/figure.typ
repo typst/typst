@@ -241,8 +241,7 @@ We can clearly see that @fig-cylinder and
 
 --- figure-localization-zh paged ---
 // Test Chinese
-// TODO(font): This should only use the SC font.
-#set text(lang: "zh", font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK SC"))
+#set text(lang: "zh", font: "Noto Serif CJK SC")
 #figure(
   rect(),
   caption: [一个矩形],

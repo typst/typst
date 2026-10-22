@@ -243,7 +243,7 @@ e0291493864c1d3e1fcd0b5cf4a0b8b2 figure-caption-where-selector
 549c0c8ccf50b3fbea4dca25e378097a figure-localization-el
 ed01db1f3d4ce09594e0248281f7ce99 figure-localization-fr
 49cd15627997331e91bc37fedbb54c27 figure-localization-ru
-48d7c1aa7f2e9e334487ded0bd34f6fd figure-localization-zh
+b007564219c8353bea27a5deb98f6ca4 figure-localization-zh
 29b416dd66876435ea292a27c3b645c2 figure-par
 fa10f447e24a56cbb04f3519eb1f21a5 figure-placement
 f96885f76eb853b34c3792b369d85da5 figure-table
@@ -847,7 +847,7 @@ ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 0193206bf0e046bb87528d6a6df9d60a issue-6869-image-zero-sized
 235e60046edf64f088ea9a8483e9ffaa issue-6961-tab-crlf-raw-indent
 e6c3701e2842f398fcb0758a4f9533ab issue-7103-wrong-state-calculation
-db8f9c5dfa35d2bc3d14d90b43e77392 issue-7113-cjk-latin-spacing-shift
+a5cd714b0775cbea290be63b7c1f9628 issue-7113-cjk-latin-spacing-shift
 4f81a8ca1011318abd32f9cbdf0dee3e issue-7178-svg-fallback-deadlock
 e19de6f6cc98aee84f9224675d8d3982 issue-7188-grid-counter-order
 d53e781aebb56c78a58c1997e2a4982b issue-7249-multiple-lookup-tables
@@ -862,7 +862,7 @@ ae20f6aff17916fdeb8c306e03357c63 issue-758-link-repeat
 f56795c728b71c3362c549303cd72cee issue-785-cite-locate
 8df622e20e954ba4703dbc3e8741ed70 issue-7872-negative-scale
 6d78160f24ae092b4b9aa84da23b96c2 issue-7901-rect-negative-dimensions-radius
-492894c4981d4cf7ffaffa9d8dfcb6b0 issue-792-newline-space-discarding
+90207be01caff0895b2ed3befcf9813b issue-792-newline-space-discarding
 aef4ed36525eb9f423be68e32b38407f issue-7991-show-text-symbol-grapheme-sliced
 d9192b21589f5f341abaf84775109c68 issue-80-emoji-linebreak
 6570a3a66154baf8df947d0991c2b03f issue-8058-show-text-grapheme-sliced
@@ -904,7 +904,7 @@ f8bae545470546b0bafb957e32bf649e issues-7168-linebreak-whitespace-trimming-justi
 1001ae96bf5c35973d8e1a0fe68ee5c5 justify
 438980e7b633169a40a2fe1dfad38e5e justify-avoid-runts
 719802ebea730e40c9e1f7af3d47ce14 justify-basically-empty
-327dd8e726c54cc6a07ddb42aa01d775 justify-chinese
+3233681d2324c6c2fb38dfa91655852b justify-chinese
 3cbc943e5fcff8fe54d3459213f9819e justify-code-blocks
 65748e27f0b3c92406f8a359220fa2c1 justify-japanese
 04ac1e822780320bc53bead97d7bb57d justify-justified-linebreak
@@ -1425,13 +1425,13 @@ a654ef985dabbf45aa5d50b66a3c18c9 mozilla-mathml-test-7
 41f8bc329a4d10bf9cab046afad0777c mozilla-mathml-test-9
 5879d9ef461fcb5dfb1314df2489bc8f newline-continuation-code
 4ebf8a61bb5e7172cd9f39faaa9f9c4b newline-continuation-markup
-9a8a38bb536318cd8821daddc63900b5 newline-space-discarding-dynamic
+2513e57ea5bf3e1a7ea340e0ac497318 newline-space-discarding-dynamic
 b136ae393f6d594e817302117a3af4a3 newline-space-discarding-korean
 67930a12541d8fd98b1c6e054797564f newline-space-discarding-non-text
 7de79ce626d7c1a3e8d14a69334e98a1 newline-space-discarding-punctuation
-b91345f993e6e278f180b4b13aa048c1 newline-space-discarding-regex-show-rule
+a1045f2e0a242f5a6a8fdb85cfa89800 newline-space-discarding-regex-show-rule
 8ced42eecccf501fe7d94277575e32b2 newline-space-discarding-smart-quotes
-b949b1775e09c1f6565aab76154249d3 newline-space-discarding-strong
+21f3451966327fad0265f5bcd8e6ea7c newline-space-discarding-strong
 cd76109e68234a842ae8f8bac9e282c8 numbering-illegal-zero
 dadcbf59ca5e4e163484c4eb3fba3522 numbering-too-high
 adec380ee7990d4c1e14e4f4d54a72f0 numbers
