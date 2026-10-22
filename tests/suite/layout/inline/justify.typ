@@ -277,6 +277,7 @@ int main() {
 
 --- issue-6062-justify-cjk-latin-spacing paged ---
 // Test whether cjk-latin-spacing would be stretched evenly when justified.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 #set par(justify: true)
 あaあ#linebreak(justify: true)
 ああaa aaああ#linebreak(justify: true)

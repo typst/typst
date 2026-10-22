@@ -89,10 +89,11 @@ Lריווח #h(1cm) R
   lines(6),
   [
     #text(lang: "ar", font: ("Libertinus Serif", "Noto Sans Arabic"))[مجرد نص مؤقت لأغراض العرض التوضيحي. ]
-    #text(lang: "ar")[سلام]
+    #text(lang: "ar", fallback: true)[سلام]
   ],
 )
 
 --- issue-5276-shaping-consecutive-ltr-with-lang paged ---
+#set text(font: "DejaVu Sans")
 #let a = text(lang: "ar")[\u{645}]
 #a#a

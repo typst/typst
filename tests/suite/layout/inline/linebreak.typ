@@ -123,9 +123,13 @@ http://mydataurl/hash/12098541029831025981024980124124214/incremental/progress%l
 For info see #link("https://myhost.tld").
 
 --- issue-2105-linebreak-tofu paged ---
+// Ensure that leading whitespace characters do not affect font fallback.
+#set text(fallback: true)
 #linebreak()中文
 
 --- issue-3082-chinese-punctuation paged ---
+// Ensure that `）` and `，` stay on the same line.
+// In this test, the punctuation marks should use TC glyphs with GB-style adjustments.
 #set text(font: "Noto Serif CJK TC", lang: "zh")
 #set page(width: 230pt)
 

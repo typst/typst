@@ -72,7 +72,7 @@
 
 --- issue-2538-cjk-latin-spacing-before-linebreak paged ---
 // Issue #2538
-#set text(cjk-latin-spacing: auto)
+#set text(cjk-latin-spacing: auto, font: ("Libertinus Serif", "Noto Serif CJK JP"))
 
 abc字
 
@@ -98,6 +98,7 @@ abc字\
 #box(align(end)[丁国T国])
 
 --- issue-2650-cjk-latin-spacing-meta paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 测a试
 
 测#context [a]试

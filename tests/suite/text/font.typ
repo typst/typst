@@ -66,6 +66,7 @@ Emoji: 🐪, 🌋, 🏞
 #set text(something: "invalid")
 
 --- text-unknown-font-family-warning paged ---
+#set text(fallback: true)
 #text(font: "libertinus serif")[I exist,]
 // Warning: 13-26 unknown font family: nonexistent
 #text(font: "nonexistent")[but]

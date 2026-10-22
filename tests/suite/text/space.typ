@@ -106,6 +106,7 @@ LLLLLLLLLLLLLLLLLL R _L_
 /**/ 果
 
 --- newline-space-discarding-punctuation paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 #set page(width: auto)
 // We collapse spaces next to any ideographic punctuation
 你好，
@@ -118,6 +119,7 @@ LLLLLLLLLLLLLLLLLL R _L_
 “你好”
 
 --- newline-space-discarding-korean paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK KR"))
 // Korean doesn't collapse spaces on newlines
 줄
 바꿈
@@ -178,6 +180,7 @@ newline
 啊#no-newline;啊 // doesn't collapse
 
 --- newline-space-discarding-smart-quotes paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 // Test newline space discarding adjacent to smart quotes.
 A "' A '" A
 
@@ -197,6 +200,7 @@ A
 あ
 
 --- newline-space-discarding-non-text paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 // Test newline space discarding adjacent to non-textual inline elements.
 #let line = box(height: 1em, width: 1pt, fill: red)
 
