@@ -57,6 +57,7 @@ $bb(Gamma) , bb(gamma), bb(Pi), bb(pi), bb(sum)$
 
 --- math-style-hebrew-exceptions paged html ---
 // Test hebrew exceptions.
+#show math.equation: set text(font: ("New Computer Modern Math", "Noto Serif Hebrew"))
 $aleph, beth, gimel, daleth$ \
 $upright(aleph), upright(beth), upright(gimel), upright(daleth)$
 

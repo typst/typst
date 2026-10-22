@@ -241,7 +241,7 @@ We can clearly see that @fig-cylinder and
 
 --- figure-localization-zh paged ---
 // Test Chinese
-#set text(lang: "zh")
+#set text(lang: "zh", font: "Noto Serif CJK SC")
 #figure(
   rect(),
   caption: [一个矩形],

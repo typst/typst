@@ -51,7 +51,8 @@
 
 --- cjk-punctuation-adjustment-3 paged ---
 #set page(width: 21em)
-#set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
+// TODO(font): The SC font in the current typst-dev-assets does not cover 扉
+#set text(lang: "zh", region: "CN", font: ("Noto Serif CJK SC", "Noto Serif CJK JP"))
 
 // These examples contain extensive use of Chinese punctuation marks,
 // from 《Which parentheses should be used when applying parentheses?》.
@@ -72,7 +73,7 @@
 
 --- issue-2538-cjk-latin-spacing-before-linebreak paged ---
 // Issue #2538
-#set text(cjk-latin-spacing: auto)
+#set text(cjk-latin-spacing: auto, font: ("Libertinus Serif", "Noto Serif CJK JP"))
 
 abc字
 
@@ -85,8 +86,14 @@ abc字\
 母
 
 --- issue-6539-cjk-latin-spacing-at-manual-linebreak paged ---
-// Issue #6539
-#set text(cjk-latin-spacing: auto)
+#set text(
+  cjk-latin-spacing: auto, // Issue #6539
+  lang: "zh",
+  font: (
+    (name: "Libertinus Serif", covers: "latin-in-cjk"),
+    "Noto Serif CJK SC",
+  ),
+)
 #set box(width: 2.3em, stroke: (x: green))
 
 #box(align(end)[甲国\ T国])
@@ -98,11 +105,13 @@ abc字\
 #box(align(end)[丁国T国])
 
 --- issue-2650-cjk-latin-spacing-meta paged ---
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 测a试
 
 测#context [a]试
 
 --- issue-7113-cjk-latin-spacing-shift paged ---
+#set text(lang: "zh", font: "Noto Serif CJK SC")
 孔乙己#super[1]与上大人#super[2]。
 
 孔乙己#super[A应保留spacing]与上大人#super[B]。

@@ -128,6 +128,7 @@ $]
 #bounds[abc #box(ellipse[hey!]) #box(ellipse(width: 2em, height: 1em))]
 
 --- issue-2214-baseline-math paged ---
+#set text(font: ("Libertinus Serif", "Libertinus Math"))
 // The math content should also be affected by the TextElem baseline.
 hello #text(baseline: -5pt)[123 #sym.WW\orld]\
 hello #text(baseline: -5pt)[$123 WW#text[or]$ld]\
