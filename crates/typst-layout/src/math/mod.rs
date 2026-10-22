@@ -627,7 +627,7 @@ fn get_font(
         .find_map(|family| {
             world
                 .book()
-                .select(family.as_str(), variant)
+                .select(family.name(), variant)
                 .and_then(|id| world.font(id))
                 .filter(|_| family.covers().is_none())
                 .map(|font| font.instantiate(variant, size, &variations))
