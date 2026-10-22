@@ -22,10 +22,10 @@ use typst_library::layout::{Axes, Axis, Dir, Length};
 use typst_library::text::TextElem;
 use typst_library::visualize::Color;
 use typst_macros::cast;
-use typst_syntax::Spanned;
+use typst_syntax::{Span, Spanned};
 
 use crate::css::ToCss;
-use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, tag};
+use crate::{HtmlAttr, HtmlAttrs, HtmlElem, HtmlTag, charsets, tag};
 
 /// Hook up all typed HTML definitions.
 pub(super) fn define(html: &mut Scope) {
@@ -111,6 +111,35 @@ fn create_param_info(element: &'static data::ElemInfo) -> Vec<NativeParamInfo> {
             settable: false,
         });
     }
+    // This should be pushed last because it is the least specific attribute in
+    // auto-completion.
+    params.push(NativeParamInfo {
+        name: "data-*",
+        docs: r#"Custom data attribute.
+
+This is a class of attributes. An HTML element can be specified with any number of attributes whose names start with `data-`. Such `data-*` attributes are intended to pass custom data from HTML to JavaScript or other scripts known to the website author.
+
+```typ
+#html.ol(data-series: "DS9", {
+  html.li(
+    value: 457,
+    data-stardate: "48481.2",
+    data-original-airdate: "1995-01-08",
+  )[Past Tense, Part I]
+})
+```
+"#,
+        def_site: None,
+        input: Str::input(),
+        default: None,
+        positional: false,
+        named: true,
+        // `data-*` is not considered as variadic, because it is named and each
+        // `data-*` can only be specified once.
+        variadic: false,
+        required: false,
+        settable: false,
+    });
     params
 }
 
@@ -121,18 +150,38 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
 
     args.items.retain(|item| {
         let Some(name) = &item.name else { return true };
-        let Some(attr) = element.get_attr(name) else { return true };
-
         let span = item.value.span;
-        let value = std::mem::take(&mut item.value.v);
-        let ty = AttrType::convert(attr.ty);
-        match ty.cast(value).at(span) {
-            Ok(Some(string)) => attrs.push(HtmlAttr::constant(attr.name), string),
-            Ok(None) => {}
-            Err(diags) => errors.extend(diags),
+
+        // Element-specific and global attributes have a fixed type, except `data-*`.
+        if let Some(attr) = element.get_attr(name) {
+            let value = std::mem::take(&mut item.value.v);
+            let ty = AttrType::convert(attr.ty);
+            match ty.cast(value).at(span) {
+                Ok(Some(string)) => attrs.push(HtmlAttr::constant(attr.name), string),
+                Ok(None) => {}
+                Err(diags) => errors.extend(diags),
+            }
+
+            return false;
         }
 
-        false
+        // Custom `data-*` attributes.
+        match data_attr(name, item.span) {
+            Ok(Some(attr)) => {
+                let value = std::mem::take(&mut item.value.v);
+                match value.cast::<Str>().at(span) {
+                    Ok(string) => attrs.push(attr, string),
+                    Err(diags) => errors.extend(diags),
+                }
+                false
+            }
+            Err(diags) => {
+                errors.extend(diags);
+                false
+            }
+            // Retain unrecognized attributes
+            Ok(None) => true,
+        }
     });
 
     if !errors.is_empty() {
@@ -157,6 +206,41 @@ fn construct(element: &'static data::ElemInfo, args: &mut Args) -> SourceResult<
     }
 
     Ok(elem.into_value())
+}
+
+/// Resolve the name of an argument as a custom `data-*` attribute.
+///
+/// Returns `Ok(None)` if the name is clearly not a `data-*` attribute.
+///
+/// Reports an `Err` at `span` if the name looks like `data-*`, but is not valid.
+/// For example, `data-FooBar`, `data-foo=bar`, or `data_foo`.
+///
+/// See <https://html.spec.whatwg.org/multipage/dom.html#custom-data-attribute>
+fn data_attr(name: &str, span: Span) -> SourceResult<Option<HtmlAttr>> {
+    match name.strip_prefix("data-") {
+        Some("") => bail!(
+            span, "`data-` is not a valid custom `data-*` attribute";
+            hint: "it should have at least one character after `data-`";
+        ),
+        Some(suffix)
+            if suffix.chars().any(|c| {
+                c.is_ascii_uppercase() || !charsets::is_valid_in_attribute_local_name(c)
+            }) =>
+        {
+            bail!(
+                span, "`{name}` is not a valid custom `data-*` attribute";
+                hint: "it should contain no ASCII upper alphas or special characters";
+            )
+        }
+        Some(_) => Ok(Some(HtmlAttr::intern(name).at(span)?)),
+        None => match name.strip_prefix("data") {
+            Some(suffix) if !suffix.is_empty() => bail!(
+                span, "`{name}` is not a valid custom `data-*` attribute";
+                hint: "did you mean `data-{}`?", suffix.trim_start_matches('_');
+            ),
+            _ => Ok(None),
+        },
+    }
 }
 
 /// A dynamic representation of an attribute's type.
