@@ -7,7 +7,7 @@ use std::fmt::Debug;
 use ttf_parser::GlyphId;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
-use typst_library::layout::{Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size};
+use typst_library::layout::{Abs, Axis, Corner, Em, Fr, Frame, FrameItem, Point, Size};
 use typst_library::math::MathSize;
 use typst_library::math::ir::MathProperties;
 use typst_library::text::{FontInstance, TextElem};
@@ -24,6 +24,7 @@ pub enum MathFragment {
     Glyph(GlyphFragment),
     Frame(FrameFragment),
     Space(Abs),
+    Fractional(Fr),
     Tag(Tag),
 }
 
@@ -33,7 +34,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size,
             Self::Frame(fragment) => fragment.frame.size(),
             Self::Space(amount) => Size::with_x(*amount),
-            Self::Tag(_) => Size::zero(),
+            Self::Tag(_) | Self::Fractional(_) => Size::zero(),
         }
     }
 
@@ -42,7 +43,7 @@ impl MathFragment {
             Self::Glyph(glyph) => glyph.size.x,
             Self::Frame(fragment) => fragment.frame.width(),
             Self::Space(amount) => *amount,
-            Self::Tag(_) => Abs::zero(),
+            Self::Tag(_) | Self::Fractional(_) => Abs::zero(),
         }
     }
 
@@ -95,7 +96,7 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Frame(fragment) => fragment.class,
-            Self::Space(_) => MathClass::Space,
+            Self::Space(_) | Self::Fractional(_) => MathClass::Space,
             Self::Tag(_) => MathClass::Special,
         }
     }
@@ -167,7 +168,7 @@ impl MathFragment {
                 frame.push(Point::zero(), FrameItem::Tag(tag));
                 frame
             }
-            Self::Space(_) => Frame::soft(self.size()),
+            Self::Space(_) | Self::Fractional(_) => Frame::soft(self.size()),
         }
     }
 
