@@ -39,7 +39,7 @@ ec988f48053bcc2b5c7accd247811591 bidi-explicit-dir
 8b2d67584aed10840b6435d5490ec212 bidi-manual-linebreak
 9502547ef3f04b1ea6f1b9b2bdc103fe bidi-nesting
 74c3983283ee091cf3863d20ea3a756c bidi-obj
-0d37f44093d11ebd16b7fc688b172505 bidi-raw
+67fcf541ad43bb5e0954cd9408cb4e0d bidi-raw
 b9d7489afe73f66025a36c79304b8b19 bidi-spacing
 51cd3f34ffa5a1c1de54ace4dda35fc3 bidi-whitespace-reset
 c187a1561a383b606f4a983e84d4100c block-box-fill
@@ -166,7 +166,7 @@ e21c08845a3b1c27761f4def9d8fb021 counter-page-footer-before-set-page
 1d2f100455c9e0e7644771bc5881daaa counter-page-footer-only-update
 f030b78da5aaea5c71f56f40c1819bec counter-page-header-before-set-page
 5cef09567a77060abdf14f98881d6f79 counter-page-header-only-update
-367c7fac14560c0ab73bd0d20410fd7e counter-rtl
+57fb5a26b73892c2603dcc929f9f0258 counter-rtl
 14fbcb2a6546c3a19798ca6df625dedf csv
 d18d2777cba8fb7625e3a5d4d2033a7a curve-close-intersection
 1de48fc6ec1681418749811781d724a5 curve-close-smooth
@@ -1357,7 +1357,7 @@ a7c0cfc92cc9dae9657e667af7a5fed2 math-stretch-vertical-attach
 325accacac2e635bff72fa86dd7a84f0 math-style-fallback
 ddec7d7ef74f7a248ee452d841656b64 math-style-font-no-dotless
 d6cf178c8d747171851660c1f27c6acc math-style-greek-exceptions
-91ac31a373d1b9cd16544a547d3684dc math-style-hebrew-exceptions
+66fc623505c1f3b7b70ddb65f65bc342 math-style-hebrew-exceptions
 95db8d6e6833d29940431cbaf5030e5b math-style-italic-default
 0872943080a729014797dffa53f8ac39 math-style-script
 8a70fe859a6104fbf2ef238353952e71 math-symbol-show-rule

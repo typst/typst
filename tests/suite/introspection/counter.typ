@@ -325,8 +325,9 @@ $ 1 + 2 $ <eq>
 
 --- counter-rtl paged ---
 #set page(width: auto)
-// NOTE(font): #set text(font: "Noto Sans Arabic")
-#set text(font: ("Libertinus Serif", "DejaVu Sans"))
+#set text(font: ("Noto Sans Arabic", "DejaVu Sans"))
+// TODO: Omit DejaVu Sans when Noto Sans Arabic is updated in typst-dev-assets.
+// DejaVu Sans is needed at present because the old Noto Sans Arabic does not cover Latin letters. However, the newer versions have included them.
 #let c = counter("c")
 #let s = context c.display() + c.step()
 #let tree = [درخت]
