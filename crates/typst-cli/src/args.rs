@@ -214,9 +214,18 @@ pub struct EvalCommand {
     #[clap(long, default_value_t)]
     pub target: Target,
 
+    /// Path to output file. Use `-` to write output to stdout.
+    #[clap(
+         long, short,
+         default_value = "-",
+         value_parser = output_value_parser(),
+         value_hint = ValueHint::FilePath,
+     )]
+    pub output: Output,
+
     /// The format to serialize in.
-    #[clap(long = "format", short = 'f', default_value_t)]
-    pub format: EvalSerializationFormat,
+    #[clap(long = "format", short = 'f')]
+    pub format: Option<EvalSerializationFormat>,
 
     /// Whether to pretty-print the serialized output.
     ///
