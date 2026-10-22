@@ -12,23 +12,24 @@ use crate::text::{SmartQuotes, SpaceElem, TextElem};
 ///
 /// = Example <example>
 /// ```example
-/// Plato is often misquoted as the author of #quote[I know that I know
-/// nothing], however, this is a derivation form his original quote:
+/// Plato is often misquoted
+/// as the author of
+/// #quote[I know that I know nothing.]
+/// However, this is a derivation from
+/// his original quote:
 ///
-/// #set quote(block: true)
-///
-/// #quote(attribution: [Plato])[
-///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
-///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
-/// ]
-/// #quote(attribution: [from the Henry Cary literal translation of 1897])[
-///   ... I seem, then, in just this little thing to be wiser than this man at
-///   any rate, that what I do not know I do not think I know either.
+/// #quote(
+///   block: true,
+///   attribution: [Plato],
+/// )[
+///   ... ἔοικα γοῦν τούτου γε σμικρῷ
+///   τινι αὐτῷ τούτῳ σοφώτερος εἶναι,
+///   ὅτι ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
 /// ]
 /// ```
 ///
-/// By default block quotes are padded left and right by `{1em}`, alignment and
-/// padding can be controlled with show rules:
+/// By default block quotes are padded left and right by `{1em}`. Alignment and
+/// padding can be controlled with show-set rules:
 ///
 /// ```example
 /// #set quote(block: true)
@@ -36,29 +37,36 @@ use crate::text::{SmartQuotes, SpaceElem, TextElem};
 /// #show quote: set pad(x: 5em)
 ///
 /// #quote[
-///   You cannot pass... I am a servant of the Secret Fire, wielder of the
-///   flame of Anor. You cannot pass. The dark fire will not avail you,
-///   flame of Udûn. Go back to the Shadow! You cannot pass.
+///   You cannot pass... I am a servant
+///   of the Secret Fire, wielder of the
+///   flame of Anor. You cannot pass.
+///   The dark fire will not avail you,
+///   flame of Udûn. Go back to the
+///   Shadow! You cannot pass.
 /// ]
 /// ```
 #[elem(since = "0.9.0", Locatable, Tagged, ShowSet)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
-    /// ```example
-    /// An inline quote would look like
-    /// this: #quote(
-    ///   attribution: [René Descartes]
-    /// )[
-    ///   cogito, ergo sum
-    /// ], and a block quote like this:
-    /// #quote(
-    ///   block: true,
-    ///   attribution: [JFK]
-    /// )[
-    ///   Ich bin ein Berliner.
-    /// ]
-    /// ```
+    /// #example(
+    ///   title: [Inline quote],
+    ///   ```
+    ///   #quote[Cogito, ergo sum]
+    ///   ```
+    /// )
+    ///
+    /// #example(
+    ///   title: [Block quote],
+    ///   ```
+    ///   #quote(
+    ///     block: true,
+    ///     attribution: [John F. Kennedy],
+    ///   )[
+    ///     Ich bin ein Berliner.
+    ///   ]
+    ///   ```
+    /// )
     pub block: bool,
 
     /// Whether double quotes should be added around this quote.
@@ -73,19 +81,36 @@ pub struct QuoteElem {
     ///   the `block` property. If `block` is `{false}`, double quotes are
     ///   automatically added.
     ///
-    /// ```example
-    /// #set text(lang: "de")
+    /// #example(
+    ///   title: [Using italics instead of quotation marks],
+    ///   ```
+    ///   #set quote(quotes: false)
+    ///   #show quote: set text(style: "italic")
     ///
-    /// Ein deutsch-sprechender Author
-    /// zitiert unter umständen JFK:
-    /// #quote[Ich bin ein Berliner.]
+    ///   The well-known phrase
+    ///   #quote[Ich bin ein Berliner]
+    ///   from JFK's speech in Berlin
+    ///   marked a turning point in
+    ///   relations between East and West.
+    ///   ```
+    /// )
     ///
-    /// #set text(lang: "en")
+    /// #example(
+    ///   title: [Quotes are language-aware],
+    ///   ```
+    ///   #text(lang: "de")[
+    ///     Ein deutschsprachiger Autor
+    ///     zitiert unter Umständen Kennedy:
+    ///     #quote[Ich bin ein Berliner.]
+    ///   ]
     ///
-    /// And an english speaking one may
-    /// translate the quote:
-    /// #quote[I am a Berliner.]
-    /// ```
+    ///   #text(lang: "en")[
+    ///     And an English-speaking author
+    ///     may translate the quote to:
+    ///     #quote[I am a Berliner.]
+    ///   ]
+    ///   ```
+    /// )
     pub quotes: Smart<bool>,
 
     /// The attribution of this quote, usually the author or source.
