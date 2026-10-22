@@ -4,7 +4,8 @@ use std::ops::{Add, Div, Mul, Neg};
 use ecow::EcoString;
 use typst_utils::{Numeric, Scalar};
 
-use crate::foundations::{Repr, repr, ty};
+use crate::foundations::{Repr, cast, func, repr, scope, ty};
+use crate::layout::{Angle, Fr, Length, Rel};
 
 /// A ratio of a whole.
 ///
@@ -59,9 +60,45 @@ use crate::foundations::{Repr, repr, ty};
 ///
 /// When ratios are @repr[displayed] in the document, they are rounded to two
 /// significant digits for readability.
-#[ty(cast, since = "forever")]
+#[ty(scope, cast, since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
+
+#[scope]
+impl Ratio {
+    /// Resolves this ratio relative to a given whole.
+    ///
+    /// This is mostly equivalent to multiplying the ratio by a value, with a
+    /// single difference: Passing a @float returns a float, whereas multiplying
+    /// a ratio by a float returns a ratio.
+    ///
+    /// ```example
+    /// #50%.relative-to(250%) \
+    /// #50%.relative-to(100pt) \
+    /// #50%.relative-to(25% + 100pt) \
+    /// #50%.relative-to(180deg) \
+    /// #50%.relative-to(10fr) \
+    /// #50%.relative-to(7.0) \
+    /// #(50% * 7.0)
+    /// ```
+    #[func(since = "unreleased")]
+    fn relative_to(
+        self,
+        /// The whole.
+        ///
+        /// The returned value always has the same type as this whole.
+        whole: Whole,
+    ) -> Whole {
+        match whole {
+            Whole::Ratio(ratio) => Whole::Ratio(self * ratio),
+            Whole::Length(length) => Whole::Length(self.get() * length),
+            Whole::Rel(rel) => Whole::Rel(self.get() * rel),
+            Whole::Angle(angle) => Whole::Angle(self.get() * angle),
+            Whole::Float(float) => Whole::Float(self.get() * float),
+            Whole::Fr(fr) => Whole::Fr(self.get() * fr),
+        }
+    }
+}
 
 impl Ratio {
     /// A ratio of `0%` represented as `0.0`.
@@ -209,3 +246,33 @@ typst_utils::assign_impl!(Ratio -= Ratio);
 typst_utils::assign_impl!(Ratio *= Ratio);
 typst_utils::assign_impl!(Ratio *= f64);
 typst_utils::assign_impl!(Ratio /= f64);
+
+/// A value a ratio can be taken of.
+///
+/// Used for the signature of [`Ratio::relative_to`].
+enum Whole {
+    Ratio(Ratio),
+    Length(Length),
+    Rel(Rel),
+    Angle(Angle),
+    Float(f64),
+    Fr(Fr),
+}
+
+cast! {
+    Whole,
+    self => match self {
+        Self::Ratio(ratio) => ratio.into_value(),
+        Self::Length(length) => length.into_value(),
+        Self::Rel(rel) => rel.into_value(),
+        Self::Angle(angle) => angle.into_value(),
+        Self::Float(float) => float.into_value(),
+        Self::Fr(fr) => fr.into_value(),
+    },
+    ratio: Ratio => Self::Ratio(ratio),
+    length: Length => Self::Length(length),
+    rel: Rel => Self::Rel(rel),
+    angle: Angle => Self::Angle(angle),
+    float: f64 => Self::Float(float),
+    fr: Fr => Self::Fr(fr),
+}
