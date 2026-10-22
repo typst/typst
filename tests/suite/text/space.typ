@@ -84,10 +84,13 @@ LLLLLLLLLLLLLLLLLL R _L_
 // Test whether spaces with/without newlines are discarded adjacent to
 // Chinese/Japanese text.
 
+// TODO(font): This whole test should use either the SC or the JP font. At present, spaces use Libertinus Serif, most Han characters use JP, and 换释 use SC.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 // Discard spaces from just a newline/comment
 换
 行
 
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK SC"))
 注//
 释
 
@@ -129,21 +132,28 @@ LLLLLLLLLLLLLLLLLL R _L_
 줄 바꿈
 
 --- newline-space-discarding-strong paged ---
+// TODO(font): This whole test should use either the SC or the JP font. At present, spaces use Libertinus Serif, most Han characters use JP, and 释 uses SC.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK SC"))
+#show strong: set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 // Test newline space discarding with strong emphasis.
 *空 *格
 
 *换*
 行
 
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 // This space still collapses because it is followed by a newline space.
 *空格 *
 换行
 
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 // The second space here also collapses because it follows a newline space.
 空格
 * 换行*
 
 --- newline-space-discarding-regex-show-rule paged ---
+// TODO(font): This whole test should use either the SC or the JP font. At present, spaces use Libertinus Serif, most Han characters use JP, and 换释 use SC.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK SC"))
 // Test newline space discarding with regex show rules.
 #show regex("^(new line|注 释|换行 newline|newline 换行)$"): set text(red)
 #show regex("^(newline|注释|换行newline|newline换行)$"): set text(blue)
@@ -156,6 +166,7 @@ line
 注
 释
 
+#set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 换行
 newline
 
@@ -163,6 +174,8 @@ newline
 换行
 
 --- newline-space-discarding-dynamic paged ---
+// TODO(font): This whole test should use either the SC or the JP font. At present, spaces use Libertinus Serif, 水果 use JP, and 啊 uses SC.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK SC"))
 // Test newline space discarding with dynamic variables.
 #let foo = [水果] // collapses
 #foo

@@ -51,7 +51,8 @@
 
 --- cjk-punctuation-adjustment-3 paged ---
 #set page(width: 21em)
-#set text(lang: "zh", region: "CN", font: "Noto Serif CJK SC")
+// TODO(font): The SC font in the current typst-dev-assets does not cover 扉
+#set text(lang: "zh", region: "CN", font: ("Noto Serif CJK SC", "Noto Serif CJK JP"))
 
 // These examples contain extensive use of Chinese punctuation marks,
 // from 《Which parentheses should be used when applying parentheses?》.
@@ -105,6 +106,9 @@ abc字\
 测#context [a]试
 
 --- issue-7113-cjk-latin-spacing-shift paged ---
+// TODO(font): How can Garamond-Math provide a `.` glyph for the CJ period mark `。`?
+#set text(font: ("Libertinus Serif", "Garamond-Math", "Noto Serif CJK JP", "Noto Serif CJK SC"))
+#show super: set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 孔乙己#super[1]与上大人#super[2]。
 
 孔乙己#super[A应保留spacing]与上大人#super[B]。
