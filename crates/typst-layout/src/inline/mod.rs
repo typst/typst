@@ -32,10 +32,7 @@ use self::finalize::finalize;
 use self::line::{Line, apply_shift, commit, line};
 use self::linebreak::{Breakpoint, linebreak};
 use self::prepare::{Preparation, prepare};
-use self::shaping::{
-    BEGIN_PUNCT_PAT, END_PUNCT_PAT, ShapedGlyph, ShapedText, cjk_punct_style,
-    is_of_cj_script, shape_range,
-};
+use self::shaping::{ShapedGlyph, ShapedText, cjk_punct_style, shape_range};
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
