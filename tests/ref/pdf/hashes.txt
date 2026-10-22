@@ -973,7 +973,7 @@ f09c93f450eb2ce0e98b87e48108d729 linebreak-narrow-nbsp
 5b12ab4c59c1591793db3f6a905ece6a linebreak-overflow
 9cac8800042b743fa64d17ad8247cfda linebreak-overflow-double
 5d8d618167513e9589ed3b0c1e1f954a linebreak-shape-run
-09e298b85c1d2b6db0f83122d17d6d8b linebreak-thai
+4f9387a8fdf489283b83b2bc565fa0a3 linebreak-thai
 9ede53a605e9eaba917bb8919fc3ee5c linebreak-whitespace-trimming
 0151d631e11eb365dc85e872f5e9eaf8 link-basic
 09197ce8c8f057be5ec4231edc87e7b3 link-bracket-balanced

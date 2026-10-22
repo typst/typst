@@ -58,8 +58,7 @@ Hello From Earth
 
 --- linebreak-thai paged ---
 // Test linebreak for East Asian languages
-// NOTE(font): #set text(lang: "th", font: "Noto Sans Thai")
-#set text(font: "Noto Sans Thai")
+#set text(lang: "th", font: "Noto Sans Thai")
 ทีวีตรวจทานนอร์ทแฟรีเลคเชอร์โกลด์อัลบัมเชอร์รี่เย้วสโตร์กฤษณ์เคลมเยอบีร่าพ่อค้าบลูเบอร์รี่สหัสวรรษโฮปแคนูโยโย่จูนสตรอว์เบอร์รีซื่อบื้อเยนแบ็กโฮเป็นไงโดนัททอมสเตริโอแคนูวิทย์แดรี่โดนัทวิทย์แอปพริคอทเซอร์ไพรส์ไฮบริดกิฟท์อินเตอร์โซนเซอร์วิสเทียมทานโคโยตี้ม็อบเที่ยงคืนบุญคุณ
 
 --- linebreak-cite-punctuation paged ---
