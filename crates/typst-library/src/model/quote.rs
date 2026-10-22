@@ -88,13 +88,13 @@ pub struct QuoteElem {
     /// ```
     pub quotes: Smart<bool>,
 
-    /// The attribution of this quote, usually the author or source. It can be
-    /// an arbitrary content, or a label pointing to a bibliography entry.
+    /// The attribution of this quote, usually the author or source.
     ///
-    /// If the attribution is a content, it is displayed only for block quotes
-    /// by default, but this can be changed using a `{show}` rule. If the
-    /// attribution is a label, it is presented as a @cite[citation] in the
-    /// normal or prose @cite.form[form] for inline or block quotes,
+    /// This can either be arbitrary content or a label pointing to a
+    /// bibliography entry. If the attribution is content, it is displayed only
+    /// for block quotes by default (this can be changed using a show rule). If
+    /// the attribution is a label, it is displayed as a @cite[citation] in
+    /// normal or prose @cite.form[form] for inline and block quotes,
     /// respectively.
     ///
     /// #example(
@@ -105,9 +105,10 @@ pub struct QuoteElem {
     ///     The Bridge of Khazad-dûm
     ///   ].
     ///
-    ///   #set quote(block: true)
-    ///
-    ///   #quote(attribution: <tolkien54>)[
+    ///   #quote(
+    ///     block: true,
+    ///     attribution: <tolkien54>,
+    ///   )[
     ///     You cannot pass... I am a servant
     ///     of the Secret Fire, wielder of the
     ///     flame of Anor. You cannot pass. The
@@ -116,15 +117,19 @@ pub struct QuoteElem {
     ///     cannot pass.
     ///   ]
     ///
-    ///   #bibliography("works.bib", style: "apa")
+    ///   #bibliography(
+    ///     "works.bib",
+    ///     style: "apa",
+    ///   )
     ///   ```
     /// )
     ///
     /// #example(
     ///   title: [Customize the attribution for inline quotes],
     ///   ```example
+    ///   // With default show rule.
     ///   #quote(attribution: [René Descartes])[
-    ///     cogito, ergo sum
+    ///     Cogito, ergo sum
     ///   ]
     ///
     ///   #show quote.where(block: false): it => {
@@ -132,10 +137,9 @@ pub struct QuoteElem {
     ///     if it.attribution != none [ (#it.attribution)]
     ///   }
     ///
-    ///   #quote(
-    ///     attribution: link("https://typst.app/home")[typst.app]
-    ///   )[
-    ///     Compose papers faster
+    ///   // With our custom show rule.
+    ///   #quote(attribution: [René Descartes])[
+    ///     Cogito, ergo sum
     ///   ]
     ///   ```
     /// )
