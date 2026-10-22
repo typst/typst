@@ -1,16 +1,16 @@
 use std::fmt::Write;
 
 use comemo::{Track, Tracked};
-use ecow::{eco_format, EcoString};
-use typst_library::diag::{bail, At, SourceResult, StrResult};
+use ecow::{EcoString, eco_format};
+use typst_library::diag::{At, SourceResult, StrResult, bail};
 use typst_library::format::{Complete, Fields, Partial};
 use typst_library::foundations::Repr;
 use typst_library::model::{Document, LateLinkResolver};
 use typst_syntax::Span;
 
 use crate::{
-    attr, charsets, property, tag, HtmlDocument, HtmlElement, HtmlFormat,
-    HtmlFormatOptions, HtmlFrame, HtmlNode, HtmlTag,
+    HtmlDocument, HtmlElement, HtmlFormat, HtmlFormatOptions, HtmlFrame, HtmlNode,
+    HtmlTag, attr, charsets, property, tag,
 };
 
 /// Settings for HTML export.
@@ -351,11 +351,7 @@ impl RawMode {
             {
                 // Template literals can be multi-line, so indent may change
                 // the semantics of the JavaScript.
-                if text.contains('`') {
-                    Self::Wrap
-                } else {
-                    Self::Indent
-                }
+                if text.contains('`') { Self::Wrap } else { Self::Indent }
             }
             tag::style => Self::Indent,
             _ => Self::Keep,
