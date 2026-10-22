@@ -30,23 +30,6 @@ use crate::world::SystemWorld;
 /// Evaluate an input expression, potentially as a query over an existing
 /// document.
 pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
-    let mut world =
-        SystemWorld::new(command.r#in.as_ref(), &command.world, &command.process)?;
-
-    // Reset everything and ensure that the main file is present.
-    world.reset();
-    world.source(world.main()).map_err(|err| err.to_string())?;
-
-    // Compile the main file and get the introspector.
-    let Warned { output, mut warnings } = match command.target {
-        Target::Paged => typst::compile::<PagedDocument>(&world)
-            .map(|output| Box::new(output) as Box<dyn Output>),
-        Target::Html => typst::compile::<HtmlDocument>(&world)
-            .map(|output| Box::new(output) as Box<dyn Output>),
-        Target::Bundle => typst::compile::<Bundle>(&world)
-            .map(|output| Box::new(output) as Box<dyn Output>),
-    };
-
     let output_format = if let Some(specified) = command.format {
         specified
     } else if let args::Output::Path(output) = &command.output {
@@ -62,12 +45,29 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
             }
             _ => bail!(
                 "could not infer output format for path {}.\n\
-                     consider providing the format manually with `--format/-f`",
+                 consider providing the format manually with `--format/-f`",
                 output.display(),
             ),
         }
     } else {
         EvalSerializationFormat::default()
+    };
+
+    let mut world =
+        SystemWorld::new(command.r#in.as_ref(), &command.world, &command.process)?;
+
+    // Reset everything and ensure that the main file is present.
+    world.reset();
+    world.source(world.main()).map_err(|err| err.to_string())?;
+
+    // Compile the main file and get the introspector.
+    let Warned { output, mut warnings } = match command.target {
+        Target::Paged => typst::compile::<PagedDocument>(&world)
+            .map(|output| Box::new(output) as Box<dyn Output>),
+        Target::Html => typst::compile::<HtmlDocument>(&world)
+            .map(|output| Box::new(output) as Box<dyn Output>),
+        Target::Bundle => typst::compile::<Bundle>(&world)
+            .map(|output| Box::new(output) as Box<dyn Output>),
     };
 
     match output {
