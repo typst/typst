@@ -62,6 +62,9 @@ e34ea44e32ada9e0685b72d6e82ecfd5 html-elem-attrs-fold
 0a1d1443e72ef554d74d15ae49cd076c html-escapable-raw-text-contains-closing-tag
 41d47680056dc0777c4060cf3ecc8c6a html-frame
 73e6a075915195f77631a229ce6afe70 html-frame-position
+6e88f190fe39f00a9f92f2159c2ffc36 html-frame-shared-defs
+7965d65760acdeca95eac440569b4a85 html-frame-with-dual-body
+b5697c756783deb97e84beaa7d419e8b html-frame-without-body
 1e1005b4ac5db07bd074e5d12aa2162e html-pre-starting-with-newline
 9ddbaca4b63c936215a967cb76b0327a html-script
 de4b0b9e9a41128ffdb982bae7550178 html-space-collapsing
