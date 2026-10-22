@@ -1393,16 +1393,6 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
     }
 }
 
-// The CJK punctuation that can appear at the beginning or end of a line.
-pub const BEGIN_PUNCT_PAT: &[char] = &[
-    '“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛', '｟', '〘',
-    '〝',
-];
-pub const END_PUNCT_PAT: &[char] = &[
-    '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
-    '〗', '〕', '］', '｝', '｠', '〙', '〟', '？', '！',
-];
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CjkPunctStyle {
     /// Standard GB/T 15834-2011, used mostly in mainland China.
@@ -1425,11 +1415,6 @@ pub fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
 /// Whether the glyph is a space.
 fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
-}
-
-/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
-pub fn is_of_cj_script(c: char) -> bool {
-    is_cj_script(c, c.script())
 }
 
 /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
