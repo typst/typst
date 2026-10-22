@@ -370,10 +370,11 @@ impl Color {
         ///
         /// ```example
         /// #let colors = (red, green, blue)
+        ///
         /// #for c in colors {
         ///   box(square(fill: c))
         /// }
-        /// #linebreak()
+        ///
         /// #for c in colors {
         ///   box(square(fill: luma(c)))
         /// }
@@ -620,6 +621,7 @@ impl Color {
         ///   color.linear-rgb(0%, 0%, 0%),
         ///   color.linear-rgb(100%, 0%, 0%),
         /// ))
+        ///
         /// For comparison:
         /// #rect(fill: gradient.linear(
         ///   space: rgb,
@@ -641,6 +643,7 @@ impl Color {
         ///   color.linear-rgb(0%, 0%, 0%),
         ///   color.linear-rgb(0%, 100%, 0%),
         /// ))
+        ///
         /// For comparison:
         /// #rect(fill: gradient.linear(
         ///   space: rgb,
@@ -662,6 +665,7 @@ impl Color {
         ///   color.linear-rgb(0%, 0%, 0%),
         ///   color.linear-rgb(0%, 0%, 100%),
         /// ))
+        ///
         /// For comparison:
         /// #rect(fill: gradient.linear(
         ///   space: rgb,
@@ -1062,6 +1066,7 @@ impl Color {
         ///   color.hsv(-30deg, 100%, 0%),
         ///   color.hsv(-30deg, 100%, 100%),
         /// ))
+        ///
         /// In HSL for comparison:
         /// #rect(fill: gradient.linear(
         ///   space: color.hsl,
@@ -1184,12 +1189,13 @@ impl Color {
         }
     }
 
-    /// Returns the constructor function for the color's space.
+    /// Returns the color space this color is defined in.
     ///
-    /// Returns one of the color constructor functions: @color.luma[`luma`],
-    /// @color.oklab[`oklab`], @color.oklch[`oklch`],
-    /// @color.linear-rgb[`linear-rgb`], @color.rgb[`rgb`], @color.cmyk[`cmyk`],
-    /// @color.hsl[`hsl`], @color.hsv[`hsv`], or a @color.spot[`spot`] colorant.
+    /// The color space is expressed either as one of the color
+    /// constructor functions (@color.luma[`luma`], @color.oklab[`oklab`],
+    /// @color.oklch[`oklch`], @color.linear-rgb[`linear-rgb`],
+    /// @color.rgb[`rgb`], @color.cmyk[`cmyk`], @color.hsl[`hsl`], or
+    /// @color.hsv[`hsv`]) or a @color.spot[spot colorant].
     ///
     /// ```example
     /// #let c = cmyk(1%, 2%, 3%, 4%)
