@@ -293,7 +293,8 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 mod tests {
     use std::ops::Range;
 
-    use crate::{Source, Span, parse};
+    use super::*;
+    use crate::{FileId, Source};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -346,7 +347,7 @@ mod tests {
 
     #[track_caller]
     fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
-        let mut source = Source::detached(text);
+        let mut source = Source::new(FileId::new_for_test("test_reparse"), text);
         let orig_tree = source.root().clone();
         // `Source::edit()` is the public interface for reparsing.
         let replaced_range = source.edit(edit.into_range(text), with);

@@ -7,9 +7,11 @@ use typst_layout::PagedDocument;
 use typst_pdf::PdfOptions;
 use typst_render::{PngFormat, RenderOptions};
 use typst_svg::{SvgFormat, SvgOptions};
+use typst_syntax::{FileId, Source};
 
 fuzz_target!(|text: &str| {
-    let world = FuzzWorld::new(text);
+    let source = Source::new(FileId::new_for_test("fuzz_paged_output"), text);
+    let world = FuzzWorld::new(source);
     if let Ok(document) = typst::compile::<PagedDocument>(&world).output {
         if let Some(page) = document.pages().first() {
             let png_options =

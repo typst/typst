@@ -1597,7 +1597,8 @@ Markup: 9 [
 
     #[test]
     fn test_linked_node() {
-        let source = Source::detached("#set text(12pt, red)");
+        let test_id = FileId::new_for_test("test_linked_node");
+        let source = Source::new(test_id, "#set text(12pt, red)");
 
         // Find "text" with Before.
         let node = LinkedNode::new(source.root()).leaf_at(7, Side::Before).unwrap();
@@ -1617,14 +1618,15 @@ Markup: 9 [
 
     #[test]
     fn test_linked_node_non_trivia_leaf() {
-        let source = Source::detached("#set fun(12pt, red)");
+        let test_id = FileId::new_for_test("test_linked_node_non_trivia_leaf");
+        let source = Source::new(test_id, "#set fun(12pt, red)");
         let leaf = LinkedNode::new(source.root()).leaf_at(6, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert_eq!(leaf.leaf_text(), "fun");
         assert_eq!(prev.leaf_text(), "set");
 
         // Check position 9 with Before.
-        let source = Source::detached("#let x = 10");
+        let source = Source::new(test_id, "#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
@@ -1633,7 +1635,7 @@ Markup: 9 [
         assert_eq!(next.leaf_text(), "10");
 
         // Check position 9 with After.
-        let source = Source::detached("#let x = 10");
+        let source = Source::new(test_id, "#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert!(leaf.next_leaf().is_none());
