@@ -86,7 +86,10 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                 output.introspector(),
             );
             let errors = match &eval_result {
-                Err(errors) => errors.as_slice(),
+                Err(errors) => {
+                    set_failed();
+                    errors.as_slice()
+                }
                 Ok(value) => {
                     print_eval_result(
                         value,
@@ -184,7 +187,7 @@ fn print_eval_result(
             output.write(bytes)
         }
     };
-    result.map_err(|e| eco_format!("failed to write output file: {e}").into())
+    result.map_err(|err| eco_format!("failed to write eval output ({err})").into())
 }
 
 /// Static [`FileId`] for an input expression. This allows giving accurate
