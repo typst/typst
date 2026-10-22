@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssi
 use ecow::{EcoString, eco_format};
 use typst_utils::{Numeric, NumericLength};
 
-use crate::foundations::{Fold, Repr, Resolve, StyleChain, cast, ty};
+use crate::foundations::{Fold, Repr, Resolve, StyleChain, cast, func, scope, ty};
 use crate::layout::{Abs, Em, Length, Ratio};
 
 /// A length in relation to some known length.
@@ -73,13 +73,40 @@ use crate::layout::{Abs, Em, Length, Ratio};
 /// #(100% - 50pt).length \
 /// #(100% - 50pt).ratio
 /// ```
-#[ty(cast, name = "relative", title = "Relative Length", since = "forever")]
+#[ty(scope, cast, name = "relative", title = "Relative Length", since = "forever")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Rel<T: NumericLength = Length> {
     /// The relative part.
     pub rel: Ratio,
     /// The absolute part.
     pub abs: T,
+}
+
+#[scope]
+impl Rel {
+    /// Resolves this relative to a given whole.
+    ///
+    /// ```example
+    /// #(50% + 3pt).relative-to(100pt)
+    /// ```
+    #[func(name = "relative-to", since = "unreleased")]
+    fn relative_to_rel(
+        self,
+        /// The whole.
+        ///
+        /// Notably, this is allowed to be a relative length itself, in which
+        /// case the result will be a relative length as well.
+        ///
+        /// ```example
+        /// #(50% + 3pt).relative-to(20% + 100pt)
+        /// ```
+        whole: MaybeRel<Length>,
+    ) -> MaybeRel<Length> {
+        match whole {
+            MaybeRel::Abs(length) => MaybeRel::Abs(self.relative_to(length)),
+            MaybeRel::Rel(rel) => MaybeRel::Rel(self.rel.of(rel) + self.abs),
+        }
+    }
 }
 
 impl<T: NumericLength> Rel<T> {
@@ -337,4 +364,22 @@ where
 cast! {
     Rel<Abs>,
     self => self.map(Length::from).into_value(),
+}
+
+/// Either a length, or a relative length.
+///
+/// Used for the signature of [`Rel::relative_to_rel`].
+enum MaybeRel<T: NumericLength> {
+    Abs(T),
+    Rel(Rel<T>),
+}
+
+cast! {
+    MaybeRel<Length>,
+    self => match self {
+        Self::Abs(length) => length.into_value(),
+        Self::Rel(rel) => rel.into_value(),
+    },
+    length: Length => Self::Abs(length),
+    rel: Rel => Self::Rel(rel),
 }
