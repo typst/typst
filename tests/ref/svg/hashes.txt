@@ -1899,12 +1899,12 @@ b526697a56eaa17db721c63cad4b0ee2 text-font-variable-multiple
 39cd40a4448d0714242c148cfed7e44a text-font-variable-wght
 95a1e539de0dee36d9f1059d595a8416 text-font-variations-win
 df37bda6cbd5dbbaeab3ec91266caca9 text-kerning
-e46ac0a0574a1d81a312ade1395a5be1 text-lang
+70ee42d11544d2d3b41c8c1441bbe469 text-lang
 71ddc9e61b06bb4a04fe26df068c6853 text-lang-hyphenate
 783d3a431b22721659c9b1ad5bb337be text-lang-region
 3dd5527203192aff9a4b7b3c00735919 text-lang-script-shaping
 8c9e9116b67c6684570d237a8afe3402 text-lang-shaping
-e46ac0a0574a1d81a312ade1395a5be1 text-lang-unknown-region
+70ee42d11544d2d3b41c8c1441bbe469 text-lang-unknown-region
 e6b4d26566439ccc60fad71ea85ff3e3 text-language-fallback-english
 c3f974c8b041a1adb86dc28a1130dcc4 text-ligatures
 a0d2d29a3b887c222d4ac4ea26c02aa1 text-number-type

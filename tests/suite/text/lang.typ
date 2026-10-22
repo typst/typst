@@ -3,15 +3,13 @@
 --- text-lang paged html pdftags ---
 #set pdf(standard: "ua-1")
 // without any region
-// TODO(font): This should use the SC font.
-#set text(font: ("Noto Serif CJK TC", "Noto Serif CJK SC"), lang: "zh")
+#set text(font: "Noto Serif CJK SC", lang: "zh")
 #outline()
 
 --- text-lang-unknown-region paged html pdftags ---
 #set pdf(standard: "ua-1")
 // with unknown region configured
-// TODO(font): The TC font does not cover 录 in zh-CN locale.
-#set text(font: ("Noto Serif CJK TC", "Noto Serif CJK SC"), lang: "zh", region: "XX")
+#set text(font: ("Noto Serif CJK SC", "Noto Serif CJK SC"), lang: "zh", region: "XX")
 #outline()
 
 --- text-lang-region paged html pdftags ---

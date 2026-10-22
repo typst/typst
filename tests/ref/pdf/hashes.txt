@@ -1905,12 +1905,12 @@ fccbd05610447cea3a709a275672f042 text-font-variable-wdth
 eaeae112db4580a5b276338a616a3a0c text-font-variable-wght
 74da9b833e8a8f2a2467b9bcedfda999 text-font-variations-win
 aab22e45d270d7ba289dcc48aa17aee9 text-kerning
-5b14715fa9019af317cb8c30189ecb44 text-lang
+f2ef081206e508e1322c4ccd746bcc36 text-lang
 9ffedc8ae2e48efd6c2ef6891236869a text-lang-hyphenate
 4248e7c8451f6bf5c851e86ad27c80c4 text-lang-region
 7a9a0673cd53ec30b32811c7b10a34bf text-lang-script-shaping
 03093b4957685fe2718e157da6fa263b text-lang-shaping
-1553de4ac675aca98f87514d3edde4f4 text-lang-unknown-region
+a45a0835e3c0593dcb22cc5c71b2c219 text-lang-unknown-region
 17c7acc5559ddaf9c0307f6d9744025a text-language-fallback-english
 d1ee99aadbb6d56cfc21eb214ca255f9 text-ligatures
 944dab6546c8d80f642b329dac4ff1e1 text-number-type

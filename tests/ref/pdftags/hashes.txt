@@ -107,7 +107,7 @@ fe293e846c491aa08f5bb6073649b523 table-tags-show-rule
 60d057d99899f6c2a13e66f64f36d618 table-tags-unset-bottom-line
 60dffc17451532b755c36045d1f21cf9 table-tags-unstable-functions
 06a04f07d3efc428b7b320ff4ee86d3d terms-constructor
-8f55bdb9a5fedb916b5c219b96cf2342 text-lang
+4c5c10ad1c097360c65795c43501bb5d text-lang
 3e725717389b2cabeb6957a717200e87 text-lang-region
-a53fba13c95b8e72750f7411508563dd text-lang-unknown-region
+ea7714c06772abac063f1e9a8acd349e text-lang-unknown-region
 eb79dc52157378c3db1a6e7f99a7190f title
