@@ -214,7 +214,10 @@ impl ShowSet for Packed<EquationElem> {
         out.set(TextElem::weight, FontWeight::from_number(450));
         out.set(
             TextElem::font,
-            FontList(vec![FontFamily::new("New Computer Modern Math")]),
+            FontList(vec![
+                FontFamily::new("New Computer Modern Math"),
+                FontFamily::new("Twitter Color Emoji"),
+            ]),
         );
         out
     }

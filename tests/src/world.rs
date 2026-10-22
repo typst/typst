@@ -18,7 +18,7 @@ use typst::introspection::Locator;
 use typst::layout::{Abs, BlockElem, Fragment, Margin, PageElem, Regions};
 use typst::model::{Numbering, NumberingPattern};
 use typst::syntax::{FileId, Source, Span};
-use typst::text::{Font, FontBook, TextElem, TextSize};
+use typst::text::{Font, FontBook, FontFamily, FontList, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
 use typst::visualize::Color;
 use typst::{Feature, Features, Library, LibraryExt, World};
@@ -243,6 +243,14 @@ fn library() -> Library {
         Smart::Custom(Margin::splat(Some(Smart::Custom(Abs::pt(10.0).into())))),
     );
     lib.styles.set(TextElem::size, TextSize(Abs::pt(10.0).into()));
+    lib.styles.set(
+        TextElem::font,
+        FontList(vec![
+            FontFamily::new("Libertinus Serif"),
+            FontFamily::new("Twitter Color Emoji"),
+        ]),
+    );
+    lib.styles.set(TextElem::fallback, false);
 
     lib
 }
