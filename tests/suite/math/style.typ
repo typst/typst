@@ -56,6 +56,8 @@ $h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta)) \
 $bb(Gamma) , bb(gamma), bb(Pi), bb(pi), bb(sum)$
 
 --- math-style-hebrew-exceptions paged html ---
+// NOTE(font): #show math.equation: set text(font: ("New Computer Modern Math", "Noto Serif Hebrew"))
+#show math.equation: set text(font: ("New Computer Modern Math", "Libertinus Serif"))
 // Test hebrew exceptions.
 $aleph, beth, gimel, daleth$ \
 $upright(aleph), upright(beth), upright(gimel), upright(daleth)$

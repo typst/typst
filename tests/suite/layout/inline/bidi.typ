@@ -57,12 +57,14 @@ Lריווח #h(1cm) R
 
 --- bidi-raw paged ---
 // Mixing raw
+// NOTE(font): #set page(width: 125pt)
 #set text(lang: "he")
 לדוג. `if a == b:` זה תנאי
 #set raw(lang: "python")
 לדוג. `if a == b:` זה תנאי
 
-#show raw: set text(dir:rtl)
+// NOTE(font): #show raw: set text(dir: rtl, font: ("DejaVu Sans Mono", "Noto Serif Hebrew"))
+#show raw: set text(dir: rtl, font: ("DejaVu Sans Mono", "Libertinus Serif"))
 לתכנת בעברית `אם א == ב:`
 
 --- bidi-vertical eval ---

@@ -325,6 +325,8 @@ $ 1 + 2 $ <eq>
 
 --- counter-rtl paged ---
 #set page(width: auto)
+// NOTE(font): #set text(font: "Noto Sans Arabic")
+#set text(font: ("Libertinus Serif", "DejaVu Sans"))
 #let c = counter("c")
 #let s = context c.display() + c.step()
 #let tree = [درخت]
