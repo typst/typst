@@ -151,7 +151,6 @@ pub fn line<'a>(
 
     // Trim the line at the end, if necessary for this breakpoint.
     let trim = breakpoint.trim(range.start, full);
-    let trimmed_range = range.start..trim.layout;
 
     // Collect the items for the line.
     let mut items = Items::new();
@@ -186,8 +185,8 @@ pub fn line<'a>(
     adjust_glyph_tracking_at_line_end(&mut items);
 
     // Deal with CJ characters at line boundaries.
-    // Use the trimmed range for robust boundary checks.
-    adjust_cj_at_line_boundaries(p, trimmed_range, &mut items);
+    adjust_cj_at_line_start(p, &mut items);
+    adjust_cj_at_line_end(p, &mut items);
 
     // Deal with stretchability of glyphs at the end of the line.
     adjust_glyph_stretch_at_line_end(p, &mut items);
@@ -340,28 +339,6 @@ fn collect_range<'a>(
     }
 }
 
-/// Add spacing around punctuation marks for CJ glyphs at line boundaries.
-///
-/// See Requirements for Chinese Text Layout, Section 3.1.6.3 Compression of
-/// punctuation marks at line start or line end.
-///
-/// The `range` should only contain regular texts, with linebreaks trimmed.
-fn adjust_cj_at_line_boundaries(p: &Preparation, range: Range, items: &mut Items) {
-    let text = &p.text[range];
-
-    if text.starts_with(BEGIN_PUNCT_PAT)
-        || (p.config.cjk_latin_spacing && text.starts_with(is_of_cj_script))
-    {
-        adjust_cj_at_line_start(p, items);
-    }
-
-    if text.ends_with(END_PUNCT_PAT)
-        || (p.config.cjk_latin_spacing && text.ends_with(is_of_cj_script))
-    {
-        adjust_cj_at_line_end(p, items);
-    }
-}
-
 /// Remove stretchability from the last glyph in the line to avoid trailing
 /// space after a glyph due to glyph-level justification.
 fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
@@ -379,6 +356,9 @@ fn adjust_glyph_stretch_at_line_end(p: &Preparation, items: &mut Items) {
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line start.
+///
+/// See Requirements for Chinese Text Layout, Section 3.1.6.3 Compression of
+/// punctuation marks at line start or line end.
 fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
     let Some(shaped) = items.leading_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.first() else { return };
@@ -404,6 +384,9 @@ fn adjust_cj_at_line_start(p: &Preparation, items: &mut Items) {
 }
 
 /// Add spacing around punctuation marks for CJ glyphs at the line end.
+///
+/// See Requirements for Chinese Text Layout, Section 3.1.6.3 Compression of
+/// punctuation marks at line start or line end.
 fn adjust_cj_at_line_end(p: &Preparation, items: &mut Items) {
     let Some(shaped) = items.trailing_text_mut() else { return };
     let Some(glyph) = shaped.glyphs.last() else { return };
