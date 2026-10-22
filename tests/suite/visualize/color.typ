@@ -230,6 +230,10 @@
 // Error: 17-22 unexpected argument
 #luma(25%, 50%, "val")
 
+--- color-rotate-bad-space eval ---
+// Error: 27-30 expected `oklch`, `color.hsl`, or `color.hsv`
+#red.rotate(90deg, space: rgb)
+
 --- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
 // Error: 26-39 expected float or ratio, found string
@@ -240,7 +244,7 @@
 #color.mix((red, 1, 2))
 
 --- color-mix-bad-space-type eval ---
-// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or spot colorant, found string
+// Error: 31-38 expected spot colorant, function, or auto, found string
 #color.mix(red, green, space: "cyber")
 
 --- color-mix-bad-space-value-1 eval ---
