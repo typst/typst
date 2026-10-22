@@ -86,9 +86,14 @@ abc字\
 母
 
 --- issue-6539-cjk-latin-spacing-at-manual-linebreak paged ---
-// Issue #6539
-// NOTE(font): #set text(cjk-latin-spacing: auto, lang: "zh", font: "Noto Serif CJK SC")
-#set text(cjk-latin-spacing: auto, font: ("Libertinus Serif", "Noto Serif CJK JP"))
+#set text(
+  cjk-latin-spacing: auto, // Issue #6539
+  lang: "zh",
+  font: (
+    (name: "Libertinus Serif", covers: "latin-in-cjk"),
+    "Noto Serif CJK SC",
+  ),
+)
 #set box(width: 2.3em, stroke: (x: green))
 
 #box(align(end)[甲国\ T国])
