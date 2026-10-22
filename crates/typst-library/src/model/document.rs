@@ -1,11 +1,13 @@
 use ecow::EcoString;
+use std::fmt::{self, Display, Formatter};
+
 use typst_syntax::VirtualPath;
 
 use crate::diag::{HintedStrResult, bail, error};
 use crate::format::DocumentFormatOptions;
 use crate::foundations::{
     Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, ShowSet,
-    Smart, StyleChain, Styles, Target, Value, cast, elem,
+    Smart, StyleChain, Styles, Target, Value, Version, cast, elem,
 };
 use crate::text::{Locale, TextElem};
 
@@ -186,6 +188,9 @@ pub struct DocumentElem {
     /// The document's keywords.
     pub keywords: OneOrMultiple<EcoString>,
 
+    /// The document's version.
+    pub version: Option<DocumentVersion>,
+
     /// The document's creation date.
     ///
     /// If this is `{auto}` (default), Typst uses the current date and time.
@@ -264,6 +269,7 @@ impl ShowSet for Packed<DocumentElem> {
         self.author.copy_into(&mut styles);
         self.description.copy_into(&mut styles);
         self.keywords.copy_into(&mut styles);
+        self.version.copy_into(&mut styles);
         self.date.copy_into(&mut styles);
         styles
     }
@@ -338,6 +344,34 @@ cast! {
     v: Array => Self(v.into_iter().map(Value::cast).collect::<HintedStrResult<_>>()?),
 }
 
+/// A document version.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DocumentVersion {
+    /// An arbitrary version string.
+    String(EcoString),
+    /// A structured version.
+    Version(Version),
+}
+
+impl Display for DocumentVersion {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::String(version) => Display::fmt(version, f),
+            Self::Version(version) => Display::fmt(version, f),
+        }
+    }
+}
+
+cast! {
+    DocumentVersion,
+    self => match self {
+        Self::String(version) => version.into_value(),
+        Self::Version(version) => version.into_value(),
+    },
+    v: EcoString => Self::String(v),
+    v: Version => Self::Version(v),
+}
+
 /// A document resulting from compilation.
 pub trait Document {
     /// Get the document's metadata.
@@ -358,6 +392,8 @@ pub struct DocumentInfo {
     pub description: Option<EcoString>,
     /// The document's keywords.
     pub keywords: Vec<EcoString>,
+    /// The document's version.
+    pub version: Option<DocumentVersion>,
     /// The document's creation date.
     pub date: Smart<Option<Datetime>>,
     /// The document's language, set from the first top-level set rule, e.g.
@@ -390,6 +426,9 @@ impl DocumentInfo {
         }
         if styles.has(DocumentElem::keywords) {
             self.keywords = styles.get_cloned(DocumentElem::keywords).0;
+        }
+        if styles.has(DocumentElem::version) {
+            self.version = styles.get_cloned(DocumentElem::version);
         }
         if styles.has(DocumentElem::date) {
             self.date = styles.get(DocumentElem::date);
