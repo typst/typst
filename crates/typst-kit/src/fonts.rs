@@ -158,11 +158,14 @@ pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
 
 /// Scans for fonts in a directory.
 ///
-/// The directory is searched recursively.
+/// The directory is searched recursively. Fonts are sorted by path, so the
+/// order is the same on every file system.
 #[cfg(feature = "scan-fonts")]
 pub fn scan(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");
-    with_db(move |db| db.load_fonts_dir(path))
+    let mut fonts: Vec<_> = with_db(move |db| db.load_fonts_dir(path)).collect();
+    fonts.sort_by(|(a, _), (b, _)| (&a.path, a.index).cmp(&(&b.path, b.index)));
+    fonts.into_iter()
 }
 
 /// Discovers fonts via `fontdb`.
