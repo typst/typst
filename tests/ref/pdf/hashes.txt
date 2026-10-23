@@ -72,6 +72,7 @@ e976d0e7f971a2d6d9856d4f06dadfbf box-clip-radius
 f136d9a1d3f51c3c8c0e8c9fe4c9d10e box-clip-radius-without-stroke
 0ef9894656d2ab1e6e2731f5d83411f9 box-clip-rect
 e8aad04f2aa3cfa1297a4d8e054f0e9f box-fr-width
+ae0683398b1b2a993ceb7d67b0be33d4 box-fr-width-negative
 107b045ec3e3148de75b7b5c058060b3 call-basic
 c2b68c3ee1b4855256637f94efdabfc8 cases-content-symbol
 db780c3eb06dace5b538c9b50bc2a909 cases-content-text
@@ -706,6 +707,7 @@ e8d3e33e8d893bdaccdd7240f0d2518e issue-2162-pagebreak-set-style
 a90ccee256ce36426b07ae7ee6042f5b issue-2259-raw-color-overwrite
 d23048675b0fdb3d50f783e34962076f issue-2268-mat-augment-color
 2e9dfe37225338ea2e7c7bab438b5030 issue-2326-context-set-page
+ac0d8b6d169e4379eaf18d05d0c3edc8 issue-2348-justify-indented-cjk-punctuation
 e15b94d2ec03515083427d1651230204 issue-2419-justify-hanging-indent
 9d78028cf96f75aae7f9cd14e5d474bf issue-2480-counter-reset
 56e8619353795e961e7e8601b4579d1d issue-2480-counter-reset-2
@@ -874,6 +876,7 @@ d1f419b4e576bb3ae9c4b2ed45de67c0 issue-852-mat-type
 d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
 f438c7e72e95fc4b812c573b9ff9494d issue-8648-enum-gap
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
+72ecaed94d6ad59e774229528faf4964 issue-8931-justify-trailing-tracking
 aa87ad6ade20c3470dd44d260dfa6811 issue-color-mix-luma
 5b94002ca5168ccda6d3200861bb81af issue-columns-heading
 e25632812e0d462690ecab2c99ebe912 issue-curve-in-sized-container
@@ -1782,6 +1785,9 @@ b27a6e7991ac5caff0b8beaa8a14d127 space-collapsing-linebreaks
 9887f7a33ae9bffa3c52b31d76aba3d0 space-ideographic-kept
 0e39c0e9a1356ecc4957d5381c6b8932 space-thin-kept
 b5655c565b9bf3eb7c2109d59dee24ba space-trailing-linebreak
+ebfa9188ec0d697233b5a768af32588c spacing-fr-h-negative
+d20962d482ce088e0ba73f42dcac1df0 spacing-fr-overflow
+e5f770f4b17abfbf23e0af7db92d9fe5 spacing-fr-v-negative
 69ffd40d3c4dd98351a8b8636a56433b spacing-fr-weak-collapse
 e3f7430355741b2ac7fb4701577ee627 spacing-fr-weak-destructs-rel-abs
 d1a73098303b73194446d0919d1cdf1d spacing-fr-weak-destructs-smaller
@@ -1817,6 +1823,7 @@ dc6ada253c99c05148e524d00adae34e square-overflow-forced-width
 d68f24a3786ebd427ca78fea6c5dcccc square-size-beyond-default
 4659e649317a1cace7d2c30a9e7649ba stack-basic
 451d79ae5365d8f2fe7a0d8b87fb9453 stack-fr
+ddc87080a36838fa153cd18fb538e708 stack-fr-negative
 35d5c958784eeda1a859f36fd446b203 stack-overflow
 fd718e32ac291ad184331f695a811203 stack-rtl-align-and-fr
 01b050433f8d6afefdbc1a061bfe3ac3 stack-spacing
@@ -1916,7 +1923,7 @@ a1998ab2816b028e3de6b20c1c122d8e text-spacing-relative
 98cc07e376e34d3071de5ff1c41e98d8 text-tracking-arabic
 0d116cdd8e45a0d669c5e405d4beeff8 text-tracking-changed-temporarily
 e8c38348f3c3758af450e3b6e9f39cc6 text-tracking-mark-placement
-6dcee9c5d25ba3b758aa0359880cfa8a text-tracking-negative
+d439cc1692c0ead0b07722304e909a41 text-tracking-negative
 13e055782445e90a2967be4fbc896e9b text-unknown-font-family-warning
 39f9be8e858a31fb09fd547a708c2c3f tiling-angle
 715f940e598b07c02925b94a80ae8797 tiling-angle-with-offset

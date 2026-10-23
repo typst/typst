@@ -10,6 +10,7 @@ use std::sync::{LazyLock, RwLock};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::package::PackageSpec;
 
@@ -389,6 +390,26 @@ impl Debug for VirtualPath {
     }
 }
 
+impl<'de> Deserialize<'de> for VirtualPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str = EcoString::deserialize(deserializer)?;
+        VirtualPath::new(str)
+            .map_err(|err| serde::de::Error::custom(format_args!("{err}")))
+    }
+}
+
+impl Serialize for VirtualPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.get_without_slash())
+    }
+}
+
 /// A component in a virtual path.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Component<'a> {
@@ -630,7 +651,7 @@ pub enum PathError {
 impl fmt::Display for PathError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Escapes => write!(f, "path escapes project root"),
+            Self::Escapes => write!(f, "path escapes root"),
             Self::Backslash => write!(f, "path contains backslash"),
         }
     }
@@ -890,5 +911,19 @@ mod tests {
         assert_eq!(Segment::new(""), Err(""));
         assert_eq!(Segment::new("."), Err("."));
         assert_eq!(Segment::new(".."), Err(".."));
+    }
+
+    #[test]
+    fn test_virtual_path_deserialize() {
+        #[derive(Debug, Deserialize)]
+        struct Example {
+            path: VirtualPath,
+        }
+
+        let m = toml::de::from_str::<Example>(r#"path = "hello""#).unwrap();
+        assert_eq!(m.path, VirtualPath::new("/hello").unwrap());
+
+        let e = toml::de::from_str::<Example>(r#"path = "../hello""#).unwrap_err();
+        assert_eq!(e.message(), "path escapes root");
     }
 }

@@ -1674,7 +1674,7 @@ impl<'a> GridLayouter<'a> {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = Size::new(self.width, used).min(self.current.initial);
-        if fr.get() > 0.0 && self.current.initial.y.is_finite() {
+        if !fr.is_zero() && self.current.initial.y.is_finite() {
             size.y = self.current.initial.y;
         }
 

@@ -70,6 +70,7 @@ ee64bf3aa4adc633f4435cb2a142cc5d block-sticky-many
 6b1f56871f9def6e4f4038dc3196e6fc box-clip-radius-without-stroke
 151fea019531ac99c9192b2e86da3c94 box-clip-rect
 b5e2bd8b97bdd2add0c84ddabef5e62f box-fr-width
+4431e49111d0d157eacba5fb76bf266d box-fr-width-negative
 e6f997715c0c8094c01108a8eae82a88 call-basic
 67a6e9467b00342d23003a771bfd64a3 cases-content-symbol
 c749652f96c8c5b2f3af9673a216740a cases-content-text
@@ -704,6 +705,7 @@ e3cf07b2d0add6f46fb349c411ffdaf8 issue-2214-baseline-math
 c41d51f569dcf27f881bd7d3d3648396 issue-2259-raw-color-overwrite
 64574ea652fc253da6b6ccc52e61086f issue-2268-mat-augment-color
 1728a5c539e06e657bd36624b31341fc issue-2326-context-set-page
+15a5db2e256ea91924146f0ab666f100 issue-2348-justify-indented-cjk-punctuation
 c2119b24bb6b1ff384ccded517e1f643 issue-2419-justify-hanging-indent
 f150a3001d1ea721bb7deb3cd1724473 issue-2480-counter-reset
 1dbe2cc7346f383b84d83eb9440abc11 issue-2480-counter-reset-2
@@ -871,6 +873,7 @@ c09d6d3c63dcd6a04c2daea43e75e0cb issue-852-mat-type
 d2c75477a39f501e64b586e9154160c4 issue-8520-script-stylistic-set
 32f5c5d2ec1fa8f20c77ac7552e25131 issue-8648-enum-gap
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
+740b4fe285259a40f74da27ae44d4e63 issue-8931-justify-trailing-tracking
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
 4c01dfc0d145e59abdb4413234dfd836 issue-columns-heading
 cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
@@ -1776,6 +1779,9 @@ a48a9dfa4e0055f58be4cf6f81864e55 space-collapsing-stringy-linebreak
 24d788e5767b589ecda50b3b625ff51c space-ideographic-kept
 9544d3d7a5ca3455555d791f76398114 space-thin-kept
 3f621a90b2679a1d71b3d1b481a78e55 space-trailing-linebreak
+db5a8b5f4eaa2fda849317a33bbb4be2 spacing-fr-h-negative
+3f3a08188280ea85d1faad3643718a01 spacing-fr-overflow
+37b4f98562bbf07c160bcd34ec103bf6 spacing-fr-v-negative
 4af6a4906002920895f8a2f08a41b771 spacing-fr-weak-collapse
 57aed0d5b1a76bf9b69655e829110d35 spacing-fr-weak-destructs-rel-abs
 c6b09a5b69e19a1e340200a1de5d9433 spacing-fr-weak-destructs-smaller
@@ -1811,6 +1817,7 @@ f5cf9c78e575e43170e98a5fda06df74 square-relatively-sized-child
 c6dc189d760267cca321f44f005b1b85 square-size-beyond-default
 7aaf7a72095bee4d6c62f74d155aee03 stack-basic
 a13ff8338c484da35db206f43deba728 stack-fr
+cd795a08272e394474f921b0b344b6e3 stack-fr-negative
 414b8c217e9b8024334726f278d3a348 stack-overflow
 b5f9c0d3c7124d192000bd2f61d1f14e stack-rtl-align-and-fr
 6b77f987ca8d8c59adc30e19e2abecef stack-spacing

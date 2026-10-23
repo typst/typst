@@ -1,4 +1,3 @@
-use std::io::{Write, stdout};
 use std::sync::LazyLock;
 
 use comemo::Track;
@@ -21,7 +20,9 @@ use typst_kit::diagnostics::DiagnosticWorld;
 use typst_layout::PagedDocument;
 use typst_utils::LazyHash;
 
-use crate::args::{EvalCommand, EvalSerializationFormat, SerializationFormat, Target};
+use crate::args::{
+    self, EvalCommand, EvalSerializationFormat, SerializationFormat, Target,
+};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -29,6 +30,29 @@ use crate::world::SystemWorld;
 /// Evaluate an input expression, potentially as a query over an existing
 /// document.
 pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
+    let output_format = if let Some(specified) = command.format {
+        specified
+    } else if let args::Output::Path(output) = &command.output {
+        match output.extension() {
+            Some(ext) if ext.eq_ignore_ascii_case("json") => {
+                EvalSerializationFormat::Json
+            }
+            Some(ext)
+                if ext.eq_ignore_ascii_case("yaml")
+                    || ext.eq_ignore_ascii_case("yml") =>
+            {
+                EvalSerializationFormat::Yaml
+            }
+            _ => bail!(
+                "could not infer output format for path {}.\n\
+                 consider providing the format manually with `--format/-f`",
+                output.display(),
+            ),
+        }
+    } else {
+        EvalSerializationFormat::default()
+    };
+
     let mut world =
         SystemWorld::new(command.r#in.as_ref(), &command.world, &command.process)?;
 
@@ -67,7 +91,12 @@ pub fn eval(command: &'static EvalCommand) -> HintedStrResult<()> {
                     errors.as_slice()
                 }
                 Ok(value) => {
-                    print_eval_result(value, command.format, command.pretty)?;
+                    print_eval_result(
+                        value,
+                        &command.output,
+                        output_format,
+                        command.pretty,
+                    )?;
                     &[]
                 }
             };
@@ -129,17 +158,24 @@ fn evaluate_expression(
 /// Prints the output value of `typst eval`.
 fn print_eval_result(
     value: &Value,
+    output: &args::Output,
     format: EvalSerializationFormat,
     pretty: bool,
 ) -> HintedStrResult<()> {
-    match format {
-        EvalSerializationFormat::Json => {
-            println!("{}", crate::serialize(&value, SerializationFormat::Json, pretty)?);
+    let format = match format {
+        EvalSerializationFormat::Json => Some(SerializationFormat::Json),
+        EvalSerializationFormat::Yaml => Some(SerializationFormat::Yaml),
+        EvalSerializationFormat::Raw => None,
+    };
+    let result = match format {
+        Some(format) => {
+            let mut serialized = crate::serialize(&value, format, pretty)?;
+            if !serialized.ends_with('\n') {
+                serialized.push('\n');
+            }
+            output.write(serialized.as_bytes())
         }
-        EvalSerializationFormat::Yaml => {
-            println!("{}", crate::serialize(&value, SerializationFormat::Yaml, pretty)?);
-        }
-        EvalSerializationFormat::Raw => {
+        None => {
             let bytes = match value {
                 Value::Str(string) => string.as_bytes(),
                 Value::Bytes(bytes) => bytes,
@@ -148,10 +184,10 @@ fn print_eval_result(
                     hint: "`--format=raw` only supports strings and bytes"
                 ),
             };
-            stdout().lock().write_all(bytes).expect("failed to write eval output");
+            output.write(bytes)
         }
-    }
-    Ok(())
+    };
+    result.map_err(|err| eco_format!("failed to write eval output ({err})").into())
 }
 
 /// Static [`FileId`] for an input expression. This allows giving accurate
