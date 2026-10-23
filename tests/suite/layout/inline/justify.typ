@@ -302,3 +302,17 @@ int main() {
 #set text(overhang: false, tracking: 0.5em)
 #set par(justify: true)
 #block(width: 100%, fill: aqua, lorem(10))
+
+--- issue-2348-justify-indented-cjk-punctuation paged ---
+// Test that CJK punctuation at the start of a paragraph is adjusted even if
+// the paragraph is indented.
+#set page(width: auto)
+#set text(lang: "ja", font: "Noto Serif CJK JP")
+#set par(
+  justify: true,
+  first-line-indent: (amount: 1em, all: true),
+  hanging-indent: 0.5em,
+)
+
+『現代仮名遣い』では、助詞の\
+「へ」は「へ」と書くのがルールである。

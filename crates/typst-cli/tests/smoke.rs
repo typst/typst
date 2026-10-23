@@ -164,6 +164,114 @@ fn test_eval() {
 }
 
 #[test]
+fn test_eval_format() {
+    // Default format (JSON).
+    let output = exec().arg("eval").arg("(1, 2, 3, 4)").must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // JSON manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "json"])
+        .must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // YAML manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "yaml"])
+        .must_succeed();
+    output.stdout.must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+}
+
+#[test]
+fn test_eval_output() {
+    let project = tempfs();
+
+    // Named path.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    output.stdout.must_be_empty();
+    output.stderr.must_be_empty();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // Output to stdout.
+    let output = exec().args(["eval", "(1, 2, 3, 4)", "-o", "-"]).must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+    output.stderr.must_be_empty();
+}
+
+#[test]
+fn test_eval_infer_format() {
+    let project = tempfs();
+
+    // Unknown extension (default format).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_fail()
+        .stderr
+        .must_contain("could not infer output format");
+
+    // Unknown extension, default format overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_succeed();
+    project
+        .read("foo.extension")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON inferred.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // YAML inferred (1).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yaml"))
+        .must_succeed();
+    project
+        .read("foo.yaml")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML inferred (2).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project
+        .read("foo.json")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format=json", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["[1,2,3,4]"]);
+
+    // Raw set.
+    exec()
+        .args(["eval", "\"foo\"", "--format=raw", "-o"])
+        .arg(project.resolve("foo.raw"))
+        .must_succeed();
+    assert_eq!(project.read("foo.raw").0, b"foo");
+}
+
+#[test]
 fn test_fonts_embedded() {
     let output = exec().arg("fonts").arg("--ignore-system-fonts").must_succeed();
     output.stdout.must_match_lines([
@@ -348,6 +456,57 @@ fn test_path_to_package() {
         .arg(package.path())
         .must_fail();
     output.stderr.must_contain("error: panicked with: (7, 42)");
+}
+
+#[test]
+fn test_template_path_escapes() {
+    let package = tempfs();
+    package.write(
+        "local/escaping/0.1.0/typst.toml",
+        r#"[package]
+           name = "escaping"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "../escaping"
+           entrypoint = "main.typ""#,
+    );
+    let output = exec()
+        .arg("init")
+        .arg("@local/escaping:0.1.0")
+        .arg("--package-path")
+        .arg(package.path())
+        .must_fail();
+    output
+        .stderr
+        .must_contain("error: package manifest is malformed (path escapes root)");
+}
+
+#[test]
+fn test_template_path_absolute() {
+    let project = tempfs();
+    let package = tempfs();
+    package.write(
+        "local/absolute/0.1.0/typst.toml",
+        r#"[package]
+           name = "absolute"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "/template"
+           entrypoint = "main.typ""#,
+    );
+    package.write("local/absolute/0.1.0/template/main.typ", "Hello");
+    exec()
+        .arg("init")
+        .arg("@local/absolute:0.1.0")
+        .arg(project.path().join("project"))
+        .arg("--package-path")
+        .arg(package.path())
+        .must_succeed();
+    project.read("project/main.typ").must_match_lines(["Hello"]);
 }
 
 #[test]
@@ -550,6 +709,12 @@ impl<T: AsRef<[u8]>> Stream<T> {
             self.lines().collect::<Vec<_>>(),
             lines.into_iter().collect::<Vec<_>>(),
         );
+        self
+    }
+
+    #[track_caller]
+    fn must_be_empty(&self) -> &Self {
+        assert!(self.0.as_ref().is_empty(), "{self:?} is not empty");
         self
     }
 

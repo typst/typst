@@ -94,7 +94,7 @@ impl Line<'_> {
     /// Whether the line has items with negative width.
     pub fn has_negative_width_items(&self) -> bool {
         self.items.iter().any(|item| match item {
-            Item::Absolute(amount, _) => *amount < Abs::zero(),
+            Item::Absolute(amount, _) | Item::Indent(amount) => *amount < Abs::zero(),
             Item::Frame(frame) => frame.width() < Abs::zero(),
             _ => false,
         })
@@ -570,7 +570,7 @@ pub fn commit(
         };
 
         match &**item {
-            Item::Absolute(v, _) => {
+            Item::Absolute(v, _) | Item::Indent(v) => {
                 offset += *v;
             }
             Item::Fractional(v, elem) => {

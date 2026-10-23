@@ -77,7 +77,10 @@ fn scaffold_project(
         bail!("project directory already exists (at {})", project_dir.display());
     }
 
-    let template_dir = package_path.join(template.path.as_str());
+    let template_dir = template
+        .path
+        .realize(package_path)
+        .map_err(|err| eco_format!("invalid template directory ({err})"))?;
     if !template_dir.exists() {
         bail!("template directory does not exist (at {})", template_dir.display());
     }
@@ -119,7 +122,7 @@ fn print_summary(
     writeln!(
         out,
         "typst watch {}",
-        shell_escape::escape(template.entrypoint.to_string().into()),
+        shell_escape::escape(template.entrypoint.get_without_slash().into()),
     )?;
     writeln!(out)?;
     Ok(())
