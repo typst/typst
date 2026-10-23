@@ -753,7 +753,7 @@ fn build_output<'a>(
 
     // Construct unfinished link frames.
     for (dest, mut link_info) in link_stack {
-        // Only render a link if there was at least one item within it...
+        // Only render a link if there was at least one item within it.
         if link_info.latest_index.is_none() {
             continue;
         }
