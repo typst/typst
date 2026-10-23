@@ -16,6 +16,8 @@ use typst_library::text::FontInstance;
 use typst_library::visualize::SpotColorantName;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
 
+use crate::convert::FrameContext;
+
 pub(crate) trait SidesExt<T> {
     /// Map to the [`kt::Sides`] struct assuming [`kt::WritingMode::LrTb`].
     fn to_lrtb_krilla(self) -> kt::Sides<T>;
@@ -222,4 +224,30 @@ pub(crate) fn convert_path(path: &Curve, builder: &mut PathBuilder) {
             CurveItem::Close => builder.close(),
         }
     }
+}
+
+/// Compute the bounding box of the transformed rectangle for this frame.
+pub(crate) fn bounding_box(fc: &FrameContext, size: Size) -> kg::Rect {
+    let pos = Point::zero();
+    let points = [
+        pos + Point::with_y(size.y),
+        pos + size.to_point(),
+        pos + Point::with_x(size.x),
+        pos,
+    ];
+
+    let mut min_x = f32::INFINITY;
+    let mut min_y = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    let mut max_y = f32::NEG_INFINITY;
+
+    for point in points {
+        let p = point.transform(fc.state().transform()).to_krilla();
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x);
+        max_y = max_y.max(p.y);
+    }
+
+    kg::Rect::from_ltrb(min_x, min_y, max_x, max_y).unwrap()
 }

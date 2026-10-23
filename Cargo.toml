@@ -63,9 +63,9 @@ fontdb = { version = "0.23", default-features = false }
 fs_extra = "1.3"
 glidesort = "0.1.2"
 hayagriva = "0.10.1"
-hayro = { git = "https://github.com/LaurenzV/hayro", rev = "d8e24e29eda62581e1ea15497effb2a884fb1608", default-features = false }
-hayro-svg = { git = "https://github.com/LaurenzV/hayro", rev = "d8e24e29eda62581e1ea15497effb2a884fb1608", default-features = false }
-hayro-syntax = { git = "https://github.com/LaurenzV/hayro", rev = "d8e24e29eda62581e1ea15497effb2a884fb1608" }
+hayro = { git = "https://github.com/LaurenzV/hayro", rev = "a728f7cb6826c1e167973b8fd71867ebb4cf39af", default-features = false }
+hayro-svg = { git = "https://github.com/LaurenzV/hayro", rev = "a728f7cb6826c1e167973b8fd71867ebb4cf39af", default-features = false }
+hayro-syntax = { git = "https://github.com/LaurenzV/hayro", rev = "a728f7cb6826c1e167973b8fd71867ebb4cf39af" }
 heck = "0.5"
 hypher = "0.1.8"
 icu_collator = { version = "2.3.1" }
@@ -78,8 +78,8 @@ indexmap = { version = "2", features = ["serde", "rayon"] }
 infer = { version = "0.19.0", default-features = false }
 itoa = "1"
 kamadak-exif = "0.6"
-krilla = { git = "https://github.com/LaurenzV/krilla", rev = "7772dbe", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
-krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "7772dbe" }
+krilla = { git = "https://github.com/LaurenzV/krilla", rev = "2bbc1b351fcf9d5b7a1268ff197198c5d3ecebe6", default-features = false, features = ["raster-images", "comemo", "rayon", "pdf"] }
+krilla-svg = { git = "https://github.com/LaurenzV/krilla", rev = "2bbc1b351fcf9d5b7a1268ff197198c5d3ecebe6" }
 kurbo = "0.13"
 libfuzzer-sys = "0.4"
 libm = "0.2.11"
