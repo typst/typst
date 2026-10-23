@@ -99,15 +99,17 @@ fn try_reparse(
         // The child is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
         if child.kind().is_block()
-            && let Some(reparsed) = reparse_block(text, new_range.clone())
+            && let Some(new_child) = reparse_block(text, new_range.clone())
         {
-            let reparsed_children = node.replace_children(overlap, vec![reparsed]);
-            // Reparsing succeeded, but we can still fail if we're out of
-            // span numbers to assign to nodes (this is rare).
-            return node
-                .renumber_children(reparsed_children)
-                .is_ok()
-                .then_some(new_range);
+            let new_desc = new_child.descendants();
+            let new_diag = new_child.diagnosis();
+            *child = new_child;
+            node.update_parent(
+                prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
+            );
+            // Reparsing succeeded, but we can still fail if we're out of span
+            // numbers to assign to nodes (this is rare).
+            return node.renumber_children(overlap).is_ok().then_some(new_range);
         }
     }
 
@@ -531,7 +533,7 @@ mod tests {
     /// This is a bug (it yields different trees when reparsing), but it will
     /// require a bit more effort to solve.
     #[test]
-    #[should_panic = "found a detached span for CodeBlock: '{B;C}'"]
+    #[should_panic = "left: Incr(\"{{A;B}}\")\n right: Incr(\"{A;B}\")"]
     fn test_reparse_nested_code() {
         let mut text = "#{A;B}".to_string();
         let mut prev_n = 1_usize;
@@ -564,7 +566,7 @@ mod tests {
 
     /// Test reparsing with deeply nested code and markup blocks.
     #[test]
-    #[should_panic = "found a detached span for Text: '3'"]
+    #[should_panic = "left: Incr(\"[ 3~B ]\")\n right: Incr(\" 3~B \")"]
     fn test_reparse_nested_markup() {
         let mut text = "#[ A~B ]".to_string();
         let mut prev_n = 1_usize;
