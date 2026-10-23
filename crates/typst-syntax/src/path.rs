@@ -81,6 +81,29 @@ pub enum VirtualRoot {
     Package(PackageSpec),
 }
 
+impl VirtualRoot {
+    /// Joins the given `path` to this root.
+    pub fn join(&self, path: impl AsRef<str>) -> Result<RootedPath, PathError> {
+        VirtualPath::new(path).map(|path| RootedPath::new(self.clone(), path))
+    }
+
+    /// Returns the file id for this root's `typst.toml` manifest if it is a
+    /// package, or `None` if it is a project.
+    ///
+    /// Note that this doesn't mean that no `typst.toml` file exists in the
+    /// project root, just that it's uninteresting fro Typst at the moment.
+    pub fn manifest(&self) -> Option<FileId> {
+        match self {
+            VirtualRoot::Project => None,
+            VirtualRoot::Package(_) => Some(
+                self.join("typst.toml")
+                    .expect("`/typst.toml` is always a valid virtual path")
+                    .intern(),
+            ),
+        }
+    }
+}
+
 /// The global interner for rooted paths.
 static INTERNER: LazyLock<RwLock<Interner>> = LazyLock::new(|| {
     RwLock::new(Interner { to_id: FxHashMap::default(), from_id: Vec::new() })

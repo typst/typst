@@ -9,12 +9,14 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
+use typst_library::diag::PackageError;
 use typst_library::diag::{FileError, FileResult};
 use typst_library::foundations::Bytes;
-use typst_syntax::{FileId, Source, VirtualPath};
+use typst_syntax::package::{CompilerVersion, PackageManifest};
+use typst_syntax::{FileId, PreferredCompilerVersion, Source, VirtualPath, VirtualRoot};
 
 #[cfg(feature = "system-files")]
-use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
+use crate::packages::SystemPackages;
 
 /// Holds loaded files and sources.
 ///
@@ -35,7 +37,8 @@ use {crate::packages::SystemPackages, typst_syntax::VirtualRoot};
 #[derive(Default)]
 pub struct FileStore<L> {
     loader: L,
-    slots: Mutex<FxHashMap<FileId, FileSlot>>,
+    root_slots: Mutex<FxHashMap<VirtualRoot, RootSlot>>,
+    file_slots: Mutex<FxHashMap<FileId, FileSlot>>,
 }
 
 impl<L> FileStore<L>
@@ -44,7 +47,11 @@ where
 {
     /// Creates a new file store that loads file data via the provided `loader`.
     pub fn new(loader: L) -> Self {
-        Self { loader, slots: Mutex::new(FxHashMap::default()) }
+        Self {
+            loader,
+            root_slots: Mutex::new(FxHashMap::default()),
+            file_slots: Mutex::new(FxHashMap::default()),
+        }
     }
 
     /// Returns a reference to the underlying loader.
@@ -67,7 +74,7 @@ where
     /// Can directly be used to implement
     /// [`World::source`](typst_library::World::source).
     pub fn source(&self, id: FileId) -> FileResult<Source> {
-        self.slot(id, |slot| slot.source(&self.loader, id))
+        self.file_slot(id, |slot| slot.source(&self.loader, id))
     }
 
     /// Retrieves the given file id as a raw file.
@@ -75,7 +82,19 @@ where
     /// Can directly be used to implement
     /// [`World::file`](typst_library::World::file).
     pub fn file(&self, id: FileId) -> FileResult<Bytes> {
-        self.slot(id, |slot| slot.file(&self.loader, id))
+        self.file_slot(id, |slot| slot.file(&self.loader, id))
+    }
+
+    /// Retrieves the preferred compiler version for files within the given
+    /// root.
+    ///
+    /// Can directly be used to implement
+    /// [`World::preferred_version`](typst_library::World::preferred_version).
+    pub fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        self.root_slot(root, |slot| slot.load(&self.loader, root))
     }
 
     /// Returns all files that were referenced since the last
@@ -90,17 +109,24 @@ where
     /// the fact.
     pub fn dependencies(&mut self) -> (&L, impl Iterator<Item = FileId> + '_) {
         let iter = self
-            .slots
+            .file_slots
             .get_mut()
             .iter()
             .filter(|(_, slot)| slot.accessed())
-            .map(|(&id, _)| id);
+            .map(|(&id, _)| id)
+            .chain(
+                self.root_slots
+                    .get_mut()
+                    .iter()
+                    .filter(|(_, slot)| slot.accessed())
+                    .filter_map(|(root, _)| root.manifest()),
+            );
         (&self.loader, iter)
     }
 
     /// Resets the store.
     ///
-    /// This marks all loaded file as stale. On subsequent accesses, they will
+    /// This marks all loaded files as stale. On subsequent accesses, they will
     /// be loaded once more through the underlying loader. Moreover, calls to
     /// [`dependencies()`](Self::dependencies) will not yield files accessed
     /// before the call to `reset()`.
@@ -110,18 +136,77 @@ where
     /// performance.
     pub fn reset(&mut self) {
         #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
-        for slot in self.slots.get_mut().values_mut() {
+        for slot in self.root_slots.get_mut().values_mut() {
+            slot.reset();
+        }
+        #[allow(clippy::iter_over_hash_type, reason = "order does not matter")]
+        for slot in self.file_slots.get_mut().values_mut() {
             slot.reset();
         }
     }
 
-    /// Access the canonical slot for the given file id.
-    fn slot<F, T>(&self, id: FileId, f: F) -> FileResult<T>
+    /// Access the canonical root slot for the given root.
+    fn root_slot<F, T>(&self, root: &VirtualRoot, f: F) -> FileResult<T>
+    where
+        F: FnOnce(&mut RootSlot) -> FileResult<T>,
+    {
+        let mut map = self.root_slots.lock();
+        f(map.entry(root.clone()).or_default())
+    }
+
+    /// Access the canonical file slot for the given file id.
+    fn file_slot<F, T>(&self, id: FileId, f: F) -> FileResult<T>
     where
         F: FnOnce(&mut FileSlot) -> FileResult<T>,
     {
-        let mut map = self.slots.lock();
+        let mut map = self.file_slots.lock();
         f(map.entry(id).or_default())
+    }
+}
+
+/// Holds the state for a root's preferred version.
+#[derive(Default)]
+enum RootSlot {
+    /// Nothing has been loaded, or nothing has to be loaded.
+    ///
+    /// Transitions to
+    /// - loaded if a preferred version is requested for a package.
+    #[default]
+    EmptyOrPackage,
+    /// The slot has been requested with `load()`.
+    LoadedPackage(FileResult<PreferredCompilerVersion>),
+}
+
+impl RootSlot {
+    /// Whether the slot has been accessed in any way since the last reset.
+    fn accessed(&self) -> bool {
+        !matches!(self, Self::EmptyOrPackage)
+    }
+
+    /// Resets the slot to its empty state.
+    fn reset(&mut self) {
+        *self = Self::EmptyOrPackage;
+    }
+
+    /// Retrieves the preferred version for this slot.
+    fn load(
+        &mut self,
+        loader: &impl FileLoader,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        match self {
+            RootSlot::EmptyOrPackage => {}
+            RootSlot::LoadedPackage(version) => return version.clone(),
+        }
+
+        if root.manifest().is_none() {
+            return Ok(PreferredCompilerVersion::default());
+        }
+
+        let version = loader.preferred_version(root);
+
+        *self = Self::LoadedPackage(version.clone());
+        version
     }
 }
 
@@ -133,7 +218,7 @@ enum FileSlot {
     ///
     /// Transitions to
     /// - loaded when a file is requested
-    /// - to parsed if a source is requested and the data could be loaded
+    /// - parsed if a source is requested and the data could be loaded
     ///   (otherwise to loaded).
     Empty(Stale<Source>),
     /// The slot has been requested as a `file()` but not as a `source()` (at
@@ -263,17 +348,83 @@ pub trait FileLoader {
     /// [`id.vpath()`](typst_syntax::RootedPath::vpath) in the project /
     /// package.
     fn load(&self, id: FileId) -> FileResult<Bytes>;
+
+    /// Extracts the preferred version from the data of the
+    /// [preferred version file](Self::preferred_version_file).
+    ///
+    /// For packages this returns the `package.compiler.preferred` field in the
+    /// `typst.toml` manifest or the compiler version.
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        let data = match root.manifest() {
+            Some(id) => self.load(id)?,
+            None => {
+                return Err(FileError::Other(Some(
+                    "requested manifest for project root".into(),
+                )));
+            }
+        };
+
+        let manifest = data.as_str().map_err(|_| {
+            FileError::Package(PackageError::MalformedArchive(Some(
+                "manifest was not valid UTF-8".into(),
+            )))
+        })?;
+
+        let manifest: PackageManifest = toml::from_str(manifest).map_err(|e| {
+            FileError::Package(PackageError::MalformedManifest(Some(e.message().into())))
+        })?;
+
+        Ok(match manifest.package.compiler {
+            None => PreferredCompilerVersion::default(),
+            Some(CompilerVersion::Minimum(minimum)) => {
+                // NOTE: Compiler version bounds without a minor version
+                // effectively always degrade to the current compiler version
+                // because `compiler = "0"` is nonsensical when there are only
+                // `0.x` versions.
+                minimum
+                    .minor
+                    .map(|minor| PreferredCompilerVersion { major: minimum.major, minor })
+                    .unwrap_or_else(PreferredCompilerVersion::current)
+            }
+            Some(CompilerVersion::Compatibility { preferred, .. }) => {
+                if preferred.major != 0 {
+                    return Err(FileError::Package(PackageError::MalformedManifest(Some(
+                        "major versions other than 0 are not supported for `compiler.preferred`".into()
+                    ))));
+                }
+
+                preferred
+            }
+        })
+    }
 }
 
 impl<F: FileLoader> FileLoader for Box<F> {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         (**self).load(id)
     }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        (**self).preferred_version(root)
+    }
 }
 
 impl<F: FileLoader> FileLoader for Arc<F> {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         (**self).load(id)
+    }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        (**self).preferred_version(root)
     }
 }
 
@@ -398,14 +549,6 @@ mod tests {
     #[test]
     fn test_file_store_cycles() {
         let mut store = FileStore::new(TestLoader(1));
-        let deps = |store: &mut FileStore<TestLoader>| {
-            let (_, iter) = store.dependencies();
-            let mut vec = iter
-                .map(|id| id.get().vpath().get_without_slash())
-                .collect::<Vec<_>>();
-            vec.sort_unstable();
-            vec
-        };
         store.source(id("a.typ")).must_be(A_TEXT);
         store.source(id("d.typ")).must_be("1");
         assert_eq!(store.file(id("e.bin")), Err(FileError::NotFound("e.bin".into())));
@@ -417,11 +560,39 @@ mod tests {
         assert_eq!(deps(&mut store), ["d.typ", "e.bin"]);
     }
 
+    /// Project roots have no manifest, so they must not yield a nonexistent
+    /// manifest path. The CLI watcher would treat these as missing files and
+    /// poll for a file that likely doesn't exist.
+    #[test]
+    fn test_file_store_preferred_version() {
+        let mut store = FileStore::new(TestLoader(1));
+
+        assert_eq!(
+            store.preferred_version(&VirtualRoot::Project),
+            Ok(PreferredCompilerVersion::default())
+        );
+        assert!(deps(&mut store).is_empty());
+
+        let package = VirtualRoot::Package("@preview/test:0.1.0".parse().unwrap());
+        assert_eq!(
+            store.preferred_version(&package),
+            Ok(PreferredCompilerVersion { major: 0, minor: 14 })
+        );
+        assert_eq!(deps(&mut store), ["typst.toml"]);
+    }
+
     const A_TEXT: &str = "Hello from A";
     const B_DATA: &[u8] = b"\xef\xbb\xbfHello from B";
     const B_TEXT: &str = "Hello from B";
     const C_DATA: &[u8] = b"a\xFF\xFF\xFFb";
     const E_TEXT: &str = "A secret";
+    const MANIFEST: &str = "\
+        [package]\n\
+        name = \"test\"\n\
+        version = \"0.1.0\"\n\
+        entrypoint = \"lib.typ\"\n\
+        compiler = \"0.14\"\n\
+    ";
 
     struct TestLoader(usize);
 
@@ -433,6 +604,7 @@ mod tests {
                 "c.bin" => Bytes::new(C_DATA),
                 "d.typ" => Bytes::from_string(format!("{}", self.0)),
                 "e.bin" if self.0 > 3 => Bytes::from_string(E_TEXT),
+                "typst.toml" => Bytes::from_string(MANIFEST),
                 path => return Err(FileError::NotFound(path.into())),
             })
         }
@@ -440,6 +612,16 @@ mod tests {
 
     fn id(path: &str) -> FileId {
         RootedPath::new(VirtualRoot::Project, VirtualPath::new(path).unwrap()).intern()
+    }
+
+    /// The sorted dependencies that accrued since the last reset.
+    fn deps(store: &mut FileStore<TestLoader>) -> Vec<&'static str> {
+        let (_, iter) = store.dependencies();
+        let mut vec = iter
+            .map(|id| id.get().vpath().get_without_slash())
+            .collect::<Vec<_>>();
+        vec.sort_unstable();
+        vec
     }
 
     trait OutputExt {
