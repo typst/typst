@@ -135,8 +135,7 @@ where
     F: FnOnce(StyleChain) -> R,
     R: FrameModify,
 {
-    let modifiers = FrameModifiers::get_in(styles);
-    layout_and_modify_internal(modifiers, styles, layout, true)
+    layout_and_modify_internal(styles, layout, true)
 }
 
 /// Performs layout and modification in one step, except for links, which are
@@ -146,24 +145,19 @@ where
     F: FnOnce(StyleChain) -> R,
     R: FrameModify,
 {
-    let modifiers = FrameModifiers::get_in(styles);
-
     // While we could set 'modifiers.dest = None' directly here, a boolean
     // argument is used so the function remembers to reset the link in the
     // style chain before removing it from modifiers.
-    layout_and_modify_internal(modifiers, styles, layout, false)
+    layout_and_modify_internal(styles, layout, false)
 }
 
-fn layout_and_modify_internal<F, R>(
-    mut modifiers: FrameModifiers,
-    styles: StyleChain,
-    layout: F,
-    allow_links: bool,
-) -> R
+fn layout_and_modify_internal<F, R>(styles: StyleChain, layout: F, allow_links: bool) -> R
 where
     F: FnOnce(StyleChain) -> R,
     R: FrameModify,
 {
+    let mut modifiers = FrameModifiers::get_in(styles);
+
     // Disable the current link internally since it's already applied at this
     // level of layout. This means we don't generate redundant nested links,
     // which may bloat the output considerably.

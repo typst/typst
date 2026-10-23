@@ -106,9 +106,19 @@ impl<'a> Item<'a> {
     }
 }
 
+/// A delimiter of an inline effect applied by some element in a paragraph. It
+/// is triggered by a change in the stylechain, that either creates or ends the
+/// effect. Links are the most typical example: text spanned by a link should be
+/// made clickable, so changes in the style chain that add and remove a link to
+/// the current text are detected and represented as start / end link events so
+/// that inline layout can apply the link.
 #[derive(Debug)]
 pub enum Event {
+    /// An event indicating the following text should be clickable with a given
+    /// link.
     StartLink(Linkage),
+    /// An event indicating the following text should no longer be clickable
+    /// with a given link.
     EndLink(Linkage),
 }
 
@@ -122,8 +132,6 @@ pub enum Segment<'a> {
     Text(usize, StyleChain<'a>),
     /// An already prepared item.
     Item(Item<'a>),
-    /// An event.
-    Event(Event),
 }
 
 impl Segment<'_> {
@@ -132,7 +140,6 @@ impl Segment<'_> {
         match self {
             Self::Text(len, _) => *len,
             Self::Item(item) => item.textual_len(),
-            Self::Event(_) => 0,
         }
     }
 }
@@ -171,7 +178,6 @@ pub fn collect<'a>(
 
     for &(child, styles) in children {
         let prev_len = collector.full.len();
-        let current_link = styles.get_ref(LinkElem::current);
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
@@ -299,7 +305,8 @@ pub fn collect<'a>(
                     // The link style is already reverted at the end tag, so we
                     // compare with the previous link style. If it changed,
                     // it means this tag was ending a link marker element.
-                    } else if let Some(link) = events.prev_link
+                    } else if let Some(prev_styles) = events.prev_styles
+                        && let Some(link) = prev_styles.get_ref(LinkElem::current)
                         && link.origin == *location
                         && !styles.get(HideElem::hidden)
                     {
@@ -322,7 +329,7 @@ pub fn collect<'a>(
             ));
         }
 
-        events.prev_link = current_link.as_ref();
+        events.prev_styles = Some(styles);
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
@@ -401,7 +408,7 @@ impl<'a> Collector<'a> {
     }
 
     fn push_event(&mut self, event: Event) {
-        self.segments.push(Segment::Event(event));
+        self.segments.push(Segment::Item(Item::Event(event)));
     }
 }
 
@@ -415,9 +422,9 @@ struct EventCollectionState<'c> {
     /// `None`), unless the whole paragraph is a `#link[...]`, in which case we
     /// must not apply it again.
     shared_link: Option<&'c Linkage>,
-    /// The link active in the previously collected item. Used to detect changes
-    /// in links.
-    prev_link: Option<&'c Linkage>,
+    /// The styles active in the previously collected item. Used to detect
+    /// changes in styles to generate events, such as links.
+    prev_styles: Option<StyleChain<'c>>,
     /// Links with currently unclosed marker tags.
     active_links: Vec<Linkage>,
 }
