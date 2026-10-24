@@ -128,6 +128,29 @@ comment spans lines
 #set heading(numbering: "1.1", offset: 1)
 #heading(level: 1)[Still level 1]
 
+// Negative offsets are allowed as long as final result > 0
+#set heading(offset: -1)
+#heading(depth: 2)[Also level 1]
+
+#set heading(offset: -2)
+#heading(depth: 3)[More level 1]
+
+--- heading-negative-offset-show-set paged ---
+#show: set heading(numbering: "1.", offset: -2)
+=== Still level 1
+
+--- heading-negative-level paged ---
+// Error: 2:1-2:18 overflow in calculating `level`
+// Hint: 2:1-2:18 depth: 1, offset: -5
+#set heading(offset: -5)
+= This won't work
+
+--- heading-zero-level paged ---
+// Error: 2:2-2:33 overflow in calculating `level`
+// Hint: 2:2-2:33 depth: 2, offset: -2
+#set heading(offset: -2)
+#heading(depth: 2)[This neither]
+
 --- heading-syntax-edge-cases paged ---
 // Edge cases.
 #set heading(numbering: "1.")
