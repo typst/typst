@@ -310,7 +310,7 @@ impl Packed<OutlineElem> {
             let Some(outlinable) = elem.with::<dyn Outlinable>() else {
                 bail!(self.span(), "cannot outline {}", elem.func().name());
             };
-            let level = outlinable.level();
+            let level = outlinable.level()?;
             let include = outlinable.outlined() && level <= depth;
             let entry = Packed::new(OutlineEntry::new(level, elem)).spanned(span);
             Ok((entry, level, include))
@@ -454,8 +454,8 @@ pub trait Outlinable: Refable {
     fn outlined(&self) -> bool;
 
     /// The nesting level of this element.
-    fn level(&self) -> NonZeroUsize {
-        NonZeroUsize::ONE
+    fn level(&self) -> SourceResult<NonZeroUsize> {
+        Ok(NonZeroUsize::ONE)
     }
 
     /// Constructs the default prefix given the formatted numbering.
