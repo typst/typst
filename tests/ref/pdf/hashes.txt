@@ -867,6 +867,7 @@ aef4ed36525eb9f423be68e32b38407f issue-7991-show-text-symbol-grapheme-sliced
 ac73851227ffa0ce6c37bb8eb1f73b21 issue-80-emoji-linebreak
 6570a3a66154baf8df947d0991c2b03f issue-8058-show-text-grapheme-sliced
 a39a922e13e43eb58a2e1f33d59f7534 issue-8130-overhang-in-show-rule
+366a9410d863b1b2455743a8a7f8ec94 issue-8193-linebreak-em-space-hebrew
 1111b54cb0e423e99fdd68f707fd88f7 issue-8261-string-as-ellipsis
 59242c8a2139300aca77ab46d4fbf2d0 issue-8261-string-as-empty
 ce0a8c8453f682afc61280473b32b856 issue-8261-string-as-non-numeric
@@ -961,7 +962,7 @@ d190e120731dd688c8f86840bd71c2de line-numbers-place-out-of-order
 1a38492b52aa7916bf0af5e3658a55c3 linebreak-hyphen-nbsp
 1ee35b1234b5896330e19fb521fc77c1 linebreak-link
 25fdce5e713936d9a464351cacf8cd3f linebreak-link-end
-880112fbbb0e8d814d8e9bd1f4e222f5 linebreak-link-ip-host
+91fb51329501270a0b4c7a2714350e65 linebreak-link-ip-host
 48a5a6ef3e2ed8a516524246f4cd152c linebreak-link-justify
 9ca738eae90f3fea26094a3cc78c9a95 linebreak-manual
 4628b238e87a91dd97047f04b3ecf6f9 linebreak-manual-consecutive

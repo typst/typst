@@ -91,20 +91,28 @@ We prove $1 < 2$— \
 #link("https://hi.com/%%%%%%%%abcdef") \
 
 --- linebreak-link-ip-host paged ---
-// Ensure that links with IP hosts use the same URL line-breaking behavior.
+// Ensure that the line segmenter works with unusual links.
+//
+// Initially, all the following cases require Typst to patch. However, by
+// Unicode 18.0, the UAX #14 algorithm covers all cases except `a+cool.scheme`.
+// Other cases are still kept to prevent further issues.
+
 #set page(width: 100pt)
 #set par(justify: true)
 
 #let link-padding = "lorem_ipsum_dolor_sit_amet"
 #let links = (
+  // Links with IP hosts use the same URL line-breaking behavior.
   "http://127.0.0.1:8080/" + link-padding,
+  // Unusual schemes and domains starting with a number are the same.
   "HtTpS://1example.com/" + link-padding,
+  // URL schemes can be split into multiple line.
   "this-is-a+cool.scheme://a.com/" + link-padding,
 )
 
 #links.map(link).join(linebreak())
 
-// This case is not yet ideal, but it should not really happen in practice.
+// This case should not really happen in practice, but it works.
 Ähm#link("http://127.0.0.1:8080/" + link-padding)
 
 --- linebreak-link-justify paged ---
@@ -192,3 +200,15 @@ Et les autres ‹ guillemets › en français & suisse romande.
 
 #set text(lang: "de")
 Alternative »Anführungszeichen« in DE & AT.
+
+--- issue-8193-linebreak-em-space-hebrew paged ---
+#set page(width: 120pt)
+#set text(lang: "he", font: "Noto Serif Hebrew")
+
+#let example = [עִבְרִית היא שפה שמית, ממשפחת השפות האפרו-אסייתיות, הידועה כשפתם של היהודים ושל השומרונים.]
+
+#example
+
+// Em spaces in Hebrew texts should not prevent line breaks.
+#show " ": sym.space.quad
+#example
