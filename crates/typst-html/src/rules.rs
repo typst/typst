@@ -236,7 +236,7 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
     // Meanwhile, a level 1 Typst heading is a section heading. For this
     // reason, levels are offset by one: A Typst level 1 heading becomes
     // a `<h2>`.
-    let level = elem.resolve_level(styles).get();
+    let level = elem.resolve_level(elem.span(), styles)?.get();
     Ok(BlockElem::packed(if level >= 6 {
         engine.sink.warn(warning!(
             span,
