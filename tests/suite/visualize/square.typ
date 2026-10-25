@@ -39,7 +39,7 @@
 
 --- square-size-width-and-height eval ---
 // Size wins over width and height.
-// Error: 09-20 unexpected argument: width
+// Error: 2-67 size, width, height are mutually exclusive
 #square(width: 10cm, height: 20cm, size: 1cm, fill: rgb("eb5278"))
 
 --- square-relative-size paged ---
@@ -69,15 +69,6 @@
     Hey there, #align(center + bottom, rotate(180deg, [you!]))
   ],
   circle(align(center + horizon, [Hey.]))
-)
-
---- square-circle-overspecified paged ---
-// Test that minimum wins if both width and height are given.
-#stack(
-  dir: ltr,
-  spacing: 2pt,
-  square(width: 20pt, height: 40pt),
-  circle(width: 20%, height: 40pt),
 )
 
 --- square-height-limited-stack paged ---

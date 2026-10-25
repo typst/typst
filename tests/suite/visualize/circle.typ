@@ -58,12 +58,12 @@ Expanded by height.
 
 --- circle-radius-width-and-height eval ---
 // Radius wins over width and height.
-// Error: 23-34 unexpected argument: width
+// Error: 2-65 radius, width, height are mutually exclusive
 #circle(radius: 10pt, width: 50pt, height: 100pt, fill: eastern)
 
 --- circle-width-and-height eval ---
 // Width wins over height.
-// Error: 22-35 unexpected argument: height
+// Error: 2-51 radius, width, height are mutually exclusive
 #circle(width: 50pt, height: 100pt, fill: eastern)
 
 --- circle-sizing-options paged ---
