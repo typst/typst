@@ -65,7 +65,7 @@ impl SVGRenderer<'_> {
             // Pre-scale outlined glyphs, so strokes and fill patterns don't
             // need to consider text size glyph scaling.
             let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
-            let key = (&text.font, glyph_id, scale);
+            let key = (&text.font, glyph_id.0 as u32, scale);
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
                 text.font.ttf().outline_glyph(glyph_id, &mut builder)?;
@@ -81,7 +81,7 @@ impl SVGRenderer<'_> {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and
             // bitmap glyph images are usually quite large, and having one glyph
             // per text size is a bit of a waste.
-            let key = (&text.font, glyph_id);
+            let key = (&text.font, glyph_id.0 as u32);
             let (id, frame) = self.glyphs.insert_with_val(key, || {
                 let frame = glyph_frame(&text.font, glyph_id.0)?;
                 Some(RenderedGlyph::Frame(frame))
