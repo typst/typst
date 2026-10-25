@@ -1939,6 +1939,7 @@ d439cc1692c0ead0b07722304e909a41 text-tracking-negative
 821603236e969449db95bb1b4dd3a58c tiling-relative-polygon
 0f181aa2ee7e613a7b313b5a6d2b5217 tiling-relative-self
 7ed8bf4e191dbc5374d99dddbdebdf07 tiling-relative-stack
+6427f66ad87ca0469d528f2bf5c93a10 tiling-shape-with-text
 693a763d17c911109ca999eac2fbf490 tiling-small
 f8c65043365ded3763112324650e90ac tiling-spacing-negative
 8e369b090289395b64abda6fda887dde tiling-spacing-positive

@@ -1932,6 +1932,7 @@ e41b573261e3327c5e83438b85417372 tiling-offset-positive
 a5e7d373d2d554347884613d19e596eb tiling-relative-polygon
 3cb57b6d5a70432de76fcae5b3a19c02 tiling-relative-self
 e6ee69d0625957b792db87e62a868d10 tiling-relative-stack
+cba0b482936ec799962127b229c0239c tiling-shape-with-text
 7e766d8da4e46e560fbe16c99549c52b tiling-small
 388a3a2ba7166b77a50b74e7a0d7aad6 tiling-spacing-negative
 5d803c4ff321fb3e07c98567cf375901 tiling-spacing-positive
