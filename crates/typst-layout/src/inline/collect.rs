@@ -163,7 +163,7 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     config: &Config,
     region: Size,
-) -> SourceResult<(String, Vec<Event>, Vec<Segment<'a>>, SpanMapper)> {
+) -> SourceResult<(String, Vec<Linkage>, Vec<Segment<'a>>, SpanMapper)> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
@@ -316,7 +316,7 @@ pub fn collect<'a>(
                         && link.origin == *location
                         && !styles.get(HideElem::hidden)
                     {
-                        events.initial.push(Event::StartLink(link.clone()));
+                        events.initial.push(link.clone());
                         collector.push_event(Event::EndLink(link.clone()));
                     }
 
@@ -345,9 +345,13 @@ pub fn collect<'a>(
     if let Some(link) = events.shared_link
         && !config.hidden
     {
-        events.initial.push(Event::StartLink(link.clone()));
+        events.initial.push(link.clone());
         collector.push_event(Event::EndLink(link.clone()));
     }
+
+    // Initial start events are pushed as unmatched end tags are found, so they
+    // must be reversed to be correct.
+    events.initial.reverse();
 
     // Note that we return the `initial` events vector directly instead of
     // prepending it to segments as that is a potentially much more costly
@@ -421,8 +425,9 @@ impl<'a> Collector<'a> {
 /// State for turning link start/end tags into matched events.
 #[derive(Default)]
 struct EventCollectionState<'c> {
-    /// Events with no matching start tag, carried over from previous paragraphs.
-    initial: Vec<Event>,
+    /// Link events with no matching start tag, carried over from previous
+    /// paragraphs.
+    initial: Vec<Linkage>,
     /// Paragraph-wide link, according to the flow layouter. Normally, this link
     /// is applied at the very end of the paragraph (this is then set to
     /// `None`), unless the whole paragraph is a `#link[...]`, in which case we
