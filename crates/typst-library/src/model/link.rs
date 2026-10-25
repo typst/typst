@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
@@ -217,7 +218,7 @@ pub struct LinkElem {
     /// of the [`LinkMarker`] that applied this change.
     #[internal]
     #[ghost]
-    pub current: Option<Linkage>,
+    pub current: Option<Arc<Linkage>>,
 }
 
 impl LinkElem {
@@ -517,7 +518,7 @@ impl Construct for LinkMarker {
 impl ShowSet for Packed<LinkMarker> {
     fn show_set(&self, _: StyleChain) -> Styles {
         let mut out = Styles::new();
-        let link = Linkage::new(self.location().unwrap(), self.dest.clone());
+        let link = Arc::new(Linkage::new(self.location().unwrap(), self.dest.clone()));
         out.set(LinkElem::current, Some(link));
         out
     }

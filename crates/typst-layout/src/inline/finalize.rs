@@ -31,7 +31,7 @@ pub fn finalize(
     //
     // The list of active links starts with those that began before the
     // paragraph started.
-    let mut active_links = p.initial_events.iter().collect::<Vec<_>>();
+    let mut active_links = p.initial_events.iter().map(|x| &**x).collect::<Vec<_>>();
 
     // Stack the lines into one frame per region.
     lines

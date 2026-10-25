@@ -23,7 +23,7 @@ pub struct Preparation<'a> {
     pub bidi: Option<BidiInfo<'a>>,
     /// Link events that started before the current paragraph, so they can be
     /// preprocessed appropriately by each line.
-    pub initial_events: Vec<Linkage>,
+    pub initial_events: Vec<Arc<Linkage>>,
     /// Text runs, spacing and layouted elements.
     pub items: Vec<(Range, Item<'a>)>,
     /// Maps from byte indices to item indices.
@@ -70,7 +70,7 @@ pub fn prepare<'a>(
     engine: &mut Engine,
     config: &'a Config,
     text: &'a str,
-    initial_events: Vec<Linkage>,
+    initial_events: Vec<Arc<Linkage>>,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
 ) -> SourceResult<Preparation<'a>> {

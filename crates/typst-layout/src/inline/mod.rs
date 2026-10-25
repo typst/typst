@@ -8,6 +8,10 @@ mod linebreak;
 mod prepare;
 mod shaping;
 
+use std::sync::Arc;
+
+use crate::inline::collect::CollectedData;
+
 pub use self::box_::layout_box;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
@@ -163,7 +167,7 @@ fn layout_inline_impl<'a>(
     let config = configuration(base, children, shared, par);
 
     // Collect all text into one string for BiDi analysis.
-    let (text, initial_events, segments, spans) =
+    let CollectedData { text, initial_events, segments, spans } =
         collect(children, engine, locator, &config, region)?;
 
     // Perform BiDi analysis and performs some preparation steps before we
@@ -302,7 +306,7 @@ struct Config {
     /// Costs for various layout decisions.
     costs: Costs,
     /// A link that is active throughout the whole paragraph, if any.
-    link: Option<Linkage>,
+    link: Option<Arc<Linkage>>,
     /// Whether `#hide` is active for the whole paragraph.
     ///
     /// This is needed to decide whether links should be rendered, regardless of

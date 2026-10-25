@@ -731,8 +731,8 @@ fn build_output<'a>(
                 link_stack.push((dest, LinkRenderInfo::new(offset)));
             }
             Item::Event(Event::EndLink(dest)) => {
-                debug_assert_eq!(active_links.last(), Some(&dest));
-                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&dest));
+                debug_assert_eq!(active_links.last(), Some(&&**dest));
+                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&&**dest));
 
                 let (dest, link_info) = link_stack.pop().unwrap();
                 // Any external links should have been handled before.

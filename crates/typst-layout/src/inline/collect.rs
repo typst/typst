@@ -122,10 +122,10 @@ impl<'a> Item<'a> {
 pub enum Event {
     /// An event indicating the following text should be clickable with a given
     /// link.
-    StartLink(Linkage),
+    StartLink(Arc<Linkage>),
     /// An event indicating the following text should no longer be clickable
     /// with a given link.
-    EndLink(Linkage),
+    EndLink(Arc<Linkage>),
 }
 
 /// An item or not-yet shaped text. We can't shape text until we have collected
@@ -150,6 +150,14 @@ impl Segment<'_> {
     }
 }
 
+/// Data resulting from the collection phase of inline layout.
+pub struct CollectedData<'a> {
+    pub text: String,
+    pub initial_events: Vec<Arc<Linkage>>,
+    pub segments: Vec<Segment<'a>>,
+    pub spans: SpanMapper,
+}
+
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
@@ -163,7 +171,7 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     config: &Config,
     region: Size,
-) -> SourceResult<(String, Vec<Linkage>, Vec<Segment<'a>>, SpanMapper)> {
+) -> SourceResult<CollectedData<'a>> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
@@ -178,7 +186,7 @@ pub fn collect<'a>(
     }
 
     let mut events = EventCollectionState {
-        shared_link: config.link.as_ref(),
+        shared_link: config.link.clone(),
         ..EventCollectionState::default()
     };
 
@@ -286,7 +294,7 @@ pub fn collect<'a>(
                     {
                         let location = elem.tag.location();
                         let dest = link_marker.dest.clone();
-                        let link = Linkage::new(location, dest);
+                        let link = Arc::new(Linkage::new(location, dest));
                         collector.push_event(Event::StartLink(link.clone()));
                         events.active_links.push(link);
 
@@ -358,7 +366,12 @@ pub fn collect<'a>(
     // operation, whereas we can just have lines treat those events as events
     // that started in a previous line (even though they didn't, the effect is
     // the same: they didn't start in the current line).
-    Ok((collector.full, events.initial, collector.segments, collector.spans))
+    Ok(CollectedData {
+        text: collector.full,
+        initial_events: events.initial,
+        segments: collector.segments,
+        spans: collector.spans,
+    })
 }
 
 /// Collects segments.
@@ -427,17 +440,17 @@ impl<'a> Collector<'a> {
 struct EventCollectionState<'c> {
     /// Link events with no matching start tag, carried over from previous
     /// paragraphs.
-    initial: Vec<Linkage>,
+    initial: Vec<Arc<Linkage>>,
     /// Paragraph-wide link, according to the flow layouter. Normally, this link
     /// is applied at the very end of the paragraph (this is then set to
     /// `None`), unless the whole paragraph is a `#link[...]`, in which case we
     /// must not apply it again.
-    shared_link: Option<&'c Linkage>,
+    shared_link: Option<Arc<Linkage>>,
     /// The styles active in the previously collected item. Used to detect
     /// changes in styles to generate events, such as links.
     prev_styles: Option<StyleChain<'c>>,
     /// Links with currently unclosed marker tags.
-    active_links: Vec<Linkage>,
+    active_links: Vec<Arc<Linkage>>,
 }
 
 /// Maps byte offsets back to spans.
