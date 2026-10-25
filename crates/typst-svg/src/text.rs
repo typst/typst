@@ -1,5 +1,6 @@
 use ecow::EcoString;
-use ttf_parser::GlyphId;
+use read_fonts::model::glyph::outline::{DrawMemory, DrawOptions};
+use read_fonts::types::GlyphId;
 use typst_library::layout::{Abs, Ratio, Size, Transform};
 use typst_library::text::TextItem;
 use typst_library::text::color::{
@@ -41,7 +42,7 @@ impl SVGRenderer<'_> {
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
         for glyph in &text.glyphs {
-            let id = GlyphId(glyph.id);
+            let id = GlyphId::new(glyph.id);
             let x_offset = x + glyph.x_offset.at(text.size);
             let y_offset = y + glyph.y_offset.at(text.size);
 
@@ -65,10 +66,15 @@ impl SVGRenderer<'_> {
             // Pre-scale outlined glyphs, so strokes and fill patterns don't
             // need to consider text size glyph scaling.
             let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
-            let key = (&text.font, glyph_id.0 as u32, scale);
+            let key = (&text.font, glyph_id.to_u32(), scale);
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
-                text.font.ttf().outline_glyph(glyph_id, &mut builder)?;
+                text.font
+                    .instance()
+                    .outline_glyphs()
+                    .get(glyph_id)?
+                    .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
+                    .ok()?;
                 Some(RenderedGlyph::Path(builder.finish()))
             });
 
@@ -81,9 +87,9 @@ impl SVGRenderer<'_> {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and
             // bitmap glyph images are usually quite large, and having one glyph
             // per text size is a bit of a waste.
-            let key = (&text.font, glyph_id.0 as u32);
+            let key = (&text.font, glyph_id.to_u32());
             let (id, frame) = self.glyphs.insert_with_val(key, || {
-                let frame = glyph_frame(&text.font, glyph_id.0)?;
+                let frame = glyph_frame(&text.font, glyph_id.to_u32())?;
                 Some(RenderedGlyph::Frame(frame))
             });
 
@@ -128,15 +134,17 @@ impl SVGRenderer<'_> {
         // strokes and fills with gradients and tilings.
         let state = state.pre_concat(Transform::translate(x_offset, y_offset));
 
-        let Some(glyph_size) = text.font.ttf().glyph_bounding_box(glyph_id) else {
+        let Some(glyph_size) =
+            text.font.instance().glyph_metrics().extents_exact(glyph_id)
+        else {
             // This shouldn't happen, because the glyph has been successfully
             // outlined to create the path.
             return;
         };
 
         let aspect_ratio = Size::new(
-            Abs::pt(glyph_size.width() as f64),
-            Abs::pt(glyph_size.height() as f64),
+            Abs::pt(glyph_size.width.to_f64()),
+            Abs::pt(glyph_size.height.to_f64()),
         )
         .aspect_ratio();
 

@@ -110,7 +110,7 @@ struct PdfGlyph(Glyph);
 impl krilla::text::Glyph for PdfGlyph {
     #[inline(always)]
     fn glyph_id(&self) -> GlyphId {
-        GlyphId::new(self.0.id as u32)
+        GlyphId::new(self.0.id)
     }
 
     #[inline(always)]
