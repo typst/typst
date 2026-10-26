@@ -90,13 +90,11 @@ impl Location {
     /// this function returns `{none}`.
     ///
     /// This method can be used in combination with @here to retrieve the
-    /// physical page position of the current context:
+    /// physical page position of the current context.
     ///
     /// ```example
-    /// #context [
-    ///   I am located on
-    ///   page #here().page()
-    /// ]
+    /// I am located on page
+    /// #context here().page()
     /// ```
     #[func(since = "forever")]
     pub fn page(self, engine: &mut Engine, span: Span) -> Option<NonZeroUsize> {
@@ -110,6 +108,16 @@ impl Location {
     ///
     /// If the page numbering is set to `{none}` at that location, this function
     /// returns `{none}`.
+    ///
+    /// ```example
+    /// #set page(numbering: "1")
+    /// #context {
+    ///   locate(<hd>).page-numbering()
+    /// }
+    ///
+    /// #set page(numbering: "i")
+    /// = Heading <hd>
+    /// ```
     #[func(since = "forever")]
     pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
         engine.introspect(PageNumberingIntrospection(self, span))
@@ -127,6 +135,10 @@ impl Location {
     /// exception as these are laid out using Typst's layout engine. For
     /// locations within such frames, this function returns a dictionary with
     /// just the `x` and `y` coordinates within the frame, but no `page` key.
+    ///
+    /// ```example
+    /// #context here().position()
+    /// ```
     #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
         engine
