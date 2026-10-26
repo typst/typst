@@ -25,7 +25,9 @@ use crate::model::Numbering;
 ///
 /// = #short-or-long[Locatable][Locatable elements] <locatable>
 /// Elements that are automatically assigned a location are called _locatable_
-/// and can be found with @query[queries]:
+/// and can be found with @query[queries]. Locatable elements are marked as such
+/// on their respective documentation pages, but you can also find an exhaustive
+/// list below.
 ///
 /// - In the @reference:model[Model category], the following elements are
 ///   locatable: @asset, @bibliography, @cite, @document, @emph, @enum, @figure,
