@@ -7,7 +7,8 @@ use ecow::{EcoString, EcoVec};
 use kurbo::Vec2;
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceResult, bail};
+use crate::diag::{At, SourceResult, bail, warning};
+use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Cast, Func, IntoValue, Repr, Smart, array, cast, func, scope, ty,
 };
@@ -256,6 +257,7 @@ impl Gradient {
     /// ```
     #[func(title = "Linear Gradient", since = "0.9.0")]
     pub fn linear(
+        engine: &mut Engine,
         args: &mut Args,
         span: Span,
         /// The color @gradient:stops[stops] of the gradient.
@@ -286,24 +288,22 @@ impl Gradient {
         #[default(Smart::Auto)]
         relative: Smart<RelativeTo>,
         /// The direction of the gradient.
-        #[external]
-        #[default(Dir::LTR)]
-        dir: Dir,
-        /// The angle of the gradient.
-        #[external]
-        angle: Angle,
+        ///
+        /// If specified as an angle, it is measured clockwise, with `{0deg}`
+        /// corresponding to @direction.ltr[`ltr`].
+        #[named]
+        #[default(AngleOrDirection(Angle::zero()))]
+        angle: AngleOrDirection,
     ) -> SourceResult<Gradient> {
-        let angle = if let Some(angle) = args.named::<Angle>("angle")? {
-            angle
-        } else if let Some(dir) = args.named::<Dir>("dir")? {
-            match dir {
-                Dir::LTR => Angle::rad(0.0),
-                Dir::RTL => Angle::rad(PI),
-                Dir::TTB => Angle::rad(FRAC_PI_2),
-                Dir::BTT => Angle::rad(3.0 * FRAC_PI_2),
-            }
+        let angle = if let Some(dir) = args.named::<Spanned<Dir>>("dir")? {
+            engine.sink.warn(warning!(
+                dir.span,
+                "the `dir` parameter is deprecated";
+                hint: "use the `angle` parameter instead, which also accepts a direction";
+            ));
+            dir.v.into()
         } else {
-            Angle::rad(0.0)
+            angle
         };
 
         if stops.len() < 2 {
@@ -317,7 +317,7 @@ impl Gradient {
 
         Ok(Self::Linear(Arc::new(LinearGradient {
             stops,
-            angle,
+            angle: angle.0,
             space,
             relative,
             anti_alias: true,
@@ -1355,6 +1355,33 @@ cast! {
     },
     ratio: Ratio => Self::Ratio(ratio),
     angle: Angle => Self::Angle(angle),
+}
+
+/// An angle that can be specified as a direction.
+pub struct AngleOrDirection(Angle);
+
+impl From<Angle> for AngleOrDirection {
+    fn from(angle: Angle) -> Self {
+        Self(angle)
+    }
+}
+
+impl From<Dir> for AngleOrDirection {
+    fn from(dir: Dir) -> Self {
+        Self(match dir {
+            Dir::LTR => Angle::rad(0.0),
+            Dir::RTL => Angle::rad(PI),
+            Dir::TTB => Angle::rad(FRAC_PI_2),
+            Dir::BTT => Angle::rad(3.0 * FRAC_PI_2),
+        })
+    }
+}
+
+cast! {
+    AngleOrDirection,
+    self => self.0.into_value(),
+    angle: Angle => angle.into(),
+    dir: Dir => dir.into(),
 }
 
 /// Pre-processes the stops, checking their offsets are well-formed, computing
