@@ -85,9 +85,23 @@ impl SystemWorld {
         Ok(Self {
             workdir: std::env::current_dir().ok(),
             library: LazyHash::new(library),
-            fonts: LazyLock::new(Box::new(|| {
-                crate::fonts::discover_fonts(&world_args.font)
-            })),
+            fonts: {
+                // Start discovering fonts in the background right away, so
+                // that it overlaps with parsing and evaluation (which don't
+                // need fonts). The first access to the fonts waits for it.
+                let handle =
+                    std::thread::spawn(|| crate::fonts::discover_fonts(&world_args.font));
+                let handle = std::sync::Mutex::new(Some(handle));
+                LazyLock::new(Box::new(move || {
+                    handle
+                        .lock()
+                        .unwrap()
+                        .take()
+                        .expect("fonts are only discovered once")
+                        .join()
+                        .expect("font discovery panicked")
+                }))
+            },
             files: FileStore::new(SystemFiles::new(input, world_args)?),
             now,
         })
