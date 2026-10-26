@@ -62,3 +62,16 @@ $ x $
 // Hint: 22-33 maybe there are too deeply nested elements
 #show heading: it => heading[it]
 $ #heading[hi] $
+
+--- recursion-show-math-realize-indirect paged ---
+// This wasn't handled before due to the indirection of the rendered math
+// element (i.e. `math.cancel`) leaving us solely in the math IR.
+#show math.equation: it => {
+  // Found while halfway through writing an actual show rule.
+  show rect: it
+  it
+}
+// Error: 10-20 maximum show rule depth exceeded
+// Hint: 10-20 maybe a show rule matches its own output
+// Hint: 10-20 maybe there are too deeply nested elements
+$ cancel(std.rect()) $
