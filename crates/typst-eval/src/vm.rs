@@ -58,7 +58,11 @@ impl<'a> Vm<'a> {
     /// This will insert the value into the top-most scope and make it available
     /// for dynamic tracing, assisting IDE functionality.
     pub fn bind(&mut self, var: ast::Ident, binding: Binding) {
-        if let Ok(value) = binding.read(self.engine.world.silent_binding_guard()) {
+        // Only read the binding if we're actually inspecting its span. This
+        // avoids a (tracked) library access for every single binding.
+        if self.inspected == Some(var.span())
+            && let Ok(value) = binding.read(self.engine.world.silent_binding_guard())
+        {
             self.trace_at(var.span(), value);
         }
 
