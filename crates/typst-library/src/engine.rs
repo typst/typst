@@ -420,11 +420,13 @@ impl<'a> Route<'a> {
         match self.outer {
             Some(_) if depth < self.len => false,
             Some(outer) => {
-                let within = outer.within(depth - self.len);
-                if within && depth < upper {
+                // The bound we establish for the parent chain.
+                let bound = depth - self.len;
+                let within = outer.within(bound);
+                if within && bound < upper {
                     // We don't want to accidentally increase the upper bound,
                     // hence the compare-exchange.
-                    self.upper.compare_exchange(upper, depth, Relaxed, Relaxed).ok();
+                    self.upper.compare_exchange(upper, bound, Relaxed, Relaxed).ok();
                 }
                 within
             }
