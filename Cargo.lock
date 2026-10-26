@@ -3390,6 +3390,7 @@ dependencies = [
  "openssl",
  "parking_lot",
  "percent-encoding",
+ "rayon",
  "rustc-hash",
  "same-file",
  "serde",

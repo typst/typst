@@ -170,9 +170,16 @@ pub fn scan(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)
 fn with_db(
     f: impl FnOnce(&mut fontdb::Database),
 ) -> impl Iterator<Item = (FontPath, FontInfo)> {
+    use rayon::prelude::*;
+
     let mut db = fontdb::Database::new();
     f(&mut db);
-    db.faces()
+
+    // Extracting the font info requires parsing each font, which is
+    // comparatively expensive, so we do it in parallel.
+    let faces: Vec<_> = db.faces().collect();
+    faces
+        .into_par_iter()
         .filter_map(|face| {
             let path = match &face.source {
                 fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => path,

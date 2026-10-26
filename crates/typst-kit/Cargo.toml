@@ -31,6 +31,7 @@ notify = { workspace = true, optional = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true }
 percent-encoding = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 rustc-hash = { workspace = true }
 same-file = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -56,7 +57,7 @@ embedded-fonts = ["dep:typst-assets", "typst-assets/fonts"]
 
 # Enables font discovery at paths and from the system via `fonts::scan` and
 # `fonts::system`.
-scan-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig", "dep:dirs"]
+scan-fonts = ["dep:fontdb", "fontdb/memmap", "fontdb/fontconfig", "dep:dirs", "dep:rayon"]
 
 # Enables loading of files from standard locations via `files::SystemFiles`.
 system-files = ["system-packages"]
