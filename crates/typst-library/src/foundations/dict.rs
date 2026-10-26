@@ -78,7 +78,57 @@ pub use crate::__dict as dict;
 /// ```
 #[ty(scope, cast, name = "dictionary", since = "forever")]
 #[derive(Default, Clone, PartialEq)]
-pub struct Dict(Arc<IndexMap<Str, Value, FxBuildHasher>>);
+pub struct Dict(Arc<DictRepr>);
+
+/// The underlying storage of a dictionary, with a lazily computed and cached
+/// hash. Caching the hash makes repeated hashing of large (unchanged)
+/// dictionaries, e.g. as arguments to memoized closures, cheap.
+#[derive(Default, Clone)]
+struct DictRepr {
+    map: IndexMap<Str, Value, FxBuildHasher>,
+    hash: typst_utils::HashLock,
+}
+
+impl DictRepr {
+    fn new(map: IndexMap<Str, Value, FxBuildHasher>) -> Self {
+        Self { map, hash: typst_utils::HashLock::new() }
+    }
+
+    fn hash128(&self) -> u128 {
+        self.hash.get_or_insert_with(|| {
+            struct MapHash<'a>(&'a IndexMap<Str, Value, FxBuildHasher>);
+            impl Hash for MapHash<'_> {
+                fn hash<H: Hasher>(&self, state: &mut H) {
+                    state.write_usize(self.0.len());
+                    for item in self.0 {
+                        item.hash(state);
+                    }
+                }
+            }
+            typst_utils::hash128(&MapHash(&self.map))
+        })
+    }
+}
+
+impl PartialEq for DictRepr {
+    fn eq(&self, other: &Self) -> bool {
+        self.map == other.map
+    }
+}
+
+impl std::ops::Deref for DictRepr {
+    type Target = IndexMap<Str, Value, FxBuildHasher>;
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl std::ops::DerefMut for DictRepr {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.hash.reset();
+        &mut self.map
+    }
+}
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -119,7 +169,7 @@ impl Dict {
     /// Clear the dictionary.
     pub fn clear(&mut self) {
         if Arc::strong_count(&self.0) == 1 {
-            Arc::make_mut(&mut self.0).clear();
+            (**Arc::make_mut(&mut self.0)).clear();
         } else {
             *self = Self::new();
         }
@@ -247,7 +297,7 @@ impl Dict {
         /// The value of the pair that should be inserted.
         value: Value,
     ) {
-        Arc::make_mut(&mut self.0).insert(key, value);
+        (**Arc::make_mut(&mut self.0)).insert(key, value);
     }
 
     /// Removes a pair from the dictionary by key and return the value.
@@ -405,7 +455,7 @@ impl Add for Dict {
 impl AddAssign for Dict {
     fn add_assign(&mut self, rhs: Dict) {
         match Arc::try_unwrap(rhs.0) {
-            Ok(map) => self.extend(map),
+            Ok(repr) => self.extend(repr.map),
             Err(rc) => self.extend(rc.iter().map(|(k, v)| (k.clone(), v.clone()))),
         }
     }
@@ -413,10 +463,7 @@ impl AddAssign for Dict {
 
 impl Hash for Dict {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0.len());
-        for item in self {
-            item.hash(state);
-        }
+        state.write_u128(self.0.hash128());
     }
 }
 
@@ -425,7 +472,7 @@ impl Serialize for Dict {
     where
         S: Serializer,
     {
-        self.0.serialize(serializer)
+        self.0.map.serialize(serializer)
     }
 }
 
@@ -440,13 +487,13 @@ impl<'de> Deserialize<'de> for Dict {
 
 impl Extend<(Str, Value)> for Dict {
     fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
-        Arc::make_mut(&mut self.0).extend(iter);
+        (**Arc::make_mut(&mut self.0)).extend(iter);
     }
 }
 
 impl FromIterator<(Str, Value)> for Dict {
     fn from_iter<T: IntoIterator<Item = (Str, Value)>>(iter: T) -> Self {
-        Self(Arc::new(iter.into_iter().collect()))
+        Self(Arc::new(DictRepr::new(iter.into_iter().collect())))
     }
 }
 
@@ -455,7 +502,7 @@ impl IntoIterator for Dict {
     type IntoIter = indexmap::map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Arc::unwrap_or_clone(self.0).into_iter()
+        Arc::unwrap_or_clone(self.0).map.into_iter()
     }
 }
 
@@ -470,7 +517,7 @@ impl<'a> IntoIterator for &'a Dict {
 
 impl From<IndexMap<Str, Value, FxBuildHasher>> for Dict {
     fn from(map: IndexMap<Str, Value, FxBuildHasher>) -> Self {
-        Self(Arc::new(map))
+        Self(Arc::new(DictRepr::new(map)))
     }
 }
 
