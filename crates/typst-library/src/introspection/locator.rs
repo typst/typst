@@ -282,6 +282,21 @@ impl<'a> SplitLocator<'a> {
         Locator { outer: self.outer, local }
     }
 
+    /// Produces a unique location for an element whose location doesn't
+    /// need to be matched up with the real document during measurement
+    /// (because it can't be introspected).
+    ///
+    /// Outside of measurement, this is equivalent to [`Self::next_location`].
+    pub fn next_synthetic_location(&mut self, key: u128) -> Location {
+        let locator = self.next_inner(key);
+        match locator.resolve() {
+            Resolved::Hash(hash) => Location::new(hash),
+            Resolved::Measure(base, _) => {
+                Location::new(typst_utils::hash128(&(locator.local, base)))
+            }
+        }
+    }
+
     /// Produces a unique location for an element.
     pub fn next_location(
         &mut self,

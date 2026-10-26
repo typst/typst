@@ -23,7 +23,7 @@ use typst_library::foundations::{
 };
 use typst_library::introspection::{LocationKey, SplitLocator, Tag, TagElem, TagFlags};
 use typst_library::layout::{
-    AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, VElem,
+    AlignElem, BoxElem, HElem, InlineElem, PageElem, PagebreakElem, PlaceElem, VElem,
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
@@ -551,7 +551,19 @@ fn prepare(
         tagged: elem.is_tagged(),
     };
     if elem.location().is_none() && flags.any() {
-        let loc = locator.next_location(engine, key, elem.span());
+        // Non-floating placed elements can't be queried and their location
+        // is not used during layout. During measurement, they thus don't need
+        // to be matched up with elements in the real document (which is
+        // costly and leads to large numbers of tracked introspections).
+        let loc = if elem.label().is_none()
+            && elem
+                .to_packed::<PlaceElem>()
+                .is_some_and(|place| !place.float.get(styles))
+        {
+            locator.next_synthetic_location(key)
+        } else {
+            locator.next_location(engine, key, elem.span())
+        };
         elem.set_location(loc);
     }
 
