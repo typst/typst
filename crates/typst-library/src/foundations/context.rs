@@ -39,6 +39,11 @@ impl<'a> Context<'a> {
         require(self.location)
     }
 
+    /// Whether a location is available.
+    pub fn has_location(&self) -> bool {
+        self.location.is_some()
+    }
+
     /// Try to extract the styles.
     pub fn styles(&self) -> HintedStrResult<StyleChain<'a>> {
         require(self.styles)

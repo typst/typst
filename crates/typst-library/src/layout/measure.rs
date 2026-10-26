@@ -90,8 +90,14 @@ pub fn measure(
     // introspection-driven features within the content continue to work. Read
     // the "Dealing with measurement" section of the [`Locator`] docs for more
     // details.
-    let here = context.location().at(span)?;
-    let link = LocatorLink::measure(here, span);
+    //
+    // The base location is only retrieved lazily, if the measured content
+    // actually contains locatable elements. This way, measurements of plain
+    // content don't depend on the location they are performed at.
+    if !context.has_location() {
+        context.location().at(span)?;
+    }
+    let link = LocatorLink::measure_lazy(context, span);
     let locator = Locator::link(&link);
     let style = TargetElem::target.set(Target::Paged).wrap();
 

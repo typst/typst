@@ -8,6 +8,7 @@ use typst_syntax::Span;
 
 use crate::diag::{SourceDiagnostic, warning};
 use crate::engine::Engine;
+use crate::foundations::Context;
 use crate::introspection::{History, Introspect, Introspector, Location};
 
 /// Provides locations for elements in the document.
@@ -359,6 +360,11 @@ enum LinkKind<'a> {
     Outer(Tracked<'a, Locator<'a>, <Locator<'static> as Track>::Call>),
     /// A link which indicates that we are in measurement mode.
     Measure(Location, Span),
+    /// A link which indicates that we are in measurement mode, where the base
+    /// location is lazily retrieved from the context. This way, measured
+    /// content that does not contain any locatable elements does not depend
+    /// on the location of the measurement, improving cache reuse.
+    MeasureLazy(Tracked<'a, Context<'a>, <Context<'static> as Track>::Call>, Span),
 }
 
 impl<'a> LocatorLink<'a> {
@@ -382,6 +388,16 @@ impl<'a> LocatorLink<'a> {
         }
     }
 
+    /// Like [`Self::measure`], but retrieves the base location lazily from the
+    /// context, only if it is actually needed. The context must have a
+    /// location.
+    pub fn measure_lazy(context: Tracked<'a, Context<'a>>, span: Span) -> Self {
+        LocatorLink {
+            kind: LinkKind::MeasureLazy(context, span),
+            resolved: OnceLock::new(),
+        }
+    }
+
     /// Resolve the link.
     ///
     /// The result is cached in this link, so that we don't traverse the link
@@ -390,6 +406,10 @@ impl<'a> LocatorLink<'a> {
         *self.resolved.get_or_init(|| match self.kind {
             LinkKind::Outer(outer) => outer.resolve(),
             LinkKind::Measure(base, span) => Resolved::Measure(base, span),
+            LinkKind::MeasureLazy(context, span) => Resolved::Measure(
+                context.location().expect("measure context must have a location"),
+                span,
+            ),
         })
     }
 }
