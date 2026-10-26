@@ -665,7 +665,7 @@ pub fn eval_closure(
     // Don't leak the scopes from the call site. Instead, we use the scope
     // of captured variables we collected earlier.
     let mut scopes = Scopes::new(None);
-    scopes.top = closure.captured.clone();
+    scopes.captured = Some(&closure.captured);
 
     // Prepare the engine.
     let introspector = Protected::from_raw(introspector);

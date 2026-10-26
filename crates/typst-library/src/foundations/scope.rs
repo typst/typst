@@ -23,6 +23,10 @@ pub struct Scopes<'a> {
     pub top: Scope,
     /// The stack of lower scopes.
     pub scopes: Vec<Scope>,
+    /// A borrowed scope (e.g. a closure's captured variables) that lies
+    /// below all other scopes, but above the standard library. Bindings in it
+    /// are copied into the top scope on mutable access.
+    pub captured: Option<&'a Scope>,
     /// The standard library.
     pub base: Option<&'a Library>,
 }
@@ -30,7 +34,19 @@ pub struct Scopes<'a> {
 impl<'a> Scopes<'a> {
     /// Create a new, empty hierarchy of scopes.
     pub fn new(base: Option<&'a Library>) -> Self {
-        Self { top: Scope::new(), scopes: vec![], base }
+        Self {
+            top: Scope::new(),
+            scopes: vec![],
+            captured: None,
+            base,
+        }
+    }
+
+    /// Iterate over the owned and borrowed scopes, from top to bottom.
+    fn iter(&self) -> impl Iterator<Item = &Scope> {
+        std::iter::once(&self.top)
+            .chain(self.scopes.iter().rev())
+            .chain(self.captured)
     }
 
     /// Enter a new scope.
@@ -65,8 +81,7 @@ impl<'a> Scopes<'a> {
 
     /// Try to access a binding.
     pub fn get_binding(&self, var: &str) -> HintedStrResult<&Binding> {
-        std::iter::once(&self.top)
-            .chain(self.scopes.iter().rev())
+        self.iter()
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 let base = self.base?;
@@ -81,8 +96,7 @@ impl<'a> Scopes<'a> {
 
     /// Try to access a binding in math.
     pub fn get_binding_in_math(&self, var: &str) -> HintedStrResult<&Binding> {
-        std::iter::once(&self.top)
-            .chain(self.scopes.iter().rev())
+        self.iter()
             .find_map(|scope| scope.get(var))
             .or_else(|| {
                 let base = self.base?;
@@ -106,6 +120,20 @@ impl<'a> Scopes<'a> {
         var: &str,
         mut guard: impl BindingGuard,
     ) -> HintedStrResult<&mut Value> {
+        // If the variable only exists in the borrowed captured scope, copy it
+        // into the top scope (as if the captured scope was the top scope).
+        if let Some(captured) = self.captured
+            && let Some(binding) = captured.get(var)
+            && self.top.get(var).is_none()
+            && self.scopes.iter().all(|scope| scope.get(var).is_none())
+        {
+            if self.scopes.is_empty() {
+                self.top.bind(var.into(), binding.clone());
+            } else {
+                self.scopes[0].bind(var.into(), binding.clone());
+            }
+        }
+
         std::iter::once(&mut self.top)
             .chain(&mut self.scopes.iter_mut().rev())
             .find_map(|scope| {
@@ -132,9 +160,7 @@ impl<'a> Scopes<'a> {
     /// Check if an std variable is shadowed.
     pub fn check_std_shadowed(&self, var: &str) -> bool {
         self.base.is_some_and(|base| base.global.scope().get(var).is_some())
-            && std::iter::once(&self.top)
-                .chain(self.scopes.iter().rev())
-                .any(|scope| scope.get(var).is_some())
+            && self.iter().any(|scope| scope.get(var).is_some())
     }
 }
 
