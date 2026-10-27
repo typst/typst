@@ -88,9 +88,9 @@ impl Stroke {
     ///
     /// ```example
     /// #let my-func(x) = {
-    ///     // Convert `x` to a stroke.
-    ///     x = stroke(x)
-    ///     [Thickness is #x.thickness.]
+    ///   // Convert `x` to a stroke.
+    ///   x = stroke(x)
+    ///   [Thickness is #x.thickness.]
     /// }
     /// #my-func(3pt) \
     /// #my-func(red) \
@@ -144,19 +144,21 @@ impl Stroke {
         /// `{"miter"}`.
         ///
         /// ```example
-        /// #let example(s) = {
-        ///   curve(
-        ///     stroke: s,
-        ///     curve.move((30pt, 0pt)),
-        ///     curve.line((0pt, 60pt)),
-        ///     curve.line((60pt, 60pt)),
-        ///     curve.line((20pt, 40pt)),
-        ///   )
-        /// }
-        ///
         /// #set align(center)
-        /// #set curve(stroke: 8pt + blue)
-        /// #set curve(stroke: (miter-limit: 10))
+        /// #set curve(stroke: (
+        ///   paint: blue,
+        ///   thickness: 8pt,
+        ///   miter-limit: 10,
+        /// ))
+        ///
+        /// #let example(s) = curve(
+        ///   stroke: s,
+        ///   curve.move((30pt, 0pt)),
+        ///   curve.line((0pt, 60pt)),
+        ///   curve.line((60pt, 60pt)),
+        ///   curve.line((20pt, 40pt)),
+        /// )
+        ///
         /// #stack(
         ///   spacing: 10pt,
         ///   example((join: "miter")),
@@ -251,18 +253,17 @@ impl Stroke {
         /// If set to `{auto}`, the value is inherited, defaulting to `{4.0}`.
         ///
         /// ```example
-        /// #let example(s) = {
-        ///   curve(
-        ///     stroke: s,
-        ///     curve.move((30pt, 0pt)),
-        ///     curve.line((0pt, 60pt)),
-        ///     curve.line((60pt, 60pt)),
-        ///     curve.line((20pt, 40pt)),
-        ///   )
-        /// }
-        ///
         /// #set align(center)
         /// #set curve(stroke: 8pt + blue)
+        ///
+        /// #let example(s) = curve(
+        ///   stroke: s,
+        ///   curve.move((30pt, 0pt)),
+        ///   curve.line((0pt, 60pt)),
+        ///   curve.line((60pt, 60pt)),
+        ///   curve.line((20pt, 40pt)),
+        /// )
+        ///
         /// #stack(
         ///   spacing: 10pt,
         ///   example((miter-limit: 1)),
