@@ -372,6 +372,12 @@
       Element functions can be customized with `set` and `show` rules.
     ])
   }
+  if info.locatable {
+    gap
+    small(with-tooltip[Locatable][
+      Locatable elements can be found with queries.
+    ])
+  }
   if info.contextual != none and info.contextual {
     gap
     small(with-tooltip[Contextual][
