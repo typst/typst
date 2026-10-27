@@ -47,7 +47,7 @@ pub struct StackElem {
 
     /// The children to stack along the axis.
     ///
-    /// Each child can be some content or explicit spacing that replaces the
+    /// Each child can either be content or explicit spacing that replaces the
     /// spacing from the `spacing` parameter.
     ///
     /// Note that explicit spacing can also be specified as a @h or @v element
