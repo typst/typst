@@ -490,17 +490,22 @@ pub fn apply_shift<'a>(
 struct LinkRenderInfo {
     /// The index of the latest frame spanned by the link among all frames.
     /// Used to check whether multiple spanned items are continuous.
-    latest_index: Option<usize>,
-    start: Abs,
-    end: Abs,
+    latest_index: usize,
+    left: Abs,
+    right: Abs,
     top: Abs,
     bottom: Abs,
     text_leading: Option<Abs>,
 }
 
 impl LinkRenderInfo {
-    fn new(start: Abs) -> Self {
-        Self { start, end: start, ..Default::default() }
+    fn new(left: Abs, latest_index: usize) -> Self {
+        Self {
+            left,
+            right: left,
+            latest_index,
+            ..Default::default()
+        }
     }
 }
 
@@ -583,9 +588,6 @@ pub fn commit<'l>(
     let mut top = Abs::zero();
     let mut bottom = Abs::zero();
 
-    // Horizontal offset after the last frame in the line.
-    let mut last_frame_end = Abs::zero();
-
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
     for &(idx, ref item) in line.items.iter_indexed() {
@@ -595,7 +597,6 @@ pub fn commit<'l>(
             bottom.set_max(frame.size().y - frame.baseline());
             frames.push((*offset, Some(frame), idx, frames.len(), item));
             *offset += width;
-            last_frame_end = *offset;
         };
 
         match &**item {
@@ -658,7 +659,7 @@ pub fn commit<'l>(
     // during introspection and thus things like counters.
     frames.sort_unstable_by_key(|(_, _, idx, _, _)| *idx);
 
-    build_output(p, active_links, remaining, last_frame_end, top, frames, &mut output);
+    build_output(p, active_links, remaining, top, frames, &mut output);
 
     Ok(output)
 }
@@ -669,7 +670,6 @@ fn build_output<'a>(
     p: &Preparation<'_>,
     active_links: &mut Vec<&'a Linkage>,
     remaining: Abs,
-    last_frame_end: Abs,
     top: Abs,
     frames: Vec<(Abs, Option<Frame>, LogicalIndex, usize, &'a ItemEntry<'_>)>,
     output: &mut Frame,
@@ -677,8 +677,8 @@ fn build_output<'a>(
     // Keep track of items spanned by each link, including the destination,
     // whether a text was spanned, the height, the horizontal offset where it
     // starts, and the offset where it would end (after its last spanned item).
-    let mut link_stack: Vec<(&Linkage, LinkRenderInfo)> =
-        active_links.iter().map(|&l| (l, LinkRenderInfo::default())).collect();
+    let mut link_stack: Vec<(&Linkage, Option<LinkRenderInfo>)> =
+        active_links.iter().map(|&l| (l, None)).collect();
 
     // Construct the line's frame.
     for (offset, frame, _, frame_index, item) in frames {
@@ -698,26 +698,27 @@ fn build_output<'a>(
         }
 
         for (link, info) in &mut link_stack {
+            let info =
+                info.get_or_insert_with(|| LinkRenderInfo::new(offset, frame_index));
+
             // Check if link items are discontinuous, i.e. if despite the two
             // being adjacent in the source code (consecutive logical indices),
             // they are not adjacent in the resulting line (non-consecutive
             // frame indices) due to RTL reordering.
-            if let Some(last_index) = info.latest_index
-                // LTR discontinuous ...
-                && frame_index != last_index + 1
-                // ... and RTL discontinuous
-                && frame_index + 1 != last_index
+            if frame_index != info.latest_index + 1
+                // Above, LTR discontinuous; and below, RTL discontinuous.
+                && frame_index + 1 != info.latest_index
             {
                 push_link_frame(output, link, info, p.config, remaining, top);
-                *info = LinkRenderInfo::new(offset);
+                *info = LinkRenderInfo::new(offset, frame_index);
             }
 
             // Ensure link spans at least this frame as well.
-            info.start.set_min(offset);
-            info.end.set_max(offset + frame_width);
+            info.left.set_min(offset);
+            info.right.set_max(offset + frame_width);
             info.top.set_max(frame_top);
             info.bottom.set_max(frame_bottom);
-            info.latest_index = Some(frame_index);
+            info.latest_index = frame_index;
 
             if let Item::Text(text) = &**item {
                 let leading = info.text_leading.get_or_insert_default();
@@ -728,7 +729,7 @@ fn build_output<'a>(
         match &**item {
             Item::Event(Event::StartLink(dest)) => {
                 active_links.push(dest);
-                link_stack.push((dest, LinkRenderInfo::new(offset)));
+                link_stack.push((dest, None));
             }
             Item::Event(Event::EndLink(dest)) => {
                 debug_assert_eq!(active_links.last(), Some(&&**dest));
@@ -739,7 +740,7 @@ fn build_output<'a>(
                 active_links.pop().unwrap();
 
                 // Only render a link if there was at least one item within it.
-                if link_info.latest_index.is_some() {
+                if let Some(link_info) = link_info {
                     // Place a link all the way to the end of the rightmost one.
                     // Ignore the offset of the end event itself as it might
                     // (visually) be at the start rather than the end of the
@@ -751,17 +752,14 @@ fn build_output<'a>(
         }
     }
 
-    // Construct unfinished link frames.
+    // Construct unfinished link frames (up to the latest spanned item).
     for (dest, mut link_info) in link_stack {
         // Only render a link if there was at least one item within it.
-        if link_info.latest_index.is_none() {
+        let Some(link_info) = link_info.as_mut() else {
             continue;
-        }
+        };
 
-        // Any unfinished links extend towards the very end of the last visible
-        // item in the line.
-        link_info.end = last_frame_end;
-        push_link_frame(output, dest, &link_info, p.config, remaining, top);
+        push_link_frame(output, dest, link_info, p.config, remaining, top);
     }
 }
 
@@ -812,20 +810,18 @@ fn push_link_frame(
     remaining: Abs,
     top: Abs,
 ) {
-    let x = info.start + config.align.position(remaining);
+    let x = info.left + config.align.position(remaining);
     let y = top - info.top;
-    let width = info.end - info.start;
+    let width = info.right - info.left;
     let height = info.top + info.bottom;
-
-    // Can only fail if the link was pushed regardless of being empty.
-    debug_assert!(info.latest_index.is_some());
-    // Start/end grow as bounds, so this must not fail in any case.
-    debug_assert!(width >= Abs::zero());
 
     if width.is_zero() || height.is_zero() {
         // Only skippable items were spanned.
         return;
     }
+
+    // Start/end grow as bounds, so this must not fail in any case.
+    debug_assert!(width >= Abs::zero());
 
     let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
     let modifiers = FrameModifiers::with_link(link.clone());

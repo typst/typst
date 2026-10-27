@@ -94,6 +94,11 @@ start
 #set text(dir: rtl)
 unlinked #link("https://amogus.com")[linked]
 
+--- link-dir-rtl-linebreak paged ---
+#show link: set text(red)
+
+יהדות סופיה היא קהילה יהודית שמתקיימת בעיר #link("..")[סופיה בירת בולגריה, מראשית המאה ה-14 ועד ימינו. בשלהי 1939 הגיעה הקהילה לשיא גודלה, מנתה 26,092 נפשות והייתה הגדולה] והמרכזית מקרב קהילות יהדות בולגריה.
+
 --- issue-758-link-repeat paged ---
 #let url = "https://typst.org/"
 #let body = [Hello #box(width: 1fr, repeat[.])]

@@ -975,6 +975,7 @@ faac753dfea62cce4dc6f1f21e049df7 linebreak-whitespace-trimming
 0bd3c3606c7739040011fd3178138cd6 link-bracket-balanced
 4fef3c91a6bcb832f55c2fc91102a01e link-bracket-unbalanced-closing
 56f4da4c3be53fc51682334982f8c2da link-dir-rtl
+42948477518e60df56db81871b119d89 link-dir-rtl-linebreak
 0e956e54f8a6f5b2d199ecdeed1ba994 link-empty-block
 8c383aa3d0ac1d2d02d2adab29bee82f link-on-block
 ea56f8832fe920cd3e8ffd7c7429d72f link-show
