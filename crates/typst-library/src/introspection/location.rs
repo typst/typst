@@ -110,13 +110,14 @@ impl Location {
     /// returns `{none}`.
     ///
     /// ```example
+    /// >>> #set page(margin: (bottom: 25pt))
     /// #set page(numbering: "1")
     /// #context {
-    ///   locate(<hd>).page-numbering()
+    ///   locate(<h>).page-numbering()
     /// }
     ///
     /// #set page(numbering: "i")
-    /// = Heading <hd>
+    /// = Heading <h>
     /// ```
     #[func(since = "forever")]
     pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
