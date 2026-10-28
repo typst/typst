@@ -1,10 +1,10 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-use typst_syntax::{LooselySpanned, Spanned};
+use typst_syntax::{LooselySpanned, Span, Spanned};
 use typst_utils::NonZeroExt;
 
-use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::diag::{SourceResult, Trace, Tracepoint, bail};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, NativeElement, Packed, ShowSet, Smart, StyleChain, Styles, Synthesize, elem,
@@ -119,6 +119,9 @@ pub struct HeadingElem {
     /// The starting offset of each heading's `{level}`, used to turn its
     /// relative `{depth}` into its absolute `{level}`.
     ///
+    /// Negative offsets are allowed, as long as the resulting absolute
+    /// `{level}` is at least 1.
+    ///
     /// ```example
     /// = Level 1
     ///
@@ -130,7 +133,7 @@ pub struct HeadingElem {
     /// ]
     /// ```
     #[default(0)]
-    pub offset: usize,
+    pub offset: isize,
 
     /// How to number the heading. Accepts a
     /// @numbering[numbering pattern or function] taking multiple numbers.
@@ -238,11 +241,42 @@ pub struct HeadingElem {
 }
 
 impl HeadingElem {
-    pub fn resolve_level(&self, styles: StyleChain) -> NonZeroUsize {
+    /// Panics if the style results in a `depth` + `offset` <= 0.
+    ///
+    /// Use [`resolve_level`](Self::resolve_level) for a checked version of this function.
+    pub fn resolve_level_strict(&self, styles: StyleChain) -> NonZeroUsize {
         self.level.get(styles).unwrap_or_else(|| {
-            NonZeroUsize::new(self.offset.get(styles) + self.depth.get(styles).get())
-                .expect("overflow to 0 on NoneZeroUsize + usize")
+            NonZeroUsize::new(
+                self.depth
+                    .get(styles)
+                    .get()
+                    .checked_add_signed(self.offset.get(styles))
+                    .expect("overflow on NonZeroUsize + isize"),
+            )
+            .expect("overflow to 0 on NonZeroUsize + usize")
         })
+    }
+
+    pub fn resolve_level(
+        &self,
+        span: Span,
+        styles: StyleChain,
+    ) -> SourceResult<NonZeroUsize> {
+        if let Smart::Custom(level) = self.level.get(styles) {
+            return Ok(level);
+        }
+
+        let depth = self.depth.get(styles).get();
+        let offset = self.offset.get(styles);
+        let Some(level) = depth.checked_add_signed(offset).and_then(NonZeroUsize::new)
+        else {
+            bail!(
+                span,
+                "overflow in calculating `level`";
+                hint: "depth: {depth}, offset: {offset}"
+            )
+        };
+        Ok(level)
     }
 }
 
@@ -252,6 +286,9 @@ impl Synthesize for Packed<HeadingElem> {
         engine: &mut Engine,
         styles: StyleChain,
     ) -> SourceResult<()> {
+        // Report level calculation errors from show-set rules.
+        let _ = self.try_show_set(self.span(), styles)?;
+
         let sup = self.supplement.get_ref(styles);
         let supplement = match &sup.v {
             Smart::Auto => TextElem::packed(Self::local_name_in(styles)),
@@ -283,7 +320,9 @@ impl Synthesize for Packed<HeadingElem> {
         }
 
         let elem = self.as_mut();
-        elem.level.set(Smart::Custom(elem.resolve_level(styles)));
+        // Unwrap: errors should have been reported already by `try_show_set`
+        let level = elem.resolve_level_strict(styles);
+        elem.level.set(Smart::Custom(level));
         elem.supplement.set(Spanned {
             span: supplement.span(),
             v: Smart::Custom(Some(Supplement::Content(supplement))),
@@ -294,7 +333,16 @@ impl Synthesize for Packed<HeadingElem> {
 
 impl ShowSet for Packed<HeadingElem> {
     fn show_set(&self, styles: StyleChain) -> Styles {
-        let level = self.resolve_level(styles).get();
+        self.try_show_set(self.span(), styles).unwrap_or_else(|_| {
+            // On failure, defer to Synthesize which can report the error.
+            Styles::default()
+        })
+    }
+}
+
+impl HeadingElem {
+    fn try_show_set(&self, span: Span, styles: StyleChain) -> SourceResult<Styles> {
+        let level = self.resolve_level(span, styles)?.get();
         let scale = match level {
             1 => 1.4,
             2 => 1.2,
@@ -311,7 +359,7 @@ impl ShowSet for Packed<HeadingElem> {
         out.set(BlockElem::above, Smart::Custom(above.into()));
         out.set(BlockElem::below, Smart::Custom(below.into()));
         out.set(BlockElem::sticky, true);
-        out
+        Ok(out)
     }
 }
 
@@ -319,7 +367,7 @@ impl Count for Packed<HeadingElem> {
     fn update(&self) -> Option<Spanned<CounterUpdate>> {
         self.numbering.get_ref(StyleChain::default()).is_some().then(|| {
             Spanned::new(
-                CounterUpdate::Step(self.resolve_level(StyleChain::default())),
+                CounterUpdate::Step(self.resolve_level_strict(StyleChain::default())),
                 self.span(),
             )
         })
@@ -349,8 +397,8 @@ impl Outlinable for Packed<HeadingElem> {
         self.outlined.get(StyleChain::default())
     }
 
-    fn level(&self) -> NonZeroUsize {
-        self.resolve_level(StyleChain::default())
+    fn level(&self) -> SourceResult<NonZeroUsize> {
+        self.resolve_level(self.span(), StyleChain::default())
     }
 
     fn prefix(&self, numbers: Content) -> Content {

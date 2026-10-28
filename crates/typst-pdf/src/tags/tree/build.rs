@@ -457,7 +457,13 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         };
         push_located(tree, elem, kind)
     } else if let Some(heading) = elem.to_packed::<HeadingElem>() {
-        let level = heading.level().try_into().unwrap_or(NonZeroU16::MAX);
+        let level = match heading.level() {
+            Ok(level) => level.try_into().unwrap_or(NonZeroU16::MAX),
+            Err(errs) => {
+                tree.errors.extend(errs);
+                NonZeroU16::MAX
+            }
+        };
         let title = heading.body.plain_text().to_string();
         if title.is_empty()
             && let Some(accessibility) = tree.options.validators().accessibility()
