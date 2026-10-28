@@ -9,28 +9,44 @@ use typst_kit::fonts::{self, FontPath, FontStore};
 
 use crate::args::{FontArgs, FontsCommand};
 
-/// Execute a font listing command.
+/// Execute a font listing command, marking shadowed variants.
 pub fn fonts(command: &FontsCommand) {
     let fonts = discover_fonts(&command.font);
+    let book = fonts.book();
 
-    for (family, indices) in fonts.book().families() {
+    for (family, indices) in book.families() {
         println!("{family}");
         if command.variants {
-            let mut indices = indices.peekable();
-            while let Some(index) = indices.next() {
-                let info = fonts.book().info(index).unwrap();
-                let path = fonts
-                    .source(index)
-                    .and_then(|source| (source as &dyn Any).downcast_ref::<FontPath>())
-                    .map(|font| font.path.as_path());
-                let last = indices.peek().is_none();
-                let variant =
-                    typst_utils::display(|f| write_variant(f, info, path, last));
+            let indices: Vec<_> = indices.collect();
+            for (i, &index) in indices.iter().enumerate() {
+                let info = book.info(index).unwrap();
+                let shadowed_by = indices[..i]
+                    .iter()
+                    .find(|&&other| {
+                        let other = book.info(other).unwrap();
+                        other.variant == info.variant
+                            && other.axes.is_empty()
+                            && info.axes.is_empty()
+                    })
+                    .map(|&other| font_path(&fonts, other));
+                let path = font_path(&fonts, index);
+                let last = i + 1 == indices.len();
+                let variant = typst_utils::display(|f| {
+                    write_variant(f, info, path, shadowed_by, last)
+                });
                 print!("{variant}");
             }
             println!();
         }
     }
+}
+
+/// Retrieves the path of a font, or `None` if it is embedded.
+fn font_path(fonts: &FontStore, index: usize) -> Option<&Path> {
+    fonts
+        .source(index)
+        .and_then(|source| (source as &dyn Any).downcast_ref::<FontPath>())
+        .map(|font| font.path.as_path())
 }
 
 /// Discovers the fonts as specified by the CLI flags.
@@ -59,12 +75,10 @@ fn write_variant(
     f: &mut Formatter,
     info: &FontInfo,
     path: Option<&Path>,
+    shadowed_by: Option<Option<&Path>>,
     last: bool,
 ) -> fmt::Result {
-    let path = typst_utils::display(|f| match path {
-        Some(path) => path.display().fmt(f),
-        None => f.pad("(Embedded)"),
-    });
+    let path = display_path(path);
 
     let FontVariant { style, weight, stretch } = info.variant;
     let marker = if last { '└' } else { '├' };
@@ -93,7 +107,19 @@ fn write_variant(
         }
     }
 
+    if let Some(other) = shadowed_by {
+        writeln!(f, "{pad} ⚠ Shadowed by: {} (same variant)", display_path(other))?;
+    }
+
     Ok(())
+}
+
+/// Displays a font's path, or that it is embedded.
+fn display_path(path: Option<&Path>) -> impl Display {
+    typst_utils::display(move |f| match path {
+        Some(path) => path.display().fmt(f),
+        None => f.pad("(Embedded)"),
+    })
 }
 
 /// Formats a variation axis.
