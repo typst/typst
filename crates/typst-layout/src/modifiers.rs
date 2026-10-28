@@ -82,12 +82,14 @@ where
 }
 
 pub trait FrameModifyText {
-    /// Resolve and apply [`FrameModifiers`] for this text frame.
+    /// Resolve and apply [`FrameModifiers`] for frames that include text. Among
+    /// other effects, this applies padding around link bounding boxes.
     fn modify_text(&mut self, modifiers: &FrameModifiers, leading: Abs);
 
-    /// Resolve and apply [`FrameModifiers`] for this text frame, except for
-    /// the current link (which is handled by the paragraph itself).
-    fn modify_text_without_links(&mut self, styles: StyleChain);
+    /// Resolve and apply [`FrameModifiers`] for this shaped text frame,
+    /// ignoring modifiers that are applied by the paragraph as a whole, such as
+    /// links.
+    fn modify_shaped_text(&mut self, styles: StyleChain);
 }
 
 impl FrameModifyText for Frame {
@@ -97,9 +99,8 @@ impl FrameModifyText for Frame {
         modify_frame(self, modifiers, Some(outset));
     }
 
-    fn modify_text_without_links(&mut self, styles: StyleChain) {
-        let modifiers = FrameModifiers { link: None, ..FrameModifiers::get_in(styles) };
-        modify_frame(self, &modifiers, None);
+    fn modify_shaped_text(&mut self, styles: StyleChain) {
+        apply_hide(self, &FrameModifiers::get_in(styles));
     }
 }
 
@@ -119,6 +120,10 @@ pub(super) fn modify_frame(
         frame.push(pos, FrameItem::Link(link.clone(), size));
     }
 
+    apply_hide(frame, modifiers);
+}
+
+pub(super) fn apply_hide(frame: &mut Frame, modifiers: &FrameModifiers) {
     if modifiers.hidden {
         frame.hide();
     }
