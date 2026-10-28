@@ -466,9 +466,13 @@
 --- gradient-text-dir paged ---
 // Sanity check that the direction works on text.
 #set page(width: 200pt, height: auto, margin: 10pt, background: {
+  // Warning: 62-65 the `dir` parameter is deprecated
+  // Hint: 62-65 use the `angle` parameter instead, which also accepts a direction
   rect(height: 100%, width: 30pt, fill: gradient.linear(dir: btt, red, blue))
 })
 #set par(justify: true)
+// Warning: 38-41 the `dir` parameter is deprecated
+// Hint: 38-41 use the `angle` parameter instead, which also accepts a direction
 #set text(fill: gradient.linear(dir: btt, red, blue))
 #lorem(30)
 
@@ -582,6 +586,8 @@ $ overline("hello, world!") $
 
 --- gradient-math-dir paged ---
 // Test a different direction
+// Warning: 79-82 the `dir` parameter is deprecated
+// Hint: 79-82 use the `angle` parameter instead, which also accepts a direction
 #show math.equation: set text(fill: gradient.linear(..color.map.rainbow, dir: ttb))
 #show math.equation: box
 
@@ -660,9 +666,17 @@ $ A = mat(
 
 --- gradient-angle eval ---
 #test(gradient.linear(red, green).angle(), 0deg)
+// Warning: 40-43 the `dir` parameter is deprecated
+// Hint: 40-43 use the `angle` parameter instead, which also accepts a direction
 #test(gradient.linear(red, green, dir: ltr).angle(), 0deg)
+// Warning: 40-43 the `dir` parameter is deprecated
+// Hint: 40-43 use the `angle` parameter instead, which also accepts a direction
 #test(gradient.linear(red, green, dir: rtl).angle(), 180deg)
+// Warning: 40-43 the `dir` parameter is deprecated
+// Hint: 40-43 use the `angle` parameter instead, which also accepts a direction
 #test(gradient.linear(red, green, dir: ttb).angle(), 90deg)
+// Warning: 40-43 the `dir` parameter is deprecated
+// Hint: 40-43 use the `angle` parameter instead, which also accepts a direction
 #test(gradient.linear(red, green, dir: btt).angle(), 270deg)
 
 --- gradient-repeat eval ---
