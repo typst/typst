@@ -496,12 +496,17 @@ fn handle_realized(
     // Handle non-component items first.
     let comp = match item {
         MathItem::Component(comp) => comp,
-        MathItem::Spacing(amount, _, _) => {
+        MathItem::Absolute(amount, _, _) => {
+            // TODO: Relative spacing has no effect in MathML Core.
             ctx.push(
                 HtmlElem::new(tag::mspace)
                     .with_attr(attr::width, amount.to_css(()))
                     .pack(),
             );
+            return Ok(());
+        }
+        MathItem::Fractional(_) => {
+            // TODO: should probably warn.
             return Ok(());
         }
         MathItem::Space => {
@@ -1301,7 +1306,10 @@ fn is_embellished_operator(item: &MathItem) -> bool {
 /// [space]: https://www.w3.org/TR/mathml-core/#definition-of-space-like-elements
 fn is_space_like(item: &MathItem) -> bool {
     match item {
-        MathItem::Spacing(..) | MathItem::Space => true,
+        // Whilst relative and fractional spacing aren't supported in MathML
+        // Core and are ignored, they are still space-like and do not affect
+        // the mathematical meaning of the expressions in which they appear.
+        MathItem::Absolute(..) | MathItem::Fractional(_) | MathItem::Space => true,
         MathItem::Component(comp) => match &comp.kind {
             MathKind::Text(_) => comp.props.class() != MathClass::Large,
             MathKind::Group(group) => group

@@ -14,7 +14,7 @@ use crate::diag::SourceResult;
 use crate::foundations::{Content, Packed, Smart, StyleChain};
 use crate::introspection::{Locator, Tag};
 use crate::layout::{
-    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Length, PlaceElem, Ratio, Rel,
+    Abs, Axes, Axis, BoxElem, Em, FixedAlignment, Fr, Length, PlaceElem, Ratio, Rel,
 };
 use crate::math::{
     Augment, CancelAngle, EquationElem, LeftRightAlternator, Limits, MathSize,
@@ -67,7 +67,9 @@ pub enum MathItem<'a> {
     Component(MathComponent<'a>),
     /// Explicit spacing with the font size at the point of creation. The
     /// boolean indicates whether the spacing is weak.
-    Spacing(Length, Abs, bool),
+    Absolute(Rel<Length>, Abs, bool),
+    /// Fractional spacing.
+    Fractional(Fr),
     /// A regular space.
     Space,
     /// An introspection tag.
@@ -110,7 +112,9 @@ impl<'a> MathItem<'a> {
     pub(crate) fn raw_class(&self) -> Option<MathClass> {
         match self {
             Self::Component(comp) => comp.props.class,
-            Self::Spacing(..) | Self::Space => Some(MathClass::Space),
+            Self::Absolute(..) | Self::Fractional(..) | Self::Space => {
+                Some(MathClass::Space)
+            }
             Self::Tag(_) => Some(MathClass::Special),
         }
     }
