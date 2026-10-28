@@ -53,19 +53,26 @@ impl TextItem {
                 Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
             let offset =
                 Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
-            if let Some(rect) =
-                self.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(glyph.id))
+            if let Some(extents) = self
+                .font
+                .instance()
+                .glyph_metrics()
+                .extents_exact(read_fonts::types::GlyphId::new(glyph.id))
             {
                 let pos = cursor + offset;
                 let a = pos
                     + Point::new(
-                        self.font.to_em(rect.x_min).at(self.size),
-                        self.font.to_em(rect.y_min).at(self.size),
+                        self.font.to_em(extents.x_bearing.to_f64()).at(self.size),
+                        self.font
+                            .to_em((extents.y_bearing - extents.height).to_f64())
+                            .at(self.size),
                     );
                 let b = pos
                     + Point::new(
-                        self.font.to_em(rect.x_max).at(self.size),
-                        self.font.to_em(rect.y_max).at(self.size),
+                        self.font
+                            .to_em((extents.x_bearing + extents.width).to_f64())
+                            .at(self.size),
+                        self.font.to_em(extents.y_bearing.to_f64()).at(self.size),
                     );
                 min = min.min(a).min(b);
                 max = max.max(a).max(b);
@@ -93,7 +100,7 @@ impl Debug for TextItem {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Glyph {
     /// The glyph's index in the font.
-    pub id: u16,
+    pub id: u32,
     /// The advance width of the glyph.
     pub x_advance: Em,
     /// The horizontal offset of the glyph.

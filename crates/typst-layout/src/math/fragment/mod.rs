@@ -4,7 +4,7 @@ pub(crate) use self::glyph::GlyphFragment;
 
 use std::fmt::Debug;
 
-use ttf_parser::GlyphId;
+use read_fonts::types::GlyphId;
 use typst_library::foundations::StyleChain;
 use typst_library::introspection::Tag;
 use typst_library::layout::{Abs, Axis, Corner, Em, Frame, FrameItem, Point, Size};
@@ -199,7 +199,7 @@ impl MathFragment {
 
                 kern_at_height(
                     &glyph.item.font,
-                    GlyphId(glyph.item.glyphs[glyph_index].id),
+                    GlyphId::new(glyph.item.glyphs[glyph_index].id),
                     corner,
                     Em::from_abs(height, glyph.item.size),
                 )
