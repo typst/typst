@@ -58,6 +58,7 @@ Hello From Earth
 
 --- linebreak-thai paged ---
 // Test linebreak for East Asian languages
+#set text(lang: "th", font: "Noto Sans Thai")
 ทีวีตรวจทานนอร์ทแฟรีเลคเชอร์โกลด์อัลบัมเชอร์รี่เย้วสโตร์กฤษณ์เคลมเยอบีร่าพ่อค้าบลูเบอร์รี่สหัสวรรษโฮปแคนูโยโย่จูนสตรอว์เบอร์รีซื่อบื้อเยนแบ็กโฮเป็นไงโดนัททอมสเตริโอแคนูวิทย์แดรี่โดนัทวิทย์แอปพริคอทเซอร์ไพรส์ไฮบริดกิฟท์อินเตอร์โซนเซอร์วิสเทียมทานโคโยตี้ม็อบเที่ยงคืนบุญคุณ
 
 --- linebreak-cite-punctuation paged ---
@@ -123,9 +124,13 @@ http://mydataurl/hash/12098541029831025981024980124124214/incremental/progress%l
 For info see #link("https://myhost.tld").
 
 --- issue-2105-linebreak-tofu paged ---
+// Ensure that leading whitespace characters do not affect font fallback.
+#set text(fallback: true)
 #linebreak()中文
 
 --- issue-3082-chinese-punctuation paged ---
+// Ensure that `）` and `，` stay on the same line.
+// In this test, the punctuation marks should use TC glyphs with GB-style adjustments.
 #set text(font: "Noto Serif CJK TC", lang: "zh")
 #set page(width: 230pt)
 

@@ -39,7 +39,7 @@ ec988f48053bcc2b5c7accd247811591 bidi-explicit-dir
 8b2d67584aed10840b6435d5490ec212 bidi-manual-linebreak
 9502547ef3f04b1ea6f1b9b2bdc103fe bidi-nesting
 74c3983283ee091cf3863d20ea3a756c bidi-obj
-0d37f44093d11ebd16b7fc688b172505 bidi-raw
+67fcf541ad43bb5e0954cd9408cb4e0d bidi-raw
 b9d7489afe73f66025a36c79304b8b19 bidi-spacing
 51cd3f34ffa5a1c1de54ace4dda35fc3 bidi-whitespace-reset
 c187a1561a383b606f4a983e84d4100c block-box-fill
@@ -166,7 +166,7 @@ e21c08845a3b1c27761f4def9d8fb021 counter-page-footer-before-set-page
 1d2f100455c9e0e7644771bc5881daaa counter-page-footer-only-update
 f030b78da5aaea5c71f56f40c1819bec counter-page-header-before-set-page
 5cef09567a77060abdf14f98881d6f79 counter-page-header-only-update
-367c7fac14560c0ab73bd0d20410fd7e counter-rtl
+57fb5a26b73892c2603dcc929f9f0258 counter-rtl
 14fbcb2a6546c3a19798ca6df625dedf csv
 d18d2777cba8fb7625e3a5d4d2033a7a curve-close-intersection
 1de48fc6ec1681418749811781d724a5 curve-close-smooth
@@ -241,7 +241,7 @@ cc98f56bc5cfeef0070100aba9a7a5da figure-caption-where-selector
 531d0a4acd74b9cbc5ebe7679e6b8384 figure-localization-el
 f01f0ab606435a3db8b2c53ca1eecef5 figure-localization-fr
 0a8f535188cef7d7296e28119e32e49d figure-localization-ru
-c4159f24c7ad93257b76351ee71769a4 figure-localization-zh
+c4c772ef65930890c53f89c12a61fb68 figure-localization-zh
 19cfa37cafd81c413a3a1ae8908a627d figure-par
 eb3addb849b02cb212d983d535fdf226 figure-placement
 d7e228167b551799054166790525735c figure-table
@@ -835,7 +835,7 @@ cc391f0ac0a050ea8d93fe0cb37aaabe issue-6267-clip-anti-alias
 7c70787a97bbd9f7f25e5c0a335e3998 issue-6304-block-skip-label
 c783423dcbc67df08ddb0cec95b809c0 issue-6399-grid-cell-colspan-set-rule
 c783423dcbc67df08ddb0cec95b809c0 issue-6399-grid-cell-rowspan-set-rule
-65c7a926b4a1fdf13eb51013ff1f1191 issue-6539-cjk-latin-spacing-at-manual-linebreak
+25ee8c098f20b363cee64f8c7c8cd5fe issue-6539-cjk-latin-spacing-at-manual-linebreak
 9be7030eb866c24b812597b6d2f2a25b issue-6597-gradient-angle-negative-size
 eddda896523fdf36484e5c16fa9c2271 issue-6666-auto-hlines-around-footer
 eaaca053bc6feddd3f1b9b585d92246c issue-6666-auto-hlines-around-header
@@ -845,7 +845,7 @@ eaaca053bc6feddd3f1b9b585d92246c issue-6666-auto-hlines-around-header
 f1003f00895ba8e491665370131ce322 issue-6869-image-zero-sized
 c1e125e744728bcf7eb4d563a4350ed3 issue-6961-tab-crlf-raw-indent
 3d2d1e25d75788136e8b71bcb22d1a8f issue-7103-wrong-state-calculation
-c2fd24dc7f7827ac741c1648357aba29 issue-7113-cjk-latin-spacing-shift
+66efdda14165e5d07d69f861658ff116 issue-7113-cjk-latin-spacing-shift
 5cf6982fdd43b0c975bb3e0ed981dd54 issue-7178-svg-fallback-deadlock
 1bfcbf2b46965ea10db47c6aa8edde40 issue-7188-grid-counter-order
 dd4ae7847c8f91e65ff77f284adfca73 issue-7249-multiple-lookup-tables
@@ -860,7 +860,7 @@ d987856ceb0fd2f906c660cd0846c485 issue-758-link-repeat
 082220526fd005816de2a95e0e7e219c issue-785-cite-locate
 7cebe3edfd995e8e8ff41448852673a3 issue-7872-negative-scale
 366fcb9e4d729259ba5ed7a60884efb4 issue-7901-rect-negative-dimensions-radius
-d6fe56fb1defeced8b9444ba88c4a703 issue-792-newline-space-discarding
+6da3090ee19e6940c38903485d2df219 issue-792-newline-space-discarding
 f47e8b81aae825ddeedb7f35123ae9be issue-7991-show-text-symbol-grapheme-sliced
 787eee28e0ecf53513948ef24d29556d issue-80-emoji-linebreak
 853132687f26819ca27e065d149969b9 issue-8058-show-text-grapheme-sliced
@@ -901,7 +901,7 @@ d2309849bad55efcb5181c083eab4276 issue-non-atomic-closure
 8ab94d78cb4686f3d068deebb579a978 justify
 8904f728233bbd8424ffb64a1b5cc71e justify-avoid-runts
 1beeb427a57bc8ba52382bb5577bbfc5 justify-basically-empty
-8e8d7b85a35d1958f52e67d4354e1df4 justify-chinese
+e2c3d743179bff4aa977a174b0d6f5a0 justify-chinese
 9e6ab74c525454bda15b621a2a75acad justify-code-blocks
 c470805d694c104acf78831b1614f11f justify-japanese
 fc8c5250e0b6398d63710a164d502b4a justify-justified-linebreak
@@ -1357,7 +1357,7 @@ a7c0cfc92cc9dae9657e667af7a5fed2 math-stretch-vertical-attach
 325accacac2e635bff72fa86dd7a84f0 math-style-fallback
 ddec7d7ef74f7a248ee452d841656b64 math-style-font-no-dotless
 d6cf178c8d747171851660c1f27c6acc math-style-greek-exceptions
-91ac31a373d1b9cd16544a547d3684dc math-style-hebrew-exceptions
+66fc623505c1f3b7b70ddb65f65bc342 math-style-hebrew-exceptions
 95db8d6e6833d29940431cbaf5030e5b math-style-italic-default
 0872943080a729014797dffa53f8ac39 math-style-script
 8a70fe859a6104fbf2ef238353952e71 math-symbol-show-rule
@@ -1421,13 +1421,13 @@ fe97a41734095cb1eea1f437eae44d38 mozilla-mathml-test-28
 304df5c0df526b57e59f9d0db2a2d7ec mozilla-mathml-test-9
 a7eb4e5840116707ca44c304f4494d5f newline-continuation-code
 8051928a5f6fd22b503f87923a5a5f84 newline-continuation-markup
-aabc3aaec45aa200ff70bee4fe091d6b newline-space-discarding-dynamic
+2ad7075b2766f22d2899167118aa5a21 newline-space-discarding-dynamic
 b51712018b66447ec62d44c4b46e5ba8 newline-space-discarding-korean
 8baee660646f531f2f68617598f0b3c0 newline-space-discarding-non-text
 f197cb950a6f0db96da8cb580e47c95b newline-space-discarding-punctuation
-cb5ff43ac4edc9a7861d49691b09045a newline-space-discarding-regex-show-rule
+d5aed44bc0bc332b95456d30c01cd897 newline-space-discarding-regex-show-rule
 4ef2459afe76567ca3d821af6f37e2d8 newline-space-discarding-smart-quotes
-b01263d6534deabe85b834eccbb9e7d9 newline-space-discarding-strong
+62e6a9c067f456a7452559f9184775b3 newline-space-discarding-strong
 a0688ed665a67555d551c0eebc30fed2 numbering-illegal-zero
 dbfb984edd8cb6f4256ddd7a8136f5e0 numbering-too-high
 a9e2cbaf2d9487b3e7f7ca3148310691 numbers
@@ -1899,12 +1899,12 @@ b526697a56eaa17db721c63cad4b0ee2 text-font-variable-multiple
 39cd40a4448d0714242c148cfed7e44a text-font-variable-wght
 95a1e539de0dee36d9f1059d595a8416 text-font-variations-win
 df37bda6cbd5dbbaeab3ec91266caca9 text-kerning
-e46ac0a0574a1d81a312ade1395a5be1 text-lang
+70ee42d11544d2d3b41c8c1441bbe469 text-lang
 71ddc9e61b06bb4a04fe26df068c6853 text-lang-hyphenate
 783d3a431b22721659c9b1ad5bb337be text-lang-region
 3dd5527203192aff9a4b7b3c00735919 text-lang-script-shaping
 8c9e9116b67c6684570d237a8afe3402 text-lang-shaping
-e46ac0a0574a1d81a312ade1395a5be1 text-lang-unknown-region
+70ee42d11544d2d3b41c8c1441bbe469 text-lang-unknown-region
 e6b4d26566439ccc60fad71ea85ff3e3 text-language-fallback-english
 c3f974c8b041a1adb86dc28a1130dcc4 text-ligatures
 a0d2d29a3b887c222d4ac4ea26c02aa1 text-number-type

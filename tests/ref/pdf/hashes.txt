@@ -41,7 +41,7 @@ ea60343c1f82d1e001b315886a1640a9 bidi-explicit-dir
 67863421fb8bc79569880fcb67f8c9e9 bidi-manual-linebreak
 005ab55a5f6d28090beeab7ed058f6a9 bidi-nesting
 24dd79af82d4a90af51df8318549b584 bidi-obj
-338b58bf719ed4206e21c643fb726ac1 bidi-raw
+1ae4d65106533acc9efe3c56b46c1113 bidi-raw
 eb97a319d56dbc3c3bfd21aa5e4ea251 bidi-spacing
 fbb1f26d0c0a84055509aec693c29938 bidi-whitespace-reset
 62aa4c4f67f4b9ac946bd60b6c037d49 block-box-fill
@@ -168,7 +168,7 @@ acdbe3035935e8167d838ed5bb1906fa counter-page-footer-before-set-page
 da9d527d6c166f08ac421dd9ab6a4fc6 counter-page-footer-only-update
 00e7fc93349da629e01950dc5f25863a counter-page-header-before-set-page
 e312e11eafe289752340a0ddb3648e3e counter-page-header-only-update
-21a9e6695f6b4684bf2287abc1ee530f counter-rtl
+52af1c60988a27519fcd9a452773e50f counter-rtl
 596cb8598ec2185f0d2548db295a3357 csv
 82df6b6e7bc2767cc788287a25c69446 curve-close-intersection
 bcd07ca2ad26b5f5f043ece4a3df2e36 curve-close-smooth
@@ -243,7 +243,7 @@ e0291493864c1d3e1fcd0b5cf4a0b8b2 figure-caption-where-selector
 549c0c8ccf50b3fbea4dca25e378097a figure-localization-el
 ed01db1f3d4ce09594e0248281f7ce99 figure-localization-fr
 49cd15627997331e91bc37fedbb54c27 figure-localization-ru
-48d7c1aa7f2e9e334487ded0bd34f6fd figure-localization-zh
+b007564219c8353bea27a5deb98f6ca4 figure-localization-zh
 29b416dd66876435ea292a27c3b645c2 figure-par
 fa10f447e24a56cbb04f3519eb1f21a5 figure-placement
 f96885f76eb853b34c3792b369d85da5 figure-table
@@ -837,7 +837,7 @@ a299c14bf02d941242fd1e5ac1d5f1cf issue-6267-clip-anti-alias
 905959ca52ea56fa4f9c6fca0bd69f39 issue-6304-block-skip-label
 c3ae70dde0a58fabe80f17cfd440d6ae issue-6399-grid-cell-colspan-set-rule
 6159bb04fd889f363da3807f82f043ef issue-6399-grid-cell-rowspan-set-rule
-74394d1b5b3efe400aa50797b8ac9a92 issue-6539-cjk-latin-spacing-at-manual-linebreak
+f1c0bba2e159d848c684789c57d189eb issue-6539-cjk-latin-spacing-at-manual-linebreak
 cb0c6862c965722f7e8a4af6ed94215e issue-6597-gradient-angle-negative-size
 ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 351cf002c18462543af122efcc408045 issue-6666-auto-hlines-around-header
@@ -847,7 +847,7 @@ ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 0193206bf0e046bb87528d6a6df9d60a issue-6869-image-zero-sized
 235e60046edf64f088ea9a8483e9ffaa issue-6961-tab-crlf-raw-indent
 e6c3701e2842f398fcb0758a4f9533ab issue-7103-wrong-state-calculation
-db8f9c5dfa35d2bc3d14d90b43e77392 issue-7113-cjk-latin-spacing-shift
+a5cd714b0775cbea290be63b7c1f9628 issue-7113-cjk-latin-spacing-shift
 4f81a8ca1011318abd32f9cbdf0dee3e issue-7178-svg-fallback-deadlock
 e19de6f6cc98aee84f9224675d8d3982 issue-7188-grid-counter-order
 d53e781aebb56c78a58c1997e2a4982b issue-7249-multiple-lookup-tables
@@ -862,7 +862,7 @@ ae20f6aff17916fdeb8c306e03357c63 issue-758-link-repeat
 f56795c728b71c3362c549303cd72cee issue-785-cite-locate
 8df622e20e954ba4703dbc3e8741ed70 issue-7872-negative-scale
 6d78160f24ae092b4b9aa84da23b96c2 issue-7901-rect-negative-dimensions-radius
-492894c4981d4cf7ffaffa9d8dfcb6b0 issue-792-newline-space-discarding
+90207be01caff0895b2ed3befcf9813b issue-792-newline-space-discarding
 aef4ed36525eb9f423be68e32b38407f issue-7991-show-text-symbol-grapheme-sliced
 ac73851227ffa0ce6c37bb8eb1f73b21 issue-80-emoji-linebreak
 6570a3a66154baf8df947d0991c2b03f issue-8058-show-text-grapheme-sliced
@@ -904,7 +904,7 @@ f8bae545470546b0bafb957e32bf649e issues-7168-linebreak-whitespace-trimming-justi
 1001ae96bf5c35973d8e1a0fe68ee5c5 justify
 438980e7b633169a40a2fe1dfad38e5e justify-avoid-runts
 719802ebea730e40c9e1f7af3d47ce14 justify-basically-empty
-327dd8e726c54cc6a07ddb42aa01d775 justify-chinese
+3233681d2324c6c2fb38dfa91655852b justify-chinese
 3cbc943e5fcff8fe54d3459213f9819e justify-code-blocks
 65748e27f0b3c92406f8a359220fa2c1 justify-japanese
 04ac1e822780320bc53bead97d7bb57d justify-justified-linebreak
@@ -973,7 +973,7 @@ f09c93f450eb2ce0e98b87e48108d729 linebreak-narrow-nbsp
 5b12ab4c59c1591793db3f6a905ece6a linebreak-overflow
 9cac8800042b743fa64d17ad8247cfda linebreak-overflow-double
 5d8d618167513e9589ed3b0c1e1f954a linebreak-shape-run
-09e298b85c1d2b6db0f83122d17d6d8b linebreak-thai
+4f9387a8fdf489283b83b2bc565fa0a3 linebreak-thai
 9ede53a605e9eaba917bb8919fc3ee5c linebreak-whitespace-trimming
 0151d631e11eb365dc85e872f5e9eaf8 link-basic
 09197ce8c8f057be5ec4231edc87e7b3 link-bracket-balanced
@@ -1361,7 +1361,7 @@ cb34a71ba0c45da08020f592f3ed1eb7 math-style-exceptions
 bd0ca05b33a119d0e8eff4096a6a7dc2 math-style-fallback
 e459bb0e103c42cecfff31d852cc5797 math-style-font-no-dotless
 bcb94ce9b7fe1058eca4fd425c0a0829 math-style-greek-exceptions
-d8f08ed97e10115708fe276e6dd3c80a math-style-hebrew-exceptions
+cbe841599d160ab2c1facdafdb339fee math-style-hebrew-exceptions
 1cb5a74499df1abffc1ee39da9709f5b math-style-italic-default
 936a5c577665b7942cb6b1f0ea2acd98 math-style-script
 d2fcb6aacd5aeadd12ebd72b35909baa math-symbol-show-rule
@@ -1425,13 +1425,13 @@ a654ef985dabbf45aa5d50b66a3c18c9 mozilla-mathml-test-7
 41f8bc329a4d10bf9cab046afad0777c mozilla-mathml-test-9
 5879d9ef461fcb5dfb1314df2489bc8f newline-continuation-code
 4ebf8a61bb5e7172cd9f39faaa9f9c4b newline-continuation-markup
-9a8a38bb536318cd8821daddc63900b5 newline-space-discarding-dynamic
+2513e57ea5bf3e1a7ea340e0ac497318 newline-space-discarding-dynamic
 b136ae393f6d594e817302117a3af4a3 newline-space-discarding-korean
 67930a12541d8fd98b1c6e054797564f newline-space-discarding-non-text
 7de79ce626d7c1a3e8d14a69334e98a1 newline-space-discarding-punctuation
-b91345f993e6e278f180b4b13aa048c1 newline-space-discarding-regex-show-rule
+a1045f2e0a242f5a6a8fdb85cfa89800 newline-space-discarding-regex-show-rule
 8ced42eecccf501fe7d94277575e32b2 newline-space-discarding-smart-quotes
-b949b1775e09c1f6565aab76154249d3 newline-space-discarding-strong
+21f3451966327fad0265f5bcd8e6ea7c newline-space-discarding-strong
 cd76109e68234a842ae8f8bac9e282c8 numbering-illegal-zero
 dadcbf59ca5e4e163484c4eb3fba3522 numbering-too-high
 adec380ee7990d4c1e14e4f4d54a72f0 numbers
@@ -1905,12 +1905,12 @@ fccbd05610447cea3a709a275672f042 text-font-variable-wdth
 eaeae112db4580a5b276338a616a3a0c text-font-variable-wght
 74da9b833e8a8f2a2467b9bcedfda999 text-font-variations-win
 aab22e45d270d7ba289dcc48aa17aee9 text-kerning
-5b14715fa9019af317cb8c30189ecb44 text-lang
+f2ef081206e508e1322c4ccd746bcc36 text-lang
 9ffedc8ae2e48efd6c2ef6891236869a text-lang-hyphenate
 4248e7c8451f6bf5c851e86ad27c80c4 text-lang-region
 7a9a0673cd53ec30b32811c7b10a34bf text-lang-script-shaping
 03093b4957685fe2718e157da6fa263b text-lang-shaping
-1553de4ac675aca98f87514d3edde4f4 text-lang-unknown-region
+a45a0835e3c0593dcb22cc5c71b2c219 text-lang-unknown-region
 17c7acc5559ddaf9c0307f6d9744025a text-language-fallback-english
 d1ee99aadbb6d56cfc21eb214ca255f9 text-ligatures
 944dab6546c8d80f642b329dac4ff1e1 text-number-type

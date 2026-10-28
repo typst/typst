@@ -29,7 +29,7 @@ ABCअपार्टमेंट
 \ ט
 
 --- shaping-font-fallback paged ---
-#set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
+#set text(font: ("Libertinus Serif", "Noto Sans Arabic"), fallback: true)
 // Font fallback for emoji.
 A😀B
 
@@ -49,6 +49,7 @@ Aب😀🏞سمB
 A🐈ዲሞB
 
 --- shaping-emoji-basic paged ---
+#set text(font: ("Twitter Color Emoji", "Noto Color Emoji"))
 // This should form a three-member family.
 👩‍👩‍👦
 

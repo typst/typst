@@ -786,6 +786,7 @@ a b c --------------------
   ```
 
 --- issue-5760-disable-cjk-latin-spacing-in-raw paged ---
+#show raw: set text(font: ("DejaVu Sans Mono", "Noto Serif CJK SC"))
 
 ```typ
 #let hi = "你好world"

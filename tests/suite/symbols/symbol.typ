@@ -26,6 +26,7 @@
   ("emoji", "1️")
 )
 
+#set text(font: ("Libertinus Serif", "Noto Sans Symbols 2"))
 #envelope
 #envelope.stamped
 #envelope.pen

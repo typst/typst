@@ -74,9 +74,11 @@ comment spans lines
 
 --- heading-show-where paged ---
 // Test styling.
-#show heading.where(level: 5): it => block(
-  text(font: "Roboto", fill: eastern, it.body + [!])
-)
+#show heading.where(level: 5): it => block(text(
+  font: ("Roboto", "Twitter Color Emoji"),
+  fill: eastern,
+  it.body + [!],
+))
 
 = Heading
 ===== Heading 🌍

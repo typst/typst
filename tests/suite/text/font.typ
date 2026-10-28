@@ -66,6 +66,7 @@ Emoji: 🐪, 🌋, 🏞
 #set text(something: "invalid")
 
 --- text-unknown-font-family-warning paged ---
+#set text(fallback: true)
 #text(font: "libertinus serif")[I exist,]
 // Warning: 13-26 unknown font family: nonexistent
 #text(font: "nonexistent")[but]
@@ -76,6 +77,15 @@ I
 // Warning: 23-55 unknown font family: nonexistent-fonts
 #let var = text(font: ("list-of", "nonexistent-fonts"))[don't]
 #var
+
+--- text-unknown-font-family-warning-in-fn eval ---
+#let try(top, bottom) = rect(inset: 0pt, fill: conifer)[
+  // Warning: 19-34 unknown font family: ibm plex mono
+  #set text(font: "IBM Plex Mono", top-edge: top, bottom-edge: bottom)
+  From #top to #bottom
+]
+
+#let _ = try("ascender", "descender")
 
 --- issue-5499-text-fill-in-clip-block paged ---
 

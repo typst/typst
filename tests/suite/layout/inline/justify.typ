@@ -199,7 +199,7 @@ int main() {
 #set text(lang: "zh", font: "Noto Serif CJK SC")
 
 #rect(inset: 0pt, width: 80pt, fill: rgb("eee"))[
-  中文维基百科使用汉字书写，汉字是汉族或华人的共同文字，是中国大陆、新加坡、马来西亚、台湾、香港、澳门的唯一官方文字或官方文字之一。25.9%，而美国和荷兰则分別占13.7%及8.2%。近年來，中国大陆地区的维基百科编辑者正在迅速增加；
+  中文维基百科使用汉字书写，汉字是汉族或华人的共同文字，是中国大陆、新加坡、马来西亚、台湾、香港、澳门的唯一官方文字或官方文字之一。25.9%，而美国和荷兰则分别占13.7%及8.2%。近年来，中国大陆地区的维基百科编辑者正在迅速增加；
 ]
 
 --- justify-japanese paged ---
@@ -233,12 +233,14 @@ int main() {
 
 // 17 characters a line.
 #set page(width: 170pt + 10pt, margin: (x: 5pt))
-#set text(lang: "zh", font: "Noto Serif CJK SC")
+// TODO(font): The SC font in the current typst-dev-assets does not cover 孚.
+#set text(lang: "zh", font: ("Noto Serif CJK SC", "Noto Serif CJK JP"))
 #set par(justify: true)
 
 孔雀最早见于《山海经》中的《海内经》：“有孔雀。”东汉杨孚著《异物志》记载，岭南：“孔雀，其大如大雁而足高，毛皆有斑纹彩，捕而蓄之，拍手即舞。”
 
-#set text(lang: "zh", region: "hk", font: "Noto Serif CJK TC")
+// TODO(font): This paragraph should use traditional characters.
+#set text(lang: "zh", region: "hk", font: ("Noto Serif CJK TC", "Noto Serif CJK JP", "Noto Serif CJK SC"))
 孔雀最早见于《山海经》中的《海内经》：「有孔雀。」东汉杨孚著《异物志》记载，岭南：「孔雀，其大如大雁而足高，毛皆有斑纹彩，捕而蓄之，拍手即舞。」
 
 --- justify-punctuation-adjustment paged ---
@@ -277,6 +279,7 @@ int main() {
 
 --- issue-6062-justify-cjk-latin-spacing paged ---
 // Test whether cjk-latin-spacing would be stretched evenly when justified.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 #set par(justify: true)
 あaあ#linebreak(justify: true)
 ああaa aaああ#linebreak(justify: true)

@@ -3,13 +3,13 @@
 --- text-lang paged html pdftags ---
 #set pdf(standard: "ua-1")
 // without any region
-#set text(font: "Noto Serif CJK TC", lang: "zh")
+#set text(font: "Noto Serif CJK SC", lang: "zh")
 #outline()
 
 --- text-lang-unknown-region paged html pdftags ---
 #set pdf(standard: "ua-1")
 // with unknown region configured
-#set text(font: "Noto Serif CJK TC", lang: "zh", region: "XX")
+#set text(font: ("Noto Serif CJK SC", "Noto Serif CJK SC"), lang: "zh", region: "XX")
 #outline()
 
 --- text-lang-region paged html pdftags ---
