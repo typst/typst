@@ -30,12 +30,12 @@ use crate::model::Numbering;
 /// list below.
 ///
 /// - In the @reference:model[Model category], the following elements are
-///   locatable: @asset, @bibliography, @cite, @document, @emph, @enum, @figure,
-///   @figure.caption, @footnote, @footnote.entry, @heading, @link, @list,
-///   @outline, @outline.entry, @par, @quote, @ref, @strong, @table, @terms, and
-///   @title. Most of the elements in the _Model_ category are locatable because
-///   semantic elements like headings and figures are often
-///   used with introspection.
+///   locatable: @asset, @bibliography, @cite, @divider, @document, @emph,
+///   @enum, @figure, @figure.caption, @footnote, @footnote.entry, @heading,
+///   @link, @list, @outline, @outline.entry, @par, @quote, @ref, @strong,
+///   @table, @terms, and @title. Most of the elements in the _Model_ category
+///   are locatable because semantic elements like headings and figures are
+///   often used with introspection.
 ///
 /// - In the @reference:text[Text category], the @raw element and the
 ///   decoration elements @underline, @overline, @strike, and @highlight are
