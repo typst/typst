@@ -4,6 +4,10 @@
 // Load an RGBA PNG image.
 #image("/assets/images/rhino.png")
 
+--- image-png-indexed pdf ---
+// Load an PNG image with indexed color.
+#image("/assets/images/small.png")
+
 --- image-jpg paged ---
 // Load an RGB JPEG image.
 #set page(height: 60pt)
@@ -462,9 +466,9 @@ A #box(image("/assets/images/tiger.jpg", height: 1cm, width: 80%)) B
   table.header(
     [], ..rotations.map(v => raw(str(v), lang: "typc")),
   ),
-  `PNG`, ..rotations.map(v => with-rotation("/assets/images/f2t.png", 0x85, v)),
-  // JPEG has special handing in PDF export (no recoding, so instead we use a
+  // JPEG/PNG have special handing in PDF export (no recoding, so instead we use a
   // transform to apply the orientation), so it's worth testing that separately.
+  `PNG`, ..rotations.map(v => with-rotation("/assets/images/f2t.png", 0x85, v)),
   `JPEG`, ..rotations.map(v => with-rotation("/assets/images/f2t.jpg", 0x31, v)),
 )
 
