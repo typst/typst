@@ -192,3 +192,18 @@ Et les autres ‹ guillemets › en français & suisse romande.
 
 #set text(lang: "de")
 Alternative »Anführungszeichen« in DE & AT.
+
+--- issue-5543-linebreak-thai-justified-space paged ---
+// In Southeast Asian languages like Thai, linebreaks should not be allowed
+// before spaces.
+#set page(width: 100pt)
+#set text(font: "Noto Sans Thai")
+#set par(justify: true)
+ประโยค ที่หนึ่ง ประโยค ที่สอง ประโยคที่สาม
+
+--- issue-7646-linebreak-thai-justified-punctuations paged ---
+// In Southeast Asian languages like Thai, linebreaks should not be allowed
+// before trailing punctuations.
+#set page(width: 100pt)
+#set par(justify: true)
+"ประโยค ที่หนึ่ง" ประโยคที่สอง ประโยคที่สาม ที่ห้า!

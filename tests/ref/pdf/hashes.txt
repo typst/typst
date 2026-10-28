@@ -812,6 +812,7 @@ da4991902856bcc6d26c438240ba5277 issue-5503-cite-in-align
 2d08ad3b88451d3dae9d250f533d1600 issue-5503-list-in-align
 44161aaaa1d9b8cb1d82a41d1a0ae33b issue-5503-terms-in-align
 87cf5fe8c96d582163514dad917f2b53 issue-5536-quote-inline-quotes-false
+152fc83a0ad51b5ddd133e46fb818f36 issue-5543-linebreak-thai-justified-space
 5600b55dde81ae45f989721521e90478 issue-5705-gradient-border-stroke
 7ebe26eea7f23413b6c4cdf9b2bc8d2a issue-5719-enum-nested
 2b33bfcd1f5251864570d30911758fe0 issue-5719-heading-nested
@@ -859,6 +860,7 @@ e1d3eb6301fb147a71e6da0a5b305df6 issue-7428-heading-numbering-errors
 b65136a2425a4de64f20ee6d074818af issue-7437-math-accent-text-presentation
 abe703183168222efdea9e9fad4b45fc issue-7541-justify-with-zero-width-space
 ae20f6aff17916fdeb8c306e03357c63 issue-758-link-repeat
+2bebb7c9261e7e783a7a51372dfea818 issue-7646-linebreak-thai-justified-punctuations
 f56795c728b71c3362c549303cd72cee issue-785-cite-locate
 8df622e20e954ba4703dbc3e8741ed70 issue-7872-negative-scale
 6d78160f24ae092b4b9aa84da23b96c2 issue-7901-rect-negative-dimensions-radius
