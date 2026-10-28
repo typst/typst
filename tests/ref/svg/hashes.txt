@@ -1804,7 +1804,6 @@ a8e594e044761e33b147ba3db69c093f spot-colorant-none
 c743b8d2e5d71041a6a446cdfea2eab8 square-auto-sized
 d652c079d03f25a23f9879d5bdd1d1e4 square-base
 4904feff4a5088da49c0d4eb78d5d86d square-circle-alignment
-b8ca3f1ebc2928264bc059da1df0c1c9 square-circle-overspecified
 637d3d9e63b24294027b32956171e18f square-contents-overflow
 c3c7b2df336dc917290924707fb62edd square-height-limited
 f9f815d9a1aa8319e9e57abc95e29d3a square-height-limited-stack

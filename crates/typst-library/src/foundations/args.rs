@@ -269,6 +269,22 @@ impl Args {
         }
         Ok(())
     }
+
+    /// Return a "mutually exclusive" error if there are multiple mutually
+    /// exclusive arguments.
+    pub fn mutually_exclusive(&self, names: Vec<&str>) -> SourceResult<()> {
+        if self
+            .items
+            .iter()
+            .filter(|item| names.contains(&item.name.as_deref().unwrap_or("")))
+            .count()
+            > 1
+        {
+            let joined = names.join(", ");
+            bail!(self.span, "{joined} are mutually exclusive");
+        };
+        Ok(())
+    }
 }
 
 /// A key that can be used to get an argument: either the index of a positional
