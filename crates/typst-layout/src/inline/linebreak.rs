@@ -2,16 +2,19 @@ use std::ops::{Add, Sub};
 use std::sync::LazyLock;
 
 use az::SaturatingAs;
+use ecow::EcoVec;
 use icu_properties::CodePointMapDataBorrowed;
 use icu_properties::props::LineBreak;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::options::LineBreakOptions;
 use icu_segmenter::{LineSegmenter, LineSegmenterBorrowed};
+use typst_library::diag::SourceDiagnostic;
 use typst_library::engine::Engine;
+use typst_library::foundations::{Args, Context, Func, Value};
 use typst_library::layout::{Abs, Em};
 use typst_library::model::Linebreaks;
 use typst_library::text::{Lang, TextElem, is_default_ignorable};
-use typst_syntax::link_prefix;
+use typst_syntax::{Span, link_prefix};
 use typst_utils::Scalar;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -150,10 +153,10 @@ impl Trim {
 
 /// Breaks the text into lines.
 pub fn linebreak<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     match p.config.linebreaks {
         Linebreaks::Simple => linebreak_simple(engine, p, width),
         Linebreaks::Optimized => linebreak_optimized(engine, p, width),
@@ -165,46 +168,50 @@ pub fn linebreak<'a>(
 /// very unbalanced line, but is fast and simple.
 #[typst_macros::time]
 fn linebreak_simple<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     let mut lines = Vec::with_capacity(16);
     let mut start = 0;
     let mut last = None;
 
-    breakpoints(p, |end, breakpoint| {
-        // Compute the line and its size.
-        let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
+    breakpoints(
+        p,
+        |end, breakpoint, engine| {
+            // Compute the line and its size.
+            let mut attempt = line(engine, p, start..end, breakpoint, lines.last());
 
-        // If the line doesn't fit anymore, we push the last fitting attempt
-        // into the stack and rebuild the line from the attempt's end. The
-        // resulting line cannot be broken up further.
-        if !width.fits(attempt.width)
-            && let Some((last_attempt, last_end)) = last.take()
-        {
-            lines.push(last_attempt);
-            start = last_end;
-            attempt = line(engine, p, start..end, breakpoint, lines.last());
-        }
+            // If the line doesn't fit anymore, we push the last fitting attempt
+            // into the stack and rebuild the line from the attempt's end. The
+            // resulting line cannot be broken up further.
+            if !width.fits(attempt.width)
+                && let Some((last_attempt, last_end)) = last.take()
+            {
+                lines.push(last_attempt);
+                start = last_end;
+                attempt = line(engine, p, start..end, breakpoint, lines.last());
+            }
 
-        // Finish the current line if there is a mandatory line break (i.e. due
-        // to "\n") or if the line doesn't fit horizontally already since then
-        // no shorter line will be possible.
-        if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
-            lines.push(attempt);
-            start = end;
-            last = None;
-        } else {
-            last = Some((attempt, end));
-        }
-    });
+            // Finish the current line if there is a mandatory line break (i.e. due
+            // to "\n") or if the line doesn't fit horizontally already since then
+            // no shorter line will be possible.
+            if breakpoint == Breakpoint::Mandatory || !width.fits(attempt.width) {
+                lines.push(attempt);
+                start = end;
+                last = None;
+            } else {
+                last = Some((attempt, end));
+            }
+        },
+        engine,
+    )?;
 
     if let Some((line, _)) = last {
         lines.push(line);
     }
 
-    lines
+    Ok(lines)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style. Here, we use more
@@ -225,10 +232,10 @@ fn linebreak_simple<'a>(
 /// the layout determined for the last breakpoint at the end of text.
 #[typst_macros::time]
 fn linebreak_optimized<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     let metrics = CostMetrics::compute(p);
 
     // Determines the exact costs of a likely good layout through Knuth-Plass
@@ -237,19 +244,19 @@ fn linebreak_optimized<'a>(
     let upper_bound = linebreak_optimized_approximate(engine, p, width, &metrics);
 
     // Using the upper bound, perform exact optimized linebreaking.
-    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound)
+    linebreak_optimized_bounded(engine, p, width, &metrics, upper_bound?)
 }
 
 /// Performs line breaking in optimized Knuth-Plass style, but with an upper
 /// bound on the cost. This allows us to skip many parts of the search space.
 #[typst_macros::time]
 fn linebreak_optimized_bounded<'a>(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &'a Preparation<'a>,
     width: Abs,
     metrics: &CostMetrics,
     upper_bound: Cost,
-) -> Vec<Line<'a>> {
+) -> SourceResult<Vec<Line<'a>>> {
     /// An entry in the dynamic programming table for inline layout optimization.
     struct Entry<'a> {
         pred: usize,
@@ -264,90 +271,94 @@ fn linebreak_optimized_bounded<'a>(
     let mut active = 0;
     let mut prev_end = 0;
 
-    breakpoints(p, |end, breakpoint| {
-        // Find the optimal predecessor.
-        let mut best: Option<Entry> = None;
+    breakpoints(
+        p,
+        |end, breakpoint, engine| {
+            // Find the optimal predecessor.
+            let mut best: Option<Entry> = None;
 
-        // A lower bound for the cost of all following line attempts.
-        let mut line_lower_bound = None;
+            // A lower bound for the cost of all following line attempts.
+            let mut line_lower_bound = None;
 
-        for (pred_index, pred) in table.iter().enumerate().skip(active) {
-            let start = pred.end;
-            let unbreakable = prev_end == start;
+            for (pred_index, pred) in table.iter().enumerate().skip(active) {
+                let start = pred.end;
+                let unbreakable = prev_end == start;
 
-            // If the minimum cost we've established for the line is already
-            // too much, skip this attempt.
-            if line_lower_bound
-                .is_some_and(|lower| pred.total + lower > upper_bound + BOUND_EPS)
-            {
-                continue;
+                // If the minimum cost we've established for the line is already
+                // too much, skip this attempt.
+                if line_lower_bound
+                    .is_some_and(|lower| pred.total + lower > upper_bound + BOUND_EPS)
+                {
+                    continue;
+                }
+
+                // Build the line.
+                let attempt = line(engine, p, start..end, breakpoint, Some(&pred.line));
+
+                // Determine the cost of the line and its stretch ratio.
+                let (line_ratio, line_cost) = ratio_and_cost(
+                    p,
+                    metrics,
+                    width,
+                    &pred.line,
+                    &attempt,
+                    breakpoint,
+                    unbreakable,
+                );
+
+                // If the line is overfull, we adjust the set of active candidate
+                // line starts. This is the case if
+                // - justification is on, but we'd need to shrink too much
+                // - justification is off and the line just doesn't fit
+                //
+                // If this is the earliest breakpoint in the active set
+                // (active == i), remove it from the active set. If there is an
+                // earlier one (active < i), then the logically shorter line was
+                // in fact longer (can happen with negative spacing) and we
+                // can't trim the active set just yet.
+                if line_ratio < metrics.min_ratio && active == pred_index {
+                    active += 1;
+                }
+
+                // The total cost of this line and its chain of predecessors.
+                let total = pred.total + line_cost;
+
+                // If the line is already underfull (`line_ratio > 0`), any shorter
+                // slice of the line will be even more underfull. So it'll only get
+                // worse from here and further attempts would also have a cost
+                // exceeding `bound`. There is one exception: When the line has
+                // negative spacing, we can't know for sure, so we don't assign the
+                // lower bound in that case.
+                if line_ratio > 0.0
+                    && line_lower_bound.is_none()
+                    && !attempt.has_negative_width_items()
+                {
+                    line_lower_bound = Some(line_cost);
+                }
+
+                // If the cost already exceeds the upper bound, we don't need to
+                // integrate this result into the table.
+                if total > upper_bound + BOUND_EPS {
+                    continue;
+                }
+
+                // If this attempt is better than what we had before, take it!
+                if best.as_ref().is_none_or(|best| best.total >= total) {
+                    best = Some(Entry { pred: pred_index, total, line: attempt, end });
+                }
             }
 
-            // Build the line.
-            let attempt = line(engine, p, start..end, breakpoint, Some(&pred.line));
-
-            // Determine the cost of the line and its stretch ratio.
-            let (line_ratio, line_cost) = ratio_and_cost(
-                p,
-                metrics,
-                width,
-                &pred.line,
-                &attempt,
-                breakpoint,
-                unbreakable,
-            );
-
-            // If the line is overfull, we adjust the set of active candidate
-            // line starts. This is the case if
-            // - justification is on, but we'd need to shrink too much
-            // - justification is off and the line just doesn't fit
-            //
-            // If this is the earliest breakpoint in the active set
-            // (active == i), remove it from the active set. If there is an
-            // earlier one (active < i), then the logically shorter line was
-            // in fact longer (can happen with negative spacing) and we
-            // can't trim the active set just yet.
-            if line_ratio < metrics.min_ratio && active == pred_index {
-                active += 1;
+            // If this is a mandatory break, all breakpoints before this one become
+            // inactive since no line can span over the mandatory break.
+            if breakpoint == Breakpoint::Mandatory {
+                active = table.len();
             }
 
-            // The total cost of this line and its chain of predecessors.
-            let total = pred.total + line_cost;
-
-            // If the line is already underfull (`line_ratio > 0`), any shorter
-            // slice of the line will be even more underfull. So it'll only get
-            // worse from here and further attempts would also have a cost
-            // exceeding `bound`. There is one exception: When the line has
-            // negative spacing, we can't know for sure, so we don't assign the
-            // lower bound in that case.
-            if line_ratio > 0.0
-                && line_lower_bound.is_none()
-                && !attempt.has_negative_width_items()
-            {
-                line_lower_bound = Some(line_cost);
-            }
-
-            // If the cost already exceeds the upper bound, we don't need to
-            // integrate this result into the table.
-            if total > upper_bound + BOUND_EPS {
-                continue;
-            }
-
-            // If this attempt is better than what we had before, take it!
-            if best.as_ref().is_none_or(|best| best.total >= total) {
-                best = Some(Entry { pred: pred_index, total, line: attempt, end });
-            }
-        }
-
-        // If this is a mandatory break, all breakpoints before this one become
-        // inactive since no line can span over the mandatory break.
-        if breakpoint == Breakpoint::Mandatory {
-            active = table.len();
-        }
-
-        table.extend(best);
-        prev_end = end;
-    });
+            table.extend(best);
+            prev_end = end;
+        },
+        engine,
+    )?;
 
     // Retrace the best path.
     let mut lines = Vec::with_capacity(16);
@@ -370,7 +381,7 @@ fn linebreak_optimized_bounded<'a>(
     }
 
     lines.reverse();
-    lines
+    Ok(lines)
 }
 
 /// Runs the normal Knuth-Plass algorithm, but instead of building proper lines
@@ -382,11 +393,11 @@ fn linebreak_optimized_bounded<'a>(
 /// linebreaking. We can use it to heavily prune the search space.
 #[typst_macros::time]
 fn linebreak_optimized_approximate(
-    engine: &Engine,
+    engine: &mut Engine,
     p: &Preparation,
     width: Abs,
     metrics: &CostMetrics,
-) -> Cost {
+) -> SourceResult<Cost> {
     // Determine the cumulative estimation metrics.
     let estimates = Estimates::compute(p);
 
@@ -411,82 +422,87 @@ fn linebreak_optimized_approximate(
     let mut active = 0;
     let mut prev_end = 0;
 
-    breakpoints(p, |end, breakpoint| {
-        // Find the optimal predecessor.
-        let mut best: Option<Entry> = None;
-        for (pred_index, pred) in table.iter().enumerate().skip(active) {
-            let start = pred.end;
-            let unbreakable = prev_end == start;
+    breakpoints(
+        p,
+        |end, breakpoint, _| {
+            // Find the optimal predecessor.
+            let mut best: Option<Entry> = None;
+            for (pred_index, pred) in table.iter().enumerate().skip(active) {
+                let start = pred.end;
+                let unbreakable = prev_end == start;
 
-            // Whether the line is justified. This is not 100% accurate w.r.t
-            // to line()'s behaviour, but good enough.
-            let justify = p.config.justify && breakpoint != Breakpoint::Mandatory;
+                // Whether the line is justified. This is not 100% accurate w.r.t
+                // to line()'s behaviour, but good enough.
+                let justify = p.config.justify && breakpoint != Breakpoint::Mandatory;
 
-            // We don't really know whether the line naturally ends with a dash
-            // here, so we can miss that case, but it's ok, since all of this
-            // just an estimate.
-            let consecutive_dash = pred.breakpoint.is_hyphen() && breakpoint.is_hyphen();
+                // We don't really know whether the line naturally ends with a dash
+                // here, so we can miss that case, but it's ok, since all of this
+                // just an estimate.
+                let consecutive_dash =
+                    pred.breakpoint.is_hyphen() && breakpoint.is_hyphen();
 
-            // Estimate how much the line's spaces would need to be stretched to
-            // make it the desired width. We trim at the end to not take into
-            // account trailing spaces. This is, again, only an approximation of
-            // the real behaviour of `line`.
-            let trimmed_end = start + p.text[start..end].trim_end().len();
-            let line_ratio = raw_ratio(
-                p,
-                width,
-                estimates.widths.estimate(start..trimmed_end)
-                    + if breakpoint.is_hyphen() {
-                        metrics.approx_hyphen_width
-                    } else {
-                        Abs::zero()
-                    },
-                estimates.stretchability.estimate(start..trimmed_end),
-                estimates.shrinkability.estimate(start..trimmed_end),
-                estimates.justifiables.estimate(start..trimmed_end),
-            );
+                // Estimate how much the line's spaces would need to be stretched to
+                // make it the desired width. We trim at the end to not take into
+                // account trailing spaces. This is, again, only an approximation of
+                // the real behaviour of `line`.
+                let trimmed_end = start + p.text[start..end].trim_end().len();
+                let line_ratio = raw_ratio(
+                    p,
+                    width,
+                    estimates.widths.estimate(start..trimmed_end)
+                        + if breakpoint.is_hyphen() {
+                            metrics.approx_hyphen_width
+                        } else {
+                            Abs::zero()
+                        },
+                    estimates.stretchability.estimate(start..trimmed_end),
+                    estimates.shrinkability.estimate(start..trimmed_end),
+                    estimates.justifiables.estimate(start..trimmed_end),
+                );
 
-            // Determine the line's cost.
-            let line_cost = raw_cost(
-                metrics,
-                breakpoint,
-                line_ratio,
-                justify,
-                unbreakable,
-                consecutive_dash,
-                true,
-            );
-
-            // Adjust the set of active breakpoints.
-            // See `linebreak_optimized` for details.
-            if line_ratio < metrics.min_ratio && active == pred_index {
-                active += 1;
-            }
-
-            // The total cost of this line and its chain of predecessors.
-            let total = pred.total + line_cost;
-
-            // If this attempt is better than what we had before, take it!
-            if best.as_ref().is_none_or(|best| best.total >= total) {
-                best = Some(Entry {
-                    pred: pred_index,
-                    total,
-                    end,
-                    unbreakable,
+                // Determine the line's cost.
+                let line_cost = raw_cost(
+                    metrics,
                     breakpoint,
-                });
+                    line_ratio,
+                    justify,
+                    unbreakable,
+                    consecutive_dash,
+                    true,
+                );
+
+                // Adjust the set of active breakpoints.
+                // See `linebreak_optimized` for details.
+                if line_ratio < metrics.min_ratio && active == pred_index {
+                    active += 1;
+                }
+
+                // The total cost of this line and its chain of predecessors.
+                let total = pred.total + line_cost;
+
+                // If this attempt is better than what we had before, take it!
+                if best.as_ref().is_none_or(|best| best.total >= total) {
+                    best = Some(Entry {
+                        pred: pred_index,
+                        total,
+                        end,
+                        unbreakable,
+                        breakpoint,
+                    });
+                }
             }
-        }
 
-        // If this is a mandatory break, all breakpoints before this one become
-        // inactive.
-        if breakpoint == Breakpoint::Mandatory {
-            active = table.len();
-        }
+            // If this is a mandatory break, all breakpoints before this one become
+            // inactive.
+            if breakpoint == Breakpoint::Mandatory {
+                active = table.len();
+            }
 
-        table.extend(best);
-        prev_end = end;
-    });
+            table.extend(best);
+            prev_end = end;
+        },
+        engine,
+    )?;
 
     // Retrace the best path.
     let mut indices = Vec::with_capacity(16);
@@ -518,7 +534,7 @@ fn linebreak_optimized_approximate(
         // optimal layout produces). Thus, we immediately bail with an infinite
         // bound in this case.
         if ratio < metrics.min_ratio {
-            return Cost::INFINITY;
+            return Ok(Cost::INFINITY);
         }
 
         pred = attempt;
@@ -526,7 +542,7 @@ fn linebreak_optimized_approximate(
         exact += line_cost;
     }
 
-    exact
+    Ok(exact)
 }
 
 /// Compute the stretch ratio and cost of a line.
@@ -689,13 +705,17 @@ fn raw_cost(
 /// This is an internal instead of an external iterator because it makes the
 /// code much simpler and the consumers of this function don't need the
 /// composability and flexibility of external iteration anyway.
-fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
+fn breakpoints(
+    p: &Preparation,
+    mut f: impl FnMut(usize, Breakpoint, &Engine),
+    engine: &mut Engine,
+) -> SourceResult<()> {
     let text = p.text;
 
     // Single breakpoint at the end for empty text.
     if text.is_empty() {
-        f(0, Breakpoint::Mandatory);
-        return;
+        f(0, Breakpoint::Mandatory, engine);
+        return Ok(());
     }
 
     let hyphenate = p.config.hyphenate != Some(false);
@@ -724,7 +744,7 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             || next_url_scheme.as_ref().is_some_and(|it| it.contains(&last))
         {
             let (link, _) = link_prefix(tail);
-            linebreak_link(link, |i| f(last + i, Breakpoint::Normal));
+            linebreak_link(link, |i| f(last + i, Breakpoint::Normal, engine));
             last += link.len();
             while iter.peek().is_some_and(|&p| p < last) {
                 iter.next();
@@ -780,16 +800,17 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
         if hyphenate && last < point {
             for segment in text[last..point].split_word_bounds() {
                 if !segment.is_empty() && segment.chars().all(char::is_alphabetic) {
-                    hyphenations(p, last, segment, &mut f);
+                    hyphenations(p, last, segment, &mut f, engine)?;
                 }
                 last += segment.len();
             }
         }
 
         // Call `f` for the UAX #14 break opportunity.
-        f(point, breakpoint);
+        f(point, breakpoint, engine);
         last = point;
     }
+    Ok(())
 }
 
 /// Heuristically attempts to find the next URL scheme in the given text.
@@ -817,14 +838,68 @@ fn hyphenations(
     p: &Preparation,
     mut offset: usize,
     word: &str,
-    mut f: impl FnMut(usize, Breakpoint),
-) {
-    let Some(lang) = lang_at(p, offset) else { return };
+    mut f: impl FnMut(usize, Breakpoint, &Engine),
+    engine: &mut Engine,
+) -> SourceResult<()> {
+    let Some(lang) = lang_at(p, offset) else { return Ok(()) };
     let count = word.chars().count();
     let end = offset + word.len();
 
     let mut chars = 0;
-    for syllable in hypher::hyphenate(word, lang) {
+    // We wish to generate this regardless of whether we are overriden, as it is a parameter to the override
+    // The override is probably slow and this is cheap, relatively speaking
+    let hyp_result = hypher::hyphenate(word, lang)
+        .map(|x| x.to_string())
+        .collect::<Vec<_>>();
+    let hyp_iter = if let Some(hyp_override) = hyphenation_override_at(p, offset) {
+        let args = Args::new(
+            Span::detached(),
+            [
+                Value::Str(word.into()),
+                Value::Array(typst_library::foundations::Array::from_iter(
+                    hyp_result.iter().map(|x| Value::Str(x.as_str().into())),
+                )),
+            ],
+        );
+        let result = hyp_override.call(
+            engine,
+            Context::none().track(),
+            args,
+            p.spans.span_at(offset).0,
+        )?;
+        let mut result_vec = vec![];
+        match result {
+            typst_library::foundations::Value::Array(array) => {
+                for item in array {
+                    match item {
+                        typst_library::foundations::Value::Str(s) => {
+                            result_vec.push(s.to_string());
+                        }
+                        _ => SourceResult::Err(EcoVec::from_iter([
+                            SourceDiagnostic::error(
+                                hyp_override.span(),
+                                format!(
+                                    "Expected custom hyphenator function to return an array of strings for word '{word}'; returned an array that contains the value {item:#?}"
+                                ),
+                            ),
+                        ]))?,
+                    }
+                }
+            }
+            return_value => {
+                SourceResult::Err(EcoVec::from_iter([SourceDiagnostic::error(
+                    hyp_override.span(),
+                    format!(
+                        "Expected custom hyphenator function to return an array of strings for word '{word}'; returned {return_value:#?}"
+                    ),
+                )]))?;
+            }
+        }
+        result_vec
+    } else {
+        hyp_result
+    };
+    for syllable in hyp_iter {
         offset += syllable.len();
         chars += syllable.chars().count();
 
@@ -852,8 +927,9 @@ fn hyphenations(
         let r = (count - chars).saturating_as::<u8>();
 
         // Call `f` for the word-internal hyphenation opportunity.
-        f(offset, Breakpoint::Hyphen(l, r));
+        f(offset, Breakpoint::Hyphen(l, r), engine);
     }
+    Ok(())
 }
 
 /// Produce linebreak opportunities for a link.
@@ -937,6 +1013,15 @@ fn lang_at(p: &Preparation, offset: usize) -> Option<hypher::Lang> {
 
     let bytes = lang.as_str().as_bytes().try_into().ok()?;
     hypher::Lang::from_iso(bytes)
+}
+
+/// Which hyphenator should be used at the given offset.
+fn hyphenation_override_at(p: &Preparation, offset: usize) -> Option<Func> {
+    let (_, item) = p.get(offset);
+    match item.text() {
+        Some(text) => text.styles.get_cloned(TextElem::hypoverride),
+        None => None,
+    }
 }
 
 /// Resolved metrics relevant for cost computation.
