@@ -19,7 +19,7 @@ Before we start, let's create a team, invite your supervisor and add them to the
   shadow: false,
 )
 
-Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the owners dropdown. Don't forget to save your changes!
+Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the Location dropdown. Don't forget to save your changes!
 
 Now, your supervisor can also edit the project and you can both see the changes in real time. You can join our #link("https://discord.gg/2uDybryKPe")[Discord server] to find other users and try teams with them!
 
