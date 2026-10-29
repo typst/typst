@@ -590,12 +590,14 @@ pub fn commit<'l>(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
+    let mut frame_index = 0;
     for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, Some(frame), idx, frames.len(), item));
+            frames.push((*offset, Some(frame), idx, Some(frame_index), item));
+            frame_index += 1;
             *offset += width;
         };
 
@@ -631,12 +633,14 @@ pub fn commit<'l>(
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, Some(frame), idx, frames.len(), item));
+                frames.push((offset, Some(frame), idx, Some(frame_index), item));
+                frame_index += 1;
             }
             Item::Skip(_) => {}
             Item::Event(_) => {
                 // Process events later, in logical rather than visual order.
-                frames.push((offset, None, idx, frames.len(), item));
+                // In addition, events don't affect visual frame indices.
+                frames.push((offset, None, idx, None, item));
             }
         }
     }
@@ -666,12 +670,13 @@ pub fn commit<'l>(
 
 /// Assembles the collected frames into an output frame and applies links
 /// spanning multiple items.
+#[allow(clippy::type_complexity)]
 fn build_output<'a>(
     p: &Preparation<'_>,
     active_links: &mut Vec<&'a Linkage>,
     remaining: Abs,
     top: Abs,
-    frames: Vec<(Abs, Option<Frame>, LogicalIndex, usize, &'a ItemEntry<'_>)>,
+    frames: Vec<(Abs, Option<Frame>, LogicalIndex, Option<usize>, &'a ItemEntry<'_>)>,
     output: &mut Frame,
 ) {
     // Keep track of items spanned by each link, including the destination,
@@ -697,32 +702,36 @@ fn build_output<'a>(
             output.push_frame(Point::new(x, y), frame);
         }
 
-        for (link, info) in &mut link_stack {
-            let info =
-                info.get_or_insert_with(|| LinkRenderInfo::new(offset, frame_index));
+        // Only process links if this frame has a visual index (in particular,
+        // it's not an event).
+        if let Some(frame_index) = frame_index {
+            for (link, info) in &mut link_stack {
+                let info =
+                    info.get_or_insert_with(|| LinkRenderInfo::new(offset, frame_index));
 
-            // Check if link items are discontinuous, i.e. if despite the two
-            // being adjacent in the source code (consecutive logical indices),
-            // they are not adjacent in the resulting line (non-consecutive
-            // frame indices) due to RTL reordering.
-            if frame_index != info.latest_index + 1
-                // Above, LTR discontinuous; and below, RTL discontinuous.
-                && frame_index + 1 != info.latest_index
-            {
-                push_link_frame(output, link, info, p.config, remaining, top);
-                *info = LinkRenderInfo::new(offset, frame_index);
-            }
+                // Check if link items are discontinuous, i.e. if despite the
+                // two being adjacent in the source code (consecutive logical
+                // indices), they are not adjacent in the resulting line
+                // (non-consecutive frame indices) due to RTL reordering.
+                if frame_index != info.latest_index + 1
+                    // Above, LTR discontinuous; and below, RTL discontinuous.
+                    && frame_index + 1 != info.latest_index
+                {
+                    push_link_frame(output, link, info, p.config, remaining, top);
+                    *info = LinkRenderInfo::new(offset, frame_index);
+                }
 
-            // Ensure link spans at least this frame as well.
-            info.left.set_min(offset);
-            info.right.set_max(offset + frame_width);
-            info.top.set_max(frame_top);
-            info.bottom.set_max(frame_bottom);
-            info.latest_index = frame_index;
+                // Ensure link spans at least this frame as well.
+                info.left.set_min(offset);
+                info.right.set_max(offset + frame_width);
+                info.top.set_max(frame_top);
+                info.bottom.set_max(frame_bottom);
+                info.latest_index = frame_index;
 
-            if let Item::Text(text) = &**item {
-                let leading = info.text_leading.get_or_insert_default();
-                leading.set_max(text.styles.resolve(ParElem::leading));
+                if let Item::Text(text) = &**item {
+                    let leading = info.text_leading.get_or_insert_default();
+                    leading.set_max(text.styles.resolve(ParElem::leading));
+                }
             }
         }
 
