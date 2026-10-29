@@ -140,6 +140,21 @@ impl FileId {
     /// path still matter as they define how paths within the identified file
     /// will resolve. For the example of content read from stdin, it will define
     /// how a relative path in the stdin content is resolved.
+    ///
+    /// ## Example
+    /// To create a globally available [`FileId`], use [`std::sync::LazyLock`]
+    /// and build a [`RootedPath`] using [`VirtualRoot::Project`] and a custom
+    /// [`VirtualPath`].
+    /// ```
+    /// use std::sync::LazyLock;
+    /// use typst_syntax::*;
+    /// static STDIN_ID: LazyLock<FileId> = LazyLock::new(|| {
+    ///     FileId::unique(RootedPath::new(
+    ///         VirtualRoot::Project,
+    ///         VirtualPath::new("<stdin>").unwrap(),
+    ///     ))
+    /// });
+    /// ```
     #[track_caller]
     pub fn unique(path: RootedPath) -> Self {
         let mut interner = INTERNER.write().unwrap();
@@ -151,6 +166,14 @@ impl FileId {
         let leaked = Box::leak(Box::new(path));
         interner.from_id.push(leaked);
         id
+    }
+
+    /// Create a new interned file id for use in tests. This should not be used
+    /// for normal code, instead consider [`Self::unique`].
+    #[track_caller]
+    pub fn new_for_test(test_name: &'static str) -> Self {
+        let vpath = VirtualPath::new(test_name).unwrap();
+        RootedPath::new(VirtualRoot::Project, vpath).intern()
     }
 
     /// Construct from a raw number.
