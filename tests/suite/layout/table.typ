@@ -343,3 +343,14 @@ Hello
   rows: 16pt,
   ..range(6).map(str).flatten(),
 )
+
+--- issue-8954-short-lived-subheader-panic paged ---
+#set page(height: 16em) // requires non-auto page height
+
+#table(
+  [0],
+  table.header(level: 1, [A]),
+  table.header(level: 2, [B]),
+  table.header(level: 2, [C]),
+  [1],
+)
