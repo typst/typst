@@ -80,6 +80,7 @@ An "A" #footnote[A "B"]
 
 --- footnote-break-across-pages-block paged ---
 #set page(height: 100pt)
+#set footnote(separator: none)
 #block[
   #lines(3) #footnote(lines(6, "1"))
   #footnote[Y]
@@ -88,6 +89,7 @@ An "A" #footnote[A "B"]
 
 --- footnote-break-across-pages-float paged ---
 #set page(height: 180pt)
+#set footnote(separator: none)
 
 #lines(5)
 
@@ -155,6 +157,7 @@ C
 
 --- footnote-float-priority paged ---
 #set page(height: 100pt)
+#set footnote(separator: none)
 
 #lines(3)
 
@@ -250,6 +253,7 @@ Definition #footnote[Hi]<fn>
 
 --- footnote-ref-in-footnote paged ---
 // Footnote ref in footnote
+#set footnote(separator: none)
 #footnote[Reference to next @fn]
 #footnote[Reference to myself @fn]<fn>
 #footnote[Reference to previous @fn]
@@ -262,6 +266,7 @@ Ref @fn
 
 --- footnote-ref-call paged ---
 // Footnote call with label
+#set footnote(separator: none)
 #footnote(<fn>)
 #footnote[Hi]<fn>
 #ref(<fn>)
@@ -290,6 +295,38 @@ Ref @fn
     .map(v => upper(v) + footnote(v))
 )
 
+--- footnote-group paged html ---
+// Test that footnotes are organized in a footnote group.
+Hi#footnote[1]#footnote[2]#footnote[3], footnotes#footnote[4]
+
+#set footnote(separator: "&")
+Hi#footnote[5]#footnote[6]
+
+#set footnote(separator: none)
+Hi#footnote[7]#footnote[8]
+
+--- footnote-group-numbering-dependent paged ---
+// Test that the default separator between footnotes are chosen appropriately.
+#set page(width: 2cm)
+
+#set footnote(numbering: "*")
+A#footnote[1]#footnote[2] // No separator
+
+#set footnote(numbering: "①")
+A#footnote[3]#footnote[4] // No separator
+
+#set footnote(numbering: "一")
+文#footnote[5]#footnote[6] // Separator is ","
+
+#set footnote(numbering: "一", separator: "、")
+文#footnote[7]#footnote[8] // Separator is "、"
+
+#set footnote(numbering: "#1")
+A#footnote[9]#footnote[10] // No separator
+
+#set footnote(numbering: "1)")
+A#footnote[11]#footnote[12] // No separator
+
 --- footnote-multiple-in-one-line paged ---
 #set page(height: 100pt)
 #v(50pt)
@@ -311,6 +348,7 @@ B #footnote[b]
 // In this issue, we would get an empty page at the beginning because footnote
 // layout didn't properly check for in_last.
 #set page(height: 50pt)
+#set footnote(separator: none)
 #footnote[A]
 #footnote[B]
 
@@ -325,6 +363,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 
 --- issue-5256-multiple-footnotes-in-footnote paged ---
 // Test whether all footnotes inside another footnote are listed.
+#set footnote(separator: none)
 #footnote[#footnote[A]#footnote[B]#footnote[C]]
 
 --- issue-5435-footnote-migration-in-floats paged ---
@@ -370,6 +409,7 @@ A #footnote(numbering: "*")[B]<fn>, C @fn, D @fn, E @fn.
 // Test whether multiple overlarge footnotes are properly split up across
 // pages.
 #set page(width: 20pt, height: 20pt)
+#set footnote(separator: none)
 #set footnote.entry(indent: 0pt)
 
 A
