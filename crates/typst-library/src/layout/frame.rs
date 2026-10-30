@@ -9,12 +9,12 @@ use typst_utils::{LazyHash, Numeric};
 use crate::foundations::Label;
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
-use crate::model::Destination;
+use crate::model::{Destination, FieldWidget};
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
 /// A finished layout with items at fixed positions.
-#[derive(Default, Clone, Hash)]
+#[derive(Default, Clone, Hash, PartialEq)]
 pub struct Frame {
     /// The size of the frame.
     size: Size,
@@ -494,6 +494,8 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
     Link(Destination, Size),
+    /// A representation of an interactive form field.
+    FormField(FieldWidget),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
 }
@@ -506,6 +508,7 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::FormField(widget) => widget.fmt(f),
             Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }

@@ -13,8 +13,8 @@ use typst::foundations::{
     cast, elem, func,
 };
 use typst::layout::{
-    Abs, BlockElem, Frame, FrameItem, Margin, PageElem, Point, Ratio, Rel, Size,
-    Transform,
+    Abs, BlockElem, Frame, FrameItem, GroupItem, Margin, PageElem, Point, Ratio, Rel,
+    Size, Transform,
 };
 use typst::loading::{DataSource, LoadSource, Loaded};
 use typst::syntax::{FileId, RangeMapper, Source, Span, Spanned};
@@ -195,6 +195,12 @@ fn drop_tags(frame: &mut Frame) {
         }
         FrameItem::Tag(_) => false,
         FrameItem::Link(..) => false,
+        FrameItem::FormField(widget) => {
+            let mut frame = widget.appearance.active_body().normal.clone();
+            drop_tags(&mut frame);
+            *item = FrameItem::Group(GroupItem::new(frame));
+            true
+        }
         _ => true,
     });
 }

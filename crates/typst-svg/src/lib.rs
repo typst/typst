@@ -22,7 +22,7 @@ use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
-use typst_library::model::{Destination, Document, LateLinkResolver};
+use typst_library::model::{Destination, Document, FieldWidget, LateLinkResolver};
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
 
@@ -333,6 +333,9 @@ impl<'a> SVGRenderer<'a> {
                 }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
+                FrameItem::FormField(widget) => {
+                    self.render_field(svg, &state, widget);
+                }
             }
         }
     }
@@ -419,6 +422,11 @@ impl<'a> SVGRenderer<'a> {
         svg.elem("g")
             .attr("id", id)
             .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));
+    }
+
+    /// Renders a (non-interactive) form field appearance.
+    fn render_field(&mut self, svg: &mut SvgElem, state: &State, widget: &FieldWidget) {
+        self.render_frame(svg, state, &widget.appearance.active_body().normal);
     }
 
     /// Finalize the SVG file. This must be called after all rendering is done.
