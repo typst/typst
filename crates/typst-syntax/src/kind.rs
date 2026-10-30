@@ -775,7 +775,7 @@ impl SyntaxKind {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{LinkedNode, Side, Source};
+    use crate::{FileId, LinkedNode, Side, Source};
 
     #[track_caller]
     fn test_mode(
@@ -783,7 +783,7 @@ mod test {
         cursors: impl IntoIterator<Item = usize>,
         expected: Option<SyntaxMode>,
     ) {
-        let source = Source::detached(text);
+        let source = Source::new(FileId::new_for_test("test_mode"), text);
         let root = LinkedNode::new(source.root());
         for cursor in cursors {
             let leaf = root.leaf_at(cursor, Side::After).unwrap();

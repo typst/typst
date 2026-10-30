@@ -724,6 +724,13 @@ fn convert_validation_error(
                 hint: "make sure your images and equations have alt text";
             )
         }
+        ValidationError::MissingFieldAltName(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} missing alt name";
+                hint: "make sure your form fields have an alt name";
+            )
+        }
         ValidationError::NoDocumentLanguage => error!(
             Span::detached(),
             "{prefix} missing document language";
@@ -755,6 +762,29 @@ fn convert_validation_error(
             "{prefix} missing document date";
             hint: "set the date of the document";
         ),
+        // This should never happen as Typst does not support setting rollover or down appearance
+        ValidationError::AnnotationHasConditionalAppearance(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} annotation has rollover or down appearance";
+                hint: "please report this as a bug";
+            )
+        }
+        ValidationError::ContainsMutatingAction(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} document contains an action that may change its visual appearance";
+                hint: "remove the action from the element";
+            )
+        }
+        ValidationError::ContainsAdditionalActions(loc) => {
+            let span = to_span(*loc);
+            error!(
+                span, "{prefix} annotation performs an action when clicked";
+                hint: "actions are not supported in this PDF standard";
+                hint: "remove the action from the element";
+            )
+        }
         ValidationError::EmbeddedPDF(loc) => {
             error!(
                 to_span(*loc),
