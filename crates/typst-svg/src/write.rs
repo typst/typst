@@ -45,6 +45,22 @@ impl<'a> SvgElem<'a> {
         f(self);
         self
     }
+
+    /// Write text. `<` will be escaped.
+    pub fn text(&mut self, text: &str) -> &mut Self {
+        self.xml.write_text(text);
+        self
+    }
+
+    /// Removes indent/newlines between nodes in output. Useful for e.g. `<text>`.
+    ///
+    /// **Warning:** always resets the whitespace handling back to `false` after, so make sure you're not invoking [`XmlWriter::set_preserve_whitespaces`] manually.
+    pub fn with_preserving_whitespace(&mut self, f: impl FnOnce(&mut Self)) -> &mut Self {
+        self.xml.set_preserve_whitespaces(true);
+        f(self);
+        self.xml.set_preserve_whitespaces(false);
+        self
+    }
 }
 
 impl Drop for SvgElem<'_> {
