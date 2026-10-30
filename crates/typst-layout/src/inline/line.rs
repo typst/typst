@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use ecow::EcoVec;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
-use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
+use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, FrameKind, Point};
 use typst_library::model::ParLineMarker;
 use typst_library::text::{FontInstance, Lang, TextElem, families, variant};
 use typst_utils::Numeric;
@@ -12,7 +12,9 @@ use typst_utils::Numeric;
 use super::*;
 use crate::inline::linebreak::Trim;
 use crate::inline::shaping::{Adjustability, ShapedGlyph};
-use crate::modifiers::layout_and_modify;
+use crate::modifiers::{
+    FrameModifiers, FrameModify, FrameModifyText, layout_and_modify_without_links,
+};
 
 const SHY: char = '\u{ad}';
 const HYPHEN: char = '-';
@@ -483,14 +485,42 @@ pub fn apply_shift<'a>(
     frame.translate(Point::new(compensation, baseline));
 }
 
+/// Accumulates metrics of a link that may span multiple items.
+#[derive(Debug, Default)]
+struct LinkRenderInfo {
+    /// The index of the latest frame spanned by the link among all frames.
+    /// Used to check whether multiple spanned items are continuous.
+    latest_index: usize,
+    left: Abs,
+    right: Abs,
+    top: Abs,
+    bottom: Abs,
+    text_leading: Option<Abs>,
+}
+
+impl LinkRenderInfo {
+    fn new(left: Abs, latest_index: usize) -> Self {
+        Self {
+            left,
+            right: left,
+            latest_index,
+            ..Default::default()
+        }
+    }
+}
+
 /// Commit to a line and build its frame.
-pub fn commit(
+///
+/// This will also collect start events, which are shared across lines in case
+/// the event starts in a line and ends in a later one.
+pub fn commit<'l>(
     engine: &mut Engine,
     p: &Preparation,
-    line: &Line,
+    line: &'l Line,
     width: Abs,
     full: Abs,
     locator: &mut SplitLocator<'_>,
+    active_links: &mut Vec<&'l Linkage>,
 ) -> SourceResult<Frame> {
     let mut remaining = width - line.width - p.config.hanging_indent;
     let mut offset = Abs::zero();
@@ -560,12 +590,14 @@ pub fn commit(
 
     // Build the frames and determine the height and baseline.
     let mut frames = vec![];
+    let mut frame_index = 0;
     for &(idx, ref item) in line.items.iter_indexed() {
         let mut push = |offset: &mut Abs, frame: Frame, idx: LogicalIndex| {
             let width = frame.width();
             top.set_max(frame.baseline());
             bottom.set_max(frame.size().y - frame.baseline());
-            frames.push((*offset, frame, idx));
+            frames.push((*offset, Some(frame), idx, Some(frame_index), item));
+            frame_index += 1;
             *offset += width;
         };
 
@@ -577,7 +609,7 @@ pub fn commit(
                 let amount = v.share(fr, remaining);
                 if let Some((elem, loc, styles)) = elem {
                     let region = Size::new(amount, full);
-                    let mut frame = layout_and_modify(*styles, |styles| {
+                    let mut frame = layout_and_modify_without_links(*styles, |styles| {
                         layout_box(elem, engine, loc.relayout(), styles, region)
                     })?;
                     apply_shift(&engine.world, &mut frame, *styles);
@@ -601,9 +633,15 @@ pub fn commit(
             Item::Tag(tag) => {
                 let mut frame = Frame::soft(Size::zero());
                 frame.push(Point::zero(), FrameItem::Tag((*tag).clone()));
-                frames.push((offset, frame, idx));
+                frames.push((offset, Some(frame), idx, Some(frame_index), item));
+                frame_index += 1;
             }
             Item::Skip(_) => {}
+            Item::Event(_) => {
+                // Process events later, in logical rather than visual order.
+                // In addition, events don't affect visual frame indices.
+                frames.push((offset, None, idx, None, item));
+            }
         }
     }
 
@@ -623,16 +661,115 @@ pub fn commit(
     // Ensure that the final frame's items are in logical order rather than in
     // visual order. This is important because it affects the order of elements
     // during introspection and thus things like counters.
-    frames.sort_unstable_by_key(|(_, _, idx)| *idx);
+    frames.sort_unstable_by_key(|(_, _, idx, _, _)| *idx);
 
-    // Construct the line's frame.
-    for (offset, frame, _) in frames {
-        let x = offset + p.config.align.position(remaining);
-        let y = top - frame.baseline();
-        output.push_frame(Point::new(x, y), frame);
-    }
+    build_output(p, active_links, remaining, top, frames, &mut output);
 
     Ok(output)
+}
+
+/// Assembles the collected frames into an output frame and applies links
+/// spanning multiple items.
+#[allow(clippy::type_complexity)]
+fn build_output<'a>(
+    p: &Preparation<'_>,
+    active_links: &mut Vec<&'a Linkage>,
+    remaining: Abs,
+    top: Abs,
+    frames: Vec<(Abs, Option<Frame>, LogicalIndex, Option<usize>, &'a ItemEntry<'_>)>,
+    output: &mut Frame,
+) {
+    // Keep track of items spanned by each link, including the destination,
+    // whether a text was spanned, the height, the horizontal offset where it
+    // starts, and the offset where it would end (after its last spanned item).
+    let mut link_stack: Vec<(&Linkage, Option<LinkRenderInfo>)> =
+        active_links.iter().map(|&l| (l, None)).collect();
+
+    // Construct the line's frame.
+    for (offset, frame, _, frame_index, item) in frames {
+        let mut frame_width = Abs::zero();
+        let mut frame_top = Abs::zero();
+        let mut frame_bottom = Abs::zero();
+
+        if let Some(frame) = frame {
+            let x = offset + p.config.align.position(remaining);
+            let y = top - frame.baseline();
+
+            frame_width = frame.width();
+            frame_top = frame.baseline();
+            frame_bottom = frame.height() - frame.baseline();
+
+            output.push_frame(Point::new(x, y), frame);
+        }
+
+        // Only process links if this frame has a visual index (in particular,
+        // it's not an event).
+        if let Some(frame_index) = frame_index {
+            for (link, info) in &mut link_stack {
+                let info =
+                    info.get_or_insert_with(|| LinkRenderInfo::new(offset, frame_index));
+
+                // Check if link items are discontinuous, i.e. if despite the
+                // two being adjacent in the source code (consecutive logical
+                // indices), they are not adjacent in the resulting line
+                // (non-consecutive frame indices) due to RTL reordering.
+                if frame_index != info.latest_index + 1
+                    // Above, LTR discontinuous; and below, RTL discontinuous.
+                    && frame_index + 1 != info.latest_index
+                {
+                    push_link_frame(output, link, info, p.config, remaining, top);
+                    *info = LinkRenderInfo::new(offset, frame_index);
+                }
+
+                // Ensure link spans at least this frame as well.
+                info.left.set_min(offset);
+                info.right.set_max(offset + frame_width);
+                info.top.set_max(frame_top);
+                info.bottom.set_max(frame_bottom);
+                info.latest_index = frame_index;
+
+                if let Item::Text(text) = &**item {
+                    let leading = info.text_leading.get_or_insert_default();
+                    leading.set_max(text.styles.resolve(ParElem::leading));
+                }
+            }
+        }
+
+        match &**item {
+            Item::Event(Event::StartLink(dest)) => {
+                active_links.push(dest);
+                link_stack.push((dest, None));
+            }
+            Item::Event(Event::EndLink(dest)) => {
+                debug_assert_eq!(active_links.last(), Some(&&**dest));
+                debug_assert_eq!(link_stack.last().map(|(l, _)| l), Some(&&**dest));
+
+                let (dest, link_info) = link_stack.pop().unwrap();
+                // Any external links should have been handled before.
+                active_links.pop().unwrap();
+
+                // Only render a link if there was at least one item within it.
+                if let Some(link_info) = link_info {
+                    // Place a link all the way to the end of the rightmost one.
+                    // Ignore the offset of the end event itself as it might
+                    // (visually) be at the start rather than the end of the
+                    // link due to RTL reversal.
+                    push_link_frame(output, dest, &link_info, p.config, remaining, top);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Construct unfinished link frames (up to the latest spanned item).
+    for (dest, mut link_info) in link_stack {
+        // Only render a link if there was at least one item within it.
+        let Some(link_info) = link_info.as_mut() else {
+            continue;
+        };
+
+        push_link_frame(output, dest, link_info, p.config, remaining, top);
+    }
 }
 
 /// Adds a paragraph line marker to a paragraph line's output frame if
@@ -670,6 +807,41 @@ fn add_par_line_marker(
     let flags = TagFlags { introspectable: false, tagged: false };
     output.push(pos, FrameItem::Tag(Tag::Start(marker.pack(), flags)));
     output.push(pos, FrameItem::Tag(Tag::End(loc, key, flags)));
+}
+
+/// Prepare and push a link's frame, calculating its optimal position as well as
+/// padding.
+fn push_link_frame(
+    output: &mut Frame,
+    link: &Linkage,
+    info: &LinkRenderInfo,
+    config: &Config,
+    remaining: Abs,
+    top: Abs,
+) {
+    let x = info.left + config.align.position(remaining);
+    let y = top - info.top;
+    let width = info.right - info.left;
+    let height = info.top + info.bottom;
+
+    if width.is_zero() || height.is_zero() {
+        // Only skippable items were spanned.
+        return;
+    }
+
+    // Start/end grow as bounds, so this must not fail in any case.
+    debug_assert!(width >= Abs::zero());
+
+    let mut frame = Frame::new(Size::new(width, height), FrameKind::Soft);
+    let modifiers = FrameModifiers::with_link(link.clone());
+    if let Some(max_leading) = info.text_leading {
+        frame.modify_text(&modifiers, max_leading);
+    } else {
+        // Don't add padding; restrict the link to the box.
+        frame.modify(&modifiers);
+    }
+
+    output.push_frame(Point::new(x, y), frame);
 }
 
 /// How much a glyph should hang into the end margin.

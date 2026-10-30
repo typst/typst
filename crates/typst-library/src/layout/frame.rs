@@ -9,7 +9,7 @@ use typst_utils::{LazyHash, Numeric};
 use crate::foundations::Label;
 use crate::introspection::{Location, Tag};
 use crate::layout::{Abs, Axes, FixedAlignment, Point, Size, Transform};
-use crate::model::Destination;
+use crate::model::Linkage;
 use crate::text::TextItem;
 use crate::visualize::{Color, Curve, FixedStroke, Geometry, Image, Paint, Shape};
 
@@ -493,7 +493,7 @@ pub enum FrameItem {
     /// An image and its size.
     Image(Image, Size, Span),
     /// An internal or external link to a destination.
-    Link(Destination, Size),
+    Link(Arc<Linkage>, Size),
     /// An introspectable element that produced something within this frame.
     Tag(Tag),
 }
@@ -505,7 +505,7 @@ impl Debug for FrameItem {
             Self::Text(text) => write!(f, "{text:?}"),
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
-            Self::Link(dest, _) => write!(f, "Link({dest:?})"),
+            Self::Link(link, _) => write!(f, "Link({:?})", link.dest),
             Self::Tag(tag) => write!(f, "{tag:?}"),
         }
     }

@@ -8,6 +8,10 @@ mod linebreak;
 mod prepare;
 mod shaping;
 
+use std::sync::Arc;
+
+use crate::inline::collect::CollectedData;
+
 pub use self::box_::layout_box;
 pub use self::shaping::{SharedShapingContext, create_shape_plan, get_font_and_covers};
 
@@ -16,17 +20,19 @@ use typst_library::diag::SourceResult;
 use typst_library::engine::{Engine, Route, Sink, Traced};
 use typst_library::foundations::{Packed, Smart, StyleChain};
 use typst_library::introspection::{Introspector, Locator, LocatorLink, SplitLocator};
-use typst_library::layout::{Abs, AlignElem, Dir, FixedAlignment, Fragment, Size};
+use typst_library::layout::{
+    Abs, AlignElem, Dir, FixedAlignment, Fragment, HideElem, Size,
+};
 use typst_library::model::{
-    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, ListElem, ParElem,
-    ParLine, ParLineMarker, TermsElem,
+    EnumElem, FirstLineIndent, JustificationLimits, Linebreaks, LinkElem, Linkage,
+    ListElem, ParElem, ParLine, ParLineMarker, TermsElem,
 };
 use typst_library::routines::{Arenas, Pair, RealizationKind};
 use typst_library::text::{Costs, Lang, TextElem};
 use typst_library::{Library, World};
 use typst_utils::{LazyHash, Numeric, Protected, SliceExt};
 
-use self::collect::{Item, Segment, SpanMapper, collect};
+use self::collect::{Event, Item, Segment, SpanMapper, collect};
 use self::deco::decorate;
 use self::finalize::finalize;
 use self::line::{Line, apply_shift, commit, line};
@@ -161,11 +167,12 @@ fn layout_inline_impl<'a>(
     let config = configuration(base, children, shared, par);
 
     // Collect all text into one string for BiDi analysis.
-    let (text, segments, spans) = collect(children, engine, locator, &config, region)?;
+    let CollectedData { text, initial_events, segments, spans } =
+        collect(children, engine, locator, &config, region)?;
 
     // Perform BiDi analysis and performs some preparation steps before we
     // proceed to line breaking.
-    let p = prepare(engine, &config, &text, segments, spans)?;
+    let p = prepare(engine, &config, &text, initial_events, segments, spans)?;
 
     // Break the text into lines.
     let lines = linebreak(engine, &p, region.x - config.hanging_indent);
@@ -184,6 +191,8 @@ fn configuration(
     let justify = base.justify;
     let font_size = shared.resolve(TextElem::size);
     let dir = shared.resolve(TextElem::dir);
+    let link = shared.get_cloned(LinkElem::current);
+    let hidden = shared.get(HideElem::hidden);
 
     Config {
         justify,
@@ -235,6 +244,8 @@ fn configuration(
         fallback: shared.get(TextElem::fallback),
         cjk_latin_spacing: shared.get(TextElem::cjk_latin_spacing).is_auto(),
         costs: shared.get(TextElem::costs),
+        link,
+        hidden,
     }
 }
 
@@ -294,6 +305,13 @@ struct Config {
     cjk_latin_spacing: bool,
     /// Costs for various layout decisions.
     costs: Costs,
+    /// A link that is active throughout the whole paragraph, if any.
+    link: Option<Arc<Linkage>>,
+    /// Whether `#hide` is active for the whole paragraph.
+    ///
+    /// This is needed to decide whether links should be rendered, regardless of
+    /// the paragraph's visual contents.
+    hidden: bool,
 }
 
 /// Get a style property, but only if it is the same for all of the children.

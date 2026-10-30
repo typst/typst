@@ -4,6 +4,7 @@ use typst_library::introspection::{SplitLocator, Tag, TagElem};
 use typst_library::layout::{
     Abs, BoxElem, Dir, Fr, Frame, HElem, InlineElem, InlineItem, Sizing, Spacing,
 };
+use typst_library::model::{LinkElem, LinkMarker, Linkage};
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
@@ -13,7 +14,7 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify};
+use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify_without_links};
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -46,6 +47,9 @@ pub enum Item<'a> {
     /// An item that is invisible and needs to be skipped, e.g. a Unicode
     /// isolate.
     Skip(&'static str),
+    /// An event for a secondary effect on the paragraph, such as a link start
+    /// or end.
+    Event(Event),
 }
 
 impl<'a> Item<'a> {
@@ -71,7 +75,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(text) => text.glyphs.is_empty(),
             Self::Indent(_) => true,
-            Self::Tag(_) => true,
+            Self::Tag(_) | Self::Event(_) => true,
             Self::Skip(_) => true,
             _ => false,
         }
@@ -86,7 +90,7 @@ impl<'a> Item<'a> {
                 SPACING_REPLACE
             }
             Self::Frame(_) => OBJ_REPLACE,
-            Self::Tag(_) => "",
+            Self::Tag(_) | Self::Event(_) => "",
             Self::Skip(s) => s,
         }
     }
@@ -102,10 +106,26 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width(),
             Self::Absolute(v, _) | Self::Indent(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) | Self::Tag(_) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Tag(_) | Self::Event(_) => Abs::zero(),
             Self::Skip(_) => Abs::zero(),
         }
     }
+}
+
+/// A delimiter of an inline effect applied by some element in a paragraph. It
+/// is triggered by a change in the stylechain, that either creates or ends the
+/// effect. Links are the most typical example: text spanned by a link should be
+/// made clickable, so changes in the style chain that add and remove a link to
+/// the current text are detected and represented as start / end link events so
+/// that inline layout can apply the link.
+#[derive(Debug)]
+pub enum Event {
+    /// An event indicating the following text should be clickable with a given
+    /// link.
+    StartLink(Arc<Linkage>),
+    /// An event indicating the following text should no longer be clickable
+    /// with a given link.
+    EndLink(Arc<Linkage>),
 }
 
 /// An item or not-yet shaped text. We can't shape text until we have collected
@@ -130,9 +150,20 @@ impl Segment<'_> {
     }
 }
 
+/// Data resulting from the collection phase of inline layout.
+pub struct CollectedData<'a> {
+    pub text: String,
+    pub initial_events: Vec<Arc<Linkage>>,
+    pub segments: Vec<Segment<'a>>,
+    pub spans: SpanMapper,
+}
+
 /// Collects all text into one string and a collection of segments that
 /// correspond to pieces of that string. This also performs string-level
 /// preprocessing like case transformations.
+///
+/// Additionally, returns a list of events (such as links) that started before
+/// the current paragraph.
 #[typst_macros::time]
 pub fn collect<'a>(
     children: &[Pair<'a>],
@@ -140,7 +171,7 @@ pub fn collect<'a>(
     locator: &mut SplitLocator<'a>,
     config: &Config,
     region: Size,
-) -> SourceResult<(String, Vec<Segment<'a>>, SpanMapper)> {
+) -> SourceResult<CollectedData<'a>> {
     let mut collector = Collector::new(2 + children.len());
     let mut quoter = SmartQuoter::new();
 
@@ -153,6 +184,11 @@ pub fn collect<'a>(
         collector.push_item(Item::Indent(-config.hanging_indent));
         collector.spans.push(1, Span::detached());
     }
+
+    let mut events = EventCollectionState {
+        shared_link: config.link.clone(),
+        ..EventCollectionState::default()
+    };
 
     for &(child, styles) in children {
         let prev_len = collector.full.len();
@@ -237,14 +273,66 @@ pub fn collect<'a>(
             if let Sizing::Fr(v) = elem.width.get(styles) {
                 collector.push_item(Item::Fractional(v, Some((elem, loc, styles))));
             } else {
-                let mut frame = layout_and_modify(styles, |styles| {
+                let mut frame = layout_and_modify_without_links(styles, |styles| {
                     layout_box(elem, engine, loc, styles, region)
                 })?;
+
                 apply_shift(&engine.world, &mut frame, styles);
                 collector.push_item(Item::Frame(frame));
             }
         } else if let Some(elem) = child.to_packed::<TagElem>() {
-            collector.push_item(Item::Tag(&elem.tag));
+            // Push tag before a corresponding start event, and after an end
+            // event, so that PDF tags can be generated with correct nesting.
+            match &elem.tag {
+                Tag::Start(content, _) => {
+                    // Push the start tag BEFORE the start event, so the event
+                    // pair is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
+
+                    if let Some(link_marker) = content.to_packed::<LinkMarker>()
+                        && !styles.get(HideElem::hidden)
+                    {
+                        let location = elem.tag.location();
+                        let dest = link_marker.dest.clone();
+                        let link = Arc::new(Linkage::new(location, dest));
+                        collector.push_event(Event::StartLink(link.clone()));
+                        events.active_links.push(link);
+
+                        // If a link spanning the entire paragraph starts within
+                        // it, don't apply it twice.
+                        events.shared_link.take_if(|l| l.origin == location);
+                    }
+                }
+                Tag::End(location, _, _) => {
+                    if let Some(link) =
+                        events.active_links.pop_if(|l| l.origin == *location)
+                    {
+                        collector.push_event(Event::EndLink(link));
+
+                    // An end tag doesn't contain a link's destination - in
+                    // fact, we can't even know if this is ending a link or some
+                    // other element.
+                    //
+                    // So, instead, check for changes in the style chain before
+                    // and after this end tag.
+                    //
+                    // The link style is already reverted at the end tag, so we
+                    // compare with the previous link style. If it changed,
+                    // it means this tag was ending a link marker element.
+                    } else if let Some(prev_styles) = events.prev_styles
+                        && let Some(link) = prev_styles.get_ref(LinkElem::current)
+                        && link.origin == *location
+                        && !styles.get(HideElem::hidden)
+                    {
+                        events.initial.push(link.clone());
+                        collector.push_event(Event::EndLink(link.clone()));
+                    }
+
+                    // Push the end tag AFTER the end event, so the event pair
+                    // is nested within the tag pair.
+                    collector.push_item(Item::Tag(&elem.tag));
+                }
+            }
         } else {
             // Non-paragraph inline layout should never trigger this since it
             // only won't be triggered if we see any non-inline content.
@@ -255,11 +343,35 @@ pub fn collect<'a>(
             ));
         }
 
+        events.prev_styles = Some(styles);
+
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
     }
 
-    Ok((collector.full, collector.segments, collector.spans))
+    // Render flow-level link, if the paragraph was not hidden.
+    if let Some(link) = events.shared_link
+        && !config.hidden
+    {
+        events.initial.push(link.clone());
+        collector.push_event(Event::EndLink(link.clone()));
+    }
+
+    // Initial start events are pushed as unmatched end tags are found, so they
+    // must be reversed to be correct.
+    events.initial.reverse();
+
+    // Note that we return the `initial` events vector directly instead of
+    // prepending it to segments as that is a potentially much more costly
+    // operation, whereas we can just have lines treat those events as events
+    // that started in a previous line (even though they didn't, the effect is
+    // the same: they didn't start in the current line).
+    Ok(CollectedData {
+        text: collector.full,
+        initial_events: events.initial,
+        segments: collector.segments,
+        spans: collector.spans,
+    })
 }
 
 /// Collects segments.
@@ -317,6 +429,28 @@ impl<'a> Collector<'a> {
             }
         }
     }
+
+    fn push_event(&mut self, event: Event) {
+        self.segments.push(Segment::Item(Item::Event(event)));
+    }
+}
+
+/// State for turning link start/end tags into matched events.
+#[derive(Default)]
+struct EventCollectionState<'c> {
+    /// Link events with no matching start tag, carried over from previous
+    /// paragraphs.
+    initial: Vec<Arc<Linkage>>,
+    /// Paragraph-wide link, according to the flow layouter. Normally, this link
+    /// is applied at the very end of the paragraph (this is then set to
+    /// `None`), unless the whole paragraph is a `#link[...]`, in which case we
+    /// must not apply it again.
+    shared_link: Option<Arc<Linkage>>,
+    /// The styles active in the previously collected item. Used to detect
+    /// changes in styles to generate events, such as links.
+    prev_styles: Option<StyleChain<'c>>,
+    /// Links with currently unclosed marker tags.
+    active_links: Vec<Arc<Linkage>>,
 }
 
 /// Maps byte offsets back to spans.

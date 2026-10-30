@@ -26,10 +26,17 @@ pub fn finalize(
         region.x
     };
 
+    // Keep track of active links across lines, as some links might span
+    // multiple lines.
+    //
+    // The list of active links starts with those that began before the
+    // paragraph started.
+    let mut active_links = p.initial_events.iter().map(|x| &**x).collect::<Vec<_>>();
+
     // Stack the lines into one frame per region.
     lines
         .iter()
-        .map(|line| commit(engine, p, line, width, region.y, locator))
+        .map(|line| commit(engine, p, line, width, region.y, locator, &mut active_links))
         .collect::<SourceResult<_>>()
         .map(Fragment::frames)
 }

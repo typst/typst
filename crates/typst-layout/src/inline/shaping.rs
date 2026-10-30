@@ -460,7 +460,7 @@ impl<'a> ShapedText<'a> {
             offset += width;
         }
 
-        frame.modify_text(self.styles);
+        frame.modify_shaped_text(self.styles);
         frame
     }
 
