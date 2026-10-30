@@ -67,14 +67,55 @@ impl<'a> GridLayouter<'a> {
         // If we go to a new region before the new headers fit alongside their
         // children (or in general, for short-lived), the old headers should
         // not be displayed anymore.
-        let first_conflicting_pos =
+        let first_conflicting_header =
             self.repeating_headers.partition_point(|h| h.level < first_level);
-        self.repeating_headers.truncate(first_conflicting_pos);
+
+        // All headers that stop repeating here must have their heights removed
+        // from `repeating_header_heights`, as well as subtracted from
+        // `repeating_header_height` (the sum of that vector).
+        //
+        // Note that `repeating_header_heights` contains header heights from
+        // both `repeating_headers` and `pending_headers`, so we have to check
+        // both vectors, and adjust the index to clear from there onwards
+        // accordingly. `repeating_headers` (from previous rows and/or regions)
+        // always come before `pending_headers` (headers immediately before the
+        // current one), so we check the former first, and if no conflicts
+        // appear there, we check pending headers right afterwards. That is:
+        //
+        // `self.current.repeating_header_heights = [ REPEATING | PENDING ]`
+        //
+        // where `REPEATING.len() == self.repeating_headers.len()`, and
+        // `PENDING.len() == self.pending_headers.len()`.
+        let first_conflicting_height = if first_conflicting_header
+            == self.repeating_headers.len()
+        {
+            // Repeating header to be removed might have just been placed (not
+            // yet confirmed to repeat, so still pending), so check pending
+            // headers as well. (This will usually only matter when this header
+            // is short-lived, otherwise the headers are grouped together, and
+            // any row between two headers should cause pending headers to be
+            // promoted to repeating headers.)
+            let first_pending_conflict =
+                self.pending_headers.partition_point(|h| h.level < first_level);
+            self.pending_headers =
+                self.pending_headers.get(first_pending_conflict..).unwrap_or_default();
+
+            // The `repeating_header_heights` vector is composed of already
+            // repeating headers, followed by pending headers which were just
+            // placed, so adjust the position accordingly.
+            self.repeating_headers.len() + first_pending_conflict
+        } else {
+            self.repeating_headers.truncate(first_conflicting_header);
+            self.pending_headers = Default::default();
+            first_conflicting_header
+        };
 
         // Ensure upcoming rows won't see that these headers will occupy any
         // space in future regions anymore.
-        for removed_height in
-            self.current.repeating_header_heights.drain(first_conflicting_pos..)
+        for removed_height in self
+            .current
+            .repeating_header_heights
+            .drain(first_conflicting_height..)
         {
             self.current.repeating_header_height -= removed_height;
         }
