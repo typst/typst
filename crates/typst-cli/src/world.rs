@@ -1,5 +1,6 @@
 use std::error;
 use std::fmt;
+use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -15,7 +16,7 @@ use typst::utils::LazyHash;
 use typst::{Library, LibraryExt, World};
 use typst_kit::datetime::Time;
 use typst_kit::diagnostics::DiagnosticWorld;
-use typst_kit::files::{FileLoader, FileStore, FsRoot};
+use typst_kit::files::{FileLoader, FileStamp, FileStore, FsRoot};
 use typst_kit::fonts::FontStore;
 use typst_kit::packages::SystemPackages;
 
@@ -275,6 +276,16 @@ impl FileLoader for SystemFiles {
         } else {
             self.root(id)?.load(id.vpath())
         }
+    }
+
+    fn stamp(&self, id: FileId) -> Option<FileStamp> {
+        if id == *EMPTY_ID || id == *STDIN_ID {
+            return None;
+        }
+        self.resolve(id).ok().and_then(|path| {
+            let meta = fs::metadata(path).ok()?;
+            FileStamp::from_metadata(&meta)
+        })
     }
 }
 

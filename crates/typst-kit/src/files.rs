@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::str;
 use std::str::Utf8Error;
 use std::sync::Arc;
+use std::time::UNIX_EPOCH;
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;
@@ -100,14 +101,14 @@ where
 
     /// Resets the store.
     ///
-    /// This marks all loaded file as stale. On subsequent accesses, they will
-    /// be loaded once more through the underlying loader. Moreover, calls to
-    /// [`dependencies()`](Self::dependencies) will not yield files accessed
-    /// before the call to `reset()`.
+    /// This marks all loaded files as stale. Source files are read again and
+    /// edited in place. Non-source files keep their bytes when the loader can
+    /// still report the same [`FileStamp`], so a watch recompile does not
+    /// reread an unchanged image or data file. Files whose stamp changed, or
+    /// whose loader does not provide one, are loaded again.
     ///
-    /// Unlike when creating an entirely new store, source files will be edited
-    /// in place with updated data, leading to improved incremental compilation
-    /// performance.
+    /// Calls to [`dependencies()`](Self::dependencies) will not yield files
+    /// accessed before the call to `reset()`.
     pub fn reset(&mut self) {
         #[expect(clippy::iter_over_hash_type, reason = "order does not matter")]
         for slot in self.slots.get_mut().values_mut() {
@@ -125,23 +126,61 @@ where
     }
 }
 
+/// Size and modification time of a file, used to reuse unchanged bytes.
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub struct FileStamp {
+    len: u64,
+    secs: u64,
+    nanos: u32,
+}
+
+impl FileStamp {
+    /// Builds a stamp from filesystem metadata.
+    ///
+    /// Returns `None` for directories and for files whose modification time
+    /// cannot be read. Those files are reloaded on every reset.
+    pub fn from_metadata(meta: &fs::Metadata) -> Option<Self> {
+        if meta.is_dir() {
+            return None;
+        }
+        let modified = meta.modified().ok()?;
+        let dur = modified.duration_since(UNIX_EPOCH).ok()?;
+        Some(Self {
+            len: meta.len(),
+            secs: dur.as_secs(),
+            nanos: dur.subsec_nanos(),
+        })
+    }
+
+    #[cfg(test)]
+    fn fixed(len: u64, secs: u64) -> Self {
+        Self { len, secs, nanos: 0 }
+    }
+}
+
+/// Bytes kept across a reset, together with the stamp they were loaded under.
+struct KeptFile {
+    bytes: Bytes,
+    stamp: FileStamp,
+}
+
 /// Holds the state for a file.
 enum FileSlot {
-    /// Nothing is loaded that, but we may have a stale source from before a
-    /// reset (i.e. from an earlier compilation) that we can reuse and edit in
-    /// place.
+    /// Nothing is loaded, but we may have a stale source from before a reset
+    /// (i.e. from an earlier compilation) that we can reuse and edit in place.
+    /// Unchanged non-source files may also keep their bytes.
     ///
     /// Transitions to
     /// - loaded when a file is requested
     /// - to parsed if a source is requested and the data could be loaded
     ///   (otherwise to loaded).
-    Empty(Stale<Source>),
+    Empty { stale: Stale<Source>, kept: Option<KeptFile> },
     /// The slot has been requested as a `file()` but not as a `source()` (at
     /// least since the last reset). We can still have a stale, reusable source.
     ///
     /// Transitions to
     /// - parsed when a source is requested
-    Loaded(FileResult<Bytes>, Stale<Source>),
+    Loaded(FileResult<Bytes>, Stale<Source>, Option<FileStamp>),
     /// The slot has been requested as a `source()` and potentially as a
     /// `file()`.
     ///
@@ -161,27 +200,41 @@ type Stale<T> = Option<T>;
 impl FileSlot {
     /// Whether the slot has been accessed in any way since the last reset.
     fn accessed(&self) -> bool {
-        !matches!(self, Self::Empty(_))
+        !matches!(self, Self::Empty { .. })
     }
 
-    /// Resets the slot to its empty state.
+    /// Resets the slot to its empty state, keeping reusable bytes.
     fn reset(&mut self) {
-        let stale = match mem::take(self) {
-            Self::Parsed(Ok(source), _) => Some(source),
-            _ => None,
+        let (stale, kept) = match mem::take(self) {
+            Self::Parsed(Ok(source), _) => (Some(source), None),
+            Self::Loaded(Ok(bytes), stale, Some(stamp)) => {
+                (stale, Some(KeptFile { bytes, stamp }))
+            }
+            Self::Empty { stale, kept } => (stale, kept),
+            _ => (None, None),
         };
-        *self = Self::Empty(stale);
+        *self = Self::Empty { stale, kept };
     }
 
     /// Retrieves the slot's bytes.
     fn file(&mut self, loader: &impl FileLoader, id: FileId) -> FileResult<Bytes> {
         match self {
-            Self::Empty(stale) => {
+            Self::Empty { stale, kept } => {
+                let stale = mem::take(stale);
+                if let Some(kept_file) = kept.take() {
+                    if loader.stamp(id) == Some(kept_file.stamp) {
+                        let result = Ok(kept_file.bytes.clone());
+                        *self =
+                            Self::Loaded(result.clone(), stale, Some(kept_file.stamp));
+                        return result;
+                    }
+                }
                 let result = loader.load(id);
-                *self = Self::Loaded(result.clone(), mem::take(stale));
+                let stamp = result.as_ref().ok().and_then(|_| loader.stamp(id));
+                *self = Self::Loaded(result.clone(), stale, stamp);
                 result
             }
-            Self::Loaded(result, _) => result.clone(),
+            Self::Loaded(result, _, _) => result.clone(),
             Self::Parsed(_, bytes) => Ok(bytes.clone()),
         }
     }
@@ -191,18 +244,18 @@ impl FileSlot {
         // When we already have a source or error, this returns. Otherwise, it
         // loads or extracts the bytes and a potential stale source file.
         let (bytes, stale) = match self {
-            Self::Empty(stale) => match loader.load(id) {
+            Self::Empty { stale, kept: _ } => match loader.load(id) {
                 Ok(bytes) => (bytes, mem::take(stale)),
                 Err(err) => {
-                    *self = Self::Loaded(Err(err.clone()), mem::take(stale));
+                    *self = Self::Loaded(Err(err.clone()), mem::take(stale), None);
                     return Err(err);
                 }
             },
-            Self::Loaded(Ok(_), _) => match mem::take(self) {
-                Self::Loaded(Ok(bytes), stale) => (bytes, stale),
+            Self::Loaded(Ok(_), _, _) => match mem::take(self) {
+                Self::Loaded(Ok(bytes), stale, _) => (bytes, stale),
                 _ => unreachable!(),
             },
-            Self::Loaded(Err(err), _) => return Err(err.clone()),
+            Self::Loaded(Err(err), _, _) => return Err(err.clone()),
             Self::Parsed(source, _) => return Ok(source.clone()?),
         };
 
@@ -239,7 +292,7 @@ impl FileSlot {
 
 impl Default for FileSlot {
     fn default() -> Self {
-        Self::Empty(None)
+        Self::Empty { stale: None, kept: None }
     }
 }
 
@@ -263,17 +316,34 @@ pub trait FileLoader {
     /// [`id.vpath()`](typst_syntax::RootedPath::vpath) in the project /
     /// package.
     fn load(&self, id: FileId) -> FileResult<Bytes>;
+
+    /// Size and modification time of a file, if the loader can observe them.
+    ///
+    /// When this stays the same across [`FileStore::reset`], raw file bytes are
+    /// reused instead of being read again. The default is to always reload.
+    fn stamp(&self, id: FileId) -> Option<FileStamp> {
+        let _ = id;
+        None
+    }
 }
 
 impl<F: FileLoader> FileLoader for Box<F> {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         (**self).load(id)
     }
+
+    fn stamp(&self, id: FileId) -> Option<FileStamp> {
+        (**self).stamp(id)
+    }
 }
 
 impl<F: FileLoader> FileLoader for Arc<F> {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         (**self).load(id)
+    }
+
+    fn stamp(&self, id: FileId) -> Option<FileStamp> {
+        (**self).stamp(id)
     }
 }
 
@@ -319,6 +389,10 @@ impl FileLoader for SystemFiles {
     fn load(&self, id: FileId) -> FileResult<Bytes> {
         self.root(id)?.load(id.vpath())
     }
+
+    fn stamp(&self, id: FileId) -> Option<FileStamp> {
+        self.root(id).ok()?.stamp(id.vpath())
+    }
 }
 
 /// A [root](typst_syntax::VirtualRoot) that is backed by a file system directory.
@@ -343,6 +417,13 @@ impl FsRoot {
     /// root.
     pub fn resolve(&self, path: &VirtualPath) -> FileResult<PathBuf> {
         path.realize(&self.0).map_err(Into::into)
+    }
+
+    /// Stamp of the file at `path`, when the file exists and is not a directory.
+    pub fn stamp(&self, path: &VirtualPath) -> Option<FileStamp> {
+        let path = self.resolve(path).ok()?;
+        let meta = fs::metadata(path).ok()?;
+        FileStamp::from_metadata(&meta)
     }
 
     /// Loads file data from the given virtual path in this root.
@@ -415,6 +496,64 @@ mod tests {
         store.source(id("d.typ")).must_be("5");
         store.file(id("e.bin")).must_be(E_TEXT);
         assert_eq!(deps(&mut store), ["d.typ", "e.bin"]);
+    }
+
+    /// Unchanged non-source files are not read again after a reset.
+    #[test]
+    fn test_unchanged_file_is_not_reread() {
+        let mut store = FileStore::new(StampLoader::new(b"hello".to_vec()));
+        store.file(id("e.bin")).must_be("hello");
+        assert_eq!(store.loader().loads(), 1);
+        store.reset();
+        assert!(store.dependencies().1.next().is_none());
+        store.file(id("e.bin")).must_be("hello");
+        assert_eq!(store.loader().loads(), 1);
+        store.loader_mut().set(b"world".to_vec());
+        store.reset();
+        store.file(id("e.bin")).must_be("world");
+        assert_eq!(store.loader().loads(), 2);
+    }
+
+    struct StampLoader {
+        loads: std::sync::atomic::AtomicUsize,
+        data: Vec<u8>,
+        generation: u64,
+    }
+
+    impl StampLoader {
+        fn new(data: Vec<u8>) -> Self {
+            Self {
+                loads: std::sync::atomic::AtomicUsize::new(0),
+                data,
+                generation: 1,
+            }
+        }
+
+        fn loads(&self) -> usize {
+            self.loads.load(std::sync::atomic::Ordering::Relaxed)
+        }
+
+        fn set(&mut self, data: Vec<u8>) {
+            self.data = data;
+            self.generation += 1;
+        }
+    }
+
+    impl FileLoader for StampLoader {
+        fn load(&self, id: FileId) -> FileResult<Bytes> {
+            if id.vpath().get_without_slash() != "e.bin" {
+                return Err(FileError::NotFound(id.vpath().get_without_slash().into()));
+            }
+            self.loads.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(Bytes::new(self.data.clone()))
+        }
+
+        fn stamp(&self, id: FileId) -> Option<FileStamp> {
+            if id.vpath().get_without_slash() != "e.bin" {
+                return None;
+            }
+            Some(FileStamp::fixed(self.data.len() as u64, self.generation))
+        }
     }
 
     const A_TEXT: &str = "Hello from A";
