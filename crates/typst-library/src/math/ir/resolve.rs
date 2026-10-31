@@ -403,7 +403,7 @@ fn resolve_accent<'a>(
 
 /// Resolves an attach element.
 ///
-/// Deals with primes, merges nested attachements, and decides the final
+/// Deals with primes, merges nested attachments, and decides the final
 /// positioning based on limits/scripts.
 fn resolve_attach<'a>(
     elem: &'a Packed<AttachElem>,
@@ -702,15 +702,18 @@ fn resolve_frac<'a>(
             elem.num_deparenthesized.get(styles),
             elem.denom_deparenthesized.get(styles),
         ),
-        FracStyle::Vertical => resolve_atop_like(
-            ctx,
-            styles,
-            &elem.num,
-            &elem.denom,
-            true,
-            None,
-            elem.span(),
-        ),
+        FracStyle::Vertical => {
+            let frac = resolve_vertical_frac_like(
+                ctx,
+                styles,
+                &elem.num,
+                &elem.denom,
+                true,
+                elem.span(),
+            )?;
+            ctx.push(frac);
+            Ok(())
+        }
     }
 }
 
@@ -727,43 +730,58 @@ fn resolve_binom<'a>(
             .flat_map(|a| [SymbolElem::packed(',').spanned(elem.span()), a.clone()])
             .skip(1),
     ));
-    resolve_atop_like(
+    let frac =
+        resolve_vertical_frac_like(ctx, styles, &elem.upper, lower, false, elem.span())?;
+    resolve_delimiters(
         ctx,
         styles,
-        &elem.upper,
-        lower,
+        frac,
+        DelimiterPair::PAREN.open(),
+        DelimiterPair::PAREN.close(),
         false,
-        Some(DelimiterPair::PAREN),
         elem.span(),
     )
 }
 
+/// Resolves an atop element.
 fn resolve_atop<'a>(
     elem: &'a Packed<AtopElem>,
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
 ) -> SourceResult<()> {
-    resolve_atop_like(
+    let frac = resolve_vertical_frac_like(
         ctx,
         styles,
         &elem.upper,
         &elem.lower,
         false,
-        elem.delim.get(styles),
         elem.span(),
-    )
+    )?;
+    if let Some(delim) = elem.delim.get(styles) {
+        resolve_delimiters(
+            ctx,
+            styles,
+            frac,
+            delim.open(),
+            delim.close(),
+            false,
+            elem.span(),
+        )
+    } else {
+        ctx.push(frac);
+        Ok(())
+    }
 }
 
-/// Resolve an atop, vertical fraction or binomial.
-fn resolve_atop_like<'a>(
+/// Resolves an atop, binomial, or vertical fraction into a [`FractionItem`].
+fn resolve_vertical_frac_like<'a>(
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     num: &'a Content,
     denom: &'a Content,
     line: bool,
-    delim: Option<DelimiterPair>,
     span: Span,
-) -> SourceResult<()> {
+) -> SourceResult<MathItem<'a>> {
     let num_style = ctx.store_styles(style_for_numerator(styles));
     let denom_style = ctx.store_styles(style_for_denominator(styles));
     let bumped_styles = ctx.store_chain(styles);
@@ -775,35 +793,7 @@ fn resolve_atop_like<'a>(
     let frac =
         FractionItem::create(numerator, denominator, line, FRAC_PADDING, styles, span);
 
-    if let Some(delim) = delim {
-        let stretch =
-            Stretch::new().with_y(StretchInfo::new(Rel::one(), DELIM_SHORT_FALL));
-        let open = delim
-            .open()
-            .map(|c| {
-                ctx.resolve_into_item(
-                    ctx.store(SymbolElem::packed(c).spanned(span)),
-                    styles,
-                )
-            })
-            .transpose()?
-            .inspect(|x| x.set_stretch(stretch));
-        let close = delim
-            .close()
-            .map(|c| {
-                ctx.resolve_into_item(
-                    ctx.store(SymbolElem::packed(c).spanned(span)),
-                    styles,
-                )
-            })
-            .transpose()?
-            .inspect(|x| x.set_stretch(stretch));
-        ctx.push(FencedItem::create(open, close, frac, false, styles, span));
-    } else {
-        ctx.push(frac);
-    }
-
-    Ok(())
+    Ok(frac)
 }
 
 // Resolve a horizontal (inline) fraction.
@@ -1058,7 +1048,7 @@ fn resolve_vec<'a>(
     )?;
 
     let delim = elem.delim.get(styles);
-    resolve_delimiters(ctx, styles, cells, delim.open(), delim.close(), span)
+    resolve_delimiters(ctx, styles, cells, delim.open(), delim.close(), true, span)
 }
 
 /// Resolves a matrix element.
@@ -1110,7 +1100,7 @@ fn resolve_mat<'a>(
     )?;
 
     let delim = elem.delim.get(styles);
-    resolve_delimiters(ctx, styles, cells, delim.open(), delim.close(), span)
+    resolve_delimiters(ctx, styles, cells, delim.open(), delim.close(), true, span)
 }
 
 /// Resolves a cases element.
@@ -1141,7 +1131,7 @@ fn resolve_cases<'a>(
     } else {
         (delim.open(), None)
     };
-    resolve_delimiters(ctx, styles, cells, open, close, span)
+    resolve_delimiters(ctx, styles, cells, open, close, true, span)
 }
 
 /// Resolves the inner contents of a matrix, vector, or cases.
@@ -1197,29 +1187,39 @@ fn resolve_cells<'a>(
     Ok(TableItem::create(cells, gap, augment, align, alternator, styles, span))
 }
 
-/// Resolves the delimiters around the body of a vector, matrix, or cases.
+/// Matrices, vectors, and cases add a `0.1` times vertical padding to their
+/// delimiters.
+///
+/// FUTURE: This should probably be capped to a maximum value or converted to
+/// use `em` units instead.
+const MATRIX_DELIM_STRETCH: Rel<Abs> = Rel::new(Ratio::new(1.1), Abs::zero());
+
+/// Resolves the delimiters around the body of a matrix, vector, cases, binom,
+/// or atop.
 fn resolve_delimiters<'a>(
     ctx: &mut MathResolver<'a, '_, '_>,
     styles: StyleChain<'a>,
     cells: MathItem<'a>,
     left: Option<char>,
     right: Option<char>,
+    pad_delims: bool,
     span: Span,
 ) -> SourceResult<()> {
-    let target = Rel::new(Ratio::new(1.1), Abs::zero());
-    let stretch = Stretch::new().with_y(StretchInfo::new(target, DELIM_SHORT_FALL));
+    let stretch_target = if pad_delims { MATRIX_DELIM_STRETCH } else { Rel::one() };
+    let stretch =
+        Stretch::new().with_y(StretchInfo::new(stretch_target, DELIM_SHORT_FALL));
     let open = left
         .map(|c| {
             ctx.resolve_into_item(ctx.store(SymbolElem::packed(c).spanned(span)), styles)
         })
         .transpose()?
-        .inspect(|x| x.set_stretch(stretch));
+        .inspect(|item| item.set_stretch(stretch));
     let close = right
         .map(|c| {
             ctx.resolve_into_item(ctx.store(SymbolElem::packed(c).spanned(span)), styles)
         })
         .transpose()?
-        .inspect(|x| x.set_stretch(stretch));
+        .inspect(|item| item.set_stretch(stretch));
 
     ctx.push(FencedItem::create(open, close, cells, false, styles, span));
     Ok(())
