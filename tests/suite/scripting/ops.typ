@@ -8,7 +8,7 @@
 // Test math operators.
 
 // Test plus and minus.
-#for v in (1, 3.14, decimal("12.43"), 12pt, 45deg, 90%, 13% + 10pt, 6.3fr) {
+#for v in (1, 3.14, 12.43d, 12pt, 45deg, 90%, 13% + 10pt, 6.3fr) {
   // Test plus.
   test(+v, v)
 
@@ -60,7 +60,7 @@
 // Mathematical identities.
 #let nums = (
   1, 3.14,
-  decimal("12.45"),
+  12.45d,
   12pt, 3em, 12pt + 3em,
   45deg,
   90%,
@@ -115,43 +115,43 @@
 
 --- ops-binary-decimal eval ---
 // Addition.
-#test(decimal("40.1") + decimal("13.2"), decimal("53.3"))
-#test(decimal("12.34330") + decimal("45.96670"), decimal("58.31000"))
-#test(decimal("451113.111111111111111111111") + decimal("23.222222222222222222324"), decimal("451136.333333333333333333435"))
+#test(40.1d + 13.2d, 53.3d)
+#test(12.34330d + 45.96670d, 58.31000d)
+#test(451113.111111111111111111111d + 23.222222222222222222324d, 451136.333333333333333333435d)
 
 // Subtraction.
-#test(decimal("40.1") - decimal("13.2"), decimal("26.9"))
-#test(decimal("12.34330") - decimal("45.96670"), decimal("-33.62340"))
-#test(decimal("1234.111111111111111111111") - decimal("0.222222222222222222324"), decimal("1233.888888888888888888787"))
+#test(40.1d - 13.2d, 26.9d)
+#test(12.34330d - 45.96670d, -33.62340d)
+#test(1234.111111111111111111111d - 0.222222222222222222324d, 1233.888888888888888888787d)
 
 // Multiplication.
-#test(decimal("40.5") * decimal("9.5"), decimal("384.75"))
-#test(decimal("-0.1234567890123456789012345678") * decimal("-2.0"), decimal("0.2469135780246913578024691356"))
+#test(40.5d * 9.5d, 384.75d)
+#test(-0.1234567890123456789012345678d * -2.0d, 0.2469135780246913578024691356d)
 
 // Division.
-#test(decimal("1.0") / decimal("7.0"), decimal("0.1428571428571428571428571429"))
-#test(decimal("9999991.6666") / decimal("3.0"), decimal("3333330.5555333333333333333333"))
-#test(decimal("3253452.4034029359598214312040") / decimal("-49293591.4039493929532"), decimal("-0.0660015290170614346071165643"))
+#test(1.0d / 7.0d, 0.1428571428571428571428571429d)
+#test(9999991.6666d / 3.0d, 3333330.5555333333333333333333d)
+#test(3253452.4034029359598214312040d / -49293591.4039493929532d, -0.0660015290170614346071165643d)
 
 --- ops-binary-decimal-int eval ---
 // Operations between decimal and integer.
-#test(decimal("2359.123456789123456789001234") + 2, decimal("2361.123456789123456789001234"))
-#test(decimal("2359.123456789123456789001234") - 2, decimal("2357.123456789123456789001234"))
-#test(decimal("2359.123456789123456789001234") * 2, decimal("4718.246913578246913578002468"))
-#test(decimal("2359.123456789123456789001234") / 2, decimal("1179.561728394561728394500617"))
+#test(2359.123456789123456789001234d + 2, 2361.123456789123456789001234d)
+#test(2359.123456789123456789001234d - 2, 2357.123456789123456789001234d)
+#test(2359.123456789123456789001234d * 2, 4718.246913578246913578002468d)
+#test(2359.123456789123456789001234d / 2, 1179.561728394561728394500617d)
 
 --- ops-binary-decimal-multiplication-division-imprecision eval ---
 // Test digit truncation by multiplication and division.
-#test(decimal("0.7777777777777777777777777777") / 1000, decimal("0.0007777777777777777777777778"))
-#test(decimal("0.7777777777777777777777777777") * decimal("0.001"), decimal("0.0007777777777777777777777778"))
+#test(0.7777777777777777777777777777d / 1000, 0.0007777777777777777777777778d)
+#test(0.7777777777777777777777777777d * 0.001d, 0.0007777777777777777777777778d)
 
 --- ops-add-too-large-decimal eval ---
-// Error: 3-47 value is too large
-#(decimal("79228162514264337593543950335") + 1)
+// Error: 3-37 value is too large
+#(79228162514264337593543950335d + 1)
 
 --- ops-subtract-too-large-decimal eval ---
-// Error: 3-48 value is too large
-#(decimal("-79228162514264337593543950335") - 1)
+// Error: 3-38 value is too large
+#(-79228162514264337593543950335d - 1)
 
 --- ops-multiply-inf-with-length paged ---
 // Test that multiplying infinite numbers by certain units does not crash.
@@ -205,8 +205,8 @@
 #test((:) == (a: 1), false)
 #test((a: 2 - 1.0, b: 2) == (b: 2, a: 1), true)
 #test("a" != "a", false)
-#test(decimal("1.234") == decimal("1.23400000000"), true)
-#test(235 == decimal("235.0"), true)
+#test(1.234d == 1.23400000000d, true)
+#test(235 == 235.0d, true)
 
 // Functions compare by identity.
 #test(test == test, true)
@@ -245,10 +245,10 @@
 #test(() >= (), true)
 #test(() <= (1,), true)
 #test((1,) <= (), false)
-#test(decimal("123.0000000000000000000000001") > decimal("123.0"), true)
-#test(decimal("123.5") < decimal("122.444"), false)
-#test(decimal("459.9999999999999999999999999") < 460, true)
-#test(decimal("128.50") > 460, false)
+#test(123.0000000000000000000000001d > 123.0d, true)
+#test(123.5d < 122.444d, false)
+#test(459.9999999999999999999999999d < 460, true)
+#test(128.50d > 460, false)
 
 --- ops-in eval ---
 // Test `in` operator.

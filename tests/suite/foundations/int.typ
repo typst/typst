@@ -157,8 +157,8 @@
 #test(int("-8000000000000000", base: 16), int.min)
 #test(int(10 / 3), 3)
 #test(int(-58.34), -58)
-#test(int(decimal("92492.193848921")), 92492)
-#test(int(decimal("-224.342211")), -224)
+#test(int(92492.193848921d), 92492)
+#test(int(-224.342211d), -224)
 
 --- int-constructor-bad-type eval ---
 // Error: 6-10 expected integer, boolean, float, decimal, or string, found length
@@ -213,12 +213,12 @@
 #int(-9223372036854775809.5)
 
 --- int-constructor-decimal-too-large eval ---
-// Error: 6-38 number too large
-#int(decimal("9223372036854775809.5"))
+// Error: 6-28 number too large
+#int(9223372036854775809.5d)
 
 --- int-constructor-decimal-too-large-min eval ---
-// Error: 6-39 number too large
-#int(decimal("-9223372036854775809.5"))
+// Error: 6-29 number too large
+#int(-9223372036854775809.5d)
 
 --- int-signum eval ---
 // Test int `signum()`

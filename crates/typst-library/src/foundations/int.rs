@@ -93,16 +93,16 @@ impl i64 {
     /// to parse an invalid string or produce an integer that doesn't fit into a
     /// 64-bit signed integer.
     ///
-    /// - Booleans are converted to `0` or `1`.
-    /// - Floats and decimals are rounded to the next 64-bit integer towards
-    ///   zero.
-    /// - Strings are parsed in base 10 by default.
+    /// - @bool[Booleans] are converted to `0` or `1`.
+    /// - @float[Floats] and @decimal[decimals] are rounded to the next 64-bit
+    ///   integer towards zero.
+    /// - @str[Strings] are parsed in base 10 by default.
     ///
     /// ```example
     /// #int(false) \
     /// #int(true) \
     /// #int(2.7) \
-    /// #int(decimal("3.8")) \
+    /// #int(3.8d) \
     /// #(int("27") + int("4")) \
     /// #int("beef", base: 16)
     /// ```

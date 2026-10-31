@@ -1,16 +1,11 @@
 --- decimal-constructor eval ---
-#test(decimal(10), decimal("10.0"))
-#test(decimal("-7654.321"), decimal("-7654.321"))
-#test(decimal({ 3.141592653 }), decimal("3.141592653000000012752934707"))
-#test(decimal({ -3.141592653 }), decimal("-3.141592653000000012752934707"))
-#test(decimal(decimal(3)), decimal("3.0"))
-#test(decimal(true), decimal("1.0"))
-#test(type(decimal(10)), decimal)
-
---- decimal-literal eval ---
 #test(decimal(10), 10.0d)
 #test(decimal("-7654.321"), -7654.321d)
 #test(decimal({ 3.141592653 }), 3.141592653000000012752934707d)
+#test(decimal({ -3.141592653 }), -3.141592653000000012752934707d)
+#test(decimal(decimal(3)), 3.0d)
+#test(decimal(true), 1.0d)
+#test(type(decimal(10)), decimal)
 
 --- decimal-constructor-minus-sign eval ---
 // Test the Unicode minus sign: `\u{2212}`.
@@ -114,8 +109,8 @@
 // Ensure equal decimals with different scales produce different strings.
 #let f1(x) = str(x)
 #let f2(x) = f1(x)
-#test(f2(decimal("3.140")), "3.140")
-#test(f2(decimal("3.14000")), "3.14000")
+#test(f2(3.140d), "3.140")
+#test(f2(3.14000d), "3.14000")
 
 --- decimal-repr eval ---
 // Test the `repr` function with decimals.
@@ -164,30 +159,30 @@
 --- decimal-display paged ---
 // Test decimals.
 #set page(width: auto)
-#decimal("12.0") \
-#decimal("3.14") \
-#decimal("1234567890.0") \
-#decimal("0123456789.0") \
-#decimal("0.0") \
-#(-decimal("0.0")) \
-#decimal("-1.0") \
-#decimal("-9876543210.0") \
-#decimal("-0987654321.0") \
-#decimal("-3.14") \
-#decimal("-3.9191919191919191919191919195") \
-#decimal("5.0000000000") \
-#(decimal("4.0") - decimal("8.0"))
+#12.0d \
+#3.14d \
+#1234567890.0d \
+#0123456789.0d \
+#0.0d \
+#(-0.0d) \
+#(-1.0d) \
+#(-9876543210.0d) \
+#(-0987654321.0d) \
+#(-3.14d) \
+#(-3.9191919191919191919191919195d) \
+#5.0000000000d \
+#(4.0d - 8.0d)
 
 --- decimal-display-round paged ---
 // Display less digits.
-#calc.round(decimal("-3.9191919191919191919191919195"), digits: 4) \
-#calc.round(decimal("5.0000000000"), digits: 4)
+#calc.round(-3.9191919191919191919191919195d, digits: 4) \
+#calc.round(5.0000000000d, digits: 4)
 
 --- decimal-expected-float-error eval ---
-// Error: 11-25 expected integer, float, or angle, found decimal
-// Hint: 11-25 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
-#calc.sin(decimal("1.1"))
+// Error: 11-15 expected integer, float, or angle, found decimal
+// Hint: 11-15 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
+#calc.sin(1.1d)
 
 --- decimal-expected-integer-error eval ---
-// Error: 11-25 expected integer, found decimal
-#calc.odd(decimal("1.1"))
+// Error: 11-15 expected integer, found decimal
+#calc.odd(1.1d)
