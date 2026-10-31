@@ -647,6 +647,7 @@ pub fn fact(
 /// Returns the $k$-permutation of $n$, or the number of ways to choose $k$
 /// items from a set of $n$ with regard to order, defined as follows:
 /// $
+///   P(n, k) =
 ///   cases(
 ///     0 quad &"if" k > n,
 ///     (n!) / ((n - k)!) quad &"if" k <= n,
@@ -691,9 +692,12 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 
 /// Calculates a binomial coefficient.
 ///
+/// To render the notation for a binomial coefficient, use @math.binom.
+///
 /// Returns the $k$-combination of $n$, or the number of ways to choose $k$
 /// items from a set of $n$ without regard to order, defined as follows:
 /// $
+///   binom(n, k) =
 ///   cases(
 ///     (n!) / (k! (n - k)!) quad &"if" 0 <= k <= n,
 ///     0 quad &"otherwise",
@@ -703,7 +707,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
-#[func(title = "Binomial", since = "0.3.0")]
+#[func(title = "Binomial", since = "0.3.0", keywords = ["choose"])]
 pub fn binom(
     /// The value of $n$: The numbers of items to choose from. Must be
     /// non-negative.
