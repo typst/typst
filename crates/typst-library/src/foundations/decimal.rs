@@ -8,7 +8,7 @@ use rust_decimal::MathematicalOps;
 use typst_syntax::{Span, Spanned, ast};
 
 use crate::World;
-use crate::diag::{At, SourceResult, warning};
+use crate::diag::{At, HintedString, SourceResult, warning};
 use crate::engine::Engine;
 use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 
@@ -268,12 +268,6 @@ impl Decimal {
     pub fn checked_powi(self, other: i64) -> Option<Self> {
         self.0.checked_powi(other).map(Self)
     }
-
-    pub fn from_spanned_str(src: Spanned<EcoString>) -> SourceResult<Self> {
-        Self::from_str(&src.v.replace(repr::MINUS_SIGN, "-"))
-            .map_err(|_| eco_format!("invalid decimal: {}", src.v))
-            .at(src.span)
-    }
 }
 
 #[scope]
@@ -306,20 +300,29 @@ impl Decimal {
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
-            ToDecimal::Str(str) => {
-                Self::from_spanned_str(Spanned { v: str, span: value.span })
+            ToDecimal::Str(string) => {
+                let string = string.replace(repr::MINUS_SIGN, "-");
+                Self::from_str(&string)
+                    .map_err(|message| {
+                        let mut err = HintedString::new(message);
+                        if string.ends_with("d")
+                            && let no_suffix = string.trim_end_matches("d")
+                            && Self::from_str(no_suffix).is_ok()
+                        {
+                            err.hint(eco_format!(
+                                "try removing the `d` suffix: `{no_suffix}`"
+                            ));
+                        }
+                        err
+                    })
+                    .at(value.span)
             }
             ToDecimal::Int(int) => Ok(Self::from(int)),
             ToDecimal::Float(float) => {
-                warn_on_float_literal(engine, value.span);
-                Self::try_from(float)
-                    .map_err(|()| {
-                        eco_format!(
-                            "float is not a valid decimal: {}",
-                            repr::format_float(float, None, true, "")
-                        )
-                    })
-                    .at(value.span)
+                let decimal = Self::try_from(float).at(value.span)?;
+                // Only warn if the decimal is valid.
+                warn_on_float_literal(float, engine, value.span);
+                Ok(decimal)
             }
             ToDecimal::Decimal(decimal) => Ok(decimal),
         }
@@ -327,26 +330,37 @@ impl Decimal {
 }
 
 /// Emits a warning when a decimal is constructed from a float literal.
-fn warn_on_float_literal(engine: &mut Engine, span: Span) -> Option<()> {
+fn warn_on_float_literal(float: f64, engine: &mut Engine, span: Span) -> Option<()> {
     let id = span.id()?;
     let source = engine.world.source(id).ok()?;
     let node = source.find(span)?;
     if node.is::<ast::Float>() {
+        assert!(float.is_finite(), "guaranteed by caller");
+        let float_text = node.leaf_text().clone();
+        let number_text = if float_text.contains(['e', 'E']) {
+            // Decimal literals dont't work with exponent syntax.
+            // Luckily, the default float formatter doesn't output it!
+            eco_format!("{float}")
+        } else {
+            float_text
+        };
         engine.sink.warn(warning!(
             span,
             "creating a decimal using imprecise float literal";
-            hint: "use a decimal literal to avoid loss of precision: `{}d`",
-            node.leaf_text();
+            hint: "use a decimal literal to avoid loss of precision: `{number_text}d`";
         ));
     }
     Some(())
 }
 
 impl FromStr for Decimal {
-    type Err = rust_decimal::Error;
+    type Err = EcoString;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        rust_decimal::Decimal::from_str_exact(s).map(Self)
+        match rust_decimal::Decimal::from_str_exact(s) {
+            Ok(d) => Ok(Self(d)),
+            Err(_) => Err(eco_format!("invalid decimal: `{s}`")),
+        }
     }
 }
 
@@ -357,14 +371,20 @@ impl From<i64> for Decimal {
 }
 
 impl TryFrom<f64> for Decimal {
-    type Error = ();
+    type Error = EcoString;
 
     /// Attempts to convert a Decimal to a float.
     ///
     /// This can fail if the float is infinite or NaN, or otherwise cannot be
     /// represented by a decimal number.
     fn try_from(value: f64) -> Result<Self, Self::Error> {
-        rust_decimal::Decimal::from_f64_retain(value).map(Self).ok_or(())
+        match rust_decimal::Decimal::from_f64_retain(value) {
+            Some(d) => Ok(Self(d)),
+            None => Err(eco_format!(
+                "float is not a valid decimal: `{}`",
+                repr::format_float(value, None, true, "")
+            )),
+        }
     }
 }
 

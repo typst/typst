@@ -26,41 +26,38 @@
 // Error: 10-17 expected decimal, integer, boolean, float, or string, found type
 #decimal(decimal)
 
---- decimal-constructor-bad-value eval ---
-// Error: 10-17 invalid decimal: 1.2.3
+--- decimal-constructor-bad-string eval ---
+// Error: 10-17 invalid decimal: `1.2.3`
 #decimal("1.2.3")
 
 --- decimal-constructor-string-suffix-hint eval ---
-// Error: 10-17 invalid decimal: 1.23d
+// Error: 10-17 invalid decimal: `1.23d`
+// Hint: 10-17 try removing the `d` suffix: `1.23`
 #decimal("1.23d")
 
 --- decimal-constructor-string-suffix-no-hint eval ---
 // We don't hint if the string would still be invalid without the suffix.
-// Error: 10-18 invalid decimal: 1.2.3d
+// Error: 10-18 invalid decimal: `1.2.3d`
 #decimal("1.2.3d")
 
 --- decimal-constructor-float-inf eval ---
-// Error: 10-19 float is not a valid decimal: float.inf
+// Error: 10-19 float is not a valid decimal: `float.inf`
 #decimal(float.inf)
 
 --- decimal-constructor-float-negative-inf eval ---
-// Error: 10-20 float is not a valid decimal: -float.inf
+// Error: 10-20 float is not a valid decimal: `-float.inf`
 #decimal(-float.inf)
 
 --- decimal-constructor-float-nan eval ---
-// Error: 10-19 float is not a valid decimal: float.nan
+// Error: 10-19 float is not a valid decimal: `float.nan`
 #decimal(float.nan)
 
 --- decimal-constructor-float-too-large eval ---
-// Error: 10-15 float is not a valid decimal: 1e308
-// Warning: 10-15 creating a decimal using imprecise float literal
-// Hint: 10-15 use a decimal literal to avoid loss of precision: `1e308d`
+// Error: 10-15 float is not a valid decimal: `1e308`
 #decimal(1e308)
 
 --- decimal-constructor-float-literal-inf eval ---
-// Error: 10-15 float is not a valid decimal: float.inf
-// Warning: 10-15 creating a decimal using imprecise float literal
-// Hint: 10-15 use a decimal literal to avoid loss of precision: `1e309d`
+// Error: 10-15 float is not a valid decimal: `float.inf`
 #decimal(1e309)
 
 --- decimal-constructor-float-warning eval ---
@@ -73,10 +70,10 @@
 // Hint: 18-25 use a decimal literal to avoid loss of precision: `1.32523d`
 #let _ = decimal(1.32523)
 // Warning: 18-24 creating a decimal using imprecise float literal
-// Hint: 18-24 use a decimal literal to avoid loss of precision: `1.0e-1d`
+// Hint: 18-24 use a decimal literal to avoid loss of precision: `0.1d`
 #let _ = decimal(1.0e-1)
 // Warning: 18-21 creating a decimal using imprecise float literal
-// Hint: 18-21 use a decimal literal to avoid loss of precision: `1E2d`
+// Hint: 18-21 use a decimal literal to avoid loss of precision: `100d`
 #let _ = decimal(1E2)
 
 --- decimal-constructor-float-warning-indirect eval ---

@@ -337,7 +337,7 @@ pub enum Expr<'a> {
     Int(Int<'a>),
     /// A floating-point number: `1.2`, `10e-4`.
     Float(Float<'a>),
-    /// A decimal number: `1.23456789d`
+    /// A decimal number: `1.234d`.
     Decimal(Decimal<'a>),
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
     Numeric(Numeric<'a>),
@@ -1544,12 +1544,18 @@ impl Float<'_> {
 }
 
 node! {
-    /// A decimal number: `1.23456789d`
+    /// A decimal number: `1.234d`
     struct Decimal
 }
 impl<'a> Decimal<'a> {
-    pub fn text(self) -> &'a str {
-        self.0.leaf_text()
+    /// Get the number as text, excluding the `d` suffix.
+    ///
+    /// We do not include the `rust_decimal` crate in `typst_syntax` to reduce
+    /// dependencies and also to avoid confusing `typst_library::Decimal` with
+    /// `rust_decimal::Decimal`.
+    pub fn number_text(self) -> &'a str {
+        let text = self.0.leaf_text();
+        &text[..text.len() - 1]
     }
 }
 

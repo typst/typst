@@ -252,7 +252,7 @@ pub enum SyntaxKind {
     Int,
     /// A floating-point number: `1.2`, `10e-4`.
     Float,
-    /// A decimal number: `1.23456789d`
+    /// A decimal number: `1.234d`.
     Decimal,
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
     Numeric,

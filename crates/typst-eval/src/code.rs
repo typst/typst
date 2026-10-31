@@ -1,10 +1,11 @@
 use std::ops::Range;
+use std::str::FromStr;
 
 use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
+    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Decimal, Dict, Func,
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
@@ -216,12 +217,8 @@ impl Eval for ast::Decimal<'_> {
     type Output = Value;
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        let text = self.text();
-        typst_library::foundations::Decimal::from_spanned_str(typst_syntax::Spanned {
-            v: text[..text.len() - 1].into(),
-            span: self.span(),
-        })
-        .map(Value::Decimal)
+        let number_text = self.number_text();
+        Decimal::from_str(number_text).at(self.span()).map(Value::Decimal)
     }
 }
 
