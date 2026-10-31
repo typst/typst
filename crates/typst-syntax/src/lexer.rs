@@ -990,6 +990,7 @@ impl Lexer<'_> {
 
         // Read floating point digits and exponents.
         let mut is_float = false;
+        let mut has_exponent = false;
         if base.is_none() {
             // Read digits following a dot. Make sure not to confuse a spread
             // operator or a method call for the decimal separator.
@@ -1005,6 +1006,7 @@ impl Lexer<'_> {
 
             // Read the exponent.
             if !self.s.at("em") && self.s.eat_if(['e', 'E']) {
+                has_exponent = true;
                 is_float = true;
                 self.s.eat_if(['+', '-']);
                 self.s.eat_while(char::is_ascii_digit);
@@ -1014,25 +1016,37 @@ impl Lexer<'_> {
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
-        enum SuffixKind {
-            Numeric,
+        enum NumberSuffix {
+            None,
             Decimal,
+            Numeric,
         }
 
         let mut suffix_result = match suffix {
-            "" => Ok(None),
-            "d" => Ok(Some(SuffixKind::Decimal)),
+            "" => Ok(NumberSuffix::None),
+            "d" => Ok(NumberSuffix::Decimal),
             "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => {
-                Ok(Some(SuffixKind::Numeric))
+                Ok(NumberSuffix::Numeric)
             }
             _ => Err(eco_format!("invalid number suffix: `{suffix}`")),
         };
 
+        // If this is an `Err`, the suffix result is used as a hint.
         let number_result = if is_float {
-            if number.parse::<f64>().is_err() {
+            let float_parse = number.parse::<f64>();
+            if float_parse.is_err() {
                 // The only invalid case should be when a float lacks digits after
                 // the exponent: e.g. `1.2e`, `2.3E-`, or `1EM`.
                 Err(eco_format!("invalid floating point number: `{number}`"))
+            } else if matches!(suffix_result, Ok(NumberSuffix::Decimal)) && has_exponent {
+                if let Ok(float) = float_parse
+                    && float.is_finite()
+                {
+                    // Add a hint with the intended value.
+                    suffix_result =
+                        Err(eco_format!("try expanding the exponent: `{float}{suffix}`"));
+                }
+                Err(eco_format!("decimal literals cannot use exponent syntax"))
             } else {
                 Ok(())
             }
@@ -1044,7 +1058,7 @@ impl Lexer<'_> {
                 Ok(value) => {
                     if suffix_result.is_ok() {
                         suffix_result = Err(eco_format!(
-                            "try using a decimal number: `{value}{suffix}`"
+                            "try using a normal base 10 number: `{value}{suffix}`"
                         ));
                     }
                     Err(eco_format!("{name} numbers cannot have a suffix"))
@@ -1063,19 +1077,19 @@ impl Lexer<'_> {
                 Err(_) => Ok(()),
             }
         } else {
-            // Decimal integer errors are handled in the AST. Note that
-            // too-large decimal integers that have suffixes will be silently
-            // treated as floats.
+            // Base 10 integer errors are handled in the AST. Note that numeric
+            // suffix numbers will instead parse as a float, so values too
+            // large/small for an i64 won't produce errors for integers.
             Ok(())
         };
 
         // Return our number or write an error with helpful hints.
         match (number_result, suffix_result) {
             // Valid numbers :D
-            (Ok(()), Ok(None)) if is_float => SyntaxKind::Float,
-            (Ok(()), Ok(None)) => SyntaxKind::Int,
-            (Ok(()), Ok(Some(SuffixKind::Numeric))) => SyntaxKind::Numeric,
-            (Ok(()), Ok(Some(SuffixKind::Decimal))) => SyntaxKind::Decimal,
+            (Ok(()), Ok(NumberSuffix::None)) if is_float => SyntaxKind::Float,
+            (Ok(()), Ok(NumberSuffix::None)) => SyntaxKind::Int,
+            (Ok(()), Ok(NumberSuffix::Decimal)) => SyntaxKind::Decimal,
+            (Ok(()), Ok(NumberSuffix::Numeric)) => SyntaxKind::Numeric,
             // Invalid numbers :(
             (Err(number_err), Err(suffix_err)) => {
                 let error = self.error(number_err);
