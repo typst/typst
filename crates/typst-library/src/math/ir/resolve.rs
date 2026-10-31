@@ -748,7 +748,7 @@ fn resolve_atop<'a>(
         styles,
         &elem.upper,
         &elem.lower,
-        elem.line.get(styles),
+        false,
         elem.delim.get(styles),
         elem.span(),
     )

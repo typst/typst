@@ -611,6 +611,8 @@ pub struct FractionItem<'a> {
     /// The item in the bottom part of the fraction.
     pub denominator: MathItem<'a>,
     /// Whether to draw a fraction line between the numerator and denominator.
+    // FUTURE: We should replace this with a `stroke` parameter to fully control
+    // rendering the fraction line and add it to both `FracElem` and `AtopElem`.
     pub line: bool,
     /// The amount of padding added before and after the fraction.
     pub padding: Em,

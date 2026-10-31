@@ -177,7 +177,4 @@ pub struct AtopElem {
     /// ```
     #[default(None)]
     pub delim: Option<DelimiterPair>,
-
-    #[default(false)]
-    pub line: bool,
 }
