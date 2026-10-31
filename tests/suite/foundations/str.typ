@@ -31,7 +31,7 @@
 #test(str(decimal("1234567890.0")), "1234567890.0")
 #test(str(decimal("0123456789.0")), "123456789.0")
 #test(str(decimal("0.0")), "0.0")
-#test(str(decimal("-0.0")), "0.0")
+#test(str(-decimal("0.0")), "−0.0")
 #test(str(decimal("-1.0")), "−1.0")
 #test(str(decimal("-9876543210.0")), "−9876543210.0")
 #test(str(decimal("-0987654321.0")), "−987654321.0")

@@ -91,6 +91,12 @@
 // Hint: 2-11 invalid number suffix: `dag`
 #0b0101dag
 
+--- nondecimal-suffix-after-dot-as-field-access eval ---
+// TODO: Should these error by lexing as one number?
+#test([#0x1.23%],  {[#0x1]; [.23%]})
+#test([#0x1.23em], {[#0x1]; [.23em]})
+#test([#0x1.23d],  {[#0x1]; [.23d]})
+
 --- nondecimal-suffix-edge-case-delayed eval ---
 // This error is delayed until the integer is evaluated.
 // Error: 2-9 integer contains digits that are not valid for a hexadecimal number
