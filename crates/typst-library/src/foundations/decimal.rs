@@ -24,19 +24,21 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// ```
 ///
 /// = Construction and casts <construction-and-casts>
-/// To create a decimal number, use the `d` suffix, such as in `{3.141592653d}`. This
-/// preserves all given fractional digits, provided they are representable as
-/// per the limits specified below (otherwise, an error is raised).
+/// To write a decimal number, add the `d` suffix to a number, like `{27d}` or
+/// `{3.141592653d}`. This preserves the digits following the decimal point,
+/// provided they are representable per the limits specified below.
 ///
-/// You can also convert any @int[integer] or @str[string] to a decimal with the
-/// `{decimal(int)}` or `{decimal(str)}` constructor, e.g. `{decimal(59)}`. However, note that
-/// constructing a decimal from a @float[floating-point number], while
-/// supported, *is an imprecise conversion and therefore discouraged.* A warning
-/// will be raised if Typst detects that there was an accidental `float` to
-/// `decimal` cast through its constructor, e.g. if writing `{decimal(3.14)}`
-/// (note the lack of double quotes, indicating this is an accidental `float`
-/// cast and therefore imprecise). It is recommended to use literals for constant
-/// decimal values instead (e.g. `{3.14d}`).
+/// You can also convert an @int[integer] or a @str[string] to a decimal with
+/// the `{decimal(int)}` or `{decimal(str)}` constructor, e.g. `{decimal(59)}`
+/// or `{decimal("59.25")}`.
+///
+/// Constructing a decimal from a @float[floating-point number] is also
+/// supported, but is discouraged because *the conversion is inherently
+/// imprecise* and is likely to not work the way you would expect. Typst will
+/// raise a warning if we detect a basic `float` to `decimal` cast through the
+/// constructor, e.g. by writing `{decimal(3.14)}`. Instead, you should either
+/// use the decimal literal syntax: `{3.14d}` or add quotes to pass a string to
+/// the constructor: `{decimal("3.14")}`.
 ///
 /// The precision of a `float` to `decimal` cast can be slightly improved by
 /// rounding the result to 15 digits with @calc.round, but there are still no
@@ -50,7 +52,7 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// to guard against accidental loss of precision. They will raise an error
 /// instead.
 ///
-/// Certain `calc` functions, such as trigonometric functions and power between
+/// Certain @calc functions, such as trigonometric functions and power between
 /// two real numbers, are also only supported for `float` (although raising
 /// `decimal` to integer exponents is supported). You can opt into potentially
 /// imprecise operations with the `{float(decimal)}` constructor, which casts
@@ -63,10 +65,10 @@ use crate::foundations::{Repr, Str, cast, func, repr, scope, ty};
 /// Localized formatting of decimals and other numbers is not yet supported, but
 /// planned for the future.
 ///
-/// You can convert decimals to strings using the @str constructor. This way,
-/// you can post-process the displayed representation, e.g. to replace the
-/// period with a comma (as a stand-in for proper built-in localization to
-/// languages that use the comma).
+/// You can convert decimals to strings using the @str constructor:
+/// `{str(1.25d)}`. This can let you can post-process the displayed
+/// representation, e.g. to replace the period with a comma (as a stand-in for
+/// proper built-in localization to languages that use the comma).
 ///
 /// = Precision and limits <precision-and-limits>
 /// A `decimal` number has a limit of 28 to 29 significant base-10 digits. This
@@ -274,23 +276,30 @@ impl Decimal {
 impl Decimal {
     /// Converts a value to a `decimal`.
     ///
-    /// It is recommended to use a string to construct the decimal number, or an
-    /// @int[integer] (if desired). The string must contain a number in the
+    /// When constructing constant values, you can use the decimal literal
+    /// syntax by adding a trailing `d` to a number:
+    /// `{8.75d == decimal("8.75")}`.
+    ///
+    /// It is recommended to only use @str[strings] or @int[integers] to
+    /// construct the decimal number. Strings must contain a number in the
     /// format `{"3.14159"}` (or `{"-3.141519"}` for negative numbers). The
     /// fractional digits are fully preserved; if that's not possible due to the
     /// limit of significant digits (around 28 to 29) having been reached, an
     /// error is raised as the given decimal number wouldn't be representable.
     ///
-    /// While this constructor can be used with @float[floating-point numbers]
-    /// to cast them to `decimal`, doing so is *discouraged* as *this cast is
+    /// While this constructor can be used to cast @float[floating-point
+    /// numbers] to `decimal`, doing so is *discouraged* as *this cast is
     /// inherently imprecise.* It is easy to accidentally perform this cast by
     /// writing `{decimal(1.234)}` (note the lack of double quotes), which is
-    /// why Typst will emit a warning in that case. Please write
-    /// `{decimal("1.234")}` instead for that particular case (initialization of
-    /// a constant decimal). Also note that floats that are NaN or infinite
-    /// cannot be cast to decimals and will raise an error.
+    /// why Typst will emit a warning in that case. You should write either
+    /// `1.234d` or `{decimal("1.234")}` instead.
+    ///
+    /// Floats that are NaN or infinite cannot be cast to decimals and will
+    /// raise an error.
     ///
     /// ```example
+    /// #8.75d
+    ///
     /// #decimal("1.222222222222222")
     /// ```
     #[func(constructor, since = "0.12.0")]
