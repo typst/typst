@@ -86,7 +86,7 @@
 --- tiling-spacing-negative paged ---
 // Test with spacing set to `(-10pt, -10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -96,7 +96,7 @@
 --- tiling-spacing-zero paged ---
 // Test with spacing set to `(0pt, 0pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -106,7 +106,7 @@
 --- tiling-spacing-positive paged ---
 // Test with spacing set to `(10pt, 10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -116,7 +116,7 @@
 --- tiling-offset-negative paged ---
 // Test with offset set to `(-10pt, -10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -126,7 +126,7 @@
 --- tiling-offset-zero paged ---
 // Test with offset set to `(0pt, 0pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -136,7 +136,7 @@
 --- tiling-offset-positive paged ---
 // Test with offset set to `(10pt, 10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -146,7 +146,7 @@
 --- tiling-offset-relative paged ---
 // Test with offset set to `(10pt, 10pt)`
 #let t(..args) = tiling(size: (30pt, 30pt), spacing: (10pt, 10pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -156,7 +156,7 @@
 --- tiling-angle paged ---
 // Test with 45deg
 #let t(..args) = tiling(size: (30pt, 30pt), ..args)[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -169,7 +169,7 @@
   offset: (7.5pt * calc.sqrt(2), 15pt * calc.sqrt(2)),
   ..args,
 )[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)
@@ -183,7 +183,7 @@
   offset: (50%, -50%),
   ..args,
 )[
-  #square(width: 100%, height: 100%, stroke: 1pt, fill: blue)
+  #square(width: 100%, stroke: 1pt, fill: blue)
 ]
 
 #set page(width: 100pt, height: 100pt)

@@ -152,6 +152,8 @@ pub struct SquareElem {
     /// In contrast to `size`, this can be relative to the parent container's
     /// width.
     #[parse(
+        args.mutually_exclusive(vec!["size", "width", "height"])?;
+
         let size = args.named::<Smart<Length>>("size")?.map(|s| s.map(Rel::from));
         match size {
             None => args.named("width")?,
@@ -281,6 +283,8 @@ pub struct CircleElem {
     /// In contrast to `radius`, this can be relative to the parent container's
     /// width.
     #[parse(
+        args.mutually_exclusive(vec!["radius", "width", "height"])?;
+
         let size = args
             .named::<Smart<Length>>("radius")?
             .map(|s| s.map(|r| 2.0 * Rel::from(r)));
