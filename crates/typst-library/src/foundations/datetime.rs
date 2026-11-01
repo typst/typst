@@ -3,17 +3,17 @@ use std::hash::Hash;
 use std::ops::{Add, Sub};
 
 use arrayvec::ArrayVec;
-use ecow::{EcoString, EcoVec, eco_format};
+use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::macros::format_description;
-use time::{Month, PrimitiveDateTime, format_description};
+use time::{format_description, Month, PrimitiveDateTime};
 
-use crate::World;
-use crate::diag::{HintedStrResult, StrResult, bail};
+use crate::diag::{bail, HintedStrResult, StrResult};
 use crate::engine::Engine;
 use crate::foundations::{
-    Dict, Duration, Repr, Smart, Str, Value, cast, func, repr, scope, ty,
+    cast, func, repr, scope, ty, Dict, Duration, Repr, Smart, Str, Value,
 };
+use crate::World;
 
 /// Represents a date, a time, or a combination of both.
 ///
@@ -191,10 +191,12 @@ impl Datetime {
             return None;
         };
 
-        if let Ok(d) = time::PrimitiveDateTime::parse(
+        if let Ok(Some(d)) = time::OffsetDateTime::parse(
             string,
-            &format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"),
-        ) {
+            &time::format_description::well_known::Rfc3339,
+        )
+        .map(time::OffsetDateTime::checked_to_utc)
+        {
             Self::from_ymd_hms(
                 d.year(),
                 d.month() as u8,
