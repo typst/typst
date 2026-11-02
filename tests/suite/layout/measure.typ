@@ -8,6 +8,41 @@
 #text(10pt, f(6pt, 8pt))
 #text(20pt, f(13pt, 14pt))
 
+--- measure-baseline-none paged empty ---
+// Test that `measure` exposes the baseline of content.
+#context {
+  let rect = rect(width: 10pt, height: 20pt)
+  let baseline-less = measure(rect)
+  test(baseline-less.baseline, baseline-less.height)
+}
+
+--- measure-baseline-box paged empty ---
+#context {
+  let text = measure[Hello]
+  let boxed-text = measure(box[Hello])
+  assert(text.baseline > 0pt)
+  test(boxed-text.baseline, text.baseline)
+}
+
+--- measure-baseline-box-shifted paged empty ---
+#context {
+  let shifted = measure(box(
+    width: 10pt,
+    height: 20pt,
+    baseline: (at: bottom, shift: 5pt),
+  ))
+  test(shifted.baseline, 15pt)
+}
+
+--- measure-baseline-math paged empty ---
+#context {
+  let math = measure($sum_(i=1)^n i$)
+  let boxed-math = measure(box($sum_(i=1)^n i$))
+  assert(math.baseline > 0pt)
+  assert(math.baseline < math.height)
+  test(boxed-math.baseline, math.baseline)
+}
+
 --- measure-given-area paged empty ---
 // Test `measure` given an area.
 #let text = lorem(100)
@@ -129,4 +164,7 @@
   let (width, height) = measure(image("/assets/images/monkey.svg"))
   test(width, 36pt)
   test(height, 36pt)
+
+  let measured = measure(image("/assets/images/monkey.svg"))
+  test(measured.baseline, height)
 }

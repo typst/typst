@@ -3,26 +3,35 @@ use std::fmt::Write;
 use comemo::{Track, Tracked};
 use ecow::{EcoString, eco_format};
 use typst_library::diag::{At, SourceResult, StrResult, bail};
+use typst_library::format::{Complete, Fields, Partial};
 use typst_library::foundations::Repr;
-use typst_library::model::LateLinkResolver;
+use typst_library::model::{Document, LateLinkResolver};
 use typst_syntax::Span;
 
 use crate::{
-    HtmlDocument, HtmlElement, HtmlFrame, HtmlNode, HtmlTag, attr, charsets, property,
-    tag,
+    HtmlDocument, HtmlElement, HtmlFormat, HtmlFormatOptions, HtmlFrame, HtmlNode,
+    HtmlTag, attr, charsets, property, tag,
 };
 
 /// Settings for HTML export.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct HtmlOptions {
-    /// Whether to format the HTML in a human-readable way.
-    pub pretty: bool,
+pub struct HtmlOptions<F: Fields = Partial> {
+    /// Format options that override the defaults set by the document.
+    pub format: HtmlFormatOptions<F>,
+}
+
+impl HtmlOptions {
+    /// Resolves the final options given those set by the document.
+    pub fn resolve(&self, doc: &HtmlFormatOptions) -> HtmlOptions<Complete> {
+        HtmlOptions { format: self.format.resolve(doc) }
+    }
 }
 
 /// Encodes an HTML document into a string.
 pub fn html(document: &HtmlDocument, options: &HtmlOptions) -> SourceResult<String> {
+    let options = options.resolve(document.options().get::<HtmlFormat>());
     let link_resolver = LateLinkResolver::new(None, document.introspector().as_ref());
-    let w = Writer::new(link_resolver.track(), options.pretty);
+    let w = Writer::new(link_resolver.track(), options.format.pretty.v);
     html_impl(w, document.root())
 }
 
@@ -32,10 +41,10 @@ pub fn html(document: &HtmlDocument, options: &HtmlOptions) -> SourceResult<Stri
 /// root element instead of the document.
 pub fn html_in_bundle(
     root: &HtmlElement,
-    options: &HtmlOptions,
+    options: &HtmlOptions<Complete>,
     link_resolver: Tracked<LateLinkResolver>,
 ) -> SourceResult<String> {
-    let w = Writer::new(link_resolver, options.pretty);
+    let w = Writer::new(link_resolver, options.format.pretty.v);
     html_impl(w, root)
 }
 
@@ -293,9 +302,10 @@ fn find_closing_tag(text: &str, tag: HtmlTag) -> Option<&str> {
     let len = s.len();
     text.match_indices("</").find_map(|(i, _)| {
         let rest = &text[i + 2..];
+        let (before, after) = rest.split_at_checked(len)?;
         let disallowed = rest.len() >= len
-            && rest[..len].eq_ignore_ascii_case(&s)
-            && rest[len..].starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
+            && before.eq_ignore_ascii_case(&s)
+            && after.starts_with(['\t', '\n', '\u{c}', '\r', ' ', '>', '/']);
         disallowed.then(|| &text[i..i + 2 + len])
     })
 }

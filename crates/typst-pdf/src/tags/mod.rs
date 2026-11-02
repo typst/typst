@@ -1,14 +1,15 @@
-use krilla::configure::PdfVersion;
+use krilla::configure::{Accessibility, PdfVersion};
 use krilla::geom as kg;
 use krilla::page::Page;
 use krilla::surface::Surface;
 use krilla::tagging::{Artifact, ArtifactType, ContentTag, SpanTag};
 use typst_layout::PagedDocument;
-use typst_library::diag::{SourceResult, bail};
+use typst_library::diag::SourceResult;
+use typst_library::format::Complete;
+use typst_library::foundations::Smart;
 use typst_library::layout::{FrameParent, Point, Rect, Size};
 use typst_library::text::{Locale, TextItem};
 use typst_library::visualize::{Image, Shape};
-use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::convert::{FrameContext, GlobalContext};
@@ -25,12 +26,11 @@ mod resolve;
 mod tree;
 mod util;
 
-pub fn init(document: &PagedDocument, options: &PdfOptions) -> SourceResult<Tags> {
-    let tree = if options.tagged {
-        if options.page_ranges.is_some() {
-            bail!(Span::detached(), "cannot enable tagged PDF and export a page range");
-        }
-
+pub fn init(
+    document: &PagedDocument,
+    options: &PdfOptions<Complete>,
+) -> SourceResult<Tags> {
+    let tree = if options.tagged() {
         tree::build(document, options)?
     } else {
         Tree::empty(document, options)
@@ -118,9 +118,7 @@ pub fn tiling<T>(
             tiling_size.y.to_pt() as f32,
         );
         surface.start_tagged(ContentTag::Artifact(Artifact::new(
-            if gc.options.standards.config.version() == PdfVersion::Pdf17
-                && bbox.is_none()
-            {
+            if gc.options.version() == PdfVersion::Pdf17 && bbox.is_none() {
                 // PDF 1.7 cannot tolerate empty bounding boxes for background
                 // artifacts.
                 ArtifactType::Other
@@ -142,10 +140,10 @@ pub fn tiling<T>(
 }
 
 /// Whether tag generation is currently disabled. Either because it has been
-/// disabled by the user using the [`PdfOptions::tagged`] flag, or we're inside
-/// a tiling.
+/// disabled by the user using the [`crate::PdfFormatOptions::tagged`] flag, or
+/// we're inside a tiling.
 pub fn disabled(gc: &GlobalContext) -> bool {
-    !gc.options.tagged || gc.tags.in_tiling
+    !gc.options.tagged() || gc.tags.in_tiling
 }
 
 /// Add all annotations that were found in the page frame.
@@ -206,11 +204,11 @@ pub fn text<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || text.bbox());
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
+
+    update_bbox(gc, fc, || text.bbox());
 
     let attrs = tree::resolve_text_attrs(&mut gc.tags.tree, gc.options, text);
 
@@ -238,11 +236,11 @@ pub fn image<'a, 'b>(
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
+
+    update_bbox(gc, fc, || Rect::from_pos_size(Point::zero(), size));
 
     let content = ContentTag::Span(SpanTag::empty().with_alt_text(image.alt()));
     let id = surface.start_tagged(content);
@@ -256,27 +254,62 @@ pub fn shape<'a, 'b>(
     fc: &FrameContext,
     surface: &'b mut Surface<'a>,
     shape: &Shape,
-    artifact_type: ArtifactType,
+    artifact_type: Smart<ArtifactType>,
 ) -> TagHandle<'a, 'b> {
     if disabled(gc) {
         return TagHandle { surface, started: false };
     }
 
-    update_bbox(gc, fc, || shape.bbox(true));
-
     if gc.tags.tree.parent_artifact().is_some() {
         return TagHandle { surface, started: false };
     }
 
-    surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
-        if gc.options.standards.config.version() == PdfVersion::Pdf17
-            && artifact_type == ArtifactType::Background
+    update_bbox(gc, fc, || shape.bbox(true));
+
+    if artifact_type.is_auto()
+        && let Some(parent) = gc.tags.tree.parent_alt()
+    {
+        // If we're within a tag that has an alternative description, use marked
+        // content sequences for shapes, so that they show up in the tag tree.
+        // This tag will most likely be a figure or an equation, where marked
+        // content sequences will associate it with portions of a page and might
+        // improve how AT handles the item.
+        // This *shouldn't* be an issue for any tag structure, because during
+        // resolution the structure of tags with an alternative description is
+        // flattened.
+        //
+        // A limitation of PDF/UA-1 is that graphic objects other than text
+        // *must* be grouped within a `Figure` tag, so if the illustrative
+        // element is anything but a `Figure`, we still mark it as an artifact.
+        if gc.options.validators().accessibility() == Some(Accessibility::UA1)
+            && !gc.tags.tree.groups.get(parent).kind.is_figure()
         {
-            ArtifactType::Other
+            surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(
+                ArtifactType::Other,
+            )));
         } else {
-            artifact_type
-        },
-    )));
+            let id = surface.start_tagged(ContentTag::Other);
+            gc.tags.push_leaf(id);
+        }
+    } else {
+        // PDF 1.7 is the only PDF version that requires bounding boxes for
+        // background artifacts. Because this has no noticeable effect on
+        // how AT handles the artifacts and because we don't have a good way
+        // to compute bounding boxes for artifacts at this point in the
+        // conversion process, we just mark them as `Other` artifacts.
+        let ty = artifact_type
+            .map(|ty| {
+                if gc.options.version() == PdfVersion::Pdf17
+                    && ty == ArtifactType::Background
+                {
+                    ArtifactType::Other
+                } else {
+                    ty
+                }
+            })
+            .unwrap_or(ArtifactType::Layout);
+        surface.start_tagged(ContentTag::Artifact(Artifact::with_kind(ty)));
+    }
 
     TagHandle { surface, started: true }
 }
@@ -287,36 +320,8 @@ fn update_bbox(
     compute_bbox: impl FnOnce() -> Rect,
 ) {
     if let Some(bbox) = gc.tags.tree.parent_bbox()
-        && gc.options.standards.config.validators().accessibility().is_some()
+        && gc.options.validators().accessibility().is_some()
     {
         bbox.expand_frame(fc, compute_bbox);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::num::NonZeroUsize;
-
-    use ecow::EcoVec;
-    use typst_layout::PagedDocument;
-    use typst_library::layout::PageRanges;
-    use typst_library::model::DocumentInfo;
-    use typst_utils::NonZeroExt;
-
-    use crate::tags;
-
-    #[test]
-    fn tagged_and_page_range() {
-        let options = crate::PdfOptions {
-            page_ranges: Some(PageRanges::new(vec![Some(NonZeroUsize::ONE)..=None])),
-            ..Default::default()
-        };
-        let document = PagedDocument::new(EcoVec::new(), DocumentInfo::default());
-        let res = tags::init(&document, &options);
-
-        assert_eq!(
-            res.err().unwrap().first().unwrap().message,
-            "cannot enable tagged PDF and export a page range"
-        );
     }
 }

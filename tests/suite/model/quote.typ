@@ -1,6 +1,7 @@
 // Test the quote element.
 
---- quote-dir-author-pos paged pdftags pdfstandard(ua-1) ---
+--- quote-dir-author-pos paged pdftags ---
+#set pdf(standard: "ua-1")
 // Text direction affects author positioning
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
@@ -8,7 +9,8 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 #set text(lang: "ar")
 #quote(attribution: [عالم])[مرحبًا]
 
---- quote-dir-align paged pdftags pdfstandard(ua-1) ---
+--- quote-dir-align paged pdftags ---
+#set pdf(standard: "ua-1")
 // Text direction affects block alignment
 #set text(font: ("Libertinus Serif", "Noto Sans Arabic"))
 #set quote(block: true)
@@ -33,6 +35,15 @@ And I quote: #quote(attribution: [René Descartes])[cogito, ergo sum].
 
 #show bibliography: none
 #bibliography("/assets/bib/works.bib")
+
+--- quote-cite-heading-error paged ---
+#set heading(numbering: "1.1")
+
+= Heading <h>
+// Error: 2-48 citation key `h` is not present in the bibliography
+#quote(attribution: <h>, block: true, lorem(5))
+
+#bibliography(bytes(""))
 
 --- quote-cite-format-label-or-numeric paged ---
 // Citation-format: label or numeric

@@ -41,21 +41,19 @@ pub fn collect<'a>(
     Collector {
         engine,
         bump,
-        children,
         locator: locator.split(),
         base,
         expand,
         output: Vec::with_capacity(children.len()),
         par_situation: ParSituation::First,
     }
-    .run(mode)
+    .run(children, mode)
 }
 
 /// State for collection.
 struct Collector<'a, 'x, 'y> {
     engine: &'x mut Engine<'y>,
     bump: &'a Bump,
-    children: &'x [Pair<'a>],
     base: Size,
     expand: bool,
     locator: SplitLocator<'a>,
@@ -65,16 +63,36 @@ struct Collector<'a, 'x, 'y> {
 
 impl<'a> Collector<'a, '_, '_> {
     /// Perform the collection.
-    fn run(self, mode: FlowMode) -> SourceResult<Vec<Child<'a>>> {
-        match mode {
-            FlowMode::Root | FlowMode::Block => self.run_block(),
-            FlowMode::Inline => self.run_inline(),
+    fn run(
+        mut self,
+        children: &[Pair<'a>],
+        mode: FlowMode,
+    ) -> SourceResult<Vec<Child<'a>>> {
+        // Extract leading and trailing tags.
+        let (start, end) = children.split_prefix_suffix(|(c, _)| c.is::<TagElem>());
+        let inner = &children[start..end];
+
+        for (c, _) in &children[..start] {
+            let elem = c.to_packed::<TagElem>().unwrap();
+            self.output.push(Child::Tag(&elem.tag));
         }
+
+        match mode {
+            FlowMode::Root | FlowMode::Block => self.run_block(inner)?,
+            FlowMode::Inline => self.run_inline(inner)?,
+        }
+
+        for (c, _) in &children[end..] {
+            let elem = c.to_packed::<TagElem>().unwrap();
+            self.output.push(Child::Tag(&elem.tag));
+        }
+
+        Ok(self.output)
     }
 
     /// Perform collection for block-level children.
-    fn run_block(mut self) -> SourceResult<Vec<Child<'a>>> {
-        for &(child, styles) in self.children {
+    fn run_block(&mut self, children: &[Pair<'a>]) -> SourceResult<()> {
+        for &(child, styles) in children {
             if let Some(elem) = child.to_packed::<TagElem>() {
                 self.output.push(Child::Tag(&elem.tag));
             } else if let Some(elem) = child.to_packed::<VElem>() {
@@ -82,7 +100,8 @@ impl<'a> Collector<'a, '_, '_> {
             } else if let Some(elem) = child.to_packed::<ParElem>() {
                 self.par(elem, styles)?;
             } else if let Some(elem) = child.to_packed::<BlockElem>() {
-                self.block(elem, styles);
+                let alone = children.len() == 1;
+                self.block(elem, styles, alone);
             } else if let Some(elem) = child.to_packed::<PlaceElem>() {
                 self.place(elem, styles)?;
             } else if child.is::<FlushElem>() {
@@ -103,23 +122,18 @@ impl<'a> Collector<'a, '_, '_> {
                 ));
             }
         }
-
-        Ok(self.output)
+        Ok(())
     }
 
     /// Perform collection for inline-level children.
-    fn run_inline(mut self) -> SourceResult<Vec<Child<'a>>> {
-        // Extract leading and trailing tags.
-        let (start, end) = self.children.split_prefix_suffix(|(c, _)| c.is::<TagElem>());
-        let inner = &self.children[start..end];
-
+    fn run_inline(&mut self, children: &[Pair<'a>]) -> SourceResult<()> {
         // Compute the shared styles.
-        let styles = StyleChain::trunk_from_pairs(inner).unwrap_or_default();
+        let styles = StyleChain::trunk_from_pairs(children).unwrap_or_default();
 
         // Layout the lines.
         let lines = crate::inline::layout_inline(
             self.engine,
-            inner,
+            children,
             &mut self.locator,
             styles,
             self.base,
@@ -127,20 +141,10 @@ impl<'a> Collector<'a, '_, '_> {
         )?
         .into_frames();
 
-        for (c, _) in &self.children[..start] {
-            let elem = c.to_packed::<TagElem>().unwrap();
-            self.output.push(Child::Tag(&elem.tag));
-        }
-
         let leading = styles.resolve(ParElem::leading);
         self.lines(lines, leading, styles);
 
-        for (c, _) in &self.children[end..] {
-            let elem = c.to_packed::<TagElem>().unwrap();
-            self.output.push(Child::Tag(&elem.tag));
-        }
-
-        Ok(self.output)
+        Ok(())
     }
 
     /// Collect vertical spacing into a relative or fractional child.
@@ -231,10 +235,14 @@ impl<'a> Collector<'a, '_, '_> {
 
     /// Collect a block into a [`SingleChild`] or [`MultiChild`] depending on
     /// whether it is breakable.
-    fn block(&mut self, elem: &'a Packed<BlockElem>, styles: StyleChain<'a>) {
+    fn block(
+        &mut self,
+        elem: &'a Packed<BlockElem>,
+        styles: StyleChain<'a>,
+        alone: bool,
+    ) {
         let locator = self.locator.next(&elem.span());
         let align = styles.resolve(AlignElem::alignment);
-        let alone = self.children.len() == 1;
         let sticky = elem.sticky.get(styles);
         let breakable = elem.breakable.get(styles);
         let fr = match elem.height.get(styles) {

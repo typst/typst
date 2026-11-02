@@ -14,19 +14,19 @@
       def-target: calc,
       title: "Calculation",
       scope: scope(std, "calc"),
-      items: dictionary(calc).pairs().filter(((k, v)) => type(v) == function),
+      definitions: dictionary(calc),
       description: "Documentation for the `calc` module, which contains definitions for mathematical computation.",
       docs: [
         Module for calculations and processing of numeric values.
 
-        These definitions are part of the `calc` module and not imported by default. In addition to the functions listed below, the `calc` module also defines the constants `pi`, `tau`, `e`, and `inf`.
+        These definitions are part of the `calc` module and not imported by default.
       ],
     ),
     (
       name: "std",
       def-target: std,
       title: "Standard Library",
-      items: (),
+      definitions: (:),
       description: "Documentation for the `std` module, which contains all globally accessible items.",
       docs: [
         A module that contains all globally accessible items.
@@ -51,7 +51,7 @@
         = Conditional access <conditional-access>
         You can also use this in combination with the @dictionary.constructor[dictionary constructor] to conditionally access global definitions. This can, for instance, be useful to use new or experimental functionality when it is available, while falling back to an alternative implementation if used on an older Typst version. In particular, this allows us to create #link("https://en.wikipedia.org/wiki/Polyfill_(programming)")[polyfills].
 
-        This can be as simple as creating an alias to prevent warning messages, for example, conditionally using `pattern` in Typst version 0.12, but using @tiling in newer versions. Since the parameters accepted by the `tiling` function match those of the older `pattern` function, using the `tiling` function when available and falling back to `pattern` otherwise will unify the usage across all versions. Note that, when creating a polyfill, @sys[`sys.version`] can also be very useful.
+        This can be as simple as creating an alias to prevent warning messages, for example, conditionally using `pattern` in Typst version 0.12, but using @tiling in newer versions. Since the parameters accepted by the `tiling` function match those of the older `pattern` function, using the `tiling` function when available and falling back to `pattern` otherwise will unify the usage across all versions. Note that, when creating a polyfill, @sys.version can also be very useful.
 
         ```typ
         #let tiling = if "tiling" in std { tiling } else { pattern }
@@ -64,18 +64,11 @@
       name: "sys",
       def-target: sys,
       title: "System",
-      items: (),
-      description: "Documentation for the `sys` module.",
+      scope: scope(std, "sys"),
+      definitions: dictionary(sys),
+      description: "Documentation for the `sys` module for system interactions.",
       docs: [
         Module for system interactions.
-
-        This module defines the following items:
-
-        - The `sys.version` constant (of type @version) that specifies the currently active Typst compiler version.
-
-        - The `sys.inputs` @dictionary[dictionary], which makes external inputs available to the project. An input specified in the command line as `--input key=value` becomes available under `sys.inputs.key` as `{"value"}`. To include spaces in the value, it may be enclosed with single or double quotes.
-
-          The value is always of type @str[string]. More complex data may be parsed manually using functions like @json.
       ],
     ),
   ),

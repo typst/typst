@@ -211,7 +211,15 @@ fn library() -> Library {
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
-    let mut lib = Library::builder().with_features(Features::all()).build();
+    let mut lib = Library::builder([
+        typst_html::FORMAT,
+        typst_pdf::FORMAT,
+        typst_svg::FORMAT,
+        typst_render::FORMAT,
+        typst_bundle::FORMAT,
+    ])
+    .with_features(Features::all())
+    .build();
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define("check", check_module());

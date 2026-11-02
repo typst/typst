@@ -59,7 +59,7 @@ use crate::FileId;
 /// the span numbers for node A and _all of A's children_ are less than node B's
 /// span number, and the numbers for node C and all of C's children are greater
 /// than B's span number.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
 /// The unique number of a span within its [`Source`](crate::Source). Known to
@@ -204,6 +204,13 @@ impl Span {
     }
 }
 
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Output the `SpanKind` for more useful debugging.
+        f.debug_tuple("Span").field(&self.get()).finish()
+    }
+}
+
 /// The span of a diagnostic message. Either from a Typst source file or from a
 /// loaded external file.
 ///
@@ -215,7 +222,7 @@ impl Span {
 ///
 /// This type is stored compactly in 16 bytes and null-optimized, but can be
 /// expanded for easier usage as the [`DiagSpanKind`] enum via [`Self::get()`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+#[derive(Clone, Copy, Eq, PartialEq, Hash)]
 pub struct DiagSpan {
     span: Span,
     extra: u64,
@@ -324,6 +331,13 @@ impl From<Span> for DiagSpan {
     }
 }
 
+impl Debug for DiagSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // Output the `DiagSpanKind` for more useful debugging.
+        f.debug_tuple("DiagSpan").field(&self.get()).finish()
+    }
+}
+
 /// Saturate a value at a given maximum. Can't use `.min()` since it isn't
 /// stable in const :/
 const fn saturate(value: usize, max: u64) -> u64 {
@@ -376,18 +390,44 @@ fn to_u32_saturated(value: usize) -> u32 {
     value.try_into().unwrap_or(u32::MAX)
 }
 
+/// A [`Spanned`] value whose `span` does not participate in its [`PartialEq`]
+/// implementation.
+pub type LooselySpanned<T, S = Span> = Spanned<T, S, false>;
+
 /// A value with a span locating it in the source code.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Hash)]
 #[expect(private_bounds)]
-pub struct Spanned<T, S: Copy + SpanDetached = Span> {
+pub struct Spanned<T, S: Copy + SpanDetached = Span, const SPAN_EQ: bool = true> {
     /// The spanned value.
     pub v: T,
     /// The value's location in source code.
     pub span: S,
 }
 
+impl<T: Eq, S: Copy + SpanDetached + Eq> Eq for Spanned<T, S, true> {}
+
+impl<T, S> PartialEq for Spanned<T, S, true>
+where
+    T: PartialEq,
+    S: Copy + SpanDetached + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.v == other.v && self.span == other.span
+    }
+}
+
+impl<T, S> PartialEq for Spanned<T, S, false>
+where
+    T: PartialEq,
+    S: Copy + SpanDetached + PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.v == other.v
+    }
+}
+
 #[expect(private_bounds)]
-impl<T, S: Copy + SpanDetached> Spanned<T, S> {
+impl<T, S: Copy + SpanDetached, const SPAN_EQ: bool> Spanned<T, S, SPAN_EQ> {
     /// Create a new instance from a value and its span.
     pub const fn new(v: T, span: S) -> Self {
         Self { v, span }
@@ -399,19 +439,29 @@ impl<T, S: Copy + SpanDetached> Spanned<T, S> {
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
-    pub const fn as_ref(&self) -> Spanned<&T, S> {
+    pub const fn as_ref(&self) -> Spanned<&T, S, SPAN_EQ> {
         Spanned { v: &self.v, span: self.span }
     }
 
     /// Map the value using a function.
-    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U, S> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U, S, SPAN_EQ> {
         Spanned { v: f(self.v), span: self.span }
     }
 }
 
-impl<T: Debug, S: Copy + SpanDetached> Debug for Spanned<T, S> {
+impl<T: Debug, S: Copy + SpanDetached, const SPAN_EQ: bool> Debug
+    for Spanned<T, S, SPAN_EQ>
+{
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.v.fmt(f)
+    }
+}
+
+impl<T: Default, S: Copy + SpanDetached, const SPAN_EQ: bool> Default
+    for Spanned<T, S, SPAN_EQ>
+{
+    fn default() -> Self {
+        Self { v: Default::default(), span: S::SPAN_DETACHED }
     }
 }
 

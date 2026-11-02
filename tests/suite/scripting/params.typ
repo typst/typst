@@ -60,6 +60,24 @@
   f(1, 2)
 }
 
+--- params-missing-arguments-with eval ---
+#{
+  let f(a, b, c) = none
+  let f = f.with(1)
+  // Error: 3-7 missing argument: c
+  f(2)
+}
+
+--- params-missing-arguments-with-callback eval trace ---
+#{
+  // Error: 8-17 missing argument: c
+  let f(a, b, c) = none
+  let f = f.with(1)
+  // Trace: 3-24 (2) while calling `position`
+  // Trace: 22-23 (1) while calling `f`
+  (1, 2, 3).position(f)
+}
+
 --- issue-1029-parameter-destructuring eval ---
 // Test that underscore works in parameter patterns.
 #test((1, 2, 3).zip((1, 2, 3)).map(((_, x)) => x), (1, 2, 3))

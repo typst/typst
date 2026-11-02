@@ -1,6 +1,7 @@
 // Test figures.
 
---- figure-basic paged pdftags pdfstandard(ua-1) ---
+--- figure-basic paged pdftags ---
+#set pdf(standard: "ua-1")
 #set page(width: 150pt)
 #set figure(numbering: "I")
 
@@ -308,3 +309,10 @@ HI#footnote.entry(clearance: 2.5em)[There]
 )
 
 #c
+
+--- issue-8823-figure-alt-text html ---
+// Test that alt text is output on html figures.
+#figure(
+  html.frame(square(width: 10pt, fill: red)),
+  alt: "A red square",
+)

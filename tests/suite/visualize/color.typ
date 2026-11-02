@@ -172,6 +172,9 @@
 #test-components(rgb(1, 2, 3, 4), (0.39%, 0.78%, 1.18%, 1.57%))
 #test-components(luma(40), (15.69%, 100%))
 #test-components(luma(40, 50%), (15.69%, 50%))
+#test-components(luma(40, 127), (15.69%, 49.8%))
+#test-components(luma(40, 0), (15.69%, 0%))
+#test-components(luma(40, 255), (15.69%, 100%))
 #test-components(cmyk(4%, 5%, 6%, 7%), (4%, 5%, 6%, 7%), has-alpha: false)
 #test-components(oklab(10%, 0.2, 0.4), (10%, 0.2, 0.4, 100%))
 #test-components(oklch(10%, 0.2, 90deg), (10%, 0.2, 90deg, 100%))
@@ -206,9 +209,30 @@
 // Error: 21-26 expected integer or ratio, found boolean
 #rgb(10%, 20%, 30%, false)
 
+--- color-luma-empty-arguments eval ---
+// Error: 7-13 missing argument: lightness component
+// Hint: 7-13 try writing `white` or `luma(100%)`
+#test(luma(), white)
+
+--- color-luma-invalid-alpha eval ---
+// Error: 7-16 expected integer or ratio, found string
+#luma("invalid")
+
+--- color-luma-invalid-lightness eval ---
+// Error: 12-21 expected integer or ratio, found string
+#luma(10%, "invalid")
+
 --- color-luma-unexpected-argument eval ---
-// Error: 10-20 unexpected argument: key
-#luma(1, key: "val")
+// Error: 12-22 unexpected argument: key
+#luma(255, key: "val")
+
+--- color-luma-unexpected-pos-argument eval ---
+// Error: 17-22 unexpected argument
+#luma(25%, 50%, "val")
+
+--- color-rotate-bad-space eval ---
+// Error: 27-30 expected `oklch`, `color.hsl`, or `color.hsv`
+#red.rotate(90deg, space: rgb)
 
 --- color-mix-bad-amount-type eval ---
 // Error: 12-24 expected float or ratio, found string
@@ -220,7 +244,7 @@
 #color.mix((red, 1, 2))
 
 --- color-mix-bad-space-type eval ---
-// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `oklch`, `color.linear-rgb`, `color.hsl`, `color.hsv`, or spot colorant, found string
+// Error: 31-38 expected spot colorant, function, or auto, found string
 #color.mix(red, green, space: "cyber")
 
 --- color-mix-bad-space-value-1 eval ---
@@ -410,7 +434,8 @@
 // Error: 30-37 expected color, found spot colorant
 #color.spot("PANTONE 185 C", pantone)
 
---- spot-colorant-inconsistent-fallback pdf pdfstandard(a-2a) ---
+--- spot-colorant-inconsistent-fallback pdf ---
+#set pdf(standard: "a-2a")
 // Error: spot colorant `"PANTONE 185 C"` appeared with multiple distinct fallback colors
 // Hint: define a particular spot colorant once and store it in a variable to reuse it later
 #set document(date: datetime(year: 1970, month: 1, day: 1))

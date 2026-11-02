@@ -28,6 +28,17 @@ $ dot \ dots \ ast \ tilde \ star $
 $floor(phi.alt.)$
 $floor(phi.alt. )$
 
+--- math-ident-invalid-grapheme-at-end-of-ident eval ---
+// The final grapheme in `ident⃝` starts with a letter, but ends with U+20DD
+// COMBINING ENCLOSING CIRCLE, which is not part of `xid_continue`.
+//
+// Instead of including this non-ident character in the identifier, we split the
+// tokens in the middle of the grapheme. This matches the behavior of code mode,
+// but is mainly for implementation simplicity.
+#let ident = "A"
+#let eqn = $ ident⃝ $
+#test(repr(eqn.body), "sequence([A], [⃝])")
+
 --- issue-4828-math-number-multi-char paged html ---
 // Numbers should parse the same regardless of number of characters.
 $1/2(x)$ vs. $1/10(x)$

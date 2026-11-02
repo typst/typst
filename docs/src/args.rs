@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, ValueEnum};
-use typst_utils::display_possible_values;
+use clap::builder::ValueParser;
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
+use typst_utils::{display_possible_values, parse_sys_input_pair};
 
 /// Generator for Typst's documentation.
 #[derive(Debug, Clone, Parser)]
@@ -61,8 +62,8 @@ pub struct CompileArgs {
     /// Path to main file.
     ///
     /// If not present, uses the provided default entrypoint in
-    /// `docs/src/main.typ`. Can be customized to consume the docs as a Typst
-    /// package. The package is available as `@typst/docs:0.0.0`.
+    /// `docs/main.typ` in the workspace. Can be customized to consume the
+    /// docs as a Typst package. The package is available as `@typst/docs:0.0.0`.
     pub input: Option<PathBuf>,
     /// Path to the output file or directory.
     ///
@@ -70,10 +71,22 @@ pub struct CompileArgs {
     /// - `docs/dist/docs.pdf` for the PDF version.
     /// - `docs/dist/site/**` for the HTML version (or nothing at all when
     ///   watching).
+    ///
+    /// The default values are relative to the workspace.
+    #[arg(verbatim_doc_comment)]
     pub output: Option<PathBuf>,
     /// The output format.
     #[arg(long = "format", short = 'f', default_value_t)]
     pub format: OutputFormat,
+    /// Add a string key-value pair visible through `sys.inputs`.
+    #[clap(
+        short = 'i',
+        long = "input",
+        value_name = "key=value",
+        action = ArgAction::Append,
+        value_parser = ValueParser::new(parse_sys_input_pair),
+    )]
+    pub inputs: Vec<(String, String)>,
     /// Do not add the "development version" warning to the generated PDF.
     #[arg(long)]
     pub release: bool,
@@ -83,6 +96,16 @@ pub struct CompileArgs {
     /// Open the generated output when finished.
     #[arg(long)]
     pub open: bool,
+    /// Path to the workspace from which to load files for documentation.
+    ///
+    /// This program generates documentation from Typst's codebase. By default,
+    /// it loads the workspace in which it was compiled. Once compiled, this
+    /// program may be reused to generate documentation for another clone of the
+    /// codebase. To do so, set this option to that clone's root directory.
+    ///
+    /// The default INPUT and OUTPUT are relative to the value of this option.
+    #[arg(long)]
+    pub workspace: Option<PathBuf>,
 }
 
 /// Which kind of output to generate.

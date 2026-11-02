@@ -237,7 +237,11 @@ impl<'a> Markup<'a> {
             .filter(move |node| {
                 // Ignore newline directly after statements without semicolons.
                 let kind = node.kind();
-                let keep = !was_stmt || node.kind() != SyntaxKind::Space;
+                let is_space = matches!(
+                    node.kind(),
+                    SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline
+                );
+                let keep = !was_stmt || !is_space;
                 was_stmt = kind.is_stmt();
                 keep
             })
@@ -255,7 +259,8 @@ pub enum Expr<'a> {
     Space(Space<'a>),
     /// A forced line break: `\`.
     Linebreak(Linebreak<'a>),
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     Parbreak(Parbreak<'a>),
     /// An escape sequence: `\#`, `\u{1F5FA}`.
     Escape(Escape<'a>),
@@ -288,8 +293,14 @@ pub enum Expr<'a> {
     Equation(Equation<'a>),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math<'a>),
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
-    MathText(MathText<'a>),
+    /// A single letter in math, may be exactly one grapheme cluster: `x`, `π`,
+    /// `ℱ`, `ℱ︀`.
+    MathLetter(MathLetter<'a>),
+    /// A non-letter symbol in math, may be exactly one grapheme cluster: `+`,
+    /// `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    MathSymbol(MathSymbol<'a>),
+    /// A number in math: `25`, `2.718`.
+    MathNumber(MathNumber<'a>),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent<'a>),
     /// A field access in math: `arrow.r.long.double.bar`.
@@ -300,6 +311,10 @@ pub enum Expr<'a> {
     MathAlignPoint(MathAlignPoint<'a>),
     /// A function call in math: `mat(delim: "[", a, b; ..#($c$,), d)`
     MathCall(MathCall<'a>),
+    /// An opening delimiter in math: `(`, `{`.
+    MathOpening(MathOpening<'a>),
+    /// A closing delimiter in math: `)`, `}`.
+    MathClosing(MathClosing<'a>),
     /// Matched delimiters in math: `[x + y]`.
     MathDelimited(MathDelimited<'a>),
     /// A base with optional attachments in math: `a_1^2`.
@@ -377,7 +392,9 @@ pub enum Expr<'a> {
 impl<'a> Expr<'a> {
     fn cast_with_space(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space => Some(Self::Space(Space(node))),
+            SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => {
+                Some(Self::Space(Space(node)))
+            }
             _ => Self::from_untyped(node),
         }
     }
@@ -386,7 +403,7 @@ impl<'a> Expr<'a> {
 impl<'a> AstNode<'a> for Expr<'a> {
     fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Space => Option::None, // Skipped unless using `cast_with_space`.
+            // Spaces are skipped unless using `cast_with_space`.
             SyntaxKind::Linebreak => Some(Self::Linebreak(Linebreak(node))),
             SyntaxKind::Parbreak => Some(Self::Parbreak(Parbreak(node))),
             SyntaxKind::Text => Some(Self::Text(Text(node))),
@@ -405,7 +422,9 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::TermItem => Some(Self::TermItem(TermItem(node))),
             SyntaxKind::Equation => Some(Self::Equation(Equation(node))),
             SyntaxKind::Math => Some(Self::Math(Math(node))),
-            SyntaxKind::MathText => Some(Self::MathText(MathText(node))),
+            SyntaxKind::MathLetter => Some(Self::MathLetter(MathLetter(node))),
+            SyntaxKind::MathSymbol => Some(Self::MathSymbol(MathSymbol(node))),
+            SyntaxKind::MathNumber => Some(Self::MathNumber(MathNumber(node))),
             SyntaxKind::MathIdent => Some(Self::MathIdent(MathIdent(node))),
             SyntaxKind::MathFieldAccess => {
                 Some(Self::MathFieldAccess(MathFieldAccess(node)))
@@ -415,6 +434,8 @@ impl<'a> AstNode<'a> for Expr<'a> {
                 Some(Self::MathAlignPoint(MathAlignPoint(node)))
             }
             SyntaxKind::MathCall => Some(Self::MathCall(MathCall(node))),
+            SyntaxKind::MathOpening => Some(Self::MathOpening(MathOpening(node))),
+            SyntaxKind::MathClosing => Some(Self::MathClosing(MathClosing(node))),
             SyntaxKind::MathDelimited => Some(Self::MathDelimited(MathDelimited(node))),
             SyntaxKind::MathAttach => Some(Self::MathAttach(MathAttach(node))),
             SyntaxKind::MathPrimes => Some(Self::MathPrimes(MathPrimes(node))),
@@ -478,12 +499,16 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::TermItem(v) => v.to_untyped(),
             Self::Equation(v) => v.to_untyped(),
             Self::Math(v) => v.to_untyped(),
-            Self::MathText(v) => v.to_untyped(),
+            Self::MathLetter(v) => v.to_untyped(),
+            Self::MathSymbol(v) => v.to_untyped(),
+            Self::MathNumber(v) => v.to_untyped(),
             Self::MathIdent(v) => v.to_untyped(),
             Self::MathFieldAccess(v) => v.to_untyped(),
             Self::MathShorthand(v) => v.to_untyped(),
             Self::MathAlignPoint(v) => v.to_untyped(),
             Self::MathCall(v) => v.to_untyped(),
+            Self::MathOpening(v) => v.to_untyped(),
+            Self::MathClosing(v) => v.to_untyped(),
             Self::MathDelimited(v) => v.to_untyped(),
             Self::MathAttach(v) => v.to_untyped(),
             Self::MathPrimes(v) => v.to_untyped(),
@@ -590,10 +615,35 @@ impl<'a> Text<'a> {
     }
 }
 
-node! {
-    /// Whitespace in markup or math. Has at most one newline in markup, as more
-    /// indicate a paragraph break.
-    struct Space
+/// Whitespace in markup or math. Has at most one newline in markup, as more
+/// indicate a paragraph break.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Space<'a>(&'a SyntaxNode);
+
+impl Space<'_> {
+    /// Whether the Space contains a newline.
+    pub fn had_newline(self) -> bool {
+        self.0.kind() == SyntaxKind::SpaceWithNewline
+    }
+}
+
+impl<'a> AstNode<'a> for Space<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => Some(Self(node)),
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        self.0
+    }
+
+    fn placeholder() -> Self {
+        static PLACEHOLDER: SyntaxNode =
+            SyntaxNode::placeholder(SyntaxKind::SpaceNoNewline);
+        Self(&PLACEHOLDER)
+    }
 }
 
 node! {
@@ -602,7 +652,8 @@ node! {
 }
 
 node! {
-    /// A paragraph break, indicated by one or multiple blank lines.
+    /// A paragraph break, indicated by contiguous whitespace containing at
+    /// least two newlines. Only produced in Markup.
     struct Parbreak
 }
 
@@ -873,7 +924,10 @@ impl<'a> Equation<'a> {
     /// Whether the equation should be displayed as a separate block.
     pub fn block(self) -> bool {
         let is_space = |node: Option<&SyntaxNode>| {
-            node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
+            matches!(
+                node.map(SyntaxNode::kind),
+                Some(SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline)
+            )
         };
         is_space(self.0.children().nth(1)) && is_space(self.0.children().nth_back(1))
     }
@@ -892,37 +946,50 @@ impl<'a> Math<'a> {
 
     /// Whether this `Math` node was originally parenthesized.
     pub fn was_deparenthesized(self) -> bool {
-        let mut iter = self.0.children();
-        matches!(iter.next().map(SyntaxNode::kind), Some(SyntaxKind::LeftParen))
-            && matches!(
-                iter.next_back().map(SyntaxNode::kind),
-                Some(SyntaxKind::RightParen)
-            )
+        matches!(
+            self.0.children().as_slice(),
+            [first, .., last]
+            if first.kind() == SyntaxKind::LeftParen
+                && last.kind() == SyntaxKind::RightParen
+        )
     }
 }
 
 node! {
-    /// A lone text fragment in math: `x`, `25`, `3.1415`, `=`, `[`.
-    struct MathText
+    /// A single letter in math, may be exactly one grapheme cluster: `x`, `π`,
+    /// `ℱ`, `ℱ︀`.
+    struct MathLetter
 }
 
-/// The underlying text kind.
-pub enum MathTextKind<'a> {
-    Grapheme(&'a EcoString),
-    Number(&'a EcoString),
-}
-
-impl<'a> MathText<'a> {
+impl<'a> MathLetter<'a> {
     /// Return the underlying text.
-    pub fn get(self) -> MathTextKind<'a> {
-        let text = self.0.leaf_text();
-        if text.chars().next().unwrap_or_default().is_numeric() {
-            // Numbers are potentially grouped as multiple characters. This is
-            // done in `Lexer::math_text()`.
-            MathTextKind::Number(text)
-        } else {
-            MathTextKind::Grapheme(text)
-        }
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A non-letter symbol in math, may be exactly one grapheme cluster: `+`,
+    /// `=`, `∅`, `∅︀`, `🏳️‍🌈`.
+    struct MathSymbol
+}
+
+impl<'a> MathSymbol<'a> {
+    /// Return the underlying text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A number in math: `25`, `2.718`.
+    struct MathNumber
+}
+
+impl<'a> MathNumber<'a> {
+    /// Return the underlying text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
     }
 }
 
@@ -1152,7 +1219,9 @@ impl<'a> MathArgs<'a> {
                 let semicolon_ends_code = prev_hash;
                 prev_hash = false;
                 let item = match node.kind() {
-                    SyntaxKind::Space => MathArgItem::Space(Space(node)),
+                    SyntaxKind::SpaceNoNewline | SyntaxKind::SpaceWithNewline => {
+                        MathArgItem::Space(Space(node))
+                    }
                     SyntaxKind::Comma => MathArgItem::Comma(',', node),
                     SyntaxKind::LeftParen => MathArgItem::LeftParen('(', node),
                     SyntaxKind::RightParen => MathArgItem::RightParen(')', node),
@@ -1178,13 +1247,49 @@ node! {
 }
 
 node! {
+    /// An opening delimiter in math: `(`, `{`.
+    ///
+    /// Also wraps the opening double square bracket shorthand: `[|`.
+    struct MathOpening
+}
+
+impl MathOpening<'_> {
+    /// Get the opening delimiter character. May be computed from an inner
+    /// [`MathShorthand`] if this is not a leaf node.
+    pub fn get(self) -> char {
+        match self.0.leaf_text().chars().next() {
+            Some(open) => open,
+            Option::None => self.0.cast_first::<MathShorthand>().get(),
+        }
+    }
+}
+
+node! {
+    /// A closing delimiter in math: `)`, `}`.
+    ///
+    /// Also wraps the closing double square bracket shorthand: `|]`.
+    struct MathClosing
+}
+
+impl MathClosing<'_> {
+    /// Get the closing delimiter character. May be computed from an inner
+    /// [`MathShorthand`] if this is not a leaf node.
+    pub fn get(self) -> char {
+        match self.0.leaf_text().chars().next() {
+            Some(open) => open,
+            Option::None => self.0.cast_first::<MathShorthand>().get(),
+        }
+    }
+}
+
+node! {
     /// Matched delimiters in math: `[x + y]`.
     struct MathDelimited
 }
 
 impl<'a> MathDelimited<'a> {
     /// The opening delimiter.
-    pub fn open(self) -> Expr<'a> {
+    pub fn open(self) -> MathOpening<'a> {
         self.0.cast_first()
     }
 
@@ -1194,7 +1299,7 @@ impl<'a> MathDelimited<'a> {
     }
 
     /// The closing delimiter.
-    pub fn close(self) -> Expr<'a> {
+    pub fn close(self) -> MathClosing<'a> {
         self.0.cast_last()
     }
 }
@@ -1382,7 +1487,7 @@ pub enum IntLiteralError<'a> {
     InvalidDigit(NonDecimalBase, &'a str),
 }
 
-/// Non-decimal bases available for integer syntax: hexademical, octal, or
+/// Non-decimal bases available for integer syntax: hexadecimal, octal, or
 /// binary.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]

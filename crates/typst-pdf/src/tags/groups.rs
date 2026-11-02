@@ -4,6 +4,7 @@ use krilla::configure::PdfVersion;
 use krilla::geom as kg;
 use krilla::tagging::{Artifact, ArtifactType, Identifier, ListNumbering, TagKind};
 use rustc_hash::FxHashMap;
+use typst_library::format::Complete;
 use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{GridCell, Inherit, Size};
@@ -502,15 +503,18 @@ impl GroupKind {
         matches!(self, Self::Link(..))
     }
 
+    pub fn is_figure(&self) -> bool {
+        matches!(self, Self::Figure(..) | Self::Image(..))
+    }
+
     pub fn to_artifact(
         &self,
-        options: &PdfOptions,
+        options: &PdfOptions<Complete>,
         page_size: Option<Size>,
     ) -> Option<Artifact> {
         let GroupKind::Artifact(artifact) = *self else { return None };
 
-        if options.standards.config.version() == PdfVersion::Pdf17
-            && artifact == ArtifactType::Background
+        if options.version() == PdfVersion::Pdf17 && artifact == ArtifactType::Background
         {
             // Background artifacts were introduced in PDF 1.7. However,
             // they require a bounding box there, which may not be readily

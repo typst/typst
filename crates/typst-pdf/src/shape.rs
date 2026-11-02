@@ -2,6 +2,7 @@ use krilla::geom::{Path, PathBuilder, Rect};
 use krilla::surface::Surface;
 use krilla::tagging::ArtifactType;
 use typst_library::diag::SourceResult;
+use typst_library::foundations::Smart;
 use typst_library::visualize::{Geometry, Shape};
 use typst_syntax::Span;
 use typst_utils::defer;
@@ -17,7 +18,7 @@ pub(crate) fn handle_shape(
     surface: &mut Surface,
     gc: &mut GlobalContext,
     span: Span,
-    artifact_type: ArtifactType,
+    artifact_type: Smart<ArtifactType>,
 ) -> SourceResult<()> {
     let mut handle = tags::shape(gc, fc, surface, shape, artifact_type);
     let surface = handle.surface();
@@ -44,9 +45,8 @@ pub(crate) fn handle_shape(
             None
         };
 
-        let stroke = shape.stroke.as_ref().and_then(|stroke| {
-            if stroke.thickness.to_f32() > 0.0 { Some(stroke) } else { None }
-        });
+        let stroke =
+            shape.stroke.as_ref().filter(|stroke| stroke.thickness.to_f32() > 0.0);
 
         let stroke = if let Some(stroke) = &stroke {
             let stroke = paint::convert_stroke(

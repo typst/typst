@@ -1,11 +1,14 @@
-use heck::ToKebabCase;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{MetaNameValue, Result, Token, parse_quote};
 
-use crate::util::{BareType, foundations, kw, parse_flag};
+use crate::util::{
+    BareType, Since, determine_name_and_title, documentation, foundations, kw,
+    parse_flag, parse_ident, parse_key_value, parse_string, parse_string_array,
+    quote_option, remove_attrs, take_attr,
+};
 
 /// Expand the `#[scope]` macro.
 pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
@@ -32,17 +35,22 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
 
     let mut definitions = vec![];
     let mut constructor = quote! { None };
+    let mut custom_defs = None;
     for child in &mut item.items {
         let bare: BareType;
         let (mut def, attrs) = match child {
             syn::ImplItem::Const(item) => {
-                (handle_const(&self_ty_expr, item)?, &item.attrs)
+                (handle_const(&self_ty_expr, self_ty, item)?, &item.attrs)
             }
             syn::ImplItem::Fn(item) => (
                 match handle_fn(self_ty, item)? {
                     FnKind::Member(tokens) => tokens,
                     FnKind::Constructor(tokens) => {
                         constructor = tokens;
+                        continue;
+                    }
+                    FnKind::CustomDefs(tokens) => {
+                        custom_defs = Some(tokens);
                         continue;
                     }
                 },
@@ -105,6 +113,10 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
         Some(ident_ext) => rewrite_primitive_base(&item, ident_ext),
     };
 
+    let category = meta.category.map(|category| {
+        quote! { scope.start_category(::typst_library::Category::#category); }
+    });
+
     Ok(quote! {
         #base
 
@@ -116,7 +128,9 @@ pub fn scope(stream: TokenStream, item: syn::Item) -> Result<TokenStream> {
             #[expect(deprecated)]
             fn scope() -> #foundations::Scope {
                 let mut scope = #foundations::Scope::deduplicating();
+                #category
                 #(#definitions;)*
+                #custom_defs
                 scope
             }
         }
@@ -128,19 +142,64 @@ struct Meta {
     /// Whether this the scope should be implemented through an extension
     /// trait instead of an inherent impl.
     ext: bool,
+    /// The category of the scope.
+    category: Option<syn::Ident>,
 }
 
 impl Parse for Meta {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self { ext: parse_flag::<kw::ext>(input)? })
+        Ok(Self {
+            ext: parse_flag::<kw::ext>(input)?,
+            category: parse_ident::<kw::category>(input)?,
+        })
     }
 }
 
 /// Process a const item and returns its definition.
-fn handle_const(self_ty: &TokenStream, item: &syn::ImplItemConst) -> Result<TokenStream> {
+fn handle_const(
+    self_ty: &TokenStream,
+    parent: &syn::Type,
+    item: &mut syn::ImplItemConst,
+) -> Result<TokenStream> {
     let ident = &item.ident;
-    let name = ident.to_string().to_kebab_case();
-    Ok(quote! { scope.define(#name, #self_ty::#ident) })
+
+    let Some(attr) = take_attr(&mut item.attrs, "constant") else {
+        bail!(item, "scope constant is missing #[constant] attribute");
+    };
+
+    let meta = match &attr.meta {
+        syn::Meta::Path(_) => ConstantMeta::default(),
+        syn::Meta::List(list) => syn::parse2(list.tokens.clone())?,
+        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid #[constant] attribute"),
+    };
+
+    let docs = documentation(&item.attrs)?;
+    remove_attrs(&mut item.attrs, "doc");
+
+    let (name, title) = determine_name_and_title(meta.name, meta.title, ident, None)?;
+    let since = quote_option(&meta.since);
+    let keywords = meta.keywords;
+
+    let def_site_key = if let syn::Type::Path(path) = parent
+        && let Some(parent) = path.path.get_ident()
+    {
+        format!("{parent}::{ident}")
+    } else {
+        ident.to_string()
+    };
+
+    Ok(quote! {
+        scope
+            .define(#name, #self_ty::#ident)
+            .with_documentation(::typst_library::foundations::BindingDocumentation {
+                name: #name,
+                title: #title,
+                docs: #docs,
+                since: #since,
+                keywords: &[#(#keywords),*],
+                def_site: Some(::typst_utils::DefSite { path: file!(), key: #def_site_key }),
+            })
+    })
 }
 
 /// Process a type item.
@@ -157,13 +216,41 @@ fn handle_type_or_elem(item: &BareType) -> Result<TokenStream> {
 /// Process a function, return its definition, and register it as a constructor
 /// if applicable.
 fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> {
-    let Some(attr) = item.attrs.iter_mut().find(|attr| attr.meta.path().is_ident("func"))
-    else {
-        bail!(item, "scope function is missing #[func] attribute");
-    };
+    let mut ret = Vec::new();
+    item.attrs.retain_mut(|attr| {
+        if attr.meta.path().is_ident("func") {
+            let ident_data = quote::format_ident!("{}_data", item.sig.ident);
+            ret.push((attr.clone(), handle_fn_member(self_ty, ident_data, attr)));
+            // Retain, but possibly modify the `#[func]` attribute.
+            true
+        } else if attr.meta.path().is_ident("defs") {
+            let ident = &item.sig.ident;
+            let call = quote! { #self_ty::#ident(&mut scope); };
+            ret.push((attr.clone(), Ok(FnKind::CustomDefs(call))));
+            // Remove the `#[defs]` attribute.
+            false
+        } else {
+            true
+        }
+    });
 
-    let ident_data = quote::format_ident!("{}_data", item.sig.ident);
+    if let [_, (attr, _), ..] = ret.as_slice() {
+        bail!(
+            attr,
+            "scope functions can only have a single #[func] or #[defs] attribute"
+        );
+    }
+    match ret.pop() {
+        Some((_, res)) => res,
+        None => bail!(item, "scope function is missing #[func] or #[defs] attribute"),
+    }
+}
 
+fn handle_fn_member(
+    self_ty: &syn::Type,
+    ident_data: syn::Ident,
+    attr: &mut syn::Attribute,
+) -> Result<FnKind> {
     match &mut attr.meta {
         syn::Meta::Path(_) => {
             *attr = parse_quote! { #[func(parent = #self_ty)] };
@@ -176,7 +263,7 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
                 return Ok(FnKind::Constructor(quote! { Some(#self_ty::#ident_data()) }));
             }
         }
-        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid func attribute"),
+        syn::Meta::NameValue(_) => bail!(attr.meta, "invalid #[func] attribute"),
     }
 
     Ok(FnKind::Member(quote! { scope.define_func_with_data(#self_ty::#ident_data()) }))
@@ -185,6 +272,7 @@ fn handle_fn(self_ty: &syn::Type, item: &mut syn::ImplItemFn) -> Result<FnKind> 
 enum FnKind {
     Constructor(TokenStream),
     Member(TokenStream),
+    CustomDefs(TokenStream),
 }
 
 /// Rewrite an impl block for a primitive into a trait + trait impl.
@@ -231,5 +319,29 @@ fn rewrite_primitive_base(item: &syn::ItemImpl, ident_ext: &syn::Ident) -> Token
         impl #ident_ext for #self_ty {
             #(#items)*
         }
+    }
+}
+
+/// The `..` in `#[constant(..)]`.
+#[derive(Default)]
+struct ConstantMeta {
+    /// The function's name as exposed to Typst.
+    name: Option<String>,
+    /// The function's title case name.
+    title: Option<String>,
+    /// The version of Typst the function was introduced in.
+    since: Option<Since>,
+    /// A list of alternate search terms for this function.
+    keywords: Vec<String>,
+}
+
+impl Parse for ConstantMeta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            name: parse_string::<kw::name>(input)?,
+            title: parse_string::<kw::title>(input)?,
+            since: parse_key_value::<kw::since, Since>(input)?,
+            keywords: parse_string_array::<kw::keywords>(input)?,
+        })
     }
 }

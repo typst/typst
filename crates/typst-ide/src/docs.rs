@@ -17,12 +17,11 @@ pub fn find_value_docs(world: &dyn IdeWorld, value: &Value) -> Option<Docs> {
         && let span = func.span()
         && let Some(id) = span.id()
         && let Ok(source) = world.source(id)
-        && let Some(args) = source.find(span)
-        && let Some(parent) = args.parent()
-        && parent.kind() == SyntaxKind::Closure
-        && let Some(grand) = parent.parent()
-        && grand.kind() == SyntaxKind::LetBinding
-        && let Some(docs) = Docs::collect_doc_comment(grand.clone())
+        && let Some(node) = source.find(span)
+        && node.kind() == SyntaxKind::Closure
+        && let Some(parent) = node.parent()
+        && parent.kind() == SyntaxKind::LetBinding
+        && let Some(docs) = Docs::collect_doc_comment(parent.clone())
     {
         return Some(docs);
     }
@@ -76,7 +75,12 @@ impl Docs {
                 lines.push(text.strip_prefix('/').unwrap_or(text));
             } else if let Some(comment) = prev.get().cast::<ast::BlockComment>() {
                 lines.push(comment.text());
-            } else if !matches!(prev.kind(), SyntaxKind::Space | SyntaxKind::Hash) {
+            } else if !matches!(
+                prev.kind(),
+                SyntaxKind::SpaceNoNewline
+                    | SyntaxKind::SpaceWithNewline
+                    | SyntaxKind::Hash
+            ) {
                 break;
             }
             current = prev;

@@ -1,6 +1,7 @@
 // Test citations and bibliographies.
 
---- bibliography-basic paged html pdftags pdfstandard(ua-1) ---
+--- bibliography-basic paged html pdftags ---
+#set pdf(standard: "ua-1")
 #show: it => context { set page(width: 200pt) if target() == "paged"; it }
 
 = Details
@@ -91,6 +92,20 @@ hi:
 --- bibliography-indent-par paged ---
 // Ensure that an indent-based bibliography does not produce paragraphs.
 #show par: highlight
+
+@Zee04
+@keshav2007read
+
+#bibliography("/assets/bib/works_too.bib", style: "mla")
+
+--- bibliography-hanging-indent paged ---
+// Test that the hanging indent of a bibliography (for styles that use one,
+// like MLA) can be customized with a show-set rule for `par`, and that it
+// does not leak into paragraphs outside of the bibliography.
+#show bibliography: set par(hanging-indent: 3em)
+
+Hanging indent should not affect this paragraph, which is long enough to wrap
+onto a second line.
 
 @Zee04
 @keshav2007read

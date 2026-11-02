@@ -42,6 +42,103 @@ fn test_compile_pdf_version() {
 }
 
 #[test]
+fn test_compile_pdf_tagged_and_pages() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged")
+        .arg("--pages=1")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot enable PDF tags when exporting a page range");
+}
+
+#[test]
+fn test_compile_pages_warning_untagged() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--pages=1").arg(&hello).must_succeed();
+    output
+        .stderr
+        .must_contain("using `--pages` implies `--pdf-tagged=false`");
+}
+
+#[test]
+fn test_compile_pdf_untagged_and_accessible_standard() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec()
+        .arg("compile")
+        .arg("--pdf-tagged=false")
+        .arg("--pdf-standard=a-3a")
+        .arg(&hello)
+        .must_fail();
+    output
+        .stderr
+        .must_contain("cannot disable PDF tags when exporting a PDF/A-3a document");
+}
+
+#[test]
+fn test_compile_no_pdf_tags_deprecated() {
+    let project = tempfs();
+    let hello = project.write("hello.typ", "");
+    let output = exec().arg("compile").arg("--no-pdf-tags").arg(&hello).must_succeed();
+    output.stderr.must_contain("`--no-pdf-tags` is deprecated");
+}
+
+#[test]
+fn test_compile_png_default_ppi() {
+    let project = tempfs();
+
+    let assert_size = |width: u32, height: u32| {
+        let size = image::image_dimensions(project.path().join("hello.png")).unwrap();
+        assert_eq!(size, (width, height));
+    };
+
+    // The default resolution is 144 pixels per inch.
+    let hello = project.write("hello.typ", "#page(width: 2in, height: 1in)[]");
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(144 * 2, 144);
+
+    // Specify via CLI.
+    exec()
+        .arg("compile")
+        .arg(&hello)
+        .arg("--format=png")
+        .arg("--ppi=300")
+        .must_succeed();
+    assert_size(300 * 2, 300);
+
+    // Specify in the style chain.
+    let hello = project.write(
+        "hello.typ",
+        "#set format.png(ppi: 300)\n#page(width: 2in, height: 1in)[]",
+    );
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(300 * 2, 300);
+
+    // Specify in the style chain multiple times.
+    let hello = project.write(
+        "hello.typ",
+        "#set format.png(ppi: 300)\n#set format.png(ppi: 600)\n#page(width: 2in, height: 1in)[]",
+    );
+    exec().arg("compile").arg(&hello).arg("--format=png").must_succeed();
+    assert_size(600 * 2, 600);
+
+    // CLI overrides the style chain.
+    exec()
+        .arg("compile")
+        .arg(&hello)
+        .arg("--format=png")
+        .arg("--ppi=144")
+        .must_succeed();
+    assert_size(144 * 2, 144);
+}
+
+#[test]
 fn test_eval() {
     let output = exec().arg("eval").arg("1+2").must_succeed();
     output.stdout.must_match_lines(["3"]);
@@ -67,6 +164,114 @@ fn test_eval() {
 }
 
 #[test]
+fn test_eval_format() {
+    // Default format (JSON).
+    let output = exec().arg("eval").arg("(1, 2, 3, 4)").must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // JSON manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "json"])
+        .must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+
+    // YAML manually specified.
+    let output = exec()
+        .arg("eval")
+        .args(["(1, 2, 3, 4)", "--format", "yaml"])
+        .must_succeed();
+    output.stdout.must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+}
+
+#[test]
+fn test_eval_output() {
+    let project = tempfs();
+
+    // Named path.
+    let output = exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    output.stdout.must_be_empty();
+    output.stderr.must_be_empty();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // Output to stdout.
+    let output = exec().args(["eval", "(1, 2, 3, 4)", "-o", "-"]).must_succeed();
+    output.stdout.must_match_lines(["[1,2,3,4]"]);
+    output.stderr.must_be_empty();
+}
+
+#[test]
+fn test_eval_infer_format() {
+    let project = tempfs();
+
+    // Unknown extension (default format).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_fail()
+        .stderr
+        .must_contain("could not infer output format");
+
+    // Unknown extension, default format overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.extension"))
+        .must_succeed();
+    project
+        .read("foo.extension")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON inferred.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project.read("foo.json").must_match_lines(["[1,2,3,4]"]);
+
+    // YAML inferred (1).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yaml"))
+        .must_succeed();
+    project
+        .read("foo.yaml")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML inferred (2).
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // YAML overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format", "yaml", "-o"])
+        .arg(project.resolve("foo.json"))
+        .must_succeed();
+    project
+        .read("foo.json")
+        .must_match_lines(["- 1", "- 2", "- 3", "- 4"]);
+
+    // JSON overwritten.
+    exec()
+        .args(["eval", "(1, 2, 3, 4)", "--format=json", "-o"])
+        .arg(project.resolve("foo.yml"))
+        .must_succeed();
+    project.read("foo.yml").must_match_lines(["[1,2,3,4]"]);
+
+    // Raw set.
+    exec()
+        .args(["eval", "\"foo\"", "--format=raw", "-o"])
+        .arg(project.resolve("foo.raw"))
+        .must_succeed();
+    assert_eq!(project.read("foo.raw").0, b"foo");
+}
+
+#[test]
 fn test_fonts_embedded() {
     let output = exec().arg("fonts").arg("--ignore-system-fonts").must_succeed();
     output.stdout.must_match_lines([
@@ -75,6 +280,38 @@ fn test_fonts_embedded() {
         "New Computer Modern",
         "New Computer Modern Math",
     ]);
+}
+
+#[test]
+fn test_fonts_empty_path() {
+    let fonts = tempfs();
+    let data = typst_dev_assets::fonts().next().unwrap();
+    let family = typst::text::Font::new(Bytes::new(data), 0)
+        .unwrap()
+        .info()
+        .family
+        .clone();
+    fonts.write("test.ttf", data);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .must_succeed();
+    output.stdout.must_match_lines([family.as_str()]);
+
+    let output = exec()
+        .current_dir(fonts.path())
+        .env("TYPST_FONT_PATHS", fonts.path())
+        .arg("fonts")
+        .arg("--ignore-embedded-fonts")
+        .arg("--ignore-system-fonts")
+        .arg("--font-path")
+        .arg("")
+        .must_succeed();
+    output.stdout.must_match_lines([]);
 }
 
 #[test]
@@ -222,6 +459,57 @@ fn test_path_to_package() {
 }
 
 #[test]
+fn test_template_path_escapes() {
+    let package = tempfs();
+    package.write(
+        "local/escaping/0.1.0/typst.toml",
+        r#"[package]
+           name = "escaping"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "../escaping"
+           entrypoint = "main.typ""#,
+    );
+    let output = exec()
+        .arg("init")
+        .arg("@local/escaping:0.1.0")
+        .arg("--package-path")
+        .arg(package.path())
+        .must_fail();
+    output
+        .stderr
+        .must_contain("error: package manifest is malformed (path escapes root)");
+}
+
+#[test]
+fn test_template_path_absolute() {
+    let project = tempfs();
+    let package = tempfs();
+    package.write(
+        "local/absolute/0.1.0/typst.toml",
+        r#"[package]
+           name = "absolute"
+           version = "0.1.0"
+           entrypoint = "lib.typ"
+
+           [template]
+           path = "/template"
+           entrypoint = "main.typ""#,
+    );
+    package.write("local/absolute/0.1.0/template/main.typ", "Hello");
+    exec()
+        .arg("init")
+        .arg("@local/absolute:0.1.0")
+        .arg(project.path().join("project"))
+        .arg("--package-path")
+        .arg(package.path())
+        .must_succeed();
+    project.read("project/main.typ").must_match_lines(["Hello"]);
+}
+
+#[test]
 fn test_network_access_hint() {
     // Using a CLI test because the error message differs across operating
     // systems. If the test runner could handle that, we could migrate to a
@@ -262,9 +550,49 @@ fn test_tracepoints() {
         .must_contain(r#"include "chap" + "ter1.typ""#);
     output
         .stderr
+        .must_contain("while calling function")
+        .must_contain("main.typ:1:1")
+        .must_contain("show strong:");
+    output
+        .stderr
         .must_contain("while showing strong element at")
         .must_contain("main.typ:2:11")
         .must_contain("*Slightly unusual…*");
+}
+
+#[test]
+fn test_tracepoints_of_bare_show() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#let foo(body) = panic()
+         #show: foo",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    output
+        .stderr
+        .must_contain("while calling `foo`")
+        .must_contain("main.typ:2:1")
+        .must_contain("show: foo");
+}
+
+#[test]
+fn test_tracepoints_of_panic_in_show_rule() {
+    let project = tempfs();
+    let main = project.write(
+        "main.typ",
+        "#show strong: _ => panic()
+         *strong*",
+    );
+    let output = exec().arg("compile").arg(&main).must_fail();
+    // The tracepoint is filtered out, because its span overlaps with the
+    // `panic()` call.
+    output.stderr.must_not_contain("while calling function");
+    output
+        .stderr
+        .must_contain("while showing strong element at")
+        .must_contain("main.typ:2:9")
+        .must_contain("*strong*");
 }
 
 #[test]
@@ -356,7 +684,13 @@ struct Stream<T = Vec<u8>>(T);
 impl<T: AsRef<[u8]>> Stream<T> {
     #[track_caller]
     fn must_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
-        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}",);
+        assert!(self.contains(data.as_ref()), "{self:?} did not contain {data:?}");
+        self
+    }
+
+    #[track_caller]
+    fn must_not_contain(&self, data: impl Debug + AsRef<[u8]>) -> &Self {
+        assert!(!self.contains(data.as_ref()), "{self:?} did contain {data:?}");
         self
     }
 
@@ -375,6 +709,12 @@ impl<T: AsRef<[u8]>> Stream<T> {
             self.lines().collect::<Vec<_>>(),
             lines.into_iter().collect::<Vec<_>>(),
         );
+        self
+    }
+
+    #[track_caller]
+    fn must_be_empty(&self) -> &Self {
+        assert!(self.0.as_ref().is_empty(), "{self:?} is not empty");
         self
     }
 

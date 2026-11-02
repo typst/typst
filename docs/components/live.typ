@@ -2,17 +2,22 @@
 //
 // Cooperates with `docs/src/live.rs`.
 
-#import "base.typ": folding-details, short-or-long
+#import "base.typ": (
+  category-settings, folding-details, info, insertion, short-or-long,
+)
 #import "example.typ": example
 #import "figure.typ": docs-figure
 #import "table.typ": docs-table
 
 // The definitions that are available in Rust doc comments.
 #let scope = (
-  example: example,
-  folding-details: folding-details,
+  category-settings: category-settings,
   docs-figure: docs-figure,
   docs-table: docs-table,
+  example: example,
+  folding-details: folding-details,
+  info: info,
+  insertion: insertion,
   short-or-long: short-or-long,
 )
 

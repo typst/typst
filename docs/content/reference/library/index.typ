@@ -11,3 +11,4 @@
 #include "visualize.typ"
 #include "introspection.typ"
 #include "data-loading.typ"
+#include "format.typ"

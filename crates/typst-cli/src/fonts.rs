@@ -47,7 +47,7 @@ pub fn discover_fonts(args: &FontArgs) -> FontStore {
         fonts.extend(fonts::embedded());
     }
 
-    for path in &args.font_paths {
+    for path in args.font_paths.iter().flatten() {
         fonts.extend(fonts::scan(path));
     }
 

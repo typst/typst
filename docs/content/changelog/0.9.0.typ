@@ -17,7 +17,7 @@
   - Supports linear, radial, and conic gradients
   - Added support for defining colors in more color spaces, including @color.oklab[Oklab], @color.linear-rgb[Linear RGB(A)], @color.hsl[HSL], and @color.hsv[HSV]
   - Added @color.saturate[`saturate`], @color.desaturate[`desaturate`], and @color.rotate[`rotate`] functions on colors
-  - Added @color:predefined-color-maps[`color.map`] module with predefined color maps that can be used with gradients
+  - Added @color.map module with predefined color maps that can be used with gradients
   - Rename `kind` function on colors to @color.space[`space`]
   - Removed `to-rgba`, `to-cmyk`, and `to-luma` functions in favor of a new @color.components[`components`] function
 - Improved rendering of @rect[rectangles] with corner radius and varying stroke widths
@@ -104,7 +104,7 @@
 - Now only regenerates images for changed pages when using `typst watch` with PNG or SVG export
 
 = Miscellaneous Improvements <miscellaneous-improvements>
-- Added @version type and `sys.version` constant specifying the current compiler version. Can be used to gracefully support multiple versions.
+- Added @version type and @sys.version constant specifying the current compiler version. Can be used to gracefully support multiple versions.
 - The U+2212 MINUS SIGN is now used when displaying a numeric value, in the @repr of any numeric value and to replace a normal hyphen in text mode when before a digit. This improves, in particular, how negative integer values are displayed in math mode.
 - Added support for specifying a default value instead of failing for `remove` function in @array.remove[array] and @dictionary.remove[dictionary]
 - Simplified Page Setup Guide examples

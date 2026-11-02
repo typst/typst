@@ -287,9 +287,6 @@ fn resolve_package(
     // Evaluate the entry point.
     Ok((
         manifest.package.name,
-        PathOrStr::Str(manifest.package.entrypoint.into())
-            .resolve(manifest_id)
-            .at(span)?
-            .intern(),
+        RootedPath::new(manifest_id.root().clone(), manifest.package.entrypoint).intern(),
     ))
 }

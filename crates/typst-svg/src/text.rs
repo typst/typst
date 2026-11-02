@@ -69,7 +69,7 @@ impl SVGRenderer<'_> {
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
                 text.font.ttf().outline_glyph(glyph_id, &mut builder)?;
-                Some(RenderedGlyph::Path(builder.finsish()))
+                Some(RenderedGlyph::Path(builder.finish()))
             });
 
             if path.is_some() {

@@ -102,12 +102,16 @@ impl Eval for ast::Expr<'_> {
             Self::TermItem(v) => v.eval(vm).map(Value::Content),
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
-            Self::MathText(v) => v.eval(vm).map(Value::Content),
+            Self::MathLetter(v) => v.eval(vm).map(Value::Content),
+            Self::MathSymbol(v) => v.eval(vm).map(Value::Content),
+            Self::MathNumber(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
             Self::MathFieldAccess(v) => v.eval(vm),
             Self::MathShorthand(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathCall(v) => v.eval(vm),
+            Self::MathOpening(v) => v.eval(vm).map(Value::Content),
+            Self::MathClosing(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathPrimes(v) => v.eval(vm).map(Value::Content),
@@ -401,6 +405,7 @@ impl Eval for ast::Contextual<'_> {
             defaults: vec![],
             captured,
             num_pos_params: 0,
+            params_span: Span::detached(),
         };
 
         let func = Func::from(closure).spanned(body.span());

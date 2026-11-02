@@ -235,6 +235,7 @@ pub fn elem(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
 /// #[scope]
 /// impl name {
 ///     /// A simple constant.
+///     #[constant(title = "Value")]
 ///     const VAL: u32 = 0;
 ///
 ///     /// A function.

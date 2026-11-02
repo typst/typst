@@ -4,6 +4,7 @@ use std::fmt::{self, Display, Formatter};
 use typst_syntax::VirtualPath;
 
 use crate::diag::{HintedStrResult, bail, error};
+use crate::format::DocumentFormatOptions;
 use crate::foundations::{
     Array, BundlePath, Cast, Content, Datetime, OneOrMultiple, Packed, ShowFn, ShowSet,
     Smart, StyleChain, Styles, Target, Value, Version, cast, elem,
@@ -72,7 +73,7 @@ use crate::text::{Locale, TextElem};
 /// - SVG and PNG export do not have any metadata support at all.
 ///
 /// = Documents in bundle export <documents-in-bundle-export>
-/// In @reference:bundle[bundle export], a document element represents a single
+/// In @format.bundle[bundle export], a document element represents a single
 /// file in the bundle output, in one of Typst's other export formats. When
 /// creating a document, you must provide an output path and some content. Typst
 /// will compile and export the provided content with the appropriate format. By
@@ -124,6 +125,26 @@ use crate::text::{Locale, TextElem};
 ///   #context document.title
 /// ]
 /// ```
+///
+/// == Export settings <export-settings>
+/// Just like with document metadata, you can use set rules on @format[format
+/// elements] to configure export settings for a particular document.
+///
+/// ```typ
+/// // Pretty-print all HTML.
+/// #set format.html(pretty: true)
+///
+/// #document("index.html")[
+///   ...
+/// ]
+///
+/// #document("archive.pdf")[
+///   // And use a specific PDF standard
+///   // for `archive.pdf`.
+///   #set pdf(standard: "a-2a")
+///   ...
+/// ]
+/// ```
 #[elem(since = "forever", Locatable, ShowSet)]
 pub struct DocumentElem {
     /// The path in the bundle at which the exported document will be placed.
@@ -131,7 +152,7 @@ pub struct DocumentElem {
     /// May contain interior slashes, in which case intermediate directories
     /// will be automatically created.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     #[required]
     pub path: BundlePath,
 
@@ -140,7 +161,7 @@ pub struct DocumentElem {
     /// If `{auto}`, Typst attempts to infer the export format from the
     /// @document.path[`path`'s] file extension.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     pub format: Smart<DocumentFormat>,
 
     /// The document's title. This is rendered as the title of the PDF viewer
@@ -185,7 +206,7 @@ pub struct DocumentElem {
 
     /// The content that makes up the document.
     ///
-    /// This property is only supported in the @reference:bundle[bundle] target.
+    /// This property is only supported in the @format.bundle[bundle] target.
     #[required]
     pub body: Content,
 }
@@ -224,10 +245,8 @@ fn determine_format_from_path(path: &VirtualPath) -> Option<DocumentFormat> {
 pub const DOCUMENT_UNSUPPORTED_RULE: ShowFn<DocumentElem> = |elem, _, _| {
     bail!(
         elem.span(),
-        "constructing a document is only supported in the bundle target";
-        // TODO: Support for CLI-specific hints would be nice.
-        hint: "try enabling the bundle target";
-        hint: "or use a `set document(..)` rule to configure metadata";
+        "cannot construct a document";
+        hint: "use a `set document(..)` rule to configure metadata";
     )
 };
 
@@ -357,6 +376,9 @@ cast! {
 pub trait Document {
     /// Get the document's metadata.
     fn info(&self) -> &DocumentInfo;
+
+    /// Get the format options set by the document.
+    fn options(&self) -> &DocumentFormatOptions;
 }
 
 /// Details about the document.

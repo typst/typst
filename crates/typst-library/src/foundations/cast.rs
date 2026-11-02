@@ -71,7 +71,7 @@ impl Reflect for Value {
     }
 }
 
-impl<T: Reflect> Reflect for Spanned<T> {
+impl<T: Reflect, const SPAN_EQ: bool> Reflect for Spanned<T, Span, SPAN_EQ> {
     fn input() -> CastInfo {
         T::input()
     }
@@ -201,7 +201,7 @@ impl<T: NativeElement + IntoValue> IntoValue for Packed<T> {
     }
 }
 
-impl<T: IntoValue> IntoValue for Spanned<T> {
+impl<T: IntoValue, const SPAN_EQ: bool> IntoValue for Spanned<T, Span, SPAN_EQ> {
     fn into_value(self) -> Value {
         self.v.into_value()
     }
@@ -277,14 +277,16 @@ impl<T: NativeElement + FromValue> FromValue for Packed<T> {
     }
 }
 
-impl<T: FromValue> FromValue<Spanned<Value>> for T {
-    fn from_value(value: Spanned<Value>) -> HintedStrResult<Self> {
+impl<T: FromValue, const SPAN_EQ: bool> FromValue<Spanned<Value, Span, SPAN_EQ>> for T {
+    fn from_value(value: Spanned<Value, Span, SPAN_EQ>) -> HintedStrResult<Self> {
         T::from_value(value.v)
     }
 }
 
-impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
-    fn from_value(value: Spanned<Value>) -> HintedStrResult<Self> {
+impl<T: FromValue, const A: bool, const B: bool> FromValue<Spanned<Value, Span, A>>
+    for Spanned<T, Span, B>
+{
+    fn from_value(value: Spanned<Value, Span, A>) -> HintedStrResult<Self> {
         let span = value.span;
         T::from_value(value.v).map(|t| Spanned::new(t, span))
     }

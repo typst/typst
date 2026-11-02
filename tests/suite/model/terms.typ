@@ -1,6 +1,7 @@
 // Test term list.
 
---- terms-constructor paged pdftags pdfstandard(ua-1) ---
+--- terms-constructor paged pdftags ---
+#set pdf(standard: "ua-1")
 // Test with constructor.
 #terms(
   terms.item([One], [First]),

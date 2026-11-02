@@ -1,18 +1,26 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
+use typst::model::Document;
 use typst_fuzz::FuzzWorld;
 use typst_layout::PagedDocument;
 use typst_pdf::PdfOptions;
-use typst_render::RenderOptions;
-use typst_svg::SvgOptions;
+use typst_render::{PngFormat, RenderOptions};
+use typst_svg::{SvgFormat, SvgOptions};
+use typst_syntax::{FileId, Source};
 
 fuzz_target!(|text: &str| {
-    let world = FuzzWorld::new(text);
+    let source = Source::new(FileId::new_for_test("fuzz_paged_output"), text);
+    let world = FuzzWorld::new(source);
     if let Ok(document) = typst::compile::<PagedDocument>(&world).output {
         if let Some(page) = document.pages().first() {
-            std::hint::black_box(typst_render::render(page, &RenderOptions::default()));
-            std::hint::black_box(typst_svg::svg(page, &SvgOptions::default()));
+            let png_options =
+                RenderOptions::default().resolve(document.options().get::<PngFormat>());
+            std::hint::black_box(typst_render::render(page, &png_options));
+
+            let svg_options =
+                SvgOptions::default().resolve(document.options().get::<SvgFormat>());
+            std::hint::black_box(typst_svg::svg(page, &svg_options));
         }
         _ = std::hint::black_box(typst_pdf::pdf(&document, &PdfOptions::default()));
     }

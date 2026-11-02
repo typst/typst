@@ -1,12 +1,12 @@
 use comemo::Track;
-use typst_library::diag::{At, SourceResult};
+use typst_library::diag::SourceResult;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Context, Smart, StyleChain};
 use typst_library::layout::{Abs, Angle, Frame, FrameItem, Point, Rel, Size, Transform};
 use typst_library::math::CancelAngle;
 use typst_library::math::ir::{CancelItem, MathProperties};
 use typst_library::visualize::{FixedStroke, Geometry};
-use typst_syntax::Span;
+use typst_syntax::{LooselySpanned, Span};
 
 use super::MathContext;
 use super::fragment::FrameFragment;
@@ -84,23 +84,25 @@ fn draw_cancel_line(
     length_scale: Rel<Abs>,
     stroke: FixedStroke,
     invert: bool,
-    angle: &Smart<CancelAngle>,
+    angle: &LooselySpanned<Smart<CancelAngle>>,
     body_size: Size,
     styles: StyleChain,
     span: Span,
 ) -> SourceResult<Frame> {
     let default = default_angle(body_size);
-    let mut angle = match angle {
+    let mut angle = match &angle.v {
         // Non specified angle defaults to the diagonal
         Smart::Auto => default,
-        Smart::Custom(angle) => match angle {
+        Smart::Custom(a) => match a {
             // This specifies the absolute angle w.r.t y-axis clockwise.
             CancelAngle::Angle(v) => *v,
             // This specifies a function that takes the default angle as input.
-            CancelAngle::Func(func) => func
-                .call(engine, Context::new(None, Some(styles)).track(), [default])?
-                .cast()
-                .at(span)?,
+            CancelAngle::Func(func) => func.call(
+                engine,
+                Context::new(None, Some(styles)).track(),
+                [default],
+                angle.span,
+            )?,
         },
     };
 

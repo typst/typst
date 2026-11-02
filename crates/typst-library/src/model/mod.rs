@@ -1,6 +1,6 @@
 //! Structuring elements that define the document model.
 
-mod asset;
+mod accessibility;
 mod bibliography;
 mod cite;
 mod divider;
@@ -24,7 +24,7 @@ mod table;
 mod terms;
 mod title;
 
-pub use self::asset::*;
+pub use self::accessibility::*;
 pub use self::bibliography::*;
 pub use self::cite::*;
 pub use self::divider::*;
@@ -46,14 +46,12 @@ pub use self::table::*;
 pub use self::terms::*;
 pub use self::title::*;
 
-use crate::Feature;
 use crate::foundations::Scope;
 
 /// Hook up all `model` definitions.
 pub fn define(global: &mut Scope) {
     global.start_category(crate::Category::Model);
     global.define_elem::<DocumentElem>();
-    global.define_elem::<AssetElem>().with_feature(Feature::Bundle);
     global.define_elem::<ParElem>();
     global.define_elem::<ParbreakElem>();
     global.define_elem::<StrongElem>();

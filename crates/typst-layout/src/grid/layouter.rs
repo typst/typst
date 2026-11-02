@@ -1620,11 +1620,10 @@ impl<'a> GridLayouter<'a> {
         if self
             .current
             .lrows
-            .last()
-            .is_some_and(|row| self.grid.is_gutter_track(row.index()))
+            .pop_if(|row| self.grid.is_gutter_track(row.index()))
+            .is_some()
         {
             // Remove the last row in the region if it is a gutter row.
-            self.current.lrows.pop().unwrap();
             self.current.repeated_header_rows =
                 self.current.repeated_header_rows.min(self.current.lrows.len());
         }
@@ -1675,7 +1674,7 @@ impl<'a> GridLayouter<'a> {
         // Determine the size of the grid in this region, expanding fully if
         // there are fr rows.
         let mut size = Size::new(self.width, used).min(self.current.initial);
-        if fr.get() > 0.0 && self.current.initial.y.is_finite() {
+        if !fr.is_zero() && self.current.initial.y.is_finite() {
             size.y = self.current.initial.y;
         }
 

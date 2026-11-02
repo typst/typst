@@ -6,7 +6,9 @@ use comemo::Tracked;
 use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, SourceDiagnostic, SourceResult, StrResult, bail, error};
+use crate::diag::{
+    At, CallSpanned, SourceDiagnostic, SourceResult, StrResult, bail, error,
+};
 use crate::engine::Engine;
 use crate::foundations::{
     Array, Context, Dict, FromValue, Func, IntoValue, Repr, Str, Value, cast, func, repr,
@@ -25,7 +27,7 @@ use crate::foundations::{
 /// = Argument Sinks <argument-sinks>
 /// Like built-in functions, custom functions can also take a variable number of
 /// arguments. You can specify an _argument sink_ which collects all excess
-/// arguments as `..sink`. The resulting `sink` value is of the `arguments`
+/// arguments as `{..sink}`. The resulting `sink` value is of the `arguments`
 /// type. It exposes methods to access the positional and named arguments.
 ///
 /// ```example
@@ -34,7 +36,8 @@ use crate::foundations::{
 ///     .pos()
 ///     .join(", ", last: " and ")
 ///
-///   [*#title* \ _Written by #by;_]
+///   [= #title]
+///   text(style: "italic")[By #by]
 /// }
 ///
 /// #format("ArtosFlow", "Jane", "Joe")
@@ -42,7 +45,7 @@ use crate::foundations::{
 ///
 /// = Spreading <spreading>
 /// Inversely to an argument sink, you can _spread_ arguments, arrays and
-/// dictionaries into a function call with the `..spread` operator:
+/// dictionaries into a function call with the `{..spread}` operator.
 ///
 /// ```example
 /// #let array = (2, 3, 5)
@@ -160,8 +163,9 @@ impl Args {
     /// The error message for missing arguments.
     fn missing_argument(&self, what: &str) -> SourceDiagnostic {
         for item in &self.items {
-            let Some(name) = item.name.as_deref() else { continue };
-            if name == what {
+            if let Some(name) = item.name.as_deref()
+                && name == what
+            {
                 return error!(
                     item.span,
                     "the argument `{what}` is positional";
@@ -319,12 +323,16 @@ impl Args {
 
 #[scope]
 impl Args {
-    /// Construct spreadable arguments in place.
+    /// Constructs spreadable arguments in place.
     ///
-    /// This function behaves like `{let args(..sink) = sink}`.
+    /// This function behaves like `{let arguments(..args) = args}`.
     ///
     /// ```example
-    /// #let args = arguments(stroke: red, inset: 1em, [Body])
+    /// #let args = arguments(
+    ///   stroke: red,
+    ///   inset: 1em,
+    ///   [Body],
+    /// )
     /// #box(..args)
     /// ```
     #[func(constructor, since = "0.10.0")]
@@ -333,12 +341,16 @@ impl Args {
         /// The arguments to construct.
         #[external]
         #[variadic]
-        arguments: Vec<Value>,
+        args_: Vec<Value>,
     ) -> Args {
         args.take()
     }
 
-    /// The number of arguments, positional or named.
+    /// Returns the number of arguments, positional or named.
+    ///
+    /// ```example
+    /// #arguments(a: "b", none, 1).len()
+    /// ```
     #[func(title = "Length", since = "0.15.0")]
     pub fn len(&self) -> usize {
         self.items.len()
@@ -347,20 +359,34 @@ impl Args {
     /// Returns the positional argument at the specified index, or the named
     /// argument with the specified name.
     ///
-    /// If the key is an @int[integer], this is equivalent to first calling
-    /// @arguments.pos[`pos`] and then @array.at. If it is a @str[string], this
-    /// is equivalent to first calling @arguments.named[`named`] and then
+    /// If the key is an @int, this is equivalent to first calling
+    /// @arguments.pos[`pos`] and then @array.at. If it is a @str, this is
+    /// equivalent to first calling @arguments.named[`named`] and then
     /// @dictionary.at.
     ///
     /// Named arguments can also be accessed with field syntax (e.g.
     /// `{arguments(key: 42).key}`) if no default is needed. Unlike
     /// @dictionary[dictionaries], fields on arguments cannot be modified.
+    ///
+    /// ```example
+    /// #let args = arguments(1, x: 2, 3)
+    /// #args.at(1) \
+    /// #args.at("x") \
+    /// #args.x
+    /// ```
     #[func(since = "0.12.0")]
     pub fn at(
         &self,
         /// The index or name of the argument to get.
         key: ArgumentKey,
         /// A default value to return if the key is invalid.
+        ///
+        /// ```example
+        /// #let args = arguments("hello")
+        /// #args.at(0, default: "missing") \
+        /// #args.at(1, default: "missing") \
+        /// #args.at("a", default: "missing")
+        /// ```
         #[named]
         default: Option<Value>,
     ) -> StrResult<Value> {
@@ -370,7 +396,11 @@ impl Args {
             .ok_or_else(|| missing_key_no_default(key))
     }
 
-    /// Returns the captured positional arguments as an array.
+    /// Returns the positional arguments as an array.
+    ///
+    /// ```example
+    /// #arguments(1, a: 2, "foo").pos()
+    /// ```
     #[func(name = "pos", title = "Positional", since = "forever")]
     pub fn to_pos(&self) -> Array {
         self.items
@@ -380,7 +410,11 @@ impl Args {
             .collect()
     }
 
-    /// Returns the captured named arguments as a dictionary.
+    /// Returns the named arguments as a dictionary.
+    ///
+    /// ```example
+    /// #arguments(1, a: 2, "foo").named()
+    /// ```
     #[func(name = "named", since = "forever")]
     pub fn to_named(&self) -> Dict {
         self.items
@@ -404,13 +438,9 @@ impl Args {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value. Must return a boolean.
-        test: Func,
+        test: Spanned<Func>,
     ) -> SourceResult<Args> {
-        let mut run_test = |v: &Value| {
-            test.call(engine, context, [v.clone()])?
-                .cast::<bool>()
-                .at(test.span())
-        };
+        let mut run_test = |v: &Value| test.call::<bool>(engine, context, [v.clone()]);
         self.into_iter()
             .filter_map(|arg| {
                 run_test(&arg.value.v).map(|b| b.then_some(arg)).transpose()
@@ -433,7 +463,7 @@ impl Args {
         engine: &mut Engine,
         context: Tracked<Context>,
         /// The function to apply to each value.
-        mapper: Func,
+        mapper: Spanned<Func>,
     ) -> SourceResult<Args> {
         self.into_iter()
             .map(|arg| {

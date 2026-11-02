@@ -88,7 +88,7 @@ impl Type {
 
     /// The version of Typst this type was introduced in.
     pub fn since(&self) -> Option<Since> {
-        self.0.since.clone()
+        self.0.since
     }
 
     /// Documentation for the type (as Markdown).

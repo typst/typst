@@ -13,7 +13,6 @@ keywords = { workspace = true }
 readme = { workspace = true }
 
 [dependencies]
-typst-timing = { workspace = true }
 typst-utils = { workspace = true }
 ecow = { workspace = true }
 rustc-hash = { workspace = true }
@@ -24,6 +23,10 @@ unicode-math-class = { workspace = true }
 unicode-script = { workspace = true }
 unicode-segmentation = { workspace = true }
 unscanny = { workspace = true }
+typst-timing = { workspace = true, optional = true }
 
 [lints]
 workspace = true
+
+[features]
+timing = ["dep:typst-timing"]
