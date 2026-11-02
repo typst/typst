@@ -447,7 +447,7 @@ impl<'a> SVGRenderer<'a> {
 /// See:
 /// - [SVG 1.1 (2nd ed.), 21. Metadata](https://www.w3.org/TR/SVG11/metadata.html)
 /// - [DCMI Metadata Terms](https://www.dublincore.org/specifications/dublin-core/dcmi-terms/)
-/// - [Orbis Cascade Alliance Dublin Core Best Practice Guidelines, 2018](https://bpb-us-e1.wpmucdn.com/sites.uw.edu/dist/8/33691/files/2025/08/Dublin-Core-Best-Practice-Guidelines-v.-2.3-February-2018-1.pdf>)
+/// - [Orbis Cascade Alliance Dublin Core Best Practice Guidelines, 2018](https://bpb-us-e1.wpmucdn.com/sites.uw.edu/dist/8/33691/files/2025/08/Dublin-Core-Best-Practice-Guidelines-v.-2.3-February-2018-1.pdf)
 fn write_metadata(svg: &mut SvgElem, info: &DocumentInfo) {
     if let Some(title) = &info.title {
         svg.elem("title").text(title);
