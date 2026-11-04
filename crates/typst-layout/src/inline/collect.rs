@@ -21,9 +21,6 @@ const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
 
 // Unicode BiDi control characters.
-const LTR_EMBEDDING: &str = "\u{202A}";
-const RTL_EMBEDDING: &str = "\u{202B}";
-const POP_EMBEDDING: &str = "\u{202C}";
 const LTR_ISOLATE: &str = "\u{2066}";
 const POP_ISOLATE: &str = "\u{2069}";
 const RTL_ISOLATE: &str = "\u{2067}";
@@ -154,43 +151,40 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    let mut current_dir = config.dir;
+
     for &(child, styles) in children {
         let prev_len = collector.full.len();
 
+        let dir = if child.is::<SpaceElem>()
+            || child.is::<TextElem>()
+            || child.is::<SmartQuoteElem>()
+        {
+            styles.resolve(TextElem::dir)
+        } else {
+            config.dir
+        };
+
+        if dir != current_dir {
+            if current_dir != config.dir {
+                collector.push_item(Item::Skip(POP_ISOLATE));
+            }
+            match dir {
+                Dir::LTR if dir != config.dir => collector.push_item(Item::Skip(LTR_ISOLATE)),
+                Dir::RTL if dir != config.dir => collector.push_item(Item::Skip(RTL_ISOLATE)),
+                _ => {}
+            }
+            current_dir = dir;
+        }
+
         if child.is::<SpaceElem>() {
-            collector.build_text(styles, |full| {
-                let dir = styles.resolve(TextElem::dir);
-                if dir != config.dir {
-                    match dir {
-                        Dir::LTR => full.push_str(LTR_ISOLATE),
-                        Dir::RTL => full.push_str(RTL_ISOLATE),
-                        _ => {}
-                    }
-                }
-                full.push(' ');
-                if dir != config.dir {
-                    full.push_str(POP_ISOLATE);
-                }
-            });
+             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
-                let dir = styles.resolve(TextElem::dir);
-                if dir != config.dir {
-                    match dir {
-                        Dir::LTR => full.push_str(LTR_ISOLATE),
-                        Dir::RTL => full.push_str(RTL_ISOLATE),
-                        _ => {}
-                    }
-                }
-
                 if let Some(case) = styles.get(TextElem::case) {
                     full.push_str(&case.apply(&elem.text));
                 } else {
                     full.push_str(&elem.text);
-                }
-
-                if dir != config.dir {
-                    full.push_str(POP_ISOLATE);
                 }
             });
         } else if let Some(elem) = child.to_packed::<HElem>() {
@@ -268,6 +262,11 @@ pub fn collect<'a>(
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
+    }
+
+    if current_dir != config.dir {
+        collector.push_item(Item::Skip(POP_ISOLATE));
+        collector.spans.push(POP_ISOLATE.len(), Span::detached());
     }
 
     Ok((collector.full, collector.segments, collector.spans))
