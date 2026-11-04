@@ -521,6 +521,12 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 "a PDF floating point number is larger than the allowed limit";
                 hint: "set the PDF version to PDF 1.5 or later";
             ),
+            KrillaError::StandardFont(..) => bail!(
+                Span::detached(),
+                "a PDF standard font was used, but that is not allowed in PDF 2.0";
+                hint: "these fonts are used by textboxes and choice fields";
+                hint: "set the PDF version to PDF 1.7 or earlier, or remove form fields";
+            ),
         },
     }
 }
