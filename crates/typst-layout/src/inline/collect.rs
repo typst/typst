@@ -170,15 +170,19 @@ pub fn collect<'a>(
                 collector.push_item(Item::Skip(POP_ISOLATE));
             }
             match dir {
-                Dir::LTR if dir != config.dir => collector.push_item(Item::Skip(LTR_ISOLATE)),
-                Dir::RTL if dir != config.dir => collector.push_item(Item::Skip(RTL_ISOLATE)),
+                Dir::LTR if dir != config.dir => {
+                    collector.push_item(Item::Skip(LTR_ISOLATE));
+                }
+                Dir::RTL if dir != config.dir => {
+                    collector.push_item(Item::Skip(RTL_ISOLATE));
+                }
                 _ => {}
             }
             current_dir = dir;
         }
 
         if child.is::<SpaceElem>() {
-             collector.push_text(" ", styles);
+            collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
                 if let Some(case) = styles.get(TextElem::case) {
