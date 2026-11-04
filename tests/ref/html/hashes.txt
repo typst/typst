@@ -53,6 +53,16 @@ dfd6054882467753666c1ebe54b81a0d footnote-basic
 776d252e47331fcfb46a4df586396a73 footnote-nested
 f05d21fa2b913016803bf5476a1b6826 footnote-ref-multiple
 238cfb7578ecfc0e457b2e2bb2dbba44 footnote-space-collapsing
+d3d058faae11ef5bc9c02e108552cf22 form-basic-pdf-a-3a
+d6b9817519a59e57ab1d77372ab3fcab form-basic-pdf-ua-1
+a783fb6be28312081a8fc2eb4a5e712a form-button
+1e629144a71976acc73c6e2bddf21942 form-checkbox
+427e8ae7fe24ec363b9f989ecd4a7aba form-choice
+d8be7380e8386d5eb5bb5af4ab3ece7d form-multiple
+031abc81bdfa130fd6b44e1233004666 form-radio
+768edbc00c99021af9c92022062f62ad form-textbox
+3ed431bf73c0d1328899357f7bf9c42c form-textbox-fixed-width-html
+6be899fd4bb2fee9c8d5dd6ce9947e08 form-textbox-placeholder-html
 173d20de89ff8a56303aa8357ec2c323 heading-html-basic
 3779fea930339d8b6b37305dee2f7d1d html-deco
 eeecf9598691783d361c20acf47a8775 html-elem-alone-context
