@@ -26,7 +26,7 @@ const RTL_EMBEDDING: &str = "\u{202B}";
 const POP_EMBEDDING: &str = "\u{202C}";
 const LTR_ISOLATE: &str = "\u{2066}";
 const POP_ISOLATE: &str = "\u{2069}";
-
+const RTL_ISOLATE: &str = "\u{2067}";
 /// A prepared item in a inline layout.
 #[derive(Debug)]
 pub enum Item<'a> {
@@ -158,15 +158,27 @@ pub fn collect<'a>(
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
-            collector.push_text(" ", styles);
+            collector.build_text(styles, |full| {
+                let dir = styles.resolve(TextElem::dir);
+                if dir != config.dir {
+                    match dir {
+                        Dir::LTR => full.push_str(LTR_ISOLATE),
+                        Dir::RTL => full.push_str(RTL_ISOLATE),
+                        _ => {}
+                    }
+                }
+                full.push(' ');
+                if dir != config.dir {
+                    full.push_str(POP_ISOLATE);
+                }
+            });
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
                 let dir = styles.resolve(TextElem::dir);
                 if dir != config.dir {
-                    // Insert "Explicit Directional Embedding".
                     match dir {
-                        Dir::LTR => full.push_str(LTR_EMBEDDING),
-                        Dir::RTL => full.push_str(RTL_EMBEDDING),
+                        Dir::LTR => full.push_str(LTR_ISOLATE),
+                        Dir::RTL => full.push_str(RTL_ISOLATE),
                         _ => {}
                     }
                 }
@@ -178,8 +190,7 @@ pub fn collect<'a>(
                 }
 
                 if dir != config.dir {
-                    // Insert "Pop Directional Formatting".
-                    full.push_str(POP_EMBEDDING);
+                    full.push_str(POP_ISOLATE);
                 }
             });
         } else if let Some(elem) = child.to_packed::<HElem>() {

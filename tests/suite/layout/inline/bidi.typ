@@ -96,3 +96,7 @@ Lריווח #h(1cm) R
 --- issue-5276-shaping-consecutive-ltr-with-lang paged ---
 #let a = text(lang: "ar")[\u{645}]
 #a#a
+
+--- bidi-embedded-dir paged ---
+// Test that setting direction inline inside opposing text stays ordered.
+Before #text(dir: rtl)[עולם שלום] After
