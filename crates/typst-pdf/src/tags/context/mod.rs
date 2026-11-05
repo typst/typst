@@ -18,20 +18,17 @@ use crate::util::AbsExt;
 pub use crate::tags::context::figure::FigureCtx;
 pub use crate::tags::context::grid::GridCtx;
 pub use crate::tags::context::list::ListCtx;
-pub use crate::tags::context::outline::OutlineCtx;
 pub use crate::tags::context::table::TableCtx;
 
 mod figure;
 mod grid;
 mod list;
-mod outline;
 mod table;
 
 pub type TableId = Id<TableCtx>;
 pub type GridId = Id<GridCtx>;
 pub type FigureId = Id<FigureCtx>;
 pub type ListId = Id<ListCtx>;
-pub type OutlineId = Id<OutlineCtx>;
 pub type BBoxId = Id<BBoxCtx>;
 pub type TagId = Id<TagKind>;
 pub type AnnotationId = Id<krilla::annotation::Annotation>;
@@ -68,7 +65,6 @@ pub struct Ctx {
     pub grids: IdVec<GridCtx>,
     pub figures: IdVec<FigureCtx>,
     pub lists: IdVec<ListCtx>,
-    pub outlines: IdVec<OutlineCtx>,
     pub bboxes: IdVec<BBoxCtx>,
 }
 
@@ -79,7 +75,6 @@ impl Ctx {
             grids: IdVec::new(),
             figures: IdVec::new(),
             lists: IdVec::new(),
-            outlines: IdVec::new(),
             bboxes: IdVec::new(),
         }
     }

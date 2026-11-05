@@ -9,14 +9,14 @@ use typst_library::foundations::{Content, Packed};
 use typst_library::introspection::Location;
 use typst_library::layout::{GridCell, Inherit, Size};
 use typst_library::math::EquationElem;
-use typst_library::model::{LinkMarker, OutlineEntry, TableCell};
+use typst_library::model::{LinkMarker, TableCell};
 use typst_library::text::Locale;
 use typst_library::visualize::ImageElem;
 use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::tags::context::{
-    AnnotationId, BBoxId, FigureId, GridId, ListId, OutlineId, TableId, TagId,
+    AnnotationId, BBoxId, FigureId, GridId, ListId, TableId, TagId,
 };
 use crate::tags::resolve::TagNode;
 use crate::tags::tree::{ResolvedTextAttrs, TextAttr};
@@ -118,7 +118,6 @@ impl Groups {
             GroupKind::Artifact(..) => Always(BreakPriority::Span),
             GroupKind::LogicalParent(..) => Never,
             GroupKind::LogicalChild(..) => Never,
-            GroupKind::Outline(..) => Never,
             GroupKind::OutlineEntry(..) => Never,
             GroupKind::Table(..) => Never,
             GroupKind::TableCell(..) => Never,
@@ -203,7 +202,6 @@ impl Groups {
             GroupKind::Root(..)
             | GroupKind::LogicalParent(..)
             | GroupKind::LogicalChild(..)
-            | GroupKind::Outline(..)
             | GroupKind::OutlineEntry(..)
             | GroupKind::Table(..)
             | GroupKind::TableCell(..)
@@ -425,8 +423,7 @@ pub enum GroupKind {
     Artifact(ArtifactType),
     LogicalParent(Content),
     LogicalChild(Inherit, GroupId),
-    Outline(OutlineId, Option<Locale>),
-    OutlineEntry(Packed<OutlineEntry>, Option<Locale>),
+    OutlineEntry(Option<Locale>),
     Table(TableId, BBoxId, Option<Locale>),
     TableCell(Packed<TableCell>, TagId, Option<Locale>),
     Grid(GridId, Option<Locale>),
@@ -466,7 +463,6 @@ impl std::fmt::Debug for GroupKind {
             Self::Artifact(..) => "Artifact",
             Self::LogicalParent(..) => "LogicalParent",
             Self::LogicalChild(..) => "LogicalChild",
-            Self::Outline(..) => "Outline",
             Self::OutlineEntry(..) => "OutlineEntry",
             Self::Table(..) => "Table",
             Self::TableCell(..) => "TableCell",
@@ -574,8 +570,7 @@ impl GroupKind {
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
             GroupKind::LogicalChild(_, _) => return None,
-            GroupKind::Outline(_, lang) => lang,
-            GroupKind::OutlineEntry(_, lang) => lang,
+            GroupKind::OutlineEntry(lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,
@@ -607,8 +602,7 @@ impl GroupKind {
             GroupKind::Artifact(_) => return None,
             GroupKind::LogicalParent(_) => return None,
             GroupKind::LogicalChild(_, _) => return None,
-            GroupKind::Outline(_, lang) => lang,
-            GroupKind::OutlineEntry(_, lang) => lang,
+            GroupKind::OutlineEntry(lang) => lang,
             GroupKind::Table(_, _, lang) => lang,
             GroupKind::TableCell(_, _, lang) => lang,
             GroupKind::Grid(_, lang) => lang,

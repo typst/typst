@@ -47,7 +47,7 @@ use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::tags::GroupId;
-use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, TableCtx};
 use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
@@ -352,10 +352,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
-            PdfMarkerTagKind::OutlineBody => {
-                let id = tree.ctx.outlines.push(OutlineCtx::new());
-                push_group(tree, elem, GroupKind::Outline(id, None))
-            }
+            PdfMarkerTagKind::Outline => push_tag(tree, elem, Tag::TOC),
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
@@ -383,8 +380,8 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
         push_group(tree, elem, GroupKind::Link(link.clone(), None))
     } else if let Some(_) = elem.to_packed::<TitleElem>() {
         push_tag(tree, elem, Tag::Title)
-    } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
-        push_group(tree, elem, GroupKind::OutlineEntry(entry.clone(), None))
+    } else if let Some(_) = elem.to_packed::<OutlineEntry>() {
+        push_group(tree, elem, GroupKind::OutlineEntry(None))
     } else if let Some(_) = elem.to_packed::<ListElem>() {
         // TODO: infer numbering from `list.marker`
         let numbering = ListNumbering::Circle;
