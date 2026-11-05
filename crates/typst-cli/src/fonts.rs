@@ -9,7 +9,7 @@ use typst_kit::fonts::{self, FontPath, FontStore};
 
 use crate::args::{FontArgs, FontsCommand};
 
-/// Execute a font listing command, marking shadowed variants.
+/// Execute a font listing command.
 pub fn fonts(command: &FontsCommand) {
     let fonts = discover_fonts(&command.font);
     let book = fonts.book();
@@ -17,20 +17,17 @@ pub fn fonts(command: &FontsCommand) {
     for (family, indices) in book.families() {
         println!("{family}");
         if command.variants {
-            let indices: Vec<_> = indices.collect();
-            for (i, &index) in indices.iter().enumerate() {
+            let family = family.to_lowercase();
+            let mut indices = indices.peekable();
+            while let Some(index) = indices.next() {
                 let info = book.info(index).unwrap();
-                let shadowed_by = indices[..i]
-                    .iter()
-                    .find(|&&other| {
-                        let other = book.info(other).unwrap();
-                        other.variant == info.variant
-                            && other.axes.is_empty()
-                            && info.axes.is_empty()
-                    })
-                    .map(|&other| font_path(&fonts, other));
+                // Shadowed if selecting this face's variant yields another face.
+                let shadowed_by = book
+                    .select(&family, info.variant)
+                    .filter(|&winner| winner != index)
+                    .map(|winner| font_path(&fonts, winner));
                 let path = font_path(&fonts, index);
-                let last = i + 1 == indices.len();
+                let last = indices.peek().is_none();
                 let variant = typst_utils::display(|f| {
                     write_variant(f, info, path, shadowed_by, last)
                 });
@@ -108,7 +105,7 @@ fn write_variant(
     }
 
     if let Some(other) = shadowed_by {
-        writeln!(f, "{pad} ⚠ Shadowed by: {} (same variant)", display_path(other))?;
+        writeln!(f, "{pad} ⚠ Shadowed by: {}", display_path(other))?;
     }
 
     Ok(())
