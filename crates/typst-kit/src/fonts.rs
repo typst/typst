@@ -117,7 +117,7 @@ impl FontSource for FontPath {
 }
 
 /// Locates a font on the file system.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub struct FontPath {
     /// The path at which the font or font collection resides.
     pub path: PathBuf,
@@ -144,6 +144,7 @@ pub fn embedded() -> impl Iterator<Item = (Font, FontInfo)> {
 /// Discovers system fonts.
 ///
 /// This searches in operating-system dependent standard font locations.
+/// Fonts keep fontdb's search order of system font dirs (unlike [`scan`]).
 #[cfg(feature = "scan-fonts")]
 pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");
@@ -154,22 +155,24 @@ pub fn system() -> impl Iterator<Item = (FontPath, FontInfo)> {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
         load_adobe_fonts(db);
     })
+    .into_iter()
 }
 
 /// Scans for fonts in a directory.
 ///
-/// The directory is searched recursively.
+/// The directory is searched recursively. The fonts are sorted by path for a
+/// consistent order across file systems.
 #[cfg(feature = "scan-fonts")]
 pub fn scan(path: &std::path::Path) -> impl Iterator<Item = (FontPath, FontInfo)> {
     let _scope = typst_timing::TimingScope::new("scan system fonts");
-    with_db(move |db| db.load_fonts_dir(path))
+    let mut fonts = with_db(move |db| db.load_fonts_dir(path));
+    fonts.sort_by(|(a, _), (b, _)| a.cmp(b));
+    fonts.into_iter()
 }
 
 /// Discovers fonts via `fontdb`.
 #[cfg(feature = "scan-fonts")]
-fn with_db(
-    f: impl FnOnce(&mut fontdb::Database),
-) -> impl Iterator<Item = (FontPath, FontInfo)> {
+fn with_db(f: impl FnOnce(&mut fontdb::Database)) -> Vec<(FontPath, FontInfo)> {
     let mut db = fontdb::Database::new();
     f(&mut db);
     db.faces()
@@ -189,8 +192,7 @@ fn with_db(
 
             Some((path, info))
         })
-        .collect::<Vec<_>>()
-        .into_iter()
+        .collect()
 }
 
 /// Loads Adobe fonts available on the system. Only supported on Windows and
@@ -216,7 +218,10 @@ fn load_adobe_fonts(db: &mut fontdb::Database) {
 
     for subdir in subdirs {
         let Ok(entries) = fs::read_dir(base.join(subdir)) else { continue };
-        for entry in entries.flatten() {
+        // Sort for a consistent order across file systems.
+        let mut entries: Vec<_> = entries.flatten().collect();
+        entries.sort_by_key(|entry| entry.path());
+        for entry in entries {
             // Adobe fonts are stored as files (directories are skipped).
             let Ok(metadata) = entry.metadata() else { continue };
             if metadata.is_file() {
