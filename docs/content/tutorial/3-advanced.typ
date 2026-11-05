@@ -19,7 +19,7 @@ Before we start, let's create a team, invite your supervisor and add them to the
   shadow: false,
 )
 
-Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the owners dropdown. Don't forget to save your changes!
+Next, move your project into the team: Open it, going to its settings by choosing the gear icon in the left toolbar and selecting your new team from the Location dropdown. Don't forget to save your changes!
 
 Now, your supervisor can also edit the project and you can both see the changes in real time. You can join our #link("https://discord.gg/2uDybryKPe")[Discord server] to find other users and try teams with them!
 
@@ -77,7 +77,7 @@ Now, let's add a title and an abstract. We'll start with the title. Typst comes 
 ]
 ```
 
-You can see that the title is already boldfaced and has some space around it. However, it is left-aligned and not exactly 17pt large. Hence, we need to adjust its appearance. The title function does not come with any arguments for font or text size we could set. Instead, these properties are defined on the `text` and `align` functions.
+You can see that the title is already boldfaced and has some space around it. However, it is not exactly 17pt large and is left-aligned. Hence, we need to adjust its appearance. The title function does not come with any arguments for text size or alignment we could set. Instead, these properties are defined on the `text` and `align` functions.
 
 #info[
   What is the difference between what the `title` function inserted and the headings we produced with equals signs?
