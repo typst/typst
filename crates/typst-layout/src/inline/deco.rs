@@ -98,7 +98,7 @@ pub fn decorate(
 
         let outlined = text
             .font
-            .instance()
+            .read()
             .outline_glyphs()
             .get(GlyphId::new(glyph.id))
             .is_some_and(|outline| {

@@ -55,7 +55,7 @@ impl TextItem {
                 Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
             if let Some(extents) = self
                 .font
-                .instance()
+                .read()
                 .glyph_metrics()
                 .extents_exact(read_fonts::types::GlyphId::new(glyph.id))
             {

@@ -418,8 +418,7 @@ fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
         // Combining marks (e.g. accent glyphs) typically have zero advance in
         // `hmtx`, so the advance above is no good. We explicitly compute the
         // bounding box, just in case.
-        if let Some(extents) =
-            font.instance().glyph_metrics().extents_exact(GlyphId::new(id))
+        if let Some(extents) = font.read().glyph_metrics().extents_exact(GlyphId::new(id))
         {
             let extents = Axes::new(
                 font.to_em(extents.width.to_f64()),
@@ -475,7 +474,7 @@ fn resolve_stretch(
 }
 
 fn ascent_descent(font: &FontInstance, id: GlyphId) -> Option<(Em, Em)> {
-    let extents = font.instance().glyph_metrics().extents_exact(id)?;
+    let extents = font.read().glyph_metrics().extents_exact(id)?;
     Some((
         font.to_em(extents.y_bearing.to_f64()),
         -font.to_em((extents.y_bearing - extents.height).to_f64()),
@@ -484,7 +483,7 @@ fn ascent_descent(font: &FontInstance, id: GlyphId) -> Option<(Em, Em)> {
 
 /// Look up the italics correction for a glyph.
 fn italics_correction(font: &FontInstance, id: GlyphId) -> Option<Em> {
-    font.instance()
+    font.read()
         .tables()
         .math()
         .and_then(|math| math.math_glyph_info())
@@ -497,7 +496,7 @@ fn italics_correction(font: &FontInstance, id: GlyphId) -> Option<Em> {
 
 /// Loop up the top accent attachment position for a glyph.
 fn accent_attach(font: &FontInstance, id: GlyphId) -> Option<Em> {
-    font.instance()
+    font.read()
         .tables()
         .math()
         .and_then(|math| math.math_glyph_info())
@@ -510,12 +509,11 @@ fn accent_attach(font: &FontInstance, id: GlyphId) -> Option<Em> {
 
 /// Look up whether a glyph is an extended shape.
 fn is_extended_shape(font: &FontInstance, id: GlyphId) -> bool {
-    font.instance()
+    font.read()
         .tables()
         .math()
         .and_then(|math| math.math_glyph_info())
-        .ok()
-        .is_some_and(|info| info.is_extended_shape(id))
+        .is_ok_and(|info| info.is_extended_shape(id))
 }
 
 /// Look up a kerning value at a specific corner and height.
@@ -526,7 +524,7 @@ pub(super) fn kern_at_height(
     height: Em,
 ) -> Option<Em> {
     let kern = font
-        .instance()
+        .read()
         .tables()
         .math()
         .and_then(|math| math.math_glyph_info())
@@ -554,7 +552,7 @@ pub(super) fn kern_at_height(
 fn stretch_axes(font: &FontInstance, id: u32) -> Axes<bool> {
     let id = GlyphId::new(id);
     let horizontal = font
-        .instance()
+        .read()
         .tables()
         .math()
         .and_then(|math| math.math_variants())
@@ -562,7 +560,7 @@ fn stretch_axes(font: &FontInstance, id: u32) -> Axes<bool> {
         .and_then(|table| table.glyph_construction(id, StretchAxis::Horizontal))
         .is_some();
     let vertical = font
-        .instance()
+        .read()
         .tables()
         .math()
         .and_then(|math| math.math_variants())
@@ -574,7 +572,7 @@ fn stretch_axes(font: &FontInstance, id: u32) -> Axes<bool> {
 }
 
 fn min_connector_overlap(font: &FontInstance) -> Option<Em> {
-    font.instance()
+    font.read()
         .tables()
         .math()
         .and_then(|math| math.math_variants())
@@ -588,7 +586,7 @@ fn glyph_construction(
     axis: Axis,
 ) -> Option<MathGlyphConstruction<'_>> {
     let table = font
-        .instance()
+        .read()
         .tables()
         .math()
         .and_then(|math| math.math_variants())

@@ -49,13 +49,11 @@ bitflags::bitflags! {
 impl FontInfo {
     /// Compute metadata for font at the `index` of the given data.
     pub fn new(data: &[u8], index: u32) -> Option<Self> {
-        // SAFETY: `read_fonts::model::Font` has no lifetime parameter, so it can only hold
-        // `'static` data; we pretend `data` lives that long. This is sound because
-        // `font` is a local dropped before we return: `from_font` only borrows it and
-        // `FontInfo` holds only owned data, so no clone can escape. This relies on
-        // read-fonts keeping no global state that retains fonts (true as of 0.46);
-        // re-check when upgrading.
-        let data = unsafe { std::mem::transmute::<&[u8], &'static [u8]>(data) };
+        // Safety: Unfortunately, `read_fonts` does not support borrowed data.
+        // However, the data is still only used while the `Font` type is live
+        // (as of 0.46). Since `data` outlives `font` and the font is not
+        // cloned, faking a static lifetime is okay.
+        let data: &'static [u8] = unsafe { &*(data as *const [u8]) };
         let font =
             read_fonts::model::Font::new(read_fonts::model::Blob::Static(data), index)?;
         Self::from_font(&font)
@@ -168,7 +166,8 @@ impl FontInfo {
 pub(super) fn find_name(font: &read_fonts::model::Font, id: NameId) -> Option<String> {
     font.names()
         .get(id)?
-        .english_or_first()
+        .iter()
+        .next()
         .map(|name| name.name().to_string())
 }
 

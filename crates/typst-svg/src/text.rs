@@ -70,7 +70,7 @@ impl SVGRenderer<'_> {
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
                 text.font
-                    .instance()
+                    .read()
                     .outline_glyphs()
                     .get(glyph_id)?
                     .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
@@ -134,8 +134,7 @@ impl SVGRenderer<'_> {
         // strokes and fills with gradients and tilings.
         let state = state.pre_concat(Transform::translate(x_offset, y_offset));
 
-        let Some(glyph_size) =
-            text.font.instance().glyph_metrics().extents_exact(glyph_id)
+        let Some(glyph_size) = text.font.read().glyph_metrics().extents_exact(glyph_id)
         else {
             // This shouldn't happen, because the glyph has been successfully
             // outlined to create the path.

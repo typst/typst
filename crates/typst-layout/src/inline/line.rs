@@ -688,7 +688,7 @@ fn overhang(glyph: &ShapedGlyph) -> Abs {
 fn font_overhang_table(font: &FontInstance) -> EcoVec<(u32, f64)> {
     let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
     for &(c, factor) in DEFAULT_OVERHANG_TABLE {
-        if let Some(id) = font.instance().charmap().map_unicode(c) {
+        if let Some(id) = font.read().charmap().map_unicode(c) {
             table.push((id.to_u32(), factor));
         }
     }

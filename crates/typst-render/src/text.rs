@@ -64,7 +64,7 @@ fn render_outline_glyph(
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
             text.font
-                .instance()
+                .read()
                 .outline_glyphs()
                 .get(id)?
                 .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
@@ -116,7 +116,7 @@ fn render_outline_glyph(
         y: u32,
         size: u32,
     ) -> Option<Arc<Bitmap>> {
-        let glyph = pixglyph::Glyph::load(font.instance(), id)?;
+        let glyph = pixglyph::Glyph::load(font.read(), id)?;
         Some(Arc::new(glyph.rasterize(
             f32::from_bits(x),
             f32::from_bits(y),

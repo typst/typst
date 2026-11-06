@@ -607,7 +607,7 @@ impl<'a> ShapedText<'a> {
             let font = world
                 .font(id)
                 .map(|font| font.instantiate(base.variant, size, &variations))?;
-            let glyph_id = font.instance().charmap().map_unicode('-')?.to_u32();
+            let glyph_id = font.read().charmap().map_unicode('-')?.to_u32();
             let x_advance = font.x_advance(glyph_id);
             let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
 
@@ -1019,7 +1019,7 @@ fn shape_segment<'a>(
     );
 
     // Shape!
-    let shaper = harfrust::ShaperFont::new(font.instance());
+    let shaper = harfrust::ShaperFont::new(font.read());
     let options = harfrust::ShapeOptions::new()
         .plan(Some(&plan))
         .point_size(Some(scale.at(ctx.size).to_pt() as f32))
@@ -1216,7 +1216,7 @@ fn determine_shift(
 /// (the first input coverage, for a contextual one). This can overestimate,
 /// since a contextual lookup may not match in the actual context.
 fn feature_covers(font: &FontInstance, feature: Tag, text: &str) -> Option<bool> {
-    let instance = font.instance();
+    let instance = font.read();
     let gsub = instance.tables().gsub().ok()?;
     let features = gsub.feature_list().ok()?;
     let record = features
@@ -1315,7 +1315,7 @@ pub fn create_shape_plan(
     language: Option<&harfrust::Language>,
     features: &[Feature],
 ) -> Arc<ShapePlan> {
-    Arc::new(ShapePlan::new(font.instance(), direction, script, language, features))
+    Arc::new(ShapePlan::new(font.read(), direction, script, language, features))
 }
 
 /// Shape the text with tofus from the given font.
@@ -1431,8 +1431,8 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &FontInstance) -> Option<Em> {
-    let space = font.instance().charmap().map_unicode(' ')?.to_u32();
-    let nbsp = font.instance().charmap().map_unicode('\u{00A0}')?.to_u32();
+    let space = font.read().charmap().map_unicode(' ')?.to_u32();
+    let nbsp = font.read().charmap().map_unicode('\u{00A0}')?.to_u32();
     Some(font.x_advance(nbsp) - font.x_advance(space))
 }
 

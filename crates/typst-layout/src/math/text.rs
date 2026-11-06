@@ -127,14 +127,14 @@ pub fn layout_glyph(
 
 /// Whether the given font has the dtls OpenType feature.
 fn has_dtls_feat(font: &FontInstance) -> bool {
-    font.instance()
+    font.read()
         .tables()
         .gsub()
         .and_then(|gsub| gsub.feature_list())
         .is_ok_and(|list| {
             list.feature_records()
-                .binary_search_by(|record| {
-                    record.feature_tag().cmp(&read_fonts::types::Tag::new(b"dtls"))
+                .binary_search_by_key(&read_fonts::types::Tag::new(b"dtls"), |record| {
+                    record.feature_tag()
                 })
                 .is_ok()
         })

@@ -119,7 +119,7 @@ impl Font {
                     }),
                 )
                 .build();
-        let metrics = FontMetrics::from_font(&instance);
+        let metrics = FontMetrics::new(&instance);
         FontInstance(Arc::new(FontInstanceInner {
             metrics,
             instance,
@@ -223,7 +223,7 @@ impl FontInstance {
     }
 
     /// A reference to the font at the given instance.
-    pub fn instance(&self) -> &read_fonts::model::Font {
+    pub fn read(&self) -> &read_fonts::model::Font {
         &self.0.instance
     }
 
@@ -241,7 +241,7 @@ impl FontInstance {
             read_fonts::model::metrics::GlyphExtents<read_fonts::types::F48Dot16>,
         ) -> read_fonts::types::F48Dot16| {
             cell.get_or_init(|| {
-                self.instance()
+                self.read()
                     .glyph_metrics()
                     .extents_exact(read_fonts::types::GlyphId::new(gid))
             })

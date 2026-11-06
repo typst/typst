@@ -21,7 +21,7 @@ use crate::visualize::{
 /// Whether this glyph should be rendered via simple outlining instead of via
 /// `glyph_frame`.
 pub fn should_outline(font: &FontInstance, glyph_id: GlyphId) -> bool {
-    let instance = font.instance();
+    let instance = font.read();
     !instance.outline_glyphs().is_empty()
         && !instance.bitmap_strikes().select_bitmap(glyph_id, None).is_some_and(
             |bitmap| {
@@ -108,13 +108,13 @@ pub fn glyph_frame(font: &FontInstance, glyph_id: u32) -> Option<GlyphFrame> {
     // the space glyph. Then, an empty frame does the job. (This happens for
     // some rare CBDT fonts, which don't define a bitmap for the space, but
     // also don't have a glyf or CFF table.)
-    let not_space = font.instance().charmap().map_unicode(' ') != Some(glyph_id);
+    let not_space = font.read().charmap().map_unicode(' ') != Some(glyph_id);
     not_space.then(|| draw_fallback_tofu(font, upem, glyph_id))
 }
 
 /// Tries to draw a glyph.
 fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
-    let instance = font.instance();
+    let instance = font.read();
     let kind = if let Some(raster_image) = instance
         .bitmap_strikes()
         .select_bitmap(glyph_id, None)
@@ -139,8 +139,7 @@ fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<Glyph
 
 /// Draws a fallback tofu box with the advance width of the glyph.
 fn draw_fallback_tofu(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> GlyphFrame {
-    let advance =
-        Abs::pt(font.instance().glyph_metrics().h_advance_exact(glyph_id).to_f64());
+    let advance = Abs::pt(font.read().glyph_metrics().h_advance_exact(glyph_id).to_f64());
     let inset = 0.15 * advance;
     let height = 0.7 * upem;
     let pos = Point::new(inset, upem - height);
@@ -196,7 +195,7 @@ fn draw_raster_glyph(
 fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
     let svg_string = colr_glyph_to_svg(font, glyph_id)?;
 
-    let bounds = font.instance().metrics().bounds;
+    let bounds = font.read().metrics().bounds;
     let width = (bounds.x_max - bounds.x_min).to_f64();
     let height = (bounds.y_max - bounds.y_min).to_f64();
     let x_min = bounds.x_min.to_f64();
@@ -214,7 +213,7 @@ fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameI
 fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
-    let instance = font.instance();
+    let instance = font.read();
 
     let bounds = instance.metrics().bounds;
     let width = (bounds.x_max - bounds.x_min).to_f64();
@@ -271,7 +270,7 @@ fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameIt
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
     let mut data = font
-        .instance()
+        .read()
         .tables()
         .svg()
         .ok()

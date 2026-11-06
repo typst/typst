@@ -205,7 +205,7 @@ fn shape_text<'a>(
         ctx.features,
     );
 
-    let shaper = harfrust::ShaperFont::new(font.instance());
+    let shaper = harfrust::ShaperFont::new(font.read());
     let options = harfrust::ShapeOptions::new()
         .plan(Some(&plan))
         .point_size(Some(ctx.size.to_pt() as f32))

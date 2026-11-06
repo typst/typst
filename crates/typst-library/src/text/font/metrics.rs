@@ -36,7 +36,7 @@ pub struct FontMetrics {
 
 impl FontMetrics {
     /// Extract the font's metrics.
-    pub fn from_font(font: &read_fonts::model::Font) -> Self {
+    pub fn new(font: &read_fonts::model::Font) -> Self {
         let metrics = font.metrics();
         let style_metrics = font.style_metrics();
         let units_per_em = f64::from(metrics.units_per_em);
@@ -211,7 +211,7 @@ pub struct MathConstants {
 
 impl MathConstants {
     pub(super) fn new(font: &FontInstance) -> Box<Self> {
-        let instance = font.instance();
+        let instance = font.read();
 
         let space_width = instance
             .charmap()
@@ -226,8 +226,13 @@ impl MathConstants {
             .and_then(|math| {
                 Some((math.math_constants().ok()?, math.has_swapped_min_heights()))
             })
-            .map(|(constants, is_cambria)| {
-                Self::from_constants(font, &constants, space_width, is_cambria)
+            .map(|(constants, has_swapped_min_heights)| {
+                Self::from_constants(
+                    font,
+                    &constants,
+                    space_width,
+                    has_swapped_min_heights,
+                )
             })
             .unwrap_or_else(|| Self::fallback(font, space_width))
     }
@@ -236,7 +241,7 @@ impl MathConstants {
         font: &FontInstance,
         constants: &read_fonts::tables::math::MathConstants,
         space_width: Em,
-        is_cambria: bool,
+        has_swapped_min_heights: bool,
     ) -> Box<Self> {
         Box::new(Self {
             space_width,
@@ -244,7 +249,7 @@ impl MathConstants {
             script_script_percent_scale_down: constants
                 .script_script_percent_scale_down(),
             display_operator_min_height: font.to_em(
-                if is_cambria {
+                if has_swapped_min_heights {
                     constants.delimited_sub_formula_min_height()
                 } else {
                     constants.display_operator_min_height()
