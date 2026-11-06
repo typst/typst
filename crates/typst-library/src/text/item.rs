@@ -62,17 +62,13 @@ impl TextItem {
                 let pos = cursor + offset;
                 let a = pos
                     + Point::new(
-                        self.font.to_em(extents.x_bearing.to_f64()).at(self.size),
-                        self.font
-                            .to_em((extents.y_bearing - extents.height).to_f64())
-                            .at(self.size),
+                        self.font.to_em(extents.x_bearing).at(self.size),
+                        self.font.to_em(extents.y_bearing - extents.height).at(self.size),
                     );
                 let b = pos
                     + Point::new(
-                        self.font
-                            .to_em((extents.x_bearing + extents.width).to_f64())
-                            .at(self.size),
-                        self.font.to_em(extents.y_bearing.to_f64()).at(self.size),
+                        self.font.to_em(extents.x_bearing + extents.width).at(self.size),
+                        self.font.to_em(extents.y_bearing).at(self.size),
                     );
                 min = min.min(a).min(b);
                 max = max.max(a).max(b);

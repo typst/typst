@@ -248,118 +248,87 @@ impl MathConstants {
             script_percent_scale_down: constants.script_percent_scale_down(),
             script_script_percent_scale_down: constants
                 .script_script_percent_scale_down(),
-            display_operator_min_height: font.to_em(
-                if has_swapped_min_heights {
-                    constants.delimited_sub_formula_min_height()
-                } else {
-                    constants.display_operator_min_height()
-                }
-                .to_u16(),
-            ),
-            axis_height: font.to_em(constants.axis_height().value().to_i16()),
-            accent_base_height: font
-                .to_em(constants.accent_base_height().value().to_i16()),
+            display_operator_min_height: font.to_em(if has_swapped_min_heights {
+                constants.delimited_sub_formula_min_height()
+            } else {
+                constants.display_operator_min_height()
+            }),
+            axis_height: font.to_em(constants.axis_height()),
+            accent_base_height: font.to_em(constants.accent_base_height()),
             flattened_accent_base_height: font
-                .to_em(constants.flattened_accent_base_height().value().to_i16()),
-            subscript_shift_down: font
-                .to_em(constants.subscript_shift_down().value().to_i16()),
-            subscript_top_max: font.to_em(constants.subscript_top_max().value().to_i16()),
+                .to_em(constants.flattened_accent_base_height()),
+            subscript_shift_down: font.to_em(constants.subscript_shift_down()),
+            subscript_top_max: font.to_em(constants.subscript_top_max()),
             subscript_baseline_drop_min: font
-                .to_em(constants.subscript_baseline_drop_min().value().to_i16()),
-            superscript_shift_up: font
-                .to_em(constants.superscript_shift_up().value().to_i16()),
+                .to_em(constants.subscript_baseline_drop_min()),
+            superscript_shift_up: font.to_em(constants.superscript_shift_up()),
             superscript_shift_up_cramped: font
-                .to_em(constants.superscript_shift_up_cramped().value().to_i16()),
-            superscript_bottom_min: font
-                .to_em(constants.superscript_bottom_min().value().to_i16()),
+                .to_em(constants.superscript_shift_up_cramped()),
+            superscript_bottom_min: font.to_em(constants.superscript_bottom_min()),
             superscript_baseline_drop_max: font
-                .to_em(constants.superscript_baseline_drop_max().value().to_i16()),
-            sub_superscript_gap_min: font
-                .to_em(constants.sub_superscript_gap_min().value().to_i16()),
-            superscript_bottom_max_with_subscript: font.to_em(
-                constants.superscript_bottom_max_with_subscript().value().to_i16(),
-            ),
-            space_after_script: font
-                .to_em(constants.space_after_script().value().to_i16()),
-            upper_limit_gap_min: font
-                .to_em(constants.upper_limit_gap_min().value().to_i16()),
+                .to_em(constants.superscript_baseline_drop_max()),
+            sub_superscript_gap_min: font.to_em(constants.sub_superscript_gap_min()),
+            superscript_bottom_max_with_subscript: font
+                .to_em(constants.superscript_bottom_max_with_subscript()),
+            space_after_script: font.to_em(constants.space_after_script()),
+            upper_limit_gap_min: font.to_em(constants.upper_limit_gap_min()),
             upper_limit_baseline_rise_min: font
-                .to_em(constants.upper_limit_baseline_rise_min().value().to_i16()),
-            lower_limit_gap_min: font
-                .to_em(constants.lower_limit_gap_min().value().to_i16()),
+                .to_em(constants.upper_limit_baseline_rise_min()),
+            lower_limit_gap_min: font.to_em(constants.lower_limit_gap_min()),
             lower_limit_baseline_drop_min: font
-                .to_em(constants.lower_limit_baseline_drop_min().value().to_i16()),
-            stack_top_shift_up: font
-                .to_em(constants.stack_top_shift_up().value().to_i16()),
+                .to_em(constants.lower_limit_baseline_drop_min()),
+            stack_top_shift_up: font.to_em(constants.stack_top_shift_up()),
             stack_top_display_style_shift_up: font
-                .to_em(constants.stack_top_display_style_shift_up().value().to_i16()),
-            stack_bottom_shift_down: font
-                .to_em(constants.stack_bottom_shift_down().value().to_i16()),
-            stack_bottom_display_style_shift_down: font.to_em(
-                constants.stack_bottom_display_style_shift_down().value().to_i16(),
-            ),
-            stack_gap_min: font.to_em(constants.stack_gap_min().value().to_i16()),
+                .to_em(constants.stack_top_display_style_shift_up()),
+            stack_bottom_shift_down: font.to_em(constants.stack_bottom_shift_down()),
+            stack_bottom_display_style_shift_down: font
+                .to_em(constants.stack_bottom_display_style_shift_down()),
+            stack_gap_min: font.to_em(constants.stack_gap_min()),
             stack_display_style_gap_min: font
-                .to_em(constants.stack_display_style_gap_min().value().to_i16()),
+                .to_em(constants.stack_display_style_gap_min()),
             stretch_stack_top_shift_up: font
-                .to_em(constants.stretch_stack_top_shift_up().value().to_i16()),
+                .to_em(constants.stretch_stack_top_shift_up()),
             stretch_stack_bottom_shift_down: font
-                .to_em(constants.stretch_stack_bottom_shift_down().value().to_i16()),
+                .to_em(constants.stretch_stack_bottom_shift_down()),
             stretch_stack_gap_above_min: font
-                .to_em(constants.stretch_stack_gap_above_min().value().to_i16()),
+                .to_em(constants.stretch_stack_gap_above_min()),
             stretch_stack_gap_below_min: font
-                .to_em(constants.stretch_stack_gap_below_min().value().to_i16()),
+                .to_em(constants.stretch_stack_gap_below_min()),
             fraction_numerator_shift_up: font
-                .to_em(constants.fraction_numerator_shift_up().value().to_i16()),
-            fraction_numerator_display_style_shift_up: font.to_em(
-                constants.fraction_numerator_display_style_shift_up().value().to_i16(),
-            ),
+                .to_em(constants.fraction_numerator_shift_up()),
+            fraction_numerator_display_style_shift_up: font
+                .to_em(constants.fraction_numerator_display_style_shift_up()),
             fraction_denominator_shift_down: font
-                .to_em(constants.fraction_denominator_shift_down().value().to_i16()),
-            fraction_denominator_display_style_shift_down: font.to_em(
-                constants
-                    .fraction_denominator_display_style_shift_down()
-                    .value()
-                    .to_i16(),
-            ),
+                .to_em(constants.fraction_denominator_shift_down()),
+            fraction_denominator_display_style_shift_down: font
+                .to_em(constants.fraction_denominator_display_style_shift_down()),
             fraction_numerator_gap_min: font
-                .to_em(constants.fraction_numerator_gap_min().value().to_i16()),
+                .to_em(constants.fraction_numerator_gap_min()),
             fraction_num_display_style_gap_min: font
-                .to_em(constants.fraction_num_display_style_gap_min().value().to_i16()),
-            fraction_rule_thickness: font
-                .to_em(constants.fraction_rule_thickness().value().to_i16()),
+                .to_em(constants.fraction_num_display_style_gap_min()),
+            fraction_rule_thickness: font.to_em(constants.fraction_rule_thickness()),
             fraction_denominator_gap_min: font
-                .to_em(constants.fraction_denominator_gap_min().value().to_i16()),
+                .to_em(constants.fraction_denominator_gap_min()),
             fraction_denom_display_style_gap_min: font
-                .to_em(constants.fraction_denom_display_style_gap_min().value().to_i16()),
+                .to_em(constants.fraction_denom_display_style_gap_min()),
             skewed_fraction_vertical_gap: font
-                .to_em(constants.skewed_fraction_vertical_gap().value().to_i16()),
+                .to_em(constants.skewed_fraction_vertical_gap()),
             skewed_fraction_horizontal_gap: font
-                .to_em(constants.skewed_fraction_horizontal_gap().value().to_i16()),
-            overbar_vertical_gap: font
-                .to_em(constants.overbar_vertical_gap().value().to_i16()),
-            overbar_rule_thickness: font
-                .to_em(constants.overbar_rule_thickness().value().to_i16()),
-            overbar_extra_ascender: font
-                .to_em(constants.overbar_extra_ascender().value().to_i16()),
-            underbar_vertical_gap: font
-                .to_em(constants.underbar_vertical_gap().value().to_i16()),
-            underbar_rule_thickness: font
-                .to_em(constants.underbar_rule_thickness().value().to_i16()),
-            underbar_extra_descender: font
-                .to_em(constants.underbar_extra_descender().value().to_i16()),
-            radical_vertical_gap: font
-                .to_em(constants.radical_vertical_gap().value().to_i16()),
+                .to_em(constants.skewed_fraction_horizontal_gap()),
+            overbar_vertical_gap: font.to_em(constants.overbar_vertical_gap()),
+            overbar_rule_thickness: font.to_em(constants.overbar_rule_thickness()),
+            overbar_extra_ascender: font.to_em(constants.overbar_extra_ascender()),
+            underbar_vertical_gap: font.to_em(constants.underbar_vertical_gap()),
+            underbar_rule_thickness: font.to_em(constants.underbar_rule_thickness()),
+            underbar_extra_descender: font.to_em(constants.underbar_extra_descender()),
+            radical_vertical_gap: font.to_em(constants.radical_vertical_gap()),
             radical_display_style_vertical_gap: font
-                .to_em(constants.radical_display_style_vertical_gap().value().to_i16()),
-            radical_rule_thickness: font
-                .to_em(constants.radical_rule_thickness().value().to_i16()),
-            radical_extra_ascender: font
-                .to_em(constants.radical_extra_ascender().value().to_i16()),
+                .to_em(constants.radical_display_style_vertical_gap()),
+            radical_rule_thickness: font.to_em(constants.radical_rule_thickness()),
+            radical_extra_ascender: font.to_em(constants.radical_extra_ascender()),
             radical_kern_before_degree: font
-                .to_em(constants.radical_kern_before_degree().value().to_i16()),
-            radical_kern_after_degree: font
-                .to_em(constants.radical_kern_after_degree().value().to_i16()),
+                .to_em(constants.radical_kern_before_degree()),
+            radical_kern_after_degree: font.to_em(constants.radical_kern_after_degree()),
             radical_degree_bottom_raise_percent: constants
                 .radical_degree_bottom_raise_percent()
                 as f64

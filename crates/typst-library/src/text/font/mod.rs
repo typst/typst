@@ -26,7 +26,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use read_fonts::types::GlyphId;
+use read_fonts::types::{F48Dot16, FWord, GlyphId, UfWord};
 
 use self::exceptions::find_exception;
 use self::info::find_name;
@@ -197,30 +197,18 @@ impl FontInstance {
     }
 
     /// Convert from font units to an em length.
-    pub fn to_em(&self, units: impl Into<f64>) -> Em {
-        Em::from_units(units, self.units_per_em())
+    pub fn to_em(&self, units: impl FontUnit) -> Em {
+        Em::from_units(units.to_units(), self.units_per_em())
     }
 
     /// Look up the horizontal advance width of a glyph.
     pub fn x_advance(&self, glyph: u32) -> Em {
-        self.to_em(
-            self.0
-                .instance
-                .glyph_metrics()
-                .h_advance_exact(GlyphId::new(glyph))
-                .to_f64(),
-        )
+        self.to_em(self.0.instance.glyph_metrics().h_advance_exact(GlyphId::new(glyph)))
     }
 
     /// Look up the vertical advance width of a glyph.
     pub fn y_advance(&self, glyph: u32) -> Em {
-        self.to_em(
-            self.0
-                .instance
-                .glyph_metrics()
-                .v_advance_exact(GlyphId::new(glyph))
-                .to_f64(),
-        )
+        self.to_em(self.0.instance.glyph_metrics().v_advance_exact(GlyphId::new(glyph)))
     }
 
     /// A reference to the font at the given instance.
@@ -239,14 +227,12 @@ impl FontInstance {
         let cell = OnceCell::new();
         let extents = |gid,
                        f: fn(
-            read_fonts::model::metrics::GlyphExtents<read_fonts::types::F48Dot16>,
-        ) -> read_fonts::types::F48Dot16| {
+            read_fonts::model::metrics::GlyphExtents<F48Dot16>,
+        ) -> F48Dot16| {
             cell.get_or_init(|| {
-                self.read()
-                    .glyph_metrics()
-                    .extents_exact(read_fonts::types::GlyphId::new(gid))
+                self.read().glyph_metrics().extents_exact(GlyphId::new(gid))
             })
-            .map(|extents| self.to_em(f(extents).to_f64()).at(font_size))
+            .map(|extents| self.to_em(f(extents)).at(font_size))
             .unwrap_or_default()
         };
 
@@ -309,5 +295,47 @@ impl Eq for FontInstance {}
 impl PartialEq for FontInstance {
     fn eq(&self, other: &Self) -> bool {
         self.0.font == other.0.font && self.0.variations == other.0.variations
+    }
+}
+
+/// A value measured in font units.
+pub trait FontUnit {
+    /// The value in font units.
+    fn to_units(self) -> f64;
+}
+
+impl FontUnit for i32 {
+    fn to_units(self) -> f64 {
+        self.into()
+    }
+}
+
+impl FontUnit for f32 {
+    fn to_units(self) -> f64 {
+        self.into()
+    }
+}
+
+impl FontUnit for F48Dot16 {
+    fn to_units(self) -> f64 {
+        self.to_f64()
+    }
+}
+
+impl FontUnit for FWord {
+    fn to_units(self) -> f64 {
+        self.to_i16().into()
+    }
+}
+
+impl FontUnit for UfWord {
+    fn to_units(self) -> f64 {
+        self.to_u16().into()
+    }
+}
+
+impl FontUnit for &read_fonts::tables::math::MathValueRecord {
+    fn to_units(self) -> f64 {
+        self.value().to_units()
     }
 }

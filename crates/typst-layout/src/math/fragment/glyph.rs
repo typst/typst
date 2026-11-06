@@ -288,11 +288,8 @@ impl GlyphFragment {
         let mut best_advance = advance;
         for variant in construction.math_glyph_variant_records() {
             best_id = variant.variant_glyph().to_u32();
-            best_advance = self
-                .item
-                .font
-                .to_em(variant.advance_measurement().to_u16())
-                .at(self.item.size);
+            best_advance =
+                self.item.font.to_em(variant.advance_measurement()).at(self.item.size);
             if short_target <= best_advance {
                 break;
             }
@@ -420,10 +417,8 @@ fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
         // bounding box, just in case.
         if let Some(extents) = font.read().glyph_metrics().extents_exact(GlyphId::new(id))
         {
-            let extents = Axes::new(
-                font.to_em(extents.width.to_f64()),
-                font.to_em(extents.height.to_f64()),
-            );
+            let extents =
+                Axes::new(font.to_em(extents.width), font.to_em(extents.height));
             advance.set_max(extents.get(axis).at(glyph.item.size));
         }
 
@@ -475,10 +470,7 @@ fn resolve_stretch(
 
 fn ascent_descent(font: &FontInstance, id: GlyphId) -> Option<(Em, Em)> {
     let extents = font.read().glyph_metrics().extents_exact(id)?;
-    Some((
-        font.to_em(extents.y_bearing.to_f64()),
-        -font.to_em((extents.y_bearing - extents.height).to_f64()),
-    ))
+    Some((font.to_em(extents.y_bearing), -font.to_em(extents.y_bearing - extents.height)))
 }
 
 /// Look up the italics correction for a glyph.
@@ -544,9 +536,9 @@ pub(super) fn kern_at_height(
     let heights = kern.correction_height();
     let i = heights
         .iter()
-        .position(|h| height < font.to_em(h.value().to_i16()))
+        .position(|h| height < font.to_em(h))
         .unwrap_or(heights.len());
-    Some(font.to_em(kern.kern_values().get(i)?.value().to_i16()))
+    Some(font.to_em(kern.kern_values().get(i)?))
 }
 
 fn stretch_axes(font: &FontInstance, id: u32) -> Axes<bool> {
@@ -577,7 +569,7 @@ fn min_connector_overlap(font: &FontInstance) -> Option<Em> {
         .math()
         .and_then(|math| math.math_variants())
         .ok()
-        .map(|value| font.to_em(value.min_connector_overlap().to_u16()))
+        .map(|value| font.to_em(value.min_connector_overlap()))
 }
 
 fn glyph_construction(
@@ -622,16 +614,12 @@ fn assemble(
 
         while let Some(part) = parts.next() {
             let mut advance =
-                base.item.font.to_em(part.full_advance().to_u16()).at(base.item.size);
+                base.item.font.to_em(part.full_advance()).at(base.item.size);
             if let Some(next) = parts.peek() {
                 let max_overlap = base
                     .item
                     .font
-                    .to_em(
-                        part.end_connector_length()
-                            .to_u16()
-                            .min(next.start_connector_length().to_u16()),
-                    )
+                    .to_em(part.end_connector_length().min(next.start_connector_length()))
                     .at(base.item.size);
                 if max_overlap < min_overlap {
                     // This condition happening is indicative of a bug in the
@@ -669,17 +657,12 @@ fn assemble(
     let mut glyphs = vec![];
     let mut parts = parts(&assembly, repeat).peekable();
     while let Some(part) = parts.next() {
-        let mut advance =
-            base.item.font.to_em(part.full_advance().to_u16()).at(base.item.size);
+        let mut advance = base.item.font.to_em(part.full_advance()).at(base.item.size);
         if let Some(next) = parts.peek() {
             let max_overlap = base
                 .item
                 .font
-                .to_em(
-                    part.end_connector_length()
-                        .to_u16()
-                        .min(next.start_connector_length().to_u16()),
-                )
+                .to_em(part.end_connector_length().min(next.start_connector_length()))
                 .at(base.item.size);
             advance -= max_overlap;
             advance += ratio * (max_overlap - min_overlap);
@@ -741,11 +724,8 @@ fn assemble(
     }
 
     base.item.glyphs = glyphs;
-    base.italics_correction = base
-        .item
-        .font
-        .to_em(assembly.italics_correction().value().to_i16())
-        .at(base.item.size);
+    base.italics_correction =
+        base.item.font.to_em(assembly.italics_correction()).at(base.item.size);
     if axis == Axis::X {
         base.accent_attach = (full / 2.0, full / 2.0);
     }
