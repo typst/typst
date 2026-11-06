@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
 use ecow::EcoString;
+use read_fonts::types::GlyphId;
 use typst_syntax::Span;
 
 use crate::layout::{Abs, Em, Point, Rect};
@@ -53,19 +54,19 @@ impl TextItem {
                 Point::new(glyph.x_advance.at(self.size), glyph.y_advance.at(self.size));
             let offset =
                 Point::new(glyph.x_offset.at(self.size), glyph.y_offset.at(self.size));
-            if let Some(rect) =
-                self.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(glyph.id))
+            if let Some(extents) =
+                self.font.read().glyph_metrics().extents_exact(glyph.id)
             {
                 let pos = cursor + offset;
                 let a = pos
                     + Point::new(
-                        self.font.to_em(rect.x_min).at(self.size),
-                        self.font.to_em(rect.y_min).at(self.size),
+                        self.font.to_em(extents.x_bearing).at(self.size),
+                        self.font.to_em(extents.y_bearing - extents.height).at(self.size),
                     );
                 let b = pos
                     + Point::new(
-                        self.font.to_em(rect.x_max).at(self.size),
-                        self.font.to_em(rect.y_max).at(self.size),
+                        self.font.to_em(extents.x_bearing + extents.width).at(self.size),
+                        self.font.to_em(extents.y_bearing).at(self.size),
                     );
                 min = min.min(a).min(b);
                 max = max.max(a).max(b);
@@ -93,7 +94,7 @@ impl Debug for TextItem {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Glyph {
     /// The glyph's index in the font.
-    pub id: u16,
+    pub id: GlyphId,
     /// The advance width of the glyph.
     pub x_advance: Em,
     /// The horizontal offset of the glyph.

@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use az::SaturatingAs;
 use comemo::Tracked;
-use rustybuzz::{BufferFlags, Feature, ShapePlan, UnicodeBuffer};
-use ttf_parser::Tag;
-use ttf_parser::gsub::SubstitutionSubtable;
+use harfrust::{Buffer, BufferFlags, Feature, ShapePlan};
+use read_fonts::TableProvider;
+use read_fonts::types::{GlyphId, Tag};
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Regex, Smart, StyleChain};
@@ -134,7 +134,7 @@ pub struct ShapedGlyph {
     /// The font the glyph is contained in.
     pub font: FontInstance,
     /// The glyph's index in the font.
-    pub glyph_id: u16,
+    pub glyph_id: GlyphId,
     /// Whether tracking was applied to the advance width.
     pub tracking_applied: bool,
     /// The advance width of the glyph.
@@ -607,9 +607,8 @@ impl<'a> ShapedText<'a> {
             let font = world
                 .font(id)
                 .map(|font| font.instantiate(base.variant, size, &variations))?;
-            let ttf = font.ttf();
-            let glyph_id = ttf.glyph_index('-')?;
-            let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
+            let glyph_id = font.read().charmap().map_unicode('-')?;
+            let x_advance = font.x_advance(glyph_id);
             let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
 
             Some(ShapedText {
@@ -622,7 +621,7 @@ impl<'a> ShapedText<'a> {
                 variant: base.variant,
                 glyphs: Glyphs::from_vec(vec![ShapedGlyph {
                     font,
-                    glyph_id: glyph_id.0,
+                    glyph_id,
                     tracking_applied: false,
                     x_advance,
                     x_offset: Em::zero(),
@@ -842,7 +841,7 @@ struct ShapingContext<'a> {
     styles: StyleChain<'a>,
     size: Abs,
     variant: FontVariant,
-    features: Vec<rustybuzz::Feature>,
+    features: Vec<Feature>,
     variations: FontVariations,
     fallback: bool,
     dir: Dir,
@@ -978,17 +977,15 @@ fn shape_segment<'a>(
     };
 
     // Fill the buffer with our text.
-    let mut buffer = UnicodeBuffer::new();
+    let mut buffer = Buffer::new();
     buffer.push_str(text);
-    buffer.set_language(language(ctx.styles));
-    if let Some(script) = ctx.styles.get(TextElem::script).custom().and_then(|script| {
-        rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
-    }) {
-        buffer.set_script(script);
-    }
+    buffer.set_language(Some(language(ctx.styles)));
+    buffer.set_script(ctx.styles.get(TextElem::script).custom().and_then(|script| {
+        harfrust::Script::from_iso15924_tag(Tag::new(script.as_bytes()))
+    }));
     buffer.set_direction(match ctx.dir {
-        Dir::LTR => rustybuzz::Direction::LeftToRight,
-        Dir::RTL => rustybuzz::Direction::RightToLeft,
+        Dir::LTR => harfrust::Direction::LeftToRight,
+        Dir::RTL => harfrust::Direction::RightToLeft,
         _ => unimplemented!("vertical text layout"),
     });
     buffer.guess_segment_properties();
@@ -1017,16 +1014,23 @@ fn shape_segment<'a>(
         &font,
         buffer.direction(),
         buffer.script(),
-        buffer.language().as_ref(),
+        buffer.language(),
         &ctx.features,
     );
+
+    // Shape!
+    let shaper = harfrust::ShaperFont::new(font.read());
+    let options = harfrust::ShapeOptions::new()
+        .plan(Some(&plan))
+        .point_size(Some(scale.at(ctx.size).to_pt() as f32))
+        .features(&ctx.features);
+    harfrust::shape(&shaper, &mut buffer, options)
+        .expect("can only happen with shape API misuse");
 
     if has_shift_feature {
         ctx.features.pop();
     }
 
-    // Shape!
-    let buffer = rustybuzz::shape_with_plan(font.rusty(), &plan, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
     let ltr = ctx.dir.is_positive();
@@ -1092,7 +1096,7 @@ fn shape_segment<'a>(
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
-                glyph_id: info.glyph_id as u16,
+                glyph_id: GlyphId::new(info.glyph_id),
                 tracking_applied: false,
                 // TODO: Don't ignore y_advance.
                 x_advance,
@@ -1180,18 +1184,34 @@ fn determine_shift(
             // OpenType feature instead of synthesizing if possible), we add
             // "subs"/"sups" to the feature list if supported by the font.
             // In case of a problem, we just early exit
-            let gsub = font.rusty().tables().gsub?;
-            let lookups = gsub.features.find(settings.kind.feature())?.lookup_indices;
+            let feature = settings.kind.feature();
+            let instance = font.read();
+            let gsub = instance.tables().gsub().ok()?;
+            let features = gsub.feature_list().ok()?;
+            let record = features
+                .feature_records()
+                .iter()
+                .find(|r| r.feature_tag() == feature)?;
+            let indices =
+                record.feature(features.offset_data()).ok()?.lookup_list_indices();
+            let lookups = gsub.lookup_list().ok()?.lookups();
+            let charmap = instance.charmap();
+
+            // Note that this can overestimate, since a contextual lookup may
+            // not match in the actual context.
             text.chars()
                 .all(|c| {
-                    let Some(i) = font.rusty().glyph_index(c) else { return false };
-                    lookups
-                        .into_iter()
-                        .filter_map(|i| gsub.lookups.get(i))
-                        .flat_map(|lookup| {
-                            lookup.subtables.into_iter::<SubstitutionSubtable>()
-                        })
-                        .any(|subtable| subtable.coverage().contains(i))
+                    charmap.map_unicode(c).is_some_and(|glyph| {
+                        indices
+                            .iter()
+                            .filter_map(|index| {
+                                lookups
+                                    .get(usize::from(index.get()))
+                                    .and_then(|lookup| lookup.subtables())
+                                    .ok()
+                            })
+                            .any(|subtables| subtables_cover(subtables, glyph))
+                    })
                 })
                 .then(|| {
                     // If we can use the OpenType feature, we can keep the text
@@ -1200,7 +1220,7 @@ fn determine_shift(
                         Em::zero(),
                         Em::zero(),
                         Em::one(),
-                        Some(Feature::new(settings.kind.feature(), 1, ..)),
+                        Some(Feature::new(feature, 1, ..)),
                     )
                 })
         })
@@ -1218,34 +1238,92 @@ fn determine_shift(
         })
 }
 
+/// Whether the glyph is in the coverage of one of the subtables, or in the
+/// first input coverage for a contextual one.
+fn subtables_cover(
+    subtables: read_fonts::tables::gsub::SubstitutionSubtables,
+    glyph: GlyphId,
+) -> bool {
+    use read_fonts::ReadError;
+    use read_fonts::tables::gsub::{
+        AlternateSubst, LigatureSubst, ReverseChainSingleSubst, SingleSubst,
+        SubstitutionSubtables,
+    };
+    use read_fonts::tables::layout::{
+        ChainedSequenceContext, CoverageTable, SequenceContext,
+    };
+
+    fn any<'a, T>(
+        glyph: GlyphId,
+        subtables: impl Iterator<Item = Result<T, ReadError>>,
+        coverage: impl Fn(T) -> Result<CoverageTable<'a>, ReadError>,
+    ) -> bool {
+        subtables
+            .filter_map(|t| t.and_then(&coverage).ok())
+            .any(|coverage| coverage.get(glyph).is_some())
+    }
+
+    match subtables {
+        SubstitutionSubtables::Single(t) => any(glyph, t.iter(), |t| match t {
+            SingleSubst::Format1(t) => t.coverage(),
+            SingleSubst::Format2(t) => t.coverage(),
+            SingleSubst::Format3(t) => t.coverage(),
+            SingleSubst::Format4(t) => t.coverage(),
+        }),
+        SubstitutionSubtables::Multiple(t) => any(glyph, t.iter(), |t| t.coverage()),
+        SubstitutionSubtables::Alternate(t) => any(glyph, t.iter(), |t| match t {
+            AlternateSubst::Format1(t) => t.coverage(),
+            AlternateSubst::Format2(t) => t.coverage(),
+        }),
+        SubstitutionSubtables::Ligature(t) => any(glyph, t.iter(), |t| match t {
+            LigatureSubst::Format1(t) => t.coverage(),
+            LigatureSubst::Format2(t) => t.coverage(),
+        }),
+        SubstitutionSubtables::Reverse(t) => any(glyph, t.iter(), |t| match t {
+            ReverseChainSingleSubst::Format1(t) => t.coverage(),
+            ReverseChainSingleSubst::Format2(t) => t.coverage(),
+        }),
+        SubstitutionSubtables::Contextual(t) => any(glyph, t.iter(), |t| match t {
+            SequenceContext::Format1(t) => t.coverage(),
+            SequenceContext::Format2(t) => t.coverage(),
+            SequenceContext::Format3(t) => t.coverages().get(0),
+            SequenceContext::Format4(t) => t.coverage(),
+            SequenceContext::Format5(t) => t.coverage(),
+            SequenceContext::Format6(t) => t.coverages().get(0),
+        }),
+        SubstitutionSubtables::ChainContextual(t) => any(glyph, t.iter(), |t| match t {
+            ChainedSequenceContext::Format1(t) => t.coverage(),
+            ChainedSequenceContext::Format2(t) => t.coverage(),
+            ChainedSequenceContext::Format3(t) => t.input_coverages().get(0),
+            ChainedSequenceContext::Format4(t) => t.coverage(),
+            ChainedSequenceContext::Format5(t) => t.coverage(),
+        }),
+        SubstitutionSubtables::EmptyExtension => false,
+    }
+}
+
 /// Create a shape plan.
 #[comemo::memoize]
 pub fn create_shape_plan(
     font: &FontInstance,
-    direction: rustybuzz::Direction,
-    script: rustybuzz::Script,
-    language: Option<&rustybuzz::Language>,
-    features: &[rustybuzz::Feature],
+    direction: harfrust::Direction,
+    script: Option<harfrust::Script>,
+    language: Option<&harfrust::Language>,
+    features: &[Feature],
 ) -> Arc<ShapePlan> {
-    Arc::new(rustybuzz::ShapePlan::new(
-        font.rusty(),
-        direction,
-        Some(script),
-        language,
-        features,
-    ))
+    Arc::new(ShapePlan::new(font.read(), direction, script, language, features))
 }
 
 /// Shape the text with tofus from the given font.
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontInstance) {
-    let x_advance = font.x_advance(0).unwrap_or_default();
+    let x_advance = font.x_advance(GlyphId::NOTDEF);
     let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
         let end = start + c.len_utf8();
         let script = c.script();
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
-            glyph_id: 0,
+            glyph_id: GlyphId::NOTDEF,
             tracking_applied: false,
             x_advance,
             x_offset: Em::zero(),
@@ -1349,9 +1427,9 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &FontInstance) -> Option<Em> {
-    let space = font.ttf().glyph_index(' ')?.0;
-    let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
-    Some(font.x_advance(nbsp)? - font.x_advance(space)?)
+    let space = font.read().charmap().map_unicode(' ')?;
+    let nbsp = font.read().charmap().map_unicode('\u{00A0}')?;
+    Some(font.x_advance(nbsp) - font.x_advance(space))
 }
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.

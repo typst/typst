@@ -1,10 +1,13 @@
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
+use read_fonts::TableProvider;
+use read_fonts::model::attribute::Style;
+use read_fonts::types::NameId;
 use serde::{Deserialize, Serialize};
-use ttf_parser::{PlatformId, name_id};
 
 use super::find_exception;
+use crate::layout::Ratio;
 use crate::text::{
     AxisValue, FontAxis, FontStretch, FontStyle, FontVariant, FontWeight, Tag,
 };
@@ -46,19 +49,25 @@ bitflags::bitflags! {
 impl FontInfo {
     /// Compute metadata for font at the `index` of the given data.
     pub fn new(data: &[u8], index: u32) -> Option<Self> {
-        let ttf = ttf_parser::Face::parse(data, index).ok()?;
-        Self::from_ttf(&ttf)
+        // Safety: Unfortunately, `read_fonts` does not support borrowed data.
+        // However, the data is still only used while the `Font` type is live
+        // (as of 0.46). Since `data` outlives `font` and the font is not
+        // cloned, faking a static lifetime is okay.
+        let data: &'static [u8] = unsafe { &*(data as *const [u8]) };
+        let font =
+            read_fonts::model::Font::new(read_fonts::model::Blob::Static(data), index)?;
+        Self::from_font(&font)
     }
 
     /// Compute metadata for all fonts in the given data.
     pub fn iter(data: &[u8]) -> impl Iterator<Item = FontInfo> + '_ {
-        let count = ttf_parser::fonts_in_collection(data).unwrap_or(1);
+        let count = read_fonts::model::Format::new(data).map_or(1, |f| f.num_fonts());
         (0..count).filter_map(move |index| Self::new(data, index))
     }
 
-    /// Compute metadata for a single ttf-parser face.
-    pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
-        let ps_name = find_name(ttf, name_id::POST_SCRIPT_NAME);
+    /// Compute metadata for a single font.
+    pub(super) fn from_font(font: &read_fonts::model::Font) -> Option<Self> {
+        let ps_name = find_name(font, NameId::POSTSCRIPT_NAME);
         let exception = ps_name.as_deref().and_then(find_exception);
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
@@ -73,26 +82,21 @@ impl FontInfo {
         // "ExtraBold").
         let family =
             exception.and_then(|c| c.family.map(str::to_string)).or_else(|| {
-                let family = find_name(ttf, name_id::FAMILY)?;
+                let family = find_name(font, NameId::FAMILY_NAME)?;
                 Some(typographic_family(&family).to_string())
             })?;
 
         let variant = {
+            let attributes = font.default_attributes();
+
             let style = exception.and_then(|c| c.style).unwrap_or_else(|| {
-                let mut full = find_name(ttf, name_id::FULL_NAME).unwrap_or_default();
+                let mut full = find_name(font, NameId::FULL_NAME).unwrap_or_default();
                 full.make_ascii_lowercase();
 
                 // Some fonts miss the relevant bits for italic or oblique, so
                 // we also try to infer that from the full name.
-                //
-                // We do not use `ttf.is_italic()` because that also checks the
-                // italic angle which leads to false positives for some oblique
-                // fonts.
-                //
-                // See <https://github.com/typst/typst/issues/7479>.
-                let italic =
-                    ttf.style() == ttf_parser::Style::Italic || full.contains("italic");
-                let oblique = ttf.is_oblique()
+                let italic = attributes.style == Style::Italic || full.contains("italic");
+                let oblique = matches!(attributes.style, Style::Oblique(_))
                     || full.contains("oblique")
                     || full.contains("slanted");
 
@@ -104,56 +108,49 @@ impl FontInfo {
             });
 
             let weight = exception.and_then(|c| c.weight).unwrap_or_else(|| {
-                let number = ttf.weight().to_number();
+                let number = attributes.weight.value() as u16;
                 FontWeight::from_number(number)
             });
 
-            let stretch = exception
-                .and_then(|c| c.stretch)
-                .unwrap_or_else(|| FontStretch::from_number(ttf.width().to_number()));
+            let stretch = exception.and_then(|c| c.stretch).unwrap_or_else(|| {
+                FontStretch::from_ratio(Ratio::new(attributes.width.ratio() as f64))
+            });
 
             FontVariant { style, weight, stretch }
         };
 
-        // Determine the unicode coverage.
-        let mut coverage = Coverage::default();
-        if let Some(cmap) = ttf.tables().cmap {
-            for subtable in cmap.subtables {
-                if subtable.is_unicode() {
-                    let mut subtable_coverage =
-                        CoverageBuilder::with_capacity(coverage.0.len());
-                    subtable.codepoints(|c| {
-                        // We expect codepoints in CMAP subtables to be already sorted
-                        subtable_coverage.add_codepoint(c);
-                    });
-                    coverage = coverage.union(&subtable_coverage.build());
-                }
-            }
-        }
+        // Determine the unicode coverage. The codepoints are usually already
+        // sorted, in which case we can avoid collecting and sorting them.
+        let codepoints = || font.charmap().unicodes().map(|(c, _)| c);
+        let coverage = Coverage::from_sorted(codepoints())
+            .unwrap_or_else(|| Coverage::from_vec(codepoints().collect()));
+
+        let axes = font.axes();
 
         let mut flags = FontFlags::empty();
-        flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
-        flags.set(FontFlags::MATH, ttf.tables().math.is_some());
-        flags.set(FontFlags::VARIABLE, ttf.is_variable());
+        flags.set(
+            FontFlags::MONOSPACE,
+            font.tables().post().is_ok_and(|post| post.is_fixed_pitch() != 0),
+        );
+        flags.set(FontFlags::MATH, font.tables().math().is_ok());
+        flags.set(FontFlags::VARIABLE, !axes.is_empty());
 
         // Determine whether this is a serif or sans-serif font.
-        if let Some(panose) = ttf
-            .raw_face()
-            .table(ttf_parser::Tag::from_bytes(b"OS/2"))
-            .and_then(|os2| os2.get(32..45))
-            && matches!(panose, [2, 2..=10, ..])
+        if font
+            .tables()
+            .os2()
+            .is_ok_and(|os2| matches!(os2.panose_10(), [2, 2..=10, ..]))
         {
             flags.insert(FontFlags::SERIF);
         }
 
-        let axes = ttf
-            .variation_axes()
-            .into_iter()
+        let axes = axes
+            .iter()
             .map(|axis| FontAxis {
-                tag: Tag::from_bytes(&axis.tag.to_bytes()),
-                min: AxisValue(axis.min_value),
-                max: AxisValue(axis.max_value),
-                default: AxisValue(axis.def_value),
+                tag: Tag::from_bytes(&axis.tag().to_be_bytes()),
+                min: AxisValue(axis.min_value()),
+                max: AxisValue(axis.max_value()),
+                default: AxisValue(axis.default_value()),
             })
             .collect();
 
@@ -168,41 +165,12 @@ impl FontInfo {
 }
 
 /// Try to find and decode the name with the given id.
-pub(super) fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
-    ttf.names().into_iter().find_map(|entry| {
-        if entry.name_id == name_id {
-            if let Some(string) = entry.to_string() {
-                return Some(string);
-            }
-
-            if entry.platform_id == PlatformId::Macintosh && entry.encoding_id == 0 {
-                return Some(decode_mac_roman(entry.name));
-            }
-        }
-
-        None
-    })
-}
-
-/// Decode mac roman encoded bytes into a string.
-fn decode_mac_roman(coded: &[u8]) -> String {
-    #[rustfmt::skip]
-    const TABLE: [char; 128] = [
-        'Ä', 'Å', 'Ç', 'É', 'Ñ', 'Ö', 'Ü', 'á', 'à', 'â', 'ä', 'ã', 'å', 'ç', 'é', 'è',
-        'ê', 'ë', 'í', 'ì', 'î', 'ï', 'ñ', 'ó', 'ò', 'ô', 'ö', 'õ', 'ú', 'ù', 'û', 'ü',
-        '†', '°', '¢', '£', '§', '•', '¶', 'ß', '®', '©', '™', '´', '¨', '≠', 'Æ', 'Ø',
-        '∞', '±', '≤', '≥', '¥', 'µ', '∂', '∑', '∏', 'π', '∫', 'ª', 'º', 'Ω', 'æ', 'ø',
-        '¿', '¡', '¬', '√', 'ƒ', '≈', '∆', '«', '»', '…', '\u{a0}', 'À', 'Ã', 'Õ', 'Œ', 'œ',
-        '–', '—', '“', '”', '‘', '’', '÷', '◊', 'ÿ', 'Ÿ', '⁄', '€', '‹', '›', 'ﬁ', 'ﬂ',
-        '‡', '·', '‚', '„', '‰', 'Â', 'Ê', 'Á', 'Ë', 'È', 'Í', 'Î', 'Ï', 'Ì', 'Ó', 'Ô',
-        '\u{f8ff}', 'Ò', 'Ú', 'Û', 'Ù', 'ı', 'ˆ', '˜', '¯', '˘', '˙', '˚', '¸', '˝', '˛', 'ˇ',
-    ];
-
-    fn char_from_mac_roman(code: u8) -> char {
-        if code < 128 { code as char } else { TABLE[(code - 128) as usize] }
-    }
-
-    coded.iter().copied().map(char_from_mac_roman).collect()
+pub(super) fn find_name(font: &read_fonts::model::Font, id: NameId) -> Option<String> {
+    font.names()
+        .get(id)?
+        .iter()
+        .next()
+        .map(|name| name.name().to_string())
 }
 
 /// Trim style naming from a family name and fix bad names.
@@ -307,6 +275,23 @@ impl Coverage {
         builder.build()
     }
 
+    /// Encode codepoints given in strictly increasing order.
+    ///
+    /// Returns `None` if they are not.
+    fn from_sorted(codepoints: impl IntoIterator<Item = u32>) -> Option<Self> {
+        let mut builder = CoverageBuilder::with_capacity(0);
+        // Internal iteration is much faster than a for loop here, since the
+        // codepoints usually come from deeply nested iterator adapters.
+        codepoints.into_iter().try_for_each(|c| {
+            if c < builder.next {
+                return None;
+            }
+            builder.add_codepoint(c);
+            Some(())
+        })?;
+        Some(builder.build())
+    }
+
     /// Whether the codepoint is covered.
     pub fn contains(&self, c: u32) -> bool {
         let mut inside = false;
@@ -339,37 +324,6 @@ impl Coverage {
             offset += count;
             start..offset
         })
-    }
-
-    /// Returns an encoding of the set of codepoints covered by either `self` or
-    /// `other`.
-    fn union(&self, other: &Coverage) -> Self {
-        let capacity = self.0.len().max(other.0.len());
-        let mut builder = CoverageBuilder::with_capacity(capacity);
-
-        let mut self_ranges = self.iter_ranges().peekable();
-        let mut other_ranges = other.iter_ranges().peekable();
-
-        while let Some(self_range) = self_ranges.peek()
-            && let Some(other_range) = other_ranges.peek()
-        {
-            if self_range.start < other_range.start {
-                builder.add_codepoint_range(self_range.clone());
-                self_ranges.next();
-            } else {
-                builder.add_codepoint_range(other_range.clone());
-                other_ranges.next();
-            }
-        }
-
-        for self_range in self_ranges {
-            builder.add_codepoint_range(self_range);
-        }
-        for other_range in other_ranges {
-            builder.add_codepoint_range(other_range);
-        }
-
-        builder.build()
     }
 }
 
@@ -479,18 +433,13 @@ mod tests {
     }
 
     #[test]
-    fn test_coverage_union() {
-        let right = Coverage::from_vec(vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14]);
-        let left =
-            Coverage::from_vec(vec![0, 1, 2, 3, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18]);
-
-        let combined = right.union(&left);
-
-        let codepoints = combined.iter().collect::<Vec<_>>();
+    fn test_coverage_from_sorted() {
+        let codepoints = vec![2, 3, 7, 8, 9, 14, 15, 19, 21];
         assert_eq!(
-            codepoints,
-            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18]
+            Coverage::from_sorted(codepoints.clone()),
+            Some(Coverage::from_vec(codepoints))
         );
-        assert_eq!(combined.0, vec![0, 15, 1, 3]);
+        assert_eq!(Coverage::from_sorted([2, 3, 3, 4]), None);
+        assert_eq!(Coverage::from_sorted([2, 7, 4]), None);
     }
 }

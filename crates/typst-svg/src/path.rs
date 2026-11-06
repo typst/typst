@@ -12,6 +12,8 @@ pub struct SvgPathBuilder {
     last_close_point: Point,
     /// The end of the previous draw command, used for relative draw commands.
     last_point: Point,
+    /// Whether any draw commands have been written.
+    empty: bool,
 }
 
 impl SvgPathBuilder {
@@ -26,6 +28,7 @@ impl SvgPathBuilder {
             scale: Ratio::one(),
             last_close_point: pos,
             last_point: Point::zero(),
+            empty: true,
         }
     }
 
@@ -36,6 +39,7 @@ impl SvgPathBuilder {
             scale,
             last_close_point: Point::zero(),
             last_point: Point::zero(),
+            empty: true,
         }
     }
 
@@ -46,7 +50,13 @@ impl SvgPathBuilder {
             scale: Ratio::one(),
             last_close_point: Point::zero(),
             last_point: Point::zero(),
+            empty: true,
         }
+    }
+
+    /// Whether any draw commands have been written.
+    pub fn is_empty(&self) -> bool {
+        self.empty
     }
 
     /// Finish building the path.
@@ -55,6 +65,7 @@ impl SvgPathBuilder {
     }
 
     fn write(&mut self) -> SvgFormatter<'_, EcoString> {
+        self.empty = false;
         SvgFormatter::new(&mut self.path)
     }
 
@@ -173,7 +184,7 @@ mod outline {
     use crate::path::SvgPathBuilder;
 
     /// A builder for SVG path. This is used to build the path for a glyph.
-    impl ttf_parser::OutlineBuilder for SvgPathBuilder {
+    impl read_fonts::model::glyph::outline::PathSink for SvgPathBuilder {
         fn move_to(&mut self, x: f32, y: f32) {
             self.move_to(point(x, y));
         }
