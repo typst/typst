@@ -119,9 +119,11 @@ impl FontInfo {
             FontVariant { style, weight, stretch }
         };
 
-        // Determine the unicode coverage.
-        let coverage =
-            Coverage::from_vec(font.charmap().unicodes().map(|(c, _)| c).collect());
+        // Determine the unicode coverage. The codepoints are usually already
+        // sorted, in which case we can avoid collecting and sorting them.
+        let codepoints = || font.charmap().unicodes().map(|(c, _)| c);
+        let coverage = Coverage::from_sorted(codepoints())
+            .unwrap_or_else(|| Coverage::from_vec(codepoints().collect()));
 
         let axes = font.axes();
 
@@ -273,6 +275,23 @@ impl Coverage {
         builder.build()
     }
 
+    /// Encode codepoints given in strictly increasing order.
+    ///
+    /// Returns `None` if they are not.
+    fn from_sorted(codepoints: impl IntoIterator<Item = u32>) -> Option<Self> {
+        let mut builder = CoverageBuilder::with_capacity(0);
+        // Internal iteration is much faster than a for loop here, since the
+        // codepoints usually come from deeply nested iterator adapters.
+        codepoints.into_iter().try_for_each(|c| {
+            if c < builder.next {
+                return None;
+            }
+            builder.add_codepoint(c);
+            Some(())
+        })?;
+        Some(builder.build())
+    }
+
     /// Whether the codepoint is covered.
     pub fn contains(&self, c: u32) -> bool {
         let mut inside = false;
@@ -414,18 +433,13 @@ mod tests {
     }
 
     #[test]
-    fn test_coverage_union() {
-        let right = Coverage::from_vec(vec![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 14]);
-        let left =
-            Coverage::from_vec(vec![0, 1, 2, 3, 5, 6, 9, 10, 11, 12, 13, 16, 17, 18]);
-
-        let combined = right.union(&left);
-
-        let codepoints = combined.iter().collect::<Vec<_>>();
+    fn test_coverage_from_sorted() {
+        let codepoints = vec![2, 3, 7, 8, 9, 14, 15, 19, 21];
         assert_eq!(
-            codepoints,
-            vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18]
+            Coverage::from_sorted(codepoints.clone()),
+            Some(Coverage::from_vec(codepoints))
         );
-        assert_eq!(combined.0, vec![0, 15, 1, 3]);
+        assert_eq!(Coverage::from_sorted([2, 3, 3, 4]), None);
+        assert_eq!(Coverage::from_sorted([2, 7, 4]), None);
     }
 }
