@@ -209,7 +209,7 @@ impl GlyphFragment {
     /// Sets element id and boxes in appropriate way without changing other
     /// styles. This is used to replace the glyph with a stretch variant.
     fn update_glyph(&mut self) {
-        let id = GlyphId::new(self.item.glyphs[0].id);
+        let id = self.item.glyphs[0].id;
 
         let extended_shape = is_extended_shape(&self.item.font, id);
         let italics = italics_correction(&self.item.font, id).unwrap_or_default();
@@ -279,7 +279,7 @@ impl GlyphFragment {
 
         let id = self.item.glyphs[0].id;
         let font = self.item.font.clone();
-        let Some(construction) = glyph_construction(&font, GlyphId::new(id), axis) else {
+        let Some(construction) = glyph_construction(&font, id, axis) else {
             return;
         };
 
@@ -287,7 +287,7 @@ impl GlyphFragment {
         let mut best_id = id;
         let mut best_advance = advance;
         for variant in construction.math_glyph_variant_records() {
-            best_id = variant.variant_glyph().to_u32();
+            best_id = variant.variant_glyph().into();
             best_advance =
                 self.item.font.to_em(variant.advance_measurement()).at(self.item.size);
             if short_target <= best_advance {
@@ -415,8 +415,7 @@ fn decide(glyph: &GlyphFragment, stretch: &Stretch) -> Action {
         // Combining marks (e.g. accent glyphs) typically have zero advance in
         // `hmtx`, so the advance above is no good. We explicitly compute the
         // bounding box, just in case.
-        if let Some(extents) = font.read().glyph_metrics().extents_exact(GlyphId::new(id))
-        {
+        if let Some(extents) = font.read().glyph_metrics().extents_exact(id) {
             let extents =
                 Axes::new(font.to_em(extents.width), font.to_em(extents.height));
             advance.set_max(extents.get(axis).at(glyph.item.size));
@@ -541,8 +540,7 @@ pub(super) fn kern_at_height(
     Some(font.to_em(kern.kern_values().get(i)?))
 }
 
-fn stretch_axes(font: &FontInstance, id: u32) -> Axes<bool> {
-    let id = GlyphId::new(id);
+fn stretch_axes(font: &FontInstance, id: GlyphId) -> Axes<bool> {
     let horizontal = font
         .read()
         .tables()
@@ -688,7 +686,7 @@ fn assemble(
             ),
         };
         glyphs.push(Glyph {
-            id: part.glyph_id().to_u32(),
+            id: part.glyph_id().into(),
             x_advance,
             x_offset: Em::zero(),
             y_advance,
@@ -703,9 +701,7 @@ fn assemble(
             base.size.x = full;
             let (ascent, descent) = glyphs
                 .iter()
-                .filter_map(|glyph| {
-                    ascent_descent(&base.item.font, GlyphId::new(glyph.id))
-                })
+                .filter_map(|glyph| ascent_descent(&base.item.font, glyph.id))
                 .reduce(|(ma, md), (a, d)| (ma.max(a), md.max(d)))
                 .unwrap_or((Em::zero(), Em::zero()));
             base.baseline = Some(ascent.at(base.item.size));

@@ -17,7 +17,7 @@ pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
     let mut x = Abs::zero();
     let mut y = Abs::zero();
     for glyph in &text.glyphs {
-        let id = GlyphId::new(glyph.id);
+        let id = glyph.id;
         let x_offset = x + glyph.x_offset.at(text.size);
         let y_offset = y + glyph.y_offset.at(text.size);
 

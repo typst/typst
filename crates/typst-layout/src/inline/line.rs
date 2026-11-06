@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Deref, DerefMut};
 
 use ecow::EcoVec;
+use read_fonts::types::GlyphId;
 use typst_library::engine::Engine;
 use typst_library::introspection::{SplitLocator, Tag, TagFlags};
 use typst_library::layout::{Abs, Dir, Em, Fr, Frame, FrameItem, Point};
@@ -685,11 +686,11 @@ fn overhang(glyph: &ShapedGlyph) -> Abs {
 /// Generates a sorted table with overhang ratios indexed by glyph ID for a
 /// particular font.
 #[comemo::memoize]
-fn font_overhang_table(font: &FontInstance) -> EcoVec<(u32, f64)> {
+fn font_overhang_table(font: &FontInstance) -> EcoVec<(GlyphId, f64)> {
     let mut table = EcoVec::with_capacity(DEFAULT_OVERHANG_TABLE.len());
     for &(c, factor) in DEFAULT_OVERHANG_TABLE {
         if let Some(id) = font.read().charmap().map_unicode(c) {
-            table.push((id.to_u32(), factor));
+            table.push((id, factor));
         }
     }
     table.make_mut().sort_unstable_by_key(|(id, _)| *id);

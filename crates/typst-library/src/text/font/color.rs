@@ -96,9 +96,8 @@ impl GlyphFrameItem {
 ///
 /// [`text.item.size`]: crate::text::TextItem::size
 #[comemo::memoize]
-pub fn glyph_frame(font: &FontInstance, glyph_id: u32) -> Option<GlyphFrame> {
+pub fn glyph_frame(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let upem = Abs::pt(font.units_per_em());
-    let glyph_id = GlyphId::new(glyph_id);
 
     if let Some(frame) = draw_glyph(font, upem, glyph_id) {
         return Some(frame);

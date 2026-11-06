@@ -1,7 +1,7 @@
 use az::SaturatingAs;
 use comemo::Tracked;
 use harfrust::{Buffer, BufferFlags, Direction, Feature, Language, Script};
-use read_fonts::types::Tag;
+use read_fonts::types::{GlyphId, Tag};
 use typst_library::World;
 use typst_library::foundations::StyleChain;
 use typst_library::layout::{Abs, Em};
@@ -172,8 +172,8 @@ fn shape_text<'a>(
     let shape_tofus = |ctx: &mut ShapingContext, text: &str, font: FontInstance| {
         for _ in text.chars() {
             ctx.glyphs.push(Glyph {
-                id: 0,
-                x_advance: font.x_advance(0),
+                id: GlyphId::NOTDEF,
+                x_advance: font.x_advance(GlyphId::NOTDEF),
                 x_offset: Em::zero(),
                 y_advance: Em::zero(),
                 y_offset: Em::zero(),
@@ -227,7 +227,7 @@ fn shape_text<'a>(
             let info = buffer.glyph_infos()[i];
             let pos = buffer.glyph_positions()[i];
             ctx.glyphs.push(Glyph {
-                id: info.glyph_id,
+                id: GlyphId::new(info.glyph_id),
                 x_advance: font.to_em(pos.x_advance),
                 x_offset: font.to_em(pos.x_offset),
                 y_advance: font.to_em(pos.y_advance),

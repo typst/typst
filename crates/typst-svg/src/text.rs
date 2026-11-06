@@ -42,7 +42,7 @@ impl SVGRenderer<'_> {
         let mut x = Abs::pt(0.0);
         let mut y = Abs::pt(0.0);
         for glyph in &text.glyphs {
-            let id = GlyphId::new(glyph.id);
+            let id = glyph.id;
             let x_offset = x + glyph.x_offset.at(text.size);
             let y_offset = y + glyph.y_offset.at(text.size);
 
@@ -66,7 +66,7 @@ impl SVGRenderer<'_> {
             // Pre-scale outlined glyphs, so strokes and fill patterns don't
             // need to consider text size glyph scaling.
             let scale = Ratio::new(text.size.to_pt() / text.font.units_per_em());
-            let key = (&text.font, glyph_id.to_u32(), scale);
+            let key = (&text.font, glyph_id, scale);
             let (id, path) = self.glyphs.insert_with_val(key, || {
                 let mut builder = SvgPathBuilder::with_scale(scale);
                 text.font
@@ -87,9 +87,9 @@ impl SVGRenderer<'_> {
             // Image glyphs apply a `scale` at use site, since colr, svg-, and
             // bitmap glyph images are usually quite large, and having one glyph
             // per text size is a bit of a waste.
-            let key = (&text.font, glyph_id.to_u32());
+            let key = (&text.font, glyph_id);
             let (id, frame) = self.glyphs.insert_with_val(key, || {
-                let frame = glyph_frame(&text.font, glyph_id.to_u32())?;
+                let frame = glyph_frame(&text.font, glyph_id)?;
                 Some(RenderedGlyph::Frame(frame))
             });
 

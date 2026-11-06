@@ -202,13 +202,13 @@ impl FontInstance {
     }
 
     /// Look up the horizontal advance width of a glyph.
-    pub fn x_advance(&self, glyph: u32) -> Em {
-        self.to_em(self.0.instance.glyph_metrics().h_advance_exact(GlyphId::new(glyph)))
+    pub fn x_advance(&self, glyph: GlyphId) -> Em {
+        self.to_em(self.0.instance.glyph_metrics().h_advance_exact(glyph))
     }
 
     /// Look up the vertical advance width of a glyph.
-    pub fn y_advance(&self, glyph: u32) -> Em {
-        self.to_em(self.0.instance.glyph_metrics().v_advance_exact(GlyphId::new(glyph)))
+    pub fn y_advance(&self, glyph: GlyphId) -> Em {
+        self.to_em(self.0.instance.glyph_metrics().v_advance_exact(glyph))
     }
 
     /// A reference to the font at the given instance.
@@ -229,11 +229,9 @@ impl FontInstance {
                        f: fn(
             read_fonts::model::metrics::GlyphExtents<F48Dot16>,
         ) -> F48Dot16| {
-            cell.get_or_init(|| {
-                self.read().glyph_metrics().extents_exact(GlyphId::new(gid))
-            })
-            .map(|extents| self.to_em(f(extents)).at(font_size))
-            .unwrap_or_default()
+            cell.get_or_init(|| self.read().glyph_metrics().extents_exact(gid))
+                .map(|extents| self.to_em(f(extents)).at(font_size))
+                .unwrap_or_default()
         };
 
         let top = match top_edge {

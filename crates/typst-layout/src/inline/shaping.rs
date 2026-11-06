@@ -7,7 +7,7 @@ use az::SaturatingAs;
 use comemo::Tracked;
 use harfrust::{Buffer, BufferFlags, Feature, ShapePlan};
 use read_fonts::TableProvider;
-use read_fonts::types::Tag;
+use read_fonts::types::{GlyphId, Tag};
 use typst_library::World;
 use typst_library::engine::Engine;
 use typst_library::foundations::{Regex, Smart, StyleChain};
@@ -134,7 +134,7 @@ pub struct ShapedGlyph {
     /// The font the glyph is contained in.
     pub font: FontInstance,
     /// The glyph's index in the font.
-    pub glyph_id: u32,
+    pub glyph_id: GlyphId,
     /// Whether tracking was applied to the advance width.
     pub tracking_applied: bool,
     /// The advance width of the glyph.
@@ -607,7 +607,7 @@ impl<'a> ShapedText<'a> {
             let font = world
                 .font(id)
                 .map(|font| font.instantiate(base.variant, size, &variations))?;
-            let glyph_id = font.read().charmap().map_unicode('-')?.to_u32();
+            let glyph_id = font.read().charmap().map_unicode('-')?;
             let x_advance = font.x_advance(glyph_id);
             let (c, text) = if soft { (SHY, SHY_STR) } else { (HYPHEN, HYPHEN_STR) };
 
@@ -1096,7 +1096,7 @@ fn shape_segment<'a>(
             let x_advance = font.to_em(pos[i].x_advance);
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
-                glyph_id: info.glyph_id,
+                glyph_id: GlyphId::new(info.glyph_id),
                 tracking_applied: false,
                 // TODO: Don't ignore y_advance.
                 x_advance,
@@ -1320,14 +1320,14 @@ pub fn create_shape_plan(
 
 /// Shape the text with tofus from the given font.
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontInstance) {
-    let x_advance = font.x_advance(0);
+    let x_advance = font.x_advance(GlyphId::NOTDEF);
     let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
         let end = start + c.len_utf8();
         let script = c.script();
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
-            glyph_id: 0,
+            glyph_id: GlyphId::NOTDEF,
             tracking_applied: false,
             x_advance,
             x_offset: Em::zero(),
@@ -1431,8 +1431,8 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
 
 /// Difference between non-breaking and normal space.
 fn nbsp_delta(font: &FontInstance) -> Option<Em> {
-    let space = font.read().charmap().map_unicode(' ')?.to_u32();
-    let nbsp = font.read().charmap().map_unicode('\u{00A0}')?.to_u32();
+    let space = font.read().charmap().map_unicode(' ')?;
+    let nbsp = font.read().charmap().map_unicode('\u{00A0}')?;
     Some(font.x_advance(nbsp) - font.x_advance(space))
 }
 

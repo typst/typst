@@ -2,7 +2,7 @@ use kurbo::{BezPath, Line, ParamCurve};
 use read_fonts::model::glyph::outline::{
     ControlBoundsSink, DrawMemory, DrawOptions, PathSink,
 };
-use read_fonts::types::{BoundingBox, GlyphId};
+use read_fonts::types::BoundingBox;
 use typst_library::layout::{Abs, Em, Frame, FrameItem, Point, Size};
 use typst_library::text::{
     BottomEdge, DecoLine, Decoration, TextEdgeBounds, TextItem, TopEdge,
@@ -96,16 +96,16 @@ pub fn decorate(
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
-        let outlined = text
-            .font
-            .read()
-            .outline_glyphs()
-            .get(GlyphId::new(glyph.id))
-            .is_some_and(|outline| {
-                outline
-                    .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
-                    .is_ok()
-            });
+        let outlined =
+            text.font
+                .read()
+                .outline_glyphs()
+                .get(glyph.id)
+                .is_some_and(|outline| {
+                    outline
+                        .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
+                        .is_ok()
+                });
         let bbox = if outlined { builder.bounding_box() } else { None };
         let path = builder.finish();
 

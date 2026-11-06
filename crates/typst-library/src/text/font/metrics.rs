@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use read_fonts::TableProvider;
-use read_fonts::types::F48Dot16;
+use read_fonts::types::{F48Dot16, GlyphId};
 
 use crate::foundations::Cast;
 use crate::layout::{Em, Frame};
@@ -216,7 +216,7 @@ impl MathConstants {
         let space_width = instance
             .charmap()
             .map_unicode(' ')
-            .map(|id| font.x_advance(id.to_u32()))
+            .map(|id| font.x_advance(id))
             .unwrap_or(typst_library::math::THICK);
 
         instance
@@ -440,7 +440,7 @@ pub enum TextEdgeBounds<'a> {
     /// Set the bounds to zero.
     Zero,
     /// Use the bounding box of the given glyph for the bounds.
-    Glyph(u32),
+    Glyph(GlyphId),
     /// Use the dimension of the given frame for the bounds.
     Frame(&'a Frame),
 }
