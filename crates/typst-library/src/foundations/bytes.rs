@@ -86,6 +86,11 @@ impl Bytes {
         self
     }
 
+    /// Try to view the bytes as a static slice.
+    pub fn as_static(&self) -> Option<&'static [u8]> {
+        self.to_underlying::<&'static [u8]>().copied()
+    }
+
     /// Try to view the bytes as an UTF-8 string.
     ///
     /// If these bytes were created via `Bytes::from_string`, UTF-8 validation
@@ -185,6 +190,14 @@ impl Bytes {
         let wrapped =
             if index >= 0 { Some(index) } else { (len as i64).checked_add(index) };
         wrapped.and_then(|v| usize::try_from(v).ok()).filter(|&v| v <= len)
+    }
+
+    /// Try to access a value this was built from via [`Bytes::new`].
+    fn to_underlying<T>(&self) -> Option<&T>
+    where
+        T: AsRef<[u8]> + Send + Sync + 'static,
+    {
+        (self.inner() as &dyn Any).downcast_ref::<T>()
     }
 
     /// Try to access a vector this was built from via [`Bytes::new`].

@@ -56,10 +56,11 @@ struct FontInner {
 impl Font {
     /// Parse a font from data and collection index.
     pub fn new(data: Bytes, index: u32) -> Option<Self> {
-        let font = read_fonts::model::Font::new(
-            read_fonts::model::Blob::Shared(Arc::new(data.clone())),
-            index,
-        )?;
+        let blob = match data.as_static() {
+            Some(slice) => read_fonts::model::Blob::Static(slice),
+            None => read_fonts::model::Blob::Shared(Arc::new(data.clone())),
+        };
+        let font = read_fonts::model::Font::new(blob, index)?;
         let info = FontInfo::from_font(&font)?;
         Some(Self(Arc::new(FontInner { index, info, font, data })))
     }
