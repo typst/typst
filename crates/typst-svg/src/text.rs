@@ -75,7 +75,7 @@ impl SVGRenderer<'_> {
                     .get(glyph_id)?
                     .draw(&DrawOptions::default(), DrawMemory::Scratch, &mut builder)
                     .ok()?;
-                Some(RenderedGlyph::Path(builder.finish()))
+                (!builder.is_empty()).then(|| RenderedGlyph::Path(builder.finish()))
             });
 
             if path.is_some() {
