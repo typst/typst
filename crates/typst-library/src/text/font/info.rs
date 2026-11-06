@@ -131,20 +131,24 @@ impl FontInfo {
             }
         }
 
-        let mut flags = FontFlags::empty();
-        flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
-        flags.set(FontFlags::MATH, ttf.tables().math.is_some());
-        flags.set(FontFlags::VARIABLE, ttf.is_variable());
+        let flags = exception.and_then(|c| c.flags).unwrap_or_else(|| {
+            let mut flags = FontFlags::empty();
+            flags.set(FontFlags::MONOSPACE, ttf.is_monospaced());
+            flags.set(FontFlags::MATH, ttf.tables().math.is_some());
+            flags.set(FontFlags::VARIABLE, ttf.is_variable());
 
-        // Determine whether this is a serif or sans-serif font.
-        if let Some(panose) = ttf
-            .raw_face()
-            .table(ttf_parser::Tag::from_bytes(b"OS/2"))
-            .and_then(|os2| os2.get(32..45))
-            && matches!(panose, [2, 2..=10, ..])
-        {
-            flags.insert(FontFlags::SERIF);
-        }
+            // Determine whether this is a serif or sans-serif font.
+            if let Some(panose) = ttf
+                .raw_face()
+                .table(ttf_parser::Tag::from_bytes(b"OS/2"))
+                .and_then(|os2| os2.get(32..45))
+                && matches!(panose, [2, 2..=10, ..])
+            {
+                flags.insert(FontFlags::SERIF);
+            }
+
+            flags
+        });
 
         let axes = ttf
             .variation_axes()
