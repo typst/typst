@@ -3,7 +3,9 @@
 use std::io::Read;
 
 use read_fonts::TableProvider;
-use read_fonts::model::glyph::color::{Brush, Color, ColorStop, Extend, PaintSink};
+use read_fonts::model::glyph::color::{
+    Brush, Color, ColorGlyph, ColorStop, Extend, PaintSink,
+};
 use read_fonts::model::glyph::outline::{
     ControlBoundsSink, DrawMemory, DrawOptions, PathSink, SvgSink, TransformSink,
 };
@@ -114,21 +116,20 @@ pub fn glyph_frame(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrame>
 /// Tries to draw a glyph.
 fn draw_glyph(font: &FontInstance, upem: Abs, glyph_id: GlyphId) -> Option<GlyphFrame> {
     let instance = font.read();
-    let kind = if let Some(raster_image) = instance
+    let kind = if let Some((raster, data)) = instance
         .bitmap_strikes()
         .select_bitmap(glyph_id, None)
-        .filter(|bitmap| {
-            matches!(bitmap.pixels(), read_fonts::model::glyph::bitmap::Pixels::Png(_))
+        .and_then(|bitmap| match bitmap.pixels() {
+            read_fonts::model::glyph::bitmap::Pixels::Png(data) => Some((bitmap, data)),
+            _ => None,
         }) {
-        draw_raster_glyph(font, upem, raster_image)
-    } else if instance.color_glyphs().get(glyph_id).is_some() {
-        draw_colr_glyph(font, glyph_id)
-    } else if instance
-        .tables()
-        .svg()
-        .is_ok_and(|svg| svg.glyph_data(glyph_id).is_some())
+        draw_raster_glyph(font, upem, raster, data)
+    } else if let Some(glyph) = instance.color_glyphs().get(glyph_id) {
+        draw_colr_glyph(font, glyph)
+    } else if let Some(data) =
+        instance.tables().svg().ok().and_then(|svg| svg.glyph_data(glyph_id))
     {
-        draw_svg_glyph(font, glyph_id)
+        draw_svg_glyph(data)
     } else {
         None
     };
@@ -156,10 +157,8 @@ fn draw_raster_glyph(
     font: &FontInstance,
     upem: Abs,
     raster: read_fonts::model::glyph::bitmap::BitmapGlyph,
+    data: &[u8],
 ) -> Option<GlyphFrameItem> {
-    let read_fonts::model::glyph::bitmap::Pixels::Png(data) = raster.pixels() else {
-        unreachable!()
-    };
     let data = Bytes::new(data.to_vec());
     let image = Image::plain(RasterImage::plain(data, ExchangeFormat::Png).ok()?);
 
@@ -191,8 +190,8 @@ fn draw_raster_glyph(
 }
 
 /// Draws a glyph from the COLR table into the frame.
-fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
-    let svg_string = colr_glyph_to_svg(font, glyph_id)?;
+fn draw_colr_glyph(font: &FontInstance, glyph: ColorGlyph) -> Option<GlyphFrameItem> {
+    let svg_string = colr_glyph_to_svg(font, glyph)?;
 
     let bounds = font.read().metrics().bounds;
     let width = (bounds.x_max - bounds.x_min).to_f64();
@@ -209,16 +208,16 @@ fn draw_colr_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameI
 }
 
 /// Convert a COLR glyph into an SVG file.
-fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
+fn colr_glyph_to_svg(font: &FontInstance, glyph: ColorGlyph) -> Option<String> {
     let mut svg = XmlWriter::new(xmlwriter::Options::default());
 
     let instance = font.read();
 
     let bounds = instance.metrics().bounds;
-    let width = (bounds.x_max - bounds.x_min).to_f64();
-    let height = (bounds.y_max - bounds.y_min).to_f64();
     let x_min = bounds.x_min.to_f64();
     let y_max = bounds.y_max.to_f64();
+    let width = bounds.x_max.to_f64() - x_min;
+    let height = y_max - bounds.y_min.to_f64();
     let tx = -x_min;
     let ty = -y_max;
 
@@ -246,7 +245,7 @@ fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
         clip_path_index,
         // We always use the first palette. `ColorPalettes` handles
         // per-palette record offsets internally.
-        palette: instance.palettes().get(0).map_or(&[][..], |palette| palette.colors()),
+        palette: instance.palettes().get(0).map_or(&[], |palette| palette.colors()),
         foreground_color: Color { red: 0, green: 0, blue: 0, alpha: 255 },
         transform: Matrix::IDENTITY,
         outline_transform: Matrix::IDENTITY,
@@ -254,34 +253,26 @@ fn colr_glyph_to_svg(font: &FontInstance, glyph_id: GlyphId) -> Option<String> {
         clip_stack: vec![],
     };
 
-    instance
-        .color_glyphs()
-        .get(glyph_id)?
-        .paint(&mut glyph_painter)
-        .ok()?;
+    glyph.paint(&mut glyph_painter).ok()?;
     svg.end_element();
 
     Some(svg.end_document())
 }
 
 /// Draws an SVG glyph in a frame.
-fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameItem> {
+fn draw_svg_glyph(data: &[u8]) -> Option<GlyphFrameItem> {
     // TODO: Our current conversion of the SVG table works for Twitter Color Emoji,
     // but might not work for others. See also: https://github.com/RazrFalcon/resvg/pull/776
-    let mut data = font
-        .read()
-        .tables()
-        .svg()
-        .ok()
-        .and_then(|svg| svg.glyph_data(glyph_id))?;
 
     // Decompress SVGZ.
     let mut decoded = vec![];
-    if data.starts_with(&[0x1f, 0x8b]) {
+    let data = if data.starts_with(&[0x1f, 0x8b]) {
         let mut decoder = flate2::read::GzDecoder::new(data);
         decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
-    }
+        &decoded
+    } else {
+        data
+    };
 
     // Parse and simplify the SVG.
     let xml = std::str::from_utf8(data).ok()?;
