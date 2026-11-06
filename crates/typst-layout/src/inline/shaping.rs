@@ -1184,16 +1184,45 @@ fn determine_shift(
             // OpenType feature instead of synthesizing if possible), we add
             // "subs"/"sups" to the feature list if supported by the font.
             // In case of a problem, we just early exit
-            feature_covers(font, settings.kind.feature(), text)?.then(|| {
-                // If we can use the OpenType feature, we can keep the text
-                // as is.
-                (
-                    Em::zero(),
-                    Em::zero(),
-                    Em::one(),
-                    Some(Feature::new(settings.kind.feature(), 1, ..)),
-                )
-            })
+            let feature = settings.kind.feature();
+            let instance = font.read();
+            let gsub = instance.tables().gsub().ok()?;
+            let features = gsub.feature_list().ok()?;
+            let record = features
+                .feature_records()
+                .iter()
+                .find(|r| r.feature_tag() == feature)?;
+            let indices =
+                record.feature(features.offset_data()).ok()?.lookup_list_indices();
+            let lookups = gsub.lookup_list().ok()?.lookups();
+            let charmap = instance.charmap();
+
+            // Note that this can overestimate, since a contextual lookup may
+            // not match in the actual context.
+            text.chars()
+                .all(|c| {
+                    charmap.map_unicode(c).is_some_and(|glyph| {
+                        indices
+                            .iter()
+                            .filter_map(|index| {
+                                lookups
+                                    .get(usize::from(index.get()))
+                                    .and_then(|lookup| lookup.subtables())
+                                    .ok()
+                            })
+                            .any(|subtables| subtables_cover(subtables, glyph))
+                    })
+                })
+                .then(|| {
+                    // If we can use the OpenType feature, we can keep the text
+                    // as is.
+                    (
+                        Em::zero(),
+                        Em::zero(),
+                        Em::one(),
+                        Some(Feature::new(feature, 1, ..)),
+                    )
+                })
         })
         // Reunite the cases where `typographic` is `false` or where using the
         // OpenType feature would not work.
@@ -1209,47 +1238,12 @@ fn determine_shift(
         })
 }
 
-/// Whether the GSUB `feature` substitutes the glyph of every character in
-/// `text`.
-///
-/// A glyph counts if it is in the coverage of one of the feature's subtables
-/// (the first input coverage, for a contextual one). This can overestimate,
-/// since a contextual lookup may not match in the actual context.
-fn feature_covers(font: &FontInstance, feature: Tag, text: &str) -> Option<bool> {
-    let instance = font.read();
-    let gsub = instance.tables().gsub().ok()?;
-    let features = gsub.feature_list().ok()?;
-    let record = features
-        .feature_records()
-        .iter()
-        .find(|r| r.feature_tag() == feature)?;
-    let lookups = gsub.lookup_list().ok()?.lookups();
-
-    // Collect the coverages once instead of walking the lookups per character.
-    let mut coverages = Vec::new();
-    for index in record.feature(features.offset_data()).ok()?.lookup_list_indices() {
-        if let Ok(subtables) = lookups
-            .get(usize::from(index.get()))
-            .and_then(|lookup| lookup.subtables())
-        {
-            push_coverages(&subtables, &mut coverages);
-        }
-    }
-
-    let charmap = instance.charmap();
-    Some(text.chars().all(|c| {
-        charmap
-            .map_unicode(c)
-            .is_some_and(|glyph| coverages.iter().any(|cov| cov.get(glyph).is_some()))
-    }))
-}
-
-/// Adds the coverage of each subtable, or its first input coverage for a
-/// contextual one.
-fn push_coverages<'a>(
-    subtables: &read_fonts::tables::gsub::SubstitutionSubtables<'a>,
-    out: &mut Vec<read_fonts::tables::layout::CoverageTable<'a>>,
-) {
+/// Whether the glyph is in the coverage of one of the subtables, or in the
+/// first input coverage for a contextual one.
+fn subtables_cover(
+    subtables: read_fonts::tables::gsub::SubstitutionSubtables,
+    glyph: GlyphId,
+) -> bool {
     use read_fonts::ReadError;
     use read_fonts::tables::gsub::{
         AlternateSubst, LigatureSubst, ReverseChainSingleSubst, SingleSubst,
@@ -1259,35 +1253,37 @@ fn push_coverages<'a>(
         ChainedSequenceContext, CoverageTable, SequenceContext,
     };
 
-    fn extend<'a, T>(
-        out: &mut Vec<CoverageTable<'a>>,
+    fn any<'a, T>(
+        glyph: GlyphId,
         subtables: impl Iterator<Item = Result<T, ReadError>>,
         coverage: impl Fn(T) -> Result<CoverageTable<'a>, ReadError>,
-    ) {
-        out.extend(subtables.filter_map(|t| t.and_then(&coverage).ok()));
+    ) -> bool {
+        subtables
+            .filter_map(|t| t.and_then(&coverage).ok())
+            .any(|coverage| coverage.get(glyph).is_some())
     }
 
     match subtables {
-        SubstitutionSubtables::Single(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::Single(t) => any(glyph, t.iter(), |t| match t {
             SingleSubst::Format1(t) => t.coverage(),
             SingleSubst::Format2(t) => t.coverage(),
             SingleSubst::Format3(t) => t.coverage(),
             SingleSubst::Format4(t) => t.coverage(),
         }),
-        SubstitutionSubtables::Multiple(t) => extend(out, t.iter(), |t| t.coverage()),
-        SubstitutionSubtables::Alternate(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::Multiple(t) => any(glyph, t.iter(), |t| t.coverage()),
+        SubstitutionSubtables::Alternate(t) => any(glyph, t.iter(), |t| match t {
             AlternateSubst::Format1(t) => t.coverage(),
             AlternateSubst::Format2(t) => t.coverage(),
         }),
-        SubstitutionSubtables::Ligature(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::Ligature(t) => any(glyph, t.iter(), |t| match t {
             LigatureSubst::Format1(t) => t.coverage(),
             LigatureSubst::Format2(t) => t.coverage(),
         }),
-        SubstitutionSubtables::Reverse(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::Reverse(t) => any(glyph, t.iter(), |t| match t {
             ReverseChainSingleSubst::Format1(t) => t.coverage(),
             ReverseChainSingleSubst::Format2(t) => t.coverage(),
         }),
-        SubstitutionSubtables::Contextual(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::Contextual(t) => any(glyph, t.iter(), |t| match t {
             SequenceContext::Format1(t) => t.coverage(),
             SequenceContext::Format2(t) => t.coverage(),
             SequenceContext::Format3(t) => t.coverages().get(0),
@@ -1295,14 +1291,14 @@ fn push_coverages<'a>(
             SequenceContext::Format5(t) => t.coverage(),
             SequenceContext::Format6(t) => t.coverages().get(0),
         }),
-        SubstitutionSubtables::ChainContextual(t) => extend(out, t.iter(), |t| match t {
+        SubstitutionSubtables::ChainContextual(t) => any(glyph, t.iter(), |t| match t {
             ChainedSequenceContext::Format1(t) => t.coverage(),
             ChainedSequenceContext::Format2(t) => t.coverage(),
             ChainedSequenceContext::Format3(t) => t.input_coverages().get(0),
             ChainedSequenceContext::Format4(t) => t.coverage(),
             ChainedSequenceContext::Format5(t) => t.coverage(),
         }),
-        SubstitutionSubtables::EmptyExtension => {}
+        SubstitutionSubtables::EmptyExtension => false,
     }
 }
 
