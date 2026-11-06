@@ -224,11 +224,10 @@ impl FontInstance {
         font_size: Abs,
         bounds: TextEdgeBounds,
     ) -> (Abs, Abs) {
+        use read_fonts::model::metrics::GlyphExtents;
+
         let cell = OnceCell::new();
-        let extents = |gid,
-                       f: fn(
-            read_fonts::model::metrics::GlyphExtents<F48Dot16>,
-        ) -> F48Dot16| {
+        let extents = |gid, f: fn(GlyphExtents<F48Dot16>) -> F48Dot16| {
             cell.get_or_init(|| self.read().glyph_metrics().extents_exact(gid))
                 .map(|extents| self.to_em(f(extents)).at(font_size))
                 .unwrap_or_default()
