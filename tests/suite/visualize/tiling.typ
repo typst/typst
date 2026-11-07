@@ -297,3 +297,7 @@ OFFSET OFFSET
 
 --- tiling-negative-area pdf ---
 #rect(fill: tiling(size: (-2pt, -2pt))[Hello])
+
+--- tiling-shape-with-text paged ---
+#set page(width: 30pt, height: 30pt, margin: 0pt)
+#rect(fill: tiling[a])
