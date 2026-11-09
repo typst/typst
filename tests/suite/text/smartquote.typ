@@ -186,3 +186,8 @@ Does not apply across #html.div["block-level] elements".
 
 --- issue-5146-smartquotes-after-equations paged ---
 $i$'s $i$ 's
+
+--- issue-9043-digit-apostrophe paged html ---
+// Test that an apostrophe after a digit prints as an apostrophe, not a prime.
+Held until 2026's end, a 1990's car, mind your p's and 3's. \
+He is 5'11" tall, and it takes a 2" nail.

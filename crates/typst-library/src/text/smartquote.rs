@@ -7,8 +7,12 @@ use crate::foundations::{
     Array, Dict, FromValue, Packed, PlainText, Smart, Str, StyleChain, array, cast, dict,
     elem,
 };
-use crate::layout::Dir;
-use crate::text::{Lang, Region, TextElem};
+use crate::introspection::TagElem;
+use crate::layout::{Dir, HElem};
+use crate::routines::Pair;
+use crate::text::{
+    Lang, LinebreakElem, Region, SpaceElem, TextElem, is_default_ignorable,
+};
 
 /// A language-aware quote that reacts to its context.
 ///
@@ -95,7 +99,7 @@ impl PlainText for Packed<SmartQuoteElem> {
     }
 }
 
-/// A smart quote substitutor with zero lookahead.
+/// A smart quote substitutor with lookahead.
 #[derive(Debug, Clone)]
 pub struct SmartQuoter {
     /// The amount of quotes that have been opened.
@@ -112,30 +116,34 @@ impl SmartQuoter {
     }
 
     /// Determine which smart quote to substitute given this quoter's nesting
-    /// state and the character immediately preceding the quote.
+    /// state and the characters immediately preceding and following the quote.
     pub fn quote<'a>(
         &mut self,
         before: Option<char>,
+        after: Option<char>,
         quotes: &SmartQuotes<'a>,
         double: bool,
     ) -> &'a str {
         let opened = self.top();
         let before = before.unwrap_or(' ');
 
+        // If we have a single smart quote, didn't recently open a single
+        // quotation, and are after an alphabetic char, an object (e.g. a
+        // math equation), or after a number followed by an alphabetic char
+        // (e.g. 2026's or 3's), interpret this as an apostrophe.
+        if !double
+            && opened != Some(false)
+            && (before.is_alphabetic()
+                || before == '\u{FFFC}'
+                || (before.is_numeric() && after.is_some_and(|c| c.is_alphabetic())))
+        {
+            return "’";
+        }
+
         // If we are after a number and haven't most recently opened a quote of
         // this kind, produce a prime. Otherwise, we prefer a closing quote.
         if before.is_numeric() && opened != Some(double) {
             return if double { "″" } else { "′" };
-        }
-
-        // If we have a single smart quote, didn't recently open a single
-        // quotation, and are after an alphabetic char or an object (e.g. a
-        // math equation), interpret this as an apostrophe.
-        if !double
-            && opened != Some(false)
-            && (before.is_alphabetic() || before == '\u{FFFC}')
-        {
-            return "’";
         }
 
         // If the most recently opened quotation is of this kind and the
@@ -173,6 +181,34 @@ impl SmartQuoter {
         self.depth -= 1;
         self.kinds &= (1 << self.depth) - 1;
     }
+}
+
+/// Peek the first non-ignorable character after a quote in a sequence of inline elements.
+pub fn peek_after(children: &[Pair<'_>]) -> Option<char> {
+    for &(child, _) in children {
+        if let Some(elem) = child.to_packed::<TextElem>() {
+            if let Some(c) = elem.text.chars().find(|&c| !is_default_ignorable(c)) {
+                return Some(c);
+            }
+        } else if child.is::<SpaceElem>() {
+            return Some(' ');
+        } else if child.is::<LinebreakElem>() {
+            return Some('\n');
+        } else if let Some(elem) = child.to_packed::<SmartQuoteElem>() {
+            return Some(if elem.double.as_option().unwrap_or(true) {
+                '"'
+            } else {
+                '\''
+            });
+        } else if let Some(elem) = child.to_packed::<HElem>() {
+            if !elem.amount.is_zero() {
+                return Some(' ');
+            }
+        } else if !child.is::<TagElem>() {
+            return Some('\u{FFFC}');
+        }
+    }
+    None
 }
 
 impl Default for SmartQuoter {
