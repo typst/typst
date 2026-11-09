@@ -7,7 +7,7 @@ use typst_library::layout::{
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
-    is_default_ignorable,
+    is_default_ignorable, peek_after,
 };
 use typst_syntax::Span;
 use typst_utils::Numeric;
@@ -154,7 +154,7 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
-    for &(child, styles) in children {
+    for (idx, &(child, styles)) in children.iter().enumerate() {
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
@@ -210,7 +210,8 @@ pub fn collect<'a>(
                 );
                 let before =
                     collector.full.chars().rev().find(|&c| !is_default_ignorable(c));
-                let quote = quoter.quote(before, &quotes, double);
+                let after = peek_after(&children[idx + 1..]);
+                let quote = quoter.quote(before, after, &quotes, double);
                 collector.push_text(quote, styles);
             } else {
                 collector.push_text(SmartQuotes::fallback(double), styles);

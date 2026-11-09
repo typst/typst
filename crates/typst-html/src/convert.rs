@@ -9,7 +9,7 @@ use typst_library::layout::{
 use typst_library::routines::Pair;
 use typst_library::text::{
     LinebreakElem, SmartQuoteElem, SmartQuoter, SmartQuotes, SpaceElem, TextElem,
-    is_default_ignorable,
+    is_default_ignorable, peek_after,
 };
 use typst_syntax::Span;
 use typst_utils::SliceExt;
@@ -77,8 +77,9 @@ pub fn convert_to_nodes<'a>(
         trailing: None,
     };
 
-    for (child, styles) in children {
-        handle(&mut converter, child, styles)?;
+    let children: Vec<Pair<'a>> = children.into_iter().collect();
+    for (idx, &(child, styles)) in children.iter().enumerate() {
+        handle(&mut converter, child, styles, &children[idx + 1..])?;
     }
 
     let mut nodes = converter.finish();
@@ -90,10 +91,11 @@ pub fn convert_to_nodes<'a>(
 }
 
 /// Converts one element into HTML node(s).
-fn handle(
+fn handle<'a>(
     converter: &mut Converter,
     child: &Content,
-    styles: StyleChain,
+    styles: StyleChain<'a>,
+    remaining: &[Pair<'a>],
 ) -> SourceResult<()> {
     if let Some(elem) = child.to_packed::<TagElem>() {
         converter.push(elem.tag.clone());
@@ -122,13 +124,14 @@ fn handle(
         let double = elem.double.get(styles);
         let quote = if elem.enabled.get(styles) {
             let before = last_char(&converter.output);
+            let after = peek_after(remaining);
             let quotes = SmartQuotes::get(
                 elem.quotes.get_ref(styles),
                 styles.get(TextElem::lang),
                 styles.get(TextElem::region),
                 elem.alternative.get(styles),
             );
-            converter.quoter.quote(before, &quotes, double)
+            converter.quoter.quote(before, after, &quotes, double)
         } else {
             SmartQuotes::fallback(double)
         };
