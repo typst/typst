@@ -119,18 +119,18 @@
 
 --- decimal-repr eval ---
 // Test the `repr` function with decimals.
-#test(repr(decimal("12.0")), "decimal(\"12.0\")")
-#test(repr(decimal("3.14")), "decimal(\"3.14\")")
-#test(repr(decimal("1234567890.0")), "decimal(\"1234567890.0\")")
-#test(repr(decimal("0123456789.0")), "decimal(\"123456789.0\")")
-#test(repr(decimal("0.0")), "decimal(\"0.0\")")
-#test(repr(decimal("-1.0")), "decimal(\"-1.0\")")
-#test(repr(decimal("-9876543210.0")), "decimal(\"-9876543210.0\")")
-#test(repr(decimal("-0987654321.0")), "decimal(\"-987654321.0\")")
-#test(repr(decimal("-3.14")), "decimal(\"-3.14\")")
-#test(repr(decimal("-3.9191919191919191919191919195")), "decimal(\"-3.9191919191919191919191919195\")")
-#test(repr(decimal("5.0000000000")), "decimal(\"5.0000000000\")")
-#test(repr(decimal("4.0") - decimal("8.0")), "decimal(\"-4.0\")")
+#test(repr(12.0d), "12.0d")
+#test(repr(3.14d), "3.14d")
+#test(repr(1234567890.0d), "1234567890.0d")
+#test(repr(0123456789.0d), "123456789.0d")
+#test(repr(0.0d), "0.0d")
+#test(repr(-1.0d), "-1.0d")
+#test(repr(-9876543210.0d), "-9876543210.0d")
+#test(repr(-0987654321.0d), "-987654321.0d")
+#test(repr(-3.14d), "-3.14d")
+#test(repr(-3.9191919191919191919191919195d), "-3.9191919191919191919191919195d")
+#test(repr(5.0000000000d), "5.0000000000d")
+#test(repr(4.0d - 8.0d), "-4.0d")
 
 --- decimal-repr-negative-zero eval ---
 // The `repr` for positive vs. negative zero unfortunately differs, but it is
@@ -147,8 +147,8 @@
 // First, note that negative and positive zero do compare equal:
 #test(-0d, 0d)
 // Now we compare the repr.
-#let pos-repr = "decimal(\"0\")"
-#let neg-repr = "decimal(\"-0\")"
+#let pos-repr = "0d"
+#let neg-repr = "-0d"
 #test(pos-repr, repr(0d))
 // Negating a decimal can make a negative zero.
 #test(neg-repr, repr(-0d))

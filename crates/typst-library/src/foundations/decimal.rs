@@ -300,13 +300,13 @@ impl Decimal {
         value: Spanned<ToDecimal>,
     ) -> SourceResult<Decimal> {
         match value.v {
-            ToDecimal::Str(string) => {
-                let string = string.replace(repr::MINUS_SIGN, "-");
-                Self::from_str(&string)
+            ToDecimal::Str(input_str) => {
+                let fixed_str = input_str.replace(repr::MINUS_SIGN, "-");
+                Self::from_str(&fixed_str)
                     .map_err(|message| {
                         let mut err = HintedString::new(message);
-                        if string.ends_with("d")
-                            && let no_suffix = string.trim_end_matches("d")
+                        if fixed_str.ends_with("d")
+                            && let no_suffix = fixed_str.trim_end_matches("d")
                             && Self::from_str(no_suffix).is_ok()
                         {
                             err.hint(eco_format!(
@@ -423,7 +423,7 @@ impl Display for Decimal {
 
 impl Repr for Decimal {
     fn repr(&self) -> EcoString {
-        eco_format!("decimal({})", eco_format!("{}", self.0).repr())
+        eco_format!("{}d", self.0)
     }
 }
 
