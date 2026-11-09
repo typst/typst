@@ -63,7 +63,7 @@ h1 {
   gap: 16px;
 }
 
-h2,
+.docs h2,
 h3,
 h4 {
   margin-block-start: 32px;
@@ -82,6 +82,10 @@ h6 {
 
 h3 {
   margin-block-end: 12px;
+}
+
+h3:not(.scoped-definition) {
+  font-size: 18px;
 }
 
 h4 {
