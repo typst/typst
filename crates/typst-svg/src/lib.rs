@@ -208,7 +208,7 @@ struct SVGRenderer<'a> {
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
     /// x1 y1 x2 y2 x y Z`.
-    clip_paths: Deduplicator<EcoString>,
+    clip_paths: Deduplicator<(EcoString, Transform)>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
@@ -363,9 +363,8 @@ impl<'a> SVGRenderer<'a> {
         }
 
         if let Some(clip_curve) = &group.clip {
-            let offset = Point::new(state.transform.tx, state.transform.ty);
-            let id = self.clip_paths.insert_with((clip_curve, offset), || {
-                shape::convert_curve(offset, clip_curve)
+            let id = self.clip_paths.insert_with((clip_curve, state.transform), || {
+                (shape::convert_curve(Point::zero(), clip_curve), state.transform)
             });
             svg.init().attr("clip-path", SvgUrl(id));
         }
@@ -439,8 +438,11 @@ impl<'a> SVGRenderer<'a> {
         }
 
         let mut defs = svg.elem("defs");
-        for (id, path) in self.clip_paths.iter() {
+        for (id, (path, transform)) in self.clip_paths.iter() {
             defs.elem("clipPath").attr("id", id).with(|svg| {
+                if !transform.is_identity() {
+                    svg.attr("transform", SvgTransform(*transform));
+                }
                 svg.elem("path").attr("d", path);
             });
         }
