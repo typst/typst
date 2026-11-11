@@ -77,19 +77,25 @@
 
 --- issue-5519-nondecimal-suffix eval ---
 // Error: 2-9 binary numbers cannot have a suffix
-// Hint: 2-9 try using a decimal number: `4pt`
+// Hint: 2-9 try using a normal base 10 number: `4pt`
 #0b100pt
 
 --- nondecimal-suffix-edge-cases eval ---
 // Error: 2-7 octal numbers cannot have a suffix
-// Hint: 2-7 try using a decimal number: `50%`
+// Hint: 2-7 try using a normal base 10 number: `50%`
 #0o62%
 // Error: 2-8 hexadecimal numbers cannot have a suffix
-// Hint: 2-8 try using a decimal number: `2748%`
+// Hint: 2-8 try using a normal base 10 number: `2748%`
 #0xabc%
 // Error: 2-11 binary numbers cannot have a suffix
 // Hint: 2-11 invalid number suffix: `dag`
 #0b0101dag
+
+--- nondecimal-suffix-after-dot-as-field-access eval ---
+// TODO: Should these error by lexing as one number?
+#test([#0x1.23%],  {[#0x1]; [.23%]})
+#test([#0x1.23em], {[#0x1]; [.23em]})
+#test([#0x1.23d],  {[#0x1]; [.23d]})
 
 --- nondecimal-suffix-edge-case-delayed eval ---
 // This error is delayed until the integer is evaluated.

@@ -182,7 +182,7 @@ e7af866fa2c601617dd5c4d7d56172bb curve-multiple-non-closed
 922f182125d50e551511cb56d81e4397 curve-quad-mirror
 410b12c529aa612e966886f655344d93 curve-stroke-gradient
 a02dda17a55fda5817c22c2db241567a curve-stroke-gradient-sharp
-a66d868a5f57b4d94d447bbe4718d864 decimal-display
+023d4cf52b72e13ab177ba9951e85f7b decimal-display
 35ffb103f7858ccbf7d9102cadcf3dde decimal-display-round
 edcf01ad5404e29bac6a0b7d15ba85fb destructuring-during-loop-continue
 78db1356f9ab1b21ea080f383a569550 dict-basic-syntax
