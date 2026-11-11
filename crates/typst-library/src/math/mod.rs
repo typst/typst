@@ -25,11 +25,13 @@ pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
 
-use typst_utils::singleton;
+use typst_utils::{default_math_class, singleton};
 use unicode_math_class::MathClass;
 
+use crate::diag::{StrResult, bail};
 use crate::foundations::{
-    BindingDocumentation, Content, Module, NativeElement, Scope, Since, StyleChain, elem,
+    Array, BindingDocumentation, Content, Module, NativeElement, NoneValue, Scope, Since,
+    StyleChain, Symbol, array, cast, elem,
 };
 use crate::layout::{Em, HElem};
 use crate::text::{FontFamily, TextElem};
@@ -67,6 +69,7 @@ pub fn module() -> Module {
     math.define_elem::<CancelElem>();
     math.define_elem::<FracElem>();
     math.define_elem::<BinomElem>();
+    math.define_elem::<AtopElem>();
     math.define_elem::<VecElem>();
     math.define_elem::<MatElem>();
     math.define_elem::<CasesElem>();
@@ -275,4 +278,100 @@ pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = &'_ FontFamily> 
 
     let tail = if styles.get(TextElem::fallback) { fallbacks.as_slice() } else { &[] };
     styles.get_ref(TextElem::font).into_iter().chain(tail.iter())
+}
+
+/// A delimiter is a single character that is used to delimit a matrix, vector
+/// or cases. The character has to be a Unicode codepoint tagged as a math
+/// "opening", "closing" or "fence".
+///
+/// Typically, the delimiter is stretched to fit the height of whatever it
+/// delimits.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Delimiter(Option<char>);
+
+cast! {
+    Delimiter,
+    self => self.0.into_value(),
+    _: NoneValue => Self::none(),
+    v: Symbol => Self::char(v.get().parse::<char>().map_err(|_| "expected a single-codepoint symbol")?)?,
+    v: char => Self::char(v)?,
+}
+
+impl Delimiter {
+    pub fn none() -> Self {
+        Self(None)
+    }
+
+    pub fn char(c: char) -> StrResult<Self> {
+        if !matches!(
+            default_math_class(c),
+            Some(MathClass::Opening | MathClass::Closing | MathClass::Fence),
+        ) {
+            bail!("invalid delimiter: \"{c}\"")
+        }
+        Ok(Self(Some(c)))
+    }
+
+    pub fn get(self) -> Option<char> {
+        self.0
+    }
+
+    pub fn find_matching(self) -> Self {
+        match self.0 {
+            None => Self::none(),
+            Some('[') => Self(Some(']')),
+            Some(']') => Self(Some('[')),
+            Some('{') => Self(Some('}')),
+            Some('}') => Self(Some('{')),
+            Some(c) => match default_math_class(c) {
+                Some(MathClass::Opening) => Self(char::from_u32(c as u32 + 1)),
+                Some(MathClass::Closing) => Self(char::from_u32(c as u32 - 1)),
+                _ => Self(Some(c)),
+            },
+        }
+    }
+}
+
+/// A pair of delimiters (one closing, one opening) used for matrices, vectors
+/// and cases.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct DelimiterPair {
+    open: Delimiter,
+    close: Delimiter,
+}
+
+cast! {
+    DelimiterPair,
+
+    self => array![self.open, self.close].into_value(),
+
+    v: Array => match v.as_slice() {
+        [open, close] => Self {
+            open: open.clone().cast()?,
+            close: close.clone().cast()?,
+        },
+        _ => bail!("expected 2 delimiters, found {}", v.len())
+    },
+    v: Delimiter => Self { open: v, close: v.find_matching() }
+}
+
+impl DelimiterPair {
+    pub const PAREN: Self = Self {
+        open: Delimiter(Some('(')),
+        close: Delimiter(Some(')')),
+    };
+    pub const BRACE: Self = Self {
+        open: Delimiter(Some('{')),
+        close: Delimiter(Some('}')),
+    };
+
+    /// The delimiter's opening character.
+    pub fn open(self) -> Option<char> {
+        self.open.get()
+    }
+
+    /// The delimiter's closing character.
+    pub fn close(self) -> Option<char> {
+        self.close.get()
+    }
 }

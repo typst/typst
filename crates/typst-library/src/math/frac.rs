@@ -3,7 +3,7 @@ use typst_syntax::Spanned;
 use crate::diag::bail;
 use crate::foundations::{Cast, Content, Value, elem};
 use crate::layout::Em;
-use crate::math::Mathy;
+use crate::math::{DelimiterPair, Mathy};
 
 /// How much padding to add around each side of a fraction.
 pub const FRAC_PADDING: Em = Em::new(0.1);
@@ -21,7 +21,7 @@ pub const FRAC_PADDING: Em = Em::new(0.1);
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parentheses. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
-#[elem(title = "Fraction", since = "forever", Mathy)]
+#[elem(title = "Fraction", since = "forever", keywords = ["over"], Mathy)]
 pub struct FracElem {
     /// The fraction's numerator.
     #[required]
@@ -123,29 +123,111 @@ pub enum FracStyle {
     Horizontal,
 }
 
-/// A binomial expression.
+/// A binomial coefficient.
+///
+/// To calculate the value of a binomial coefficient, use @calc.binom.
+///
+/// This uses the same vertical and delimiter spacing as the @math.atop[`atop`]
+/// element.
+///
+/// Can also render a multinomial coefficient by passing more than two
+/// expressions.
 ///
 /// = Example <example>
 /// ```example
-/// $ binom(n, k) $
-/// $ binom(n, k_1, k_2, k_3, ..., k_m) $
+/// >>> #set page(width: auto)
+/// $ binom(n, k) = n! / (k!(n-k)!) $
+///
+/// $
+///   binom(n, k_1,  k_2,  dots.c, k_m)
+///    = n! / (k_1 ! k_2 ! dots.c  k_m !)
+/// $
 /// ```
-#[elem(title = "Binomial", since = "forever", Mathy)]
+/// // FUTURE: Remove the spaces before the factorials once attachment
+/// // precedence is updated.
+#[elem(title = "Binomial", since = "forever", keywords = ["choose"], Mathy)]
 pub struct BinomElem {
-    /// The binomial's upper index.
+    /// The upper index, the number of items to choose from.
     #[required]
     pub upper: Content,
 
-    /// The binomial's lower index.
+    /// The lower index, the number of items to choose.
+    ///
+    /// If multiple expressions are given, renders the multinomial coefficient
+    /// by adding commas between them.
     #[required]
     #[variadic]
     #[parse(
         let values = args.all::<Spanned<Value>>()?;
         if values.is_empty() {
-            // Prevents one element binomials
+            // Prevents one element binomials.
             bail!(args.span, "missing argument: lower");
         }
         values.into_iter().map(|spanned| spanned.v.display()).collect()
     )]
     pub lower: Vec<Content>,
+}
+
+/// Render one expression on top of another.
+///
+/// To render more than two expressions, consider the @math.vec[vector] or
+/// @math.mat[matrix] elements.
+///
+/// This uses the same vertical spacing between expressions as
+/// @math.frac[fractions] and @math.binom[binomials].
+///
+/// = Example <example>
+/// ```example
+/// >>> #set page(width: auto)
+/// $ atop(a, b) $
+///
+/// $ atop(n, k, delim: chevron) $
+/// ```
+#[elem(since = "unreleased", keywords = ["over"], Mathy)]
+pub struct AtopElem {
+    /// The upper expression.
+    #[required]
+    pub upper: Content,
+
+    /// The lower expression.
+    #[required]
+    pub lower: Content,
+
+    /// The delimiter to use.
+    ///
+    /// Can be a single character specifying the left delimiter, in which case
+    /// the right delimiter is inferred. Otherwise, can be an array containing a
+    /// left and a right delimiter.
+    ///
+    /// #example(
+    ///   title: "Basic usage",
+    ///   ```
+    ///   >>> #set page(width: auto)
+    ///   $ atop(1, 2, delim: #("{", ")")) $
+    ///
+    ///   #set math.atop(delim: "[")
+    ///   $ atop(3, 4) $
+    ///   ```
+    /// )
+    ///
+    /// This parameter may produce nicer delimiter spacing than wrapping in an
+    /// @math.lr[`lr`] element or using @math.vec[`vec`] for two expressions:
+    ///
+    /// #example(
+    ///   title: "Spacing compared to lr and vec",
+    ///   ```
+    ///   >>> #set page(width: 120pt)
+    ///   #place(dy: 2.1em, line(
+    ///     length: 100%,
+    ///     stroke: red + .5pt,
+    ///   ))
+    ///   $
+    ///     atop(n, k, delim: #("(", "]"))
+    ///     quad lr(\( atop(n, k) \])
+    ///     quad vec(n, k, delim: #("(", "]"))
+    ///   $
+    ///   ```
+    /// )
+    #[default(None)]
+    pub delim: Option<DelimiterPair>,
 }

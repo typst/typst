@@ -146,6 +146,8 @@ d17cfe6ce8f30ff1b59929679d31ed0f math-align-aligned-in-source
 411271e25af223edfcc3b76b97159190 math-align-wider-first-column
 900113e594386f7551cfd969870a6fb4 math-at-par-end
 1a5cdeaec63a7252c851b6f024cbfc50 math-at-par-start
+e78ae9fcaaaa65e2266b0693881c87f3 math-atop
+2cf8796f4de63bc025b424655e7dd910 math-atop-delim
 b7d6ba97dcafabe29173da826e25ec0c math-attach-default-placement
 23e62413cab17006bc9e60f213103ecb math-attach-descender-collision
 a7b51372d828f112ff9214ebc00d824f math-attach-double-chain

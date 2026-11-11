@@ -1087,6 +1087,9 @@ eaa0ca6071bfb75abab4bfa35960f5f8 math-align-weird
 4f4c702527baac3520bc1f6b22acdf45 math-at-line-start
 885373593bd104a2119f69a8b58cb1b6 math-at-par-end
 d373533d76a546ada23f312547705b06 math-at-par-start
+b994ae21366058eb4c5128e6bfec6056 math-atop
+38444a6cb0eebc8dc7a47acad94c6a9c math-atop-delim
+2efa9d7ac2e6d74edb6daf3e1a4a3e60 math-atop-spacing
 fac65585c00db6f166fe2282caaa0e4d math-attach-default-placement
 5a930be922aa6693ecb5e6becbf6f924 math-attach-descender-collision
 20f931cef571543ed696de0f780ecbba math-attach-double-chain
