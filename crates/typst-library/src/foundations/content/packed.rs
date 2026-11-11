@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 
 use typst_syntax::Span;
 
-use crate::foundations::{Content, Label, NativeElement};
+use crate::foundations::{Content, Label, NativeElement, StyleChain};
 use crate::introspection::Location;
 
 /// A packed element of a static type.
@@ -103,6 +103,12 @@ impl<T: NativeElement> Packed<T> {
     /// Sets the location of the element.
     pub fn set_location(&mut self, location: Location) {
         self.0.set_location(location);
+    }
+
+    /// Resolve all fields with the styles and save them in-place.
+    // TODO: remove when ancestry selector is supported
+    pub fn materialize(&mut self, styles: StyleChain) {
+        self.0.materialize(styles);
     }
 }
 

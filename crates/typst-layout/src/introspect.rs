@@ -201,6 +201,13 @@ impl PagedIntrospectorBuilder {
                         self.frame_link_targets.insert(*loc);
                     }
                 }
+                FrameItem::FormField(widget) => {
+                    self.discover_frame(
+                        &widget.appearance.primary_body().normal,
+                        ts,
+                        to_pos,
+                    );
+                }
                 FrameItem::Text(..) | FrameItem::Shape(..) | FrameItem::Image(..) => {}
             }
         }

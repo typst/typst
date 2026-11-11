@@ -22,7 +22,7 @@ use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
     Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
-use typst_library::model::{Destination, Document, LateLinkResolver};
+use typst_library::model::{Destination, Document, FieldWidget, LateLinkResolver};
 use typst_library::visualize::{Geometry, Gradient, Tiling};
 use xmlwriter::XmlWriter;
 
@@ -208,7 +208,7 @@ struct SVGRenderer<'a> {
     /// the clipping region. The clip path is referenced by the `clip-path`
     /// attribute of the group. The clip path is in the format of `M x y L x y C
     /// x1 y1 x2 y2 x y Z`.
-    clip_paths: Deduplicator<EcoString>,
+    clip_paths: Deduplicator<(EcoString, Transform)>,
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
@@ -333,6 +333,9 @@ impl<'a> SVGRenderer<'a> {
                 }
                 FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
                 FrameItem::Tag(_) => {}
+                FrameItem::FormField(widget) => {
+                    self.render_field(svg, &state, widget);
+                }
             }
         }
     }
@@ -363,9 +366,8 @@ impl<'a> SVGRenderer<'a> {
         }
 
         if let Some(clip_curve) = &group.clip {
-            let offset = Point::new(state.transform.tx, state.transform.ty);
-            let id = self.clip_paths.insert_with((clip_curve, offset), || {
-                shape::convert_curve(offset, clip_curve)
+            let id = self.clip_paths.insert_with((clip_curve, state.transform), || {
+                (shape::convert_curve(Point::zero(), clip_curve), state.transform)
             });
             svg.init().attr("clip-path", SvgUrl(id));
         }
@@ -421,6 +423,11 @@ impl<'a> SVGRenderer<'a> {
             .attr("transform", SvgTransform(Transform::translate(pos.x, pos.y)));
     }
 
+    /// Renders a (non-interactive) form field appearance.
+    fn render_field(&mut self, svg: &mut SvgElem, state: &State, widget: &FieldWidget) {
+        self.render_frame(svg, state, &widget.appearance.active_body().normal);
+    }
+
     /// Finalize the SVG file. This must be called after all rendering is done.
     fn finalize(mut self, mut svg: SvgElem) {
         self.write_glyph_defs(&mut svg);
@@ -439,8 +446,11 @@ impl<'a> SVGRenderer<'a> {
         }
 
         let mut defs = svg.elem("defs");
-        for (id, path) in self.clip_paths.iter() {
+        for (id, (path, transform)) in self.clip_paths.iter() {
             defs.elem("clipPath").attr("id", id).with(|svg| {
+                if !transform.is_identity() {
+                    svg.attr("transform", SvgTransform(*transform));
+                }
                 svg.elem("path").attr("d", path);
             });
         }

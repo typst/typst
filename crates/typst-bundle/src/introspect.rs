@@ -13,7 +13,7 @@ use typst_library::introspection::{
     DocumentPosition, ElementIntrospector, ElementIntrospectorBuilder, Introspector,
     Location,
 };
-use typst_library::model::{DocumentElem, LinkElem, Numbering};
+use typst_library::model::{DocumentElem, FormLabel, LinkElem, Numbering};
 use typst_syntax::VirtualPath;
 
 use crate::format::AssetElem;
@@ -49,12 +49,15 @@ impl BundleIntrospector {
     /// kind and returns them organized by the document they are in.
     pub fn link_targets(&self) -> FxHashMap<&VirtualPath, FxHashSet<Location>> {
         let mut map: FxHashMap<&VirtualPath, FxHashSet<Location>> = FxHashMap::default();
-        for target in LinkElem::find_destinations(self).chain(
-            self.children
-                .iter()
-                .flat_map(|(_, child, _)| child.frame_link_targets())
-                .copied(),
-        ) {
+        for target in LinkElem::find_destinations(self)
+            .chain(
+                self.children
+                    .iter()
+                    .flat_map(|(_, child, _)| child.frame_link_targets())
+                    .copied(),
+            )
+            .chain(FormLabel::find_destinations(self))
+        {
             let Some(path) = self.path(target) else { continue };
             map.entry(path).or_default().insert(target);
         }

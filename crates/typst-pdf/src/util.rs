@@ -11,10 +11,12 @@ use krilla::paint as kp;
 use krilla::tagging as kt;
 use smallvec::SmallVec;
 use typst_library::foundations::Repr;
-use typst_library::layout::{Abs, Point, Sides, Size, Transform};
+use typst_library::layout::{Abs, Point, Rect, Sides, Size, Transform};
 use typst_library::text::FontInstance;
 use typst_library::visualize::SpotColorantName;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
+
+use crate::convert::FrameContext;
 
 pub(crate) trait SidesExt<T> {
     /// Map to the [`kt::Sides`] struct assuming [`kt::WritingMode::LrTb`].
@@ -49,6 +51,18 @@ pub(crate) trait PointExt {
 impl PointExt for Point {
     fn to_krilla(&self) -> kg::Point {
         kg::Point::from_xy(self.x.to_f32(), self.y.to_f32())
+    }
+}
+
+pub(crate) trait RectExt {
+    fn to_krilla(&self) -> Option<kg::Rect>;
+}
+
+impl RectExt for Rect {
+    fn to_krilla(&self) -> Option<kg::Rect> {
+        let min = self.min.to_krilla();
+        let max = self.max.to_krilla();
+        kg::Rect::from_ltrb(min.x, min.y, max.x, max.y)
     }
 }
 
@@ -222,4 +236,32 @@ pub(crate) fn convert_path(path: &Curve, builder: &mut PathBuilder) {
             CurveItem::Close => builder.close(),
         }
     }
+}
+
+/// Compute the bounding box of the transformed rectangle for this frame.
+pub(crate) fn bounding_box(fc: &FrameContext, size: Size) -> Rect {
+    let pos = Point::zero();
+    let points = [
+        pos + Point::with_y(size.y),
+        pos + size.to_point(),
+        pos + Point::with_x(size.x),
+        pos,
+    ];
+
+    let mut min_x = Abs::inf();
+    let mut min_y = Abs::inf();
+    let mut max_x = -Abs::inf();
+    let mut max_y = -Abs::inf();
+
+    for point in points {
+        let p = point.transform(fc.state().transform());
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x);
+        max_y = max_y.max(p.y);
+    }
+
+    let min = Point::new(min_x, min_y);
+    let max = Point::new(max_x, max_y);
+    Rect::new(min, max)
 }
