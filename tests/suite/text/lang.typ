@@ -18,6 +18,23 @@
 #set text(font: "Noto Serif CJK TC", lang: "zh", region: "TW")
 #outline()
 
+--- text-lang-region-zh-region-fallback html ---
+// zh without region and zh-{CN,SG,MY} should use the zh-Hans translation, while
+// zh-{TW,HK,MO} should use the zh-Hant translation.
+
+#set text(lang: "zh")
+#for region in (none, "CN", "MY", "SG", "TW", "HK", "MO") {
+  set text(region: region)
+  let label = std.label(if region == none { "zh" } else { "zh-" + region })
+
+  // Only the translation string should be affected.
+  context assert.eq(region, text.region)
+
+  show figure: none
+  [#figure(raw(""))#label]
+  ref(label)
+}
+
 --- text-lang-hyphenate paged ---
 // Ensure that setting the language does have effects.
 #set text(hyphenate: true)

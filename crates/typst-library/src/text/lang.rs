@@ -642,12 +642,36 @@ pub fn localized_str(lang: Lang, region: Option<Region>, key: &str) -> &'static 
     if let Some(str) = lang_region_bundle.get(key) {
         return str;
     }
+    if let Some(region) = fallback_region(lang, region) {
+        let lang_region_bundle = parse_language_bundle(lang, Some(region)).unwrap();
+        if let Some(str) = lang_region_bundle.get(key) {
+            return str;
+        }
+    }
     let lang_bundle = parse_language_bundle(lang, None).unwrap();
     if let Some(str) = lang_bundle.get(key) {
         return str;
     }
     let english_bundle = parse_language_bundle(Lang::ENGLISH, None).unwrap();
     english_bundle[key]
+}
+
+// Find the fallback region for a language + region pair.
+//
+// This is only needed when the language has at least three regions, and two of
+// them share a translation that is different from the default region.
+pub fn fallback_region(lang: Lang, region: Option<Region>) -> Option<Region> {
+    // Theoretically, it would be better to return a fallback chain, but
+    // returning a single fallback is sufficient for now.
+    match (lang, region) {
+        // Among the six commonly used tags (e.g., on zh.wikipedia.org),
+        // zh-{CN,SG,MY} should use zh.txt, and zh-{TW,HK,MO} should use
+        // zh-TW.txt. Therefore, this fallback is needed.
+        (Lang::CHINESE, Some(region)) if region == "HK" || region == "MO" => {
+            Some(Region(*b"TW"))
+        }
+        _ => None,
+    }
 }
 
 /// Parses the translation file for a given language and region.
