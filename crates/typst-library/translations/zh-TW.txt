@@ -1,3 +1,5 @@
+# At present, zh-HK and zh-MO share all translations with zh-TW.
+# If new strings are added, zh-HK and zh-MO may override zh-TW by creating their own files.
 figure = 圖
 table = 表
 equation = 式
