@@ -592,8 +592,9 @@ baf0d8f18155204999c4f79e3a445612 heading-hanging-indent-auto-center-align
 a1608c898a62c0c8b7f842faea44387c heading-hanging-indent-auto-cj-punct
 bef2d242f800e56832864530affc7493 heading-hanging-indent-length
 f132567769333810e1564b470c78b455 heading-hanging-indent-zero
+221bfd8f307dba3641a5610a6d3cfb7a heading-negative-offset-show-set
 dbc0c0baf213ed490cb54f693a49a01d heading-offset
-8d0aac11e292f1cde1fa134af47cfbe8 heading-offset-and-level
+b58dcd6a1f333894a2ba59e9258040fc heading-offset-and-level
 ea022abb81b6f73d2f3b8b6ddfe75263 heading-par
 f7dac44a6a31eae421247edb5434cb62 heading-show-where
 c79b4ece6debf534916245772965d251 heading-syntax-at-start
