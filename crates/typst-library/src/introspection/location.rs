@@ -126,7 +126,7 @@ impl Location {
 
     /// Returns a dictionary with the page number and the x, y position for this
     /// location. The page number starts at one and the coordinates are measured
-    /// from the top-left of the page.
+    /// from the top-left of the page, but excluding the bleed area.
     ///
     /// If you only need the page number, use @location.page[`page()`] instead
     /// as it allows Typst to skip unnecessary work.

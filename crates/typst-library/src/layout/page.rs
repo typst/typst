@@ -459,6 +459,10 @@ pub struct PageElem {
     /// background content. For example, on a page that is `{100mm}` wide with a
     /// `{5mm}` bleed, a width of `{100%}` is computed as `{5mm + 100mm + 5mm}`.
     ///
+    /// Background content is positioned relative to the page including the
+    /// bleed. For example, the `{top + left}` alignment places content at the
+    /// bleed area's top-left corner rather than the page's.
+    ///
     /// ```example
     /// #set page(background: rotate(24deg,
     ///   text(18pt, fill: rgb("FFCBC4"))[
@@ -478,8 +482,8 @@ pub struct PageElem {
     /// This content will overlay the page's body.
     ///
     /// Relative lengths are resolved against the page size including
-    /// @page.bleed[`bleed`], following the same behavior as
-    /// @page.background[`background`].
+    /// @page.bleed[`bleed`]. The origin is the top-left corner of the bleed
+    /// area, following the same behavior as @page.background[`background`].
     ///
     /// ```example
     /// #set page(foreground: text(24pt)[🤓])
