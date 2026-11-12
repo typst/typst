@@ -19,4 +19,5 @@
 #include "for-latex-users.typ"
 #include "page-setup.typ"
 #include "tables.typ"
+#include "forms.typ"
 #include "accessibility.typ"
