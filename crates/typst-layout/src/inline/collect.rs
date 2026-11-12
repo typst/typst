@@ -320,8 +320,11 @@ impl<'a> Collector<'a> {
 }
 
 /// Maps byte offsets back to spans.
+///
+/// Stores the start offset, length and span of each non-empty segment, in
+/// text order.
 #[derive(Default)]
-pub struct SpanMapper(Vec<(usize, Span)>);
+pub struct SpanMapper(Vec<(usize, usize, Span)>);
 
 impl SpanMapper {
     /// Create a new span mapper.
@@ -331,20 +334,111 @@ impl SpanMapper {
 
     /// Push a span for a segment with the given length.
     pub fn push(&mut self, len: usize, span: Span) {
-        self.0.push((len, span));
+        // An empty segment never contains an offset, so it need not be stored.
+        if len > 0 {
+            let start = self
+                .0
+                .last()
+                .map_or(0, |&(prev_start, prev_len, _)| prev_start + prev_len);
+            self.0.push((start, len, span));
+        }
     }
 
     /// Determine the span at the given byte offset.
     ///
     /// May return a detached span.
     pub fn span_at(&self, offset: usize) -> (Span, u16) {
-        let mut cursor = 0;
-        for &(len, span) in &self.0 {
-            if (cursor..cursor + len).contains(&offset) {
-                return (span, u16::try_from(offset - cursor).unwrap_or(0));
+        // The segments are sorted and do not overlap, so only the last one
+        // that starts at or before the offset can contain it. A binary search
+        // keeps this fast in long paragraphs, where it runs for every glyph.
+        let i = self.0.partition_point(|&(start, _, _)| start <= offset);
+        match i.checked_sub(1).map(|i| self.0[i]) {
+            Some((start, len, span)) if offset < start + len => {
+                (span, u16::try_from(offset - start).unwrap_or(0))
             }
-            cursor += len;
+            _ => (Span::detached(), 0),
         }
-        (Span::detached(), 0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use typst_syntax::{RootedPath, Source, Span, SyntaxNode, VirtualPath, VirtualRoot};
+
+    use super::SpanMapper;
+
+    /// Distinct spans, so that the tests can tell segments apart.
+    fn spans() -> Vec<Span> {
+        fn visit(node: &SyntaxNode, spans: &mut Vec<Span>) {
+            spans.push(node.span());
+            node.children().for_each(|child| visit(child, spans));
+        }
+
+        let id =
+            RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
+                .intern();
+        let source = Source::new(id, "#f(a, b, c)");
+        let mut spans = vec![];
+        visit(source.root(), &mut spans);
+        spans
+    }
+
+    #[test]
+    fn test_span_at_finds_segment_and_offset_within_it() {
+        let s = spans();
+        let mut mapper = SpanMapper::new();
+        mapper.push(5, s[0]); // "Hello"
+        mapper.push(1, s[1]); // " "
+        mapper.push(5, s[2]); // "world"
+
+        assert_eq!(mapper.span_at(0), (s[0], 0));
+        assert_eq!(mapper.span_at(4), (s[0], 4));
+        assert_eq!(mapper.span_at(5), (s[1], 0));
+        assert_eq!(mapper.span_at(6), (s[2], 0));
+        assert_eq!(mapper.span_at(10), (s[2], 4));
+    }
+
+    #[test]
+    fn test_span_at_skips_empty_segments() {
+        // Tags push segments of length zero. They never own an offset and do
+        // not shift the segments after them.
+        let s = spans();
+        let mut mapper = SpanMapper::new();
+        mapper.push(0, s[0]);
+        mapper.push(3, s[1]);
+        mapper.push(0, s[2]);
+        mapper.push(0, s[3]);
+        mapper.push(2, s[4]);
+        mapper.push(0, s[5]);
+
+        assert_eq!(mapper.span_at(0), (s[1], 0));
+        assert_eq!(mapper.span_at(2), (s[1], 2));
+        assert_eq!(mapper.span_at(3), (s[4], 0));
+        assert_eq!(mapper.span_at(4), (s[4], 1));
+        assert_eq!(mapper.span_at(5), (Span::detached(), 0));
+    }
+
+    #[test]
+    fn test_span_at_is_detached_outside_the_text() {
+        let s = spans();
+        assert_eq!(SpanMapper::new().span_at(0), (Span::detached(), 0));
+
+        let mut mapper = SpanMapper::new();
+        mapper.push(3, s[0]);
+        assert_eq!(mapper.span_at(3), (Span::detached(), 0));
+        assert_eq!(mapper.span_at(100), (Span::detached(), 0));
+    }
+
+    #[test]
+    fn test_span_at_falls_back_to_segment_start_beyond_u16() {
+        // The offset within a segment must fit into a `u16`. Beyond that, the
+        // start of the segment is the best guess.
+        let s = spans();
+        let mut mapper = SpanMapper::new();
+        mapper.push(2, s[0]);
+        mapper.push(70_000, s[1]);
+
+        assert_eq!(mapper.span_at(2 + usize::from(u16::MAX)), (s[1], u16::MAX));
+        assert_eq!(mapper.span_at(2 + 69_999), (s[1], 0));
     }
 }
