@@ -483,7 +483,8 @@ mod tests {
 
     use ecow::eco_vec;
     use typst::introspection::{HtmlPosition, PagedPosition};
-    use typst::layout::{Abs, Point};
+    use typst::layout::{Abs, Frame, FrameItem, Point};
+    use typst::syntax::{LinkedNode, SyntaxKind};
     use typst::utils::NonZeroExt;
     use typst_html::HtmlDocument;
     use typst_layout::PagedDocument;
@@ -586,6 +587,86 @@ mod tests {
         // extra spacing.
         let s = "#set par(first-line-indent: 1cm, hanging-indent: 1cm);Hello";
         test_click(s, point(21.0, 12.0), cursor(56));
+    }
+
+    #[test]
+    fn test_jump_from_click_long_paragraph() {
+        // A paragraph made of many pieces of markup that wraps over several
+        // lines, with zero-length tags from `metadata` in between. Clicking a
+        // letter must jump to that letter, however many pieces come before it.
+        let world = TestWorld::new(
+            "Lorem _ipsum_ dolor *sit* amet, consectetur#metadata(1) _adipiscing_ \
+             elit, sed *do* eiusmod tempor#metadata(2) incididunt *ut* labore et \
+             _dolore_ magna aliqua. Ut *enim* ad minim veniam, quis _nostrud_ \
+             exercitation ullamco *laboris* nisi ut aliquip.",
+        );
+        let doc: PagedDocument = typst::compile(&world).output.unwrap();
+
+        let shown: Vec<(Point, char)> = glyph_points(&doc.pages()[0].frame)
+            .into_iter()
+            .filter(|(_, c)| !c.is_whitespace())
+            .collect();
+        let written = source_letters(LinkedNode::new(world.main.root()));
+        assert_eq!(
+            shown.iter().map(|(_, c)| c).collect::<String>(),
+            written.iter().map(|(_, c)| c).collect::<String>(),
+        );
+
+        let mut lines: Vec<f64> =
+            shown.iter().map(|(point, _)| point.y.to_raw()).collect();
+        lines.dedup();
+        assert!(lines.len() >= 3, "the paragraph should wrap over several lines");
+
+        for (&(click, c), &(offset, _)) in shown.iter().zip(&written) {
+            let position = PagedPosition { page: NonZeroUsize::ONE, point: click };
+            let jump = jump_from_click(&world, &doc, &position);
+            assert_eq!(jump, cursor(offset), "clicked on {c:?}");
+        }
+    }
+
+    /// A point in the left half of every glyph in the frame, with the glyph's
+    /// first character, in reading order. A click there jumps to the glyph's
+    /// start.
+    fn glyph_points(frame: &Frame) -> Vec<(Point, char)> {
+        let mut glyphs = vec![];
+        for &(mut pos, ref item) in frame.items() {
+            match item {
+                FrameItem::Group(group) => glyphs.extend(
+                    glyph_points(&group.frame)
+                        .into_iter()
+                        .map(|(point, c)| (pos + point.transform(group.transform), c)),
+                ),
+                FrameItem::Text(text) => {
+                    for glyph in &text.glyphs {
+                        let width = glyph.x_advance.at(text.size);
+                        let c = text.text[glyph.range()].chars().next().unwrap();
+                        let click =
+                            Point::new(pos.x + width / 4.0, pos.y - text.size / 2.0);
+                        glyphs.push((click, c));
+                        pos.x += width;
+                    }
+                }
+                _ => {}
+            }
+        }
+        glyphs
+    }
+
+    /// The offset and character of every non-space letter written in the
+    /// markup, in reading order. Code is skipped.
+    fn source_letters(node: LinkedNode) -> Vec<(usize, char)> {
+        match node.kind() {
+            SyntaxKind::Text => node
+                .leaf_text()
+                .char_indices()
+                .filter(|(_, c)| !c.is_whitespace())
+                .map(|(i, c)| (node.offset() + i, c))
+                .collect(),
+            SyntaxKind::Markup | SyntaxKind::Strong | SyntaxKind::Emph => {
+                node.children().flat_map(source_letters).collect()
+            }
+            _ => vec![],
+        }
     }
 
     #[test]
