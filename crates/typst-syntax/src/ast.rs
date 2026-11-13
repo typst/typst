@@ -554,7 +554,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
 }
 
 impl Expr<'_> {
-    /// Can this expression be embedded into markup with a hash?
+    /// Can this expression be embedded into markup and strings with a hash?
     pub fn hash(self) -> bool {
         matches!(
             self,
@@ -1601,48 +1601,135 @@ node! {
     struct Str
 }
 
-impl Str<'_> {
-    /// Get the string value with resolved escape sequences.
-    pub fn get(self) -> EcoString {
+impl<'a> Str<'a> {
+    /// Get the bare string value with resolved escape sequences.
+    ///
+    /// Returns `None` if this string had interpolations that need to be
+    /// evaluated.
+    pub fn get_bare(self) -> Option<EcoString> {
+        if !self.0.children().all(|node| {
+            matches!(
+                node.kind(),
+                SyntaxKind::StrText | SyntaxKind::StrEscape | SyntaxKind::StrQuote
+            )
+        }) {
+            return Option::None;
+        }
+
         let text = self.0.leaf_text();
-        let unquoted = &text[1..text.len() - 1];
-        if !unquoted.contains('\\') {
-            return unquoted.into();
-        }
+        let mut out = EcoString::with_capacity(text.len());
 
-        let mut out = EcoString::with_capacity(unquoted.len());
-        let mut s = Scanner::new(unquoted);
-
-        while let Some(c) = s.eat() {
-            if c != '\\' {
-                out.push(c);
-                continue;
-            }
-
-            let start = s.locate(-1);
-            match s.eat() {
-                Some('\\') => out.push('\\'),
-                Some('"') => out.push('"'),
-                Some('n') => out.push('\n'),
-                Some('r') => out.push('\r'),
-                Some('t') => out.push('\t'),
-                Some('u') if s.eat_if('{') => {
-                    let sequence = s.eat_while(char::is_ascii_hexdigit);
-                    s.eat_if('}');
-
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
-                    {
-                        Some(c) => out.push(c),
-                        Option::None => out.push_str(s.from(start)),
+        for item in self.get_parts() {
+            match item {
+                StrPart::Text(text) => out.push_str(text.get()),
+                StrPart::Escape(escape) => match escape.get() {
+                    Ok(c) => out.push(c),
+                    Err(c) => {
+                        out.push('\\');
+                        out.push(c);
                     }
-                }
-                _ => out.push_str(s.from(start)),
+                },
+                StrPart::Interpolation(_) => return Option::None,
             }
         }
 
-        out
+        Some(out)
+    }
+
+    /// Returns the string parts without the quotes.
+    pub fn get_parts(&self) -> impl DoubleEndedIterator<Item = StrPart<'a>> {
+        self.0.children().filter_map(SyntaxNode::cast)
+    }
+}
+
+/// The individual parts of a string between the quotes.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum StrPart<'a> {
+    /// Plain string text.
+    Text(StrText<'a>),
+    /// A string escape like `\u{1b}`.
+    Escape(StrEscape<'a>),
+    /// A string interpolation like `#foo`.
+    Interpolation(StrInterpolation<'a>),
+}
+
+impl<'a> AstNode<'a> for StrPart<'a> {
+    fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::StrText => Some(Self::Text(StrText(node))),
+            SyntaxKind::StrEscape => Some(Self::Escape(StrEscape(node))),
+            SyntaxKind::StrInterpolation => {
+                Some(Self::Interpolation(StrInterpolation(node)))
+            }
+            _ => Option::None,
+        }
+    }
+
+    fn to_untyped(self) -> &'a SyntaxNode {
+        match self {
+            StrPart::Text(v) => v.to_untyped(),
+            StrPart::Escape(v) => v.to_untyped(),
+            StrPart::Interpolation(v) => v.to_untyped(),
+        }
+    }
+
+    fn placeholder() -> Self {
+        Self::Text(StrText::placeholder())
+    }
+}
+
+node! {
+    /// Plain string text without escapes or interpolations.
+    struct StrText
+}
+
+impl<'a> StrText<'a> {
+    /// Get the text.
+    pub fn get(self) -> &'a EcoString {
+        self.0.leaf_text()
+    }
+}
+
+node! {
+    /// A string escape sequence: `\n`, `\#`, `\u{1F5FA}`.
+    struct StrEscape
+}
+
+impl StrEscape<'_> {
+    /// Get the escaped character and whether it was a valid escape sequence.
+    pub fn get(self) -> Result<char, char> {
+        let mut s = Scanner::new(self.0.leaf_text());
+        s.expect('\\');
+        Ok(match s.eat().unwrap_or_default() {
+            '\\' => '\\',
+            '"' => '"',
+            '#' => '#',
+            'n' => '\n',
+            'r' => '\r',
+            't' => '\t',
+            'u' if s.eat_if('{') => {
+                let sequence = s.eat_while(char::is_ascii_hexdigit);
+                s.eat_if('}');
+
+                u32::from_str_radix(sequence, 16)
+                    .ok()
+                    .and_then(std::char::from_u32)
+                    .unwrap_or_default()
+            }
+            c => return Err(c),
+        })
+    }
+}
+
+node! {
+    /// A string interpolation: `#{foo}`.
+    struct StrInterpolation
+}
+
+impl StrInterpolation<'_> {
+    /// The inner expression.
+    pub fn expr(&self) -> Expr<'_> {
+        self.0.cast_first()
     }
 }
 
@@ -2608,26 +2695,28 @@ impl<'a> ModuleImport<'a> {
         match self.source() {
             Expr::Ident(ident) => Ok(ident.get().clone()),
             Expr::FieldAccess(access) => Ok(access.field().get().clone()),
-            Expr::Str(string) => {
-                let string = string.get();
-                let name = if string.starts_with('@') {
-                    PackageSpec::from_str(&string)
-                        .map_err(|_| BareImportError::PackageInvalid)?
-                        .name
-                } else {
-                    Path::new(string.as_str())
-                        .file_stem()
-                        .and_then(|path| path.to_str())
-                        .ok_or(BareImportError::PathInvalid)?
-                        .into()
-                };
+            Expr::Str(string) => match string.get_bare() {
+                Some(string) => {
+                    let name = if string.starts_with('@') {
+                        PackageSpec::from_str(&string)
+                            .map_err(|_| BareImportError::PackageInvalid)?
+                            .name
+                    } else {
+                        Path::new(string.as_str())
+                            .file_stem()
+                            .and_then(|path| path.to_str())
+                            .ok_or(BareImportError::PathInvalid)?
+                            .into()
+                    };
 
-                if !is_ident(&name) {
-                    return Err(BareImportError::PathInvalid);
+                    if !is_ident(&name) {
+                        return Err(BareImportError::PathInvalid);
+                    }
+
+                    Ok(name)
                 }
-
-                Ok(name)
-            }
+                _ => Err(BareImportError::Dynamic),
+            },
             _ => Err(BareImportError::Dynamic),
         }
     }

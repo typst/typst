@@ -95,6 +95,14 @@
 // Error: 2-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
+
+--- str-evaluate eval ---
+#let hello = "Hello"
+#test("\#hello World", "\#hello World")
+#test("#hello World", "Hello World")
+#test("#{hello}World", "HelloWorld")
+#test("#hello;-World", "Hello-World")
+
 --- str-normalize eval ---
 // Test the `normalize` method.
 #test("e\u{0301}".normalize(form: "nfc"), "é")
@@ -369,6 +377,17 @@
 #test("abc".rev(), "cba")
 #test("ax̂e".rev(), "ex̂a")
 
+--- string-newline eval ---
+#test("
+foo
+", "\nfoo\n")
+
 --- string-unclosed eval ---
-// Error: 1:2-2:1 unclosed string
+// Error: 1:2-3:1 unclosed string
 #"hello\"
+
+--- string-unclosed-multiline eval ---
+// Error: 1:2-4:1 unclosed string
+#"a
+b
+c

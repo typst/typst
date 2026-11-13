@@ -11,7 +11,8 @@ use palette::{
 };
 use typst_syntax::{Span, Spanned};
 
-use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail};
+use crate::diag::{At, HintedStrResult, SourceResult, StrResult, bail, warning};
+use crate::engine::Engine;
 use crate::foundations::{
     Args, Array, Func, IntoValue, Module, Repr, Scope, Smart, Str, Value, array, cast,
     func, repr, scope, ty,
@@ -79,7 +80,7 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 /// = Example <example>
 /// ```example
 /// #rect(fill: aqua)
-/// #text(rgb("#265f02"))[Green]
+/// #text(rgb("265f02"))[Green]
 /// ```
 ///
 /// = Predefined colors <predefined-colors>
@@ -101,46 +102,46 @@ static TO_SRGB: LazyLock<Arc<moxcms::Transform8BitExecutor>> = LazyLock::new(|| 
 ///   [`{luma(255)}`],
 ///
 ///   [`navy`],
-///   [`{rgb("#001f3f")}`],
+///   [`{rgb("001f3f")}`],
 ///
 ///   [`blue`],
-///   [`{rgb("#0074d9")}`],
+///   [`{rgb("0074d9")}`],
 ///
 ///   [`aqua`],
-///   [`{rgb("#7fdbff")}`],
+///   [`{rgb("7fdbff")}`],
 ///
 ///   [`teal`],
-///   [`{rgb("#39cccc")}`],
+///   [`{rgb("39cccc")}`],
 ///
 ///   [`eastern`],
-///   [`{rgb("#239dad")}`],
+///   [`{rgb("239dad")}`],
 ///
 ///   [`purple`],
-///   [`{rgb("#b10dc9")}`],
+///   [`{rgb("b10dc9")}`],
 ///
 ///   [`fuchsia`],
-///   [`{rgb("#f012be")}`],
+///   [`{rgb("f012be")}`],
 ///
 ///   [`maroon`],
-///   [`{rgb("#85144b")}`],
+///   [`{rgb("85144b")}`],
 ///
 ///   [`red`],
-///   [`{rgb("#ff4136")}`],
+///   [`{rgb("ff4136")}`],
 ///
 ///   [`orange`],
-///   [`{rgb("#ff851b")}`],
+///   [`{rgb("ff851b")}`],
 ///
 ///   [`yellow`],
-///   [`{rgb("#ffdc00")}`],
+///   [`{rgb("ffdc00")}`],
 ///
 ///   [`olive`],
-///   [`{rgb("#3d9970")}`],
+///   [`{rgb("3d9970")}`],
 ///
 ///   [`green`],
-///   [`{rgb("#2ecc40")}`],
+///   [`{rgb("2ecc40")}`],
 ///
 ///   [`lime`],
-///   [`{rgb("#01ff70")}`],
+///   [`{rgb("01ff70")}`],
 /// )
 ///
 /// The predefined colors and the most important color constructors are
@@ -717,12 +718,13 @@ impl Color {
     /// color using the @color.components[`components`] method.
     ///
     /// ```example
-    /// #box(square(fill: rgb("#b1f2eb")))
+    /// #box(square(fill: rgb("b1f2eb")))
     /// #box(square(fill: rgb(87, 127, 230)))
     /// #box(square(fill: rgb(25%, 13%, 65%)))
     /// ```
     #[func(title = "RGB", since = "forever")]
     pub fn rgb(
+        engine: &mut Engine,
         args: &mut Args,
         /// The red component.
         ///
@@ -778,8 +780,7 @@ impl Color {
         alpha: Component,
         /// Alternatively: The color in hexadecimal notation.
         ///
-        /// Accepts three, four, six or eight hexadecimal digits and optionally
-        /// a leading hash.
+        /// Accepts three, four, six or eight hexadecimal digits.
         ///
         /// If this is given, the individual components should not be given.
         ///
@@ -787,10 +788,12 @@ impl Color {
         /// the @color.to-hex[`to-hex`] method.
         ///
         /// ```example
-        /// #text(16pt, rgb("#239dad"))[
+        /// #text(16pt, rgb("239dad"))[
         ///   *Typst*
         /// ]
         /// ```
+        ///
+        /// Passing a hex color with a leading hash is deprecated.
         #[external]
         hex: Str,
         /// Alternatively: The color to convert to RGB(a).
@@ -800,7 +803,17 @@ impl Color {
         color: Color,
     ) -> SourceResult<Color> {
         Ok(if let Some(string) = args.find::<Spanned<Str>>()? {
-            Self::from_str(&string.v).at(string.span)?
+            if engine.route.preferred_version().string_interpolation()
+                && let Some(hex) = string.v.strip_prefix('#')
+            {
+                engine.sink.warn(warning!(
+                    string.span,
+                    "passing hex colors with hashes is deprecated"
+                ));
+                Self::from_str(hex).at(string.span)?
+            } else {
+                Self::from_str(&string.v).at(string.span)?
+            }
         } else if let Some(color) = args.find::<Color>()? {
             Self::Process(ProcessColor::Rgb(color.to_rgb()))
         } else {
@@ -1219,17 +1232,22 @@ impl Color {
     /// #rgb("020304fe").to-hex()
     /// ```
     #[func(since = "0.9.0")]
-    pub fn to_hex(&self) -> EcoString {
+    pub fn to_hex(
+        &self,
+        #[named]
+        #[default(false)]
+        hash: bool,
+    ) -> EcoString {
         match self {
-            Self::Process(c) => c.to_hex(),
-            Self::Spot(c) => c.fallback().to_hex(),
+            Self::Process(c) => c.to_hex(hash),
+            Self::Spot(c) => c.fallback().to_hex(hash),
         }
     }
 
     /// Lightens a color by a given factor.
     ///
     /// ```example
-    /// #let c = rgb("#4ebf19")
+    /// #let c = rgb("4ebf19")
     /// #box(square(fill: c))
     /// #box(square(fill: c.lighten(30%)))
     /// #box(square(fill: c.lighten(60%)))
@@ -1250,7 +1268,7 @@ impl Color {
     /// Darkens a color by a given factor.
     ///
     /// ```example
-    /// #let c = rgb("#fded0a")
+    /// #let c = rgb("fded0a")
     /// #box(square(fill: c))
     /// #box(square(fill: c.darken(30%)))
     /// #box(square(fill: c.darken(60%)))
@@ -1274,7 +1292,7 @@ impl Color {
     /// color, convert it into a process color first.
     ///
     /// ```example
-    /// #let c = rgb("#ac9eb4")
+    /// #let c = rgb("ac9eb4")
     /// #box(square(fill: c))
     /// #box(square(fill: c.saturate(30%)))
     /// #box(square(fill: c.saturate(60%)))
@@ -1303,7 +1321,7 @@ impl Color {
     /// color, convert it into a process color first.
     ///
     /// ```example
-    /// #let c = rgb("#17cbd8")
+    /// #let c = rgb("17cbd8")
     /// #box(square(fill: c))
     /// #box(square(fill: c.desaturate(30%)))
     /// #box(square(fill: c.desaturate(60%)))
@@ -1365,7 +1383,7 @@ impl Color {
     /// Rotates the hue of the color by a given angle.
     ///
     /// ```example
-    /// #let c = rgb("#15e24f")
+    /// #let c = rgb("15e24f")
     /// #box(square(fill: c))
     /// #box(square(fill: c.rotate(20deg)))
     /// #box(square(fill: c.rotate(40deg)))
@@ -1385,7 +1403,7 @@ impl Color {
         ///
         /// ```example
         /// #set rect(width: 100%)
-        /// #let c = rgb("#117be6")
+        /// #let c = rgb("117be6")
         /// Oklch:
         /// #rect(fill: gradient.linear(
         ///   space: oklch,
@@ -1910,12 +1928,13 @@ impl ProcessColor {
     }
 
     /// Returns the color's RGB(A) hex representation.
-    pub fn to_hex(&self) -> EcoString {
+    pub fn to_hex(&self, hash: bool) -> EcoString {
+        let hash = if hash { "#" } else { "" };
         let (r, g, b, a) = self.to_rgb().into_format::<u8, u8>().into_components();
         if a != 255 {
-            eco_format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+            eco_format!("{hash}{r:02x}{g:02x}{b:02x}{a:02x}")
         } else {
-            eco_format!("#{r:02x}{g:02x}{b:02x}")
+            eco_format!("{hash}{r:02x}{g:02x}{b:02x}")
         }
     }
 
@@ -2317,7 +2336,7 @@ impl Repr for ProcessColor {
                     )
                 }
             }
-            Self::Rgb(_) => eco_format!("rgb({})", self.to_hex().repr()),
+            Self::Rgb(_) => eco_format!("rgb({})", self.to_hex(false).repr()),
             Self::LinearRgb(c) => {
                 if c.alpha == 1.0 {
                     eco_format!(
@@ -2458,13 +2477,12 @@ impl FromStr for ProcessColor {
     type Err = &'static str;
 
     /// Constructs a new color from hex strings like the following:
-    /// - `#aef` (shorthand, with leading hash),
+    /// - `aef` (shorthand),
     /// - `7a03c2` (without alpha),
     /// - `abcdefff` (with alpha).
     ///
     /// The hash is optional and both lower and upper case are fine.
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
-        let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
             return Err("color string contains non-hexadecimal letters");
         }
@@ -2721,7 +2739,7 @@ impl SpotColorant {
         /// with your production printing experts.
         ///
         /// If this value is `{"all"}` and your print will involve multiple
-        /// #link("https://en.wikipedia.org/wiki/Offset_printing#Plates")[color plates],
+        /// #link("https://en.wikipedia.org/wiki/Offset_printing\#Plates")[color plates],
         /// use of this colorant will result in the specified tint being applied
         /// equally to all plates. If you choose `{none}`, no colorant will be
         /// applied when using this color. This special value is often used to
@@ -2752,7 +2770,7 @@ impl SpotColorant {
     /// ```example
     /// #let pantone = color.spot(
     ///   "PANTONE 2221 C",
-    ///   rgb("#239dad")
+    ///   rgb("239dad")
     /// )
     ///
     /// #square(fill: pantone.tint(100%))

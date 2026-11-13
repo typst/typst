@@ -10,7 +10,7 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use typst_syntax::{Span, ast};
 
-use crate::diag::{HintedStrResult, HintedString};
+use crate::diag::{HintedStrResult, HintedString, StrResult};
 use crate::foundations::{
     Args, Array, AutoValue, BindingGuard, Bytes, CastInfo, Content, Datetime, Decimal,
     Dict, Duration, Fold, FromValue, Func, IntoValue, Label, Module, NativeElement,
@@ -204,6 +204,22 @@ impl Value {
                 .with_block(false)
                 .pack(),
         }
+    }
+
+    /// Return the string representation of the value.
+    pub fn stringify(self) -> StrResult<Str> {
+        Ok(match self {
+            Self::None => EcoString::new(),
+            Self::Auto => eco_format!("auto"),
+            Self::Int(v) => repr::format_int_with_base(v, 10),
+            Self::Float(v) => repr::display_float(v),
+            Self::Decimal(v) => eco_format!("{v}"),
+            Self::Version(v) => eco_format!("{v}"),
+            Self::Symbol(v) => v.get().into(),
+            Self::Str(v) => v.as_str().into(),
+            _ => self.repr(),
+        }
+        .into())
     }
 
     /// Attach a span to the value, if possible.

@@ -31,7 +31,10 @@ use typst_library::introspection::{EmptyIntrospector, Introspector};
 use typst_library::math::EquationElem;
 use typst_library::routines::SpanMode;
 use typst_library::{Library, World};
-use typst_syntax::{Source, SyntaxMode, ast, parse, parse_code, parse_math};
+use typst_syntax::{
+    PreferredCompilerVersion, Source, Span, SyntaxMode, ast, parse, parse_code,
+    parse_math, parse_string,
+};
 use typst_utils::{LazyHash, Protected};
 
 /// Evaluate a source file and return the resulting module.
@@ -51,6 +54,8 @@ pub fn eval(
         panic!("Tried to cyclicly evaluate {:?}", id.vpath());
     }
 
+    let preferred_version = world.preferred_version(id.root()).at(Span::detached())?;
+
     // Prepare the engine.
     let introspector = EmptyIntrospector;
     let engine = Engine {
@@ -59,7 +64,7 @@ pub fn eval(
         introspector: Protected::new(introspector.track()),
         traced,
         sink,
-        route: Route::extend(route).with_id(id),
+        route: Route::extend(route).with_id(id, preferred_version),
     };
 
     // Prepare VM.
@@ -111,10 +116,24 @@ pub fn eval_string(
     mode: SyntaxMode,
     scope: Scope,
 ) -> SourceResult<Value> {
+    let preferred_version = match spans {
+        SpanMode::Uniform(span) => match span.id() {
+            Some(id) => match world.preferred_version(id.root()) {
+                Ok(options) => options,
+                Err(error) => bail!(span, "{error}"),
+            },
+            None => PreferredCompilerVersion::default(),
+        },
+        SpanMode::Mapped { id, .. } => {
+            world.preferred_version(id.root()).unwrap_or_default()
+        }
+    };
+
     let mut root = match mode {
-        SyntaxMode::Code => parse_code(string),
-        SyntaxMode::Markup => parse(string),
-        SyntaxMode::Math => parse_math(string),
+        SyntaxMode::Code => parse_code(string, preferred_version),
+        SyntaxMode::Markup => parse(string, preferred_version),
+        SyntaxMode::String => parse_string(string, preferred_version),
+        SyntaxMode::Math => parse_math(string, preferred_version),
     };
 
     match spans {
@@ -158,6 +177,7 @@ pub fn eval_string(
         SyntaxMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
+        SyntaxMode::String => Value::Str(root.cast::<ast::Str>().unwrap().eval(&mut vm)?),
         SyntaxMode::Math => Value::Content(
             EquationElem::new(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
                 .with_block(false)

@@ -1088,6 +1088,8 @@ impl<'a> LinkedNode<'a> {
             ModeAfter::Text => Some(SyntaxMode::Markup),
             // An opening dollar sign starts math mode.
             ModeAfter::Dollar if self.index == 0 => Some(SyntaxMode::Math),
+            // An opening quote starts string mode.
+            ModeAfter::Quote if self.index == 0 => Some(SyntaxMode::String),
             // Spaces at the left/right of an equation are still in math mode.
             ModeAfter::Space if self.parent_kind() == Some(SyntaxKind::Equation) => {
                 Some(SyntaxMode::Math)
@@ -1105,6 +1107,7 @@ impl<'a> LinkedNode<'a> {
             | ModeAfter::RawDelim
             | ModeAfter::Space
             | ModeAfter::Dollar
+            | ModeAfter::Quote
             | ModeAfter::Embeddable => self.parent_mode(),
         }
     }
@@ -1381,14 +1384,17 @@ impl std::error::Error for Unnumberable {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Source;
+    use crate::{PreferredCompilerVersion, Source};
 
     /// Test the debug output of a [`SyntaxNode`].
     #[test]
     fn test_debug() {
         // A standard syntax tree:
         assert_eq!(
-            format!("{:#?}", crate::parse("= Head <label>")),
+            format!(
+                "{:#?}",
+                crate::parse("= Head <label>", PreferredCompilerVersion::current())
+            ),
             "\
 Markup: 14 [
     Heading: 6 [
@@ -1404,7 +1410,7 @@ Markup: 14 [
         );
         // A basic syntax error:
         assert_eq!(
-            format!("{:#?}", crate::parse("#")),
+            format!("{:#?}", crate::parse("#", PreferredCompilerVersion::current())),
             "\
 Markup: 1 [
     Hash: \"#\",
@@ -1413,7 +1419,7 @@ Markup: 1 [
         );
         // A syntax error with multiple hints:
         assert_eq!(
-            format!("{:#?}", crate::parse("##")),
+            format!("{:#?}", crate::parse("##", PreferredCompilerVersion::current())),
             "\
 Markup: 2 [
     Hash: \"#\",
@@ -1427,7 +1433,7 @@ Markup: 2 [
         );
         // A warning with a hint:
         assert_eq!(
-            format!("{:#?}", crate::parse("**")),
+            format!("{:#?}", crate::parse("**", PreferredCompilerVersion::current())),
             "\
 Markup: 2 [
     Warning: {
@@ -1448,7 +1454,7 @@ Markup: 2 [
     #[test]
     fn test_debug_sub_range() {
         // An example warning for text at a sub-range:
-        let mut root = crate::parse("= =head");
+        let mut root = crate::parse("= =head", PreferredCompilerVersion::current());
         let heading_body = &mut root.children_mut()[0];
         heading_body.warn_at(0..3, "equal space equal!");
         heading_body.hint("try equal equal space?");
@@ -1471,7 +1477,7 @@ Markup: 7 [
         );
 
         // An example for hints at sub-ranges:
-        let mut root = crate::parse("<unclosed");
+        let mut root = crate::parse("<unclosed", PreferredCompilerVersion::current());
         let node = &mut root.children_mut()[0];
         // Hint on the "unclosed label" error:
         node.hint_at(0..1, "greater");
@@ -1502,7 +1508,7 @@ Markup: 9 [
     #[test]
     fn test_debug_synthesized_ranges() {
         // An example for hints at sub-ranges:
-        let mut root = crate::parse("<unclosed");
+        let mut root = crate::parse("<unclosed", PreferredCompilerVersion::default());
         let node = &mut root.children_mut()[0];
         // Hint on the "unclosed label" error:
         node.hint_at(0..1, "greater");
@@ -1561,7 +1567,7 @@ Markup: 9 [
 
         // Synthesize an error that surrounds empty text. This has a slightly
         // different hint than when the text is not empty.
-        let mut root = crate::parse("#");
+        let mut root = crate::parse("#", PreferredCompilerVersion::default());
         root.synthesize(Span::detached());
         assert_eq!(
             format!("{root:#?}"),
@@ -1595,7 +1601,7 @@ Markup: 1 [
         let id = FileId::new_for_test("numberize_basic");
 
         // Simplest actual example.
-        let mut root = crate::parse("A");
+        let mut root = crate::parse("A", PreferredCompilerVersion::default());
         assert_eq!(format!("{root:?}"), "Markup: 1 [Text: \"A\"]");
         let range_numberings = [
             (2..(2 + 02), [2, 3]), // +0, +1
@@ -1619,7 +1625,7 @@ Markup: 1 [
         }
 
         // Two extra nodes.
-        let mut root = crate::parse(" A ");
+        let mut root = crate::parse(" A ", PreferredCompilerVersion::default());
         assert_eq!(
             format!("{root:?}"),
             "Markup: 3 [SpaceNoNewline: \" \", Text: \"A\", SpaceNoNewline: \" \"]",
@@ -1649,7 +1655,7 @@ Markup: 1 [
         }
 
         // More nesting and an empty inner node.
-        let mut root = crate::parse("1.");
+        let mut root = crate::parse("1.", PreferredCompilerVersion::default());
         assert_eq!(
             format!("{root:?}"),
             "Markup: 2 [EnumItem: 2 [EnumMarker: \"1.\", Markup: 0]]",
@@ -1707,7 +1713,7 @@ Markup: 1 [
     fn test_numberize_replace() {
         let id = FileId::new_for_test("numberize_replace");
 
-        let orig_root = crate::parse("A");
+        let orig_root = crate::parse("A", PreferredCompilerVersion::default());
         assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
 
         // Test replacing a single child with one or two nodes.
@@ -1762,7 +1768,7 @@ Markup: 1 [
         let id = FileId::new_for_test("numberize_insertion");
         let one_node = &[SyntaxNode::leaf(SyntaxKind::Text, "X")];
 
-        let orig_root = crate::parse("A");
+        let orig_root = crate::parse("A", PreferredCompilerVersion::default());
         assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
 
         let back_insertion = [
@@ -1866,7 +1872,11 @@ Markup: 1 [
     #[test]
     fn test_linked_node() {
         let test_id = FileId::new_for_test("test_linked_node");
-        let source = Source::new(test_id, "#set text(12pt, red)");
+        let source = Source::new(
+            test_id,
+            "#set text(12pt, red)",
+            PreferredCompilerVersion::default(),
+        );
 
         // Find "text" with Before.
         let node = LinkedNode::new(source.root()).leaf_at(7, Side::Before).unwrap();
@@ -1887,14 +1897,19 @@ Markup: 1 [
     #[test]
     fn test_linked_node_non_trivia_leaf() {
         let test_id = FileId::new_for_test("test_linked_node_non_trivia_leaf");
-        let source = Source::new(test_id, "#set fun(12pt, red)");
+        let source = Source::new(
+            test_id,
+            "#set fun(12pt, red)",
+            PreferredCompilerVersion::default(),
+        );
         let leaf = LinkedNode::new(source.root()).leaf_at(6, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert_eq!(leaf.leaf_text(), "fun");
         assert_eq!(prev.leaf_text(), "set");
 
         // Check position 9 with Before.
-        let source = Source::new(test_id, "#let x = 10");
+        let source =
+            Source::new(test_id, "#let x = 10", PreferredCompilerVersion::default());
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
@@ -1903,7 +1918,8 @@ Markup: 1 [
         assert_eq!(next.leaf_text(), "10");
 
         // Check position 9 with After.
-        let source = Source::new(test_id, "#let x = 10");
+        let source =
+            Source::new(test_id, "#let x = 10", PreferredCompilerVersion::default());
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert!(leaf.next_leaf().is_none());

@@ -21,7 +21,7 @@
 #let hash-link(url, nr, repo) = {
   let body = {
     if repo != main-repo { repo }
-    "#"
+    "\#"
     str(nr)
   }
   small(labelled(link(url, body), <_stop>))
@@ -34,7 +34,7 @@
   } else {
     chain-link(
       url,
-      "Issue #" + str(nr) + " on " + repo,
+      "Issue \#" + str(nr) + " on " + repo,
     )
   }
 }
@@ -46,7 +46,7 @@
   } else {
     chain-link(
       url,
-      "PR #" + str(nr) + " on " + repo,
+      "PR \#" + str(nr) + " on " + repo,
     )
   }
 }

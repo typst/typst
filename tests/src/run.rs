@@ -122,7 +122,11 @@ impl UnexpectedEmpty {
 impl<'a> Runner<'a> {
     /// Create a new test runner.
     fn new(hashes: &'a [RwLock<HashedRefs>], test: &'a mut Test) -> Self {
-        let world = TestWorld::new(test.body.source.clone(), test.attrs.features.clone());
+        let world = TestWorld::new(
+            test.body.source.clone(),
+            test.attrs.features.clone(),
+            test.attrs.compat,
+        );
         Self {
             hashes,
             test,
