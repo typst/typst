@@ -22,6 +22,14 @@ use crate::foundations::{Repr, cast, func, repr, scope, ty};
 ///
 /// You can convert a version to an array of explicitly given components using
 /// the @array constructor.
+///
+/// = Example <example>
+/// ```example
+/// Current version: #sys.version \
+/// #sys.version.minor \
+/// #(sys.version >= version(0, 14, 0)) \
+/// #(version(3, 2, 0) > version(4, 1, 0))
+/// ```
 #[ty(scope, cast, since = "0.9.0")]
 #[derive(Debug, Default, Clone, Hash)]
 pub struct Version(EcoVec<u32>);
@@ -64,28 +72,13 @@ impl Version {
     ///
     /// It can have any number of components (even zero).
     ///
-    /// #example(
-    ///   title: "Constructing versions",
-    ///   ```
-    ///   #version() \
-    ///   #version(1) \
-    ///   #version(1, 2, 3, 4) \
-    ///   #version((1, 2, 3, 4)) \
-    ///   #version((1, 2), 3)
-    ///   ```
-    /// )
-    ///
-    /// As a practical use case, this allows comparing the current compiler
-    /// version (available as @sys.version) to a specific one.
-    ///
-    /// #example(
-    ///   title: "Comparing with the current version",
-    ///   ```
-    ///   Current version: #sys.version \
-    ///   #(sys.version >= version(0, 14, 0)) \
-    ///   #(version(3, 2, 0) > version(4, 1, 0))
-    ///   ```
-    /// )
+    /// ```example
+    /// #version() \
+    /// #version(1) \
+    /// #version(1, 2, 3, 4) \
+    /// #version((1, 2, 3, 4)) \
+    /// #version((1, 2), 3)
+    /// ```
     #[func(constructor, since = "0.9.0")]
     pub fn construct(
         /// The components of the version (array arguments are flattened)
@@ -108,8 +101,14 @@ impl Version {
 
     /// Retrieves a component of a version.
     ///
-    /// The returned integer is always non-negative. Returns `0` if the version
-    /// isn't specified to the necessary length.
+    /// The returned integer is always non-negative. Returns `{0}` if the
+    /// version isn't specified to the necessary length.
+    ///
+    /// ```example
+    /// #version(1, 2, 3).at(0) \
+    /// #version(1, 2, 3).at(3) \
+    /// #version(1, 2, 3).at(-1)
+    /// ```
     #[func(since = "0.9.0")]
     pub fn at(
         &self,
