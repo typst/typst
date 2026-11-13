@@ -6,7 +6,7 @@ use rustc_hash::FxHashMap;
 use typst::diag::{FileError, FileResult};
 use typst::foundations::{Bytes, Datetime, Duration, Smart};
 use typst::layout::{Abs, Margin, PageElem};
-use typst::syntax::package::{PackageSpec, PackageVersion};
+use typst::syntax::package::{PackageSpec, PackageVersion, PreferredCompilerVersion};
 use typst::syntax::{FileId, RootedPath, Source, VirtualPath, VirtualRoot};
 use typst::text::{Font, FontBook, TextElem, TextSize};
 use typst::utils::{LazyHash, singleton};
@@ -101,6 +101,13 @@ impl World for TestWorld {
             Some(bytes) => Ok(bytes.clone()),
             None => Err(FileError::NotFound(id.vpath().get_without_slash().into())),
         }
+    }
+
+    fn preferred_version(
+        &self,
+        _root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        Ok(PreferredCompilerVersion::default())
     }
 
     fn font(&self, index: usize) -> Option<Font> {
