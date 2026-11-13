@@ -20,7 +20,7 @@ use rustc_hash::FxBuildHasher;
 use typst_layout::{Page, PagedDocument};
 use typst_library::format::{Complete, Fields, Partial};
 use typst_library::layout::{
-    Abs, Frame, FrameItem, FrameKind, GroupItem, Point, Ratio, Sides, Size, Transform,
+    Abs, Frame, FrameItem, GroupItem, Point, Ratio, Sides, Size, Transform,
 };
 use typst_library::model::{Destination, Document, LateLinkResolver};
 use typst_library::visualize::{Geometry, Gradient, Tiling};
@@ -342,30 +342,30 @@ impl<'a> SVGRenderer<'a> {
     fn render_group(&mut self, svg: &mut SvgElem, state: &State, group: &GroupItem) {
         let mut svg = svg.lazy_elem("g");
 
-        let state = match group.frame.kind() {
-            FrameKind::Soft => state.pre_concat(group.transform),
-            FrameKind::Hard => {
-                // Always generate a group for hard frames.
-                svg.init();
+        // Always generate a group for hard frames.
+        if group.frame.kind().is_hard() {
+            svg.init();
+        }
 
-                let transform = state.transform.pre_concat(group.transform);
-                if !transform.is_identity() {
-                    svg.init().attr("transform", SvgTransform(transform));
-                }
-                state
-                    .with_transform(Transform::identity())
-                    .with_size(group.frame.size())
-            }
-        };
+        // Apply the group transform.
+        let mut state = state.pre_concat(group.transform);
+        if (group.frame.kind().is_hard() || group.clip.is_some())
+            && !state.transform.is_identity()
+        {
+            svg.init().attr("transform", SvgTransform(state.transform));
+
+            state = state
+                .with_transform(Transform::identity())
+                .with_size(group.frame.size());
+        }
 
         if let Some(label) = group.label {
             svg.init().attr("data-typst-label", label.resolve());
         }
 
         if let Some(clip_curve) = &group.clip {
-            let offset = Point::new(state.transform.tx, state.transform.ty);
-            let id = self.clip_paths.insert_with((clip_curve, offset), || {
-                shape::convert_curve(offset, clip_curve)
+            let id = self.clip_paths.insert_with(clip_curve, || {
+                shape::convert_curve(Point::zero(), clip_curve)
             });
             svg.init().attr("clip-path", SvgUrl(id));
         }

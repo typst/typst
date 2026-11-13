@@ -202,3 +202,11 @@ Hello #skewed[World]!
 #scale(x: -100%, y: -100%)[hey]
 #set text(size: -1em)
 #scale(x: -100%, y: -100%)[hey]
+
+--- issue-9054-clipped-path-transform paged ---
+
+#scale(x: 80%, y: -40%, reflow: true)[
+  #rotate(70deg, reflow: true)[
+    #image("/assets/images/rhino.png", fit: "cover", width: 50pt, height: 100pt)
+  ]
+]
