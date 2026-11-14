@@ -34,7 +34,7 @@ cf24f33b4c980b3a4e5f9cc27b4035b2 bibliography-no-title
 7dd57d4c522144f47adf6e543e84e9f0 bibliography-ordering
 83159b7b5833cae4188332952234b42a bidi-consecutive-embedded-ltr-runs
 9cfeb9e443e66ba3d17bab0ffbf9dc85 bidi-consecutive-embedded-rtl-runs
-fd4a73e97cf575f154e0ddd1d18077eb bidi-embedded-dir
+4d886e5e492c099cf8f29f06c1bd7ce4 bidi-embedded-dir
 e2c7b37df92f3069c4d55df80a8a9794 bidi-en-he-top-level
 ec988f48053bcc2b5c7accd247811591 bidi-explicit-dir
 8b2d67584aed10840b6435d5490ec212 bidi-manual-linebreak

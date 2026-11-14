@@ -22,8 +22,9 @@ const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
 
 // Unicode BiDi control characters.
 const LTR_ISOLATE: &str = "\u{2066}";
-const POP_ISOLATE: &str = "\u{2069}";
 const RTL_ISOLATE: &str = "\u{2067}";
+const POP_ISOLATE: &str = "\u{2069}";
+
 /// A prepared item in a inline layout.
 #[derive(Debug)]
 pub enum Item<'a> {
@@ -154,8 +155,6 @@ pub fn collect<'a>(
     let mut current_dir = config.dir;
 
     for &(child, styles) in children {
-        let prev_len = collector.full.len();
-
         let dir = if child.is::<SpaceElem>()
             || child.is::<TextElem>()
             || child.is::<SmartQuoteElem>()
@@ -168,18 +167,21 @@ pub fn collect<'a>(
         if dir != current_dir {
             if current_dir != config.dir {
                 collector.push_item(Item::Skip(POP_ISOLATE));
+                collector.spans.push(POP_ISOLATE.len(), Span::detached());
             }
-            match dir {
-                Dir::LTR if dir != config.dir => {
-                    collector.push_item(Item::Skip(LTR_ISOLATE));
-                }
-                Dir::RTL if dir != config.dir => {
-                    collector.push_item(Item::Skip(RTL_ISOLATE));
-                }
-                _ => {}
+            if dir != config.dir {
+                let isolate = match dir {
+                    Dir::LTR => LTR_ISOLATE,
+                    Dir::RTL => RTL_ISOLATE,
+                    _ => unreachable!("text direction must be horizontal"),
+                };
+                collector.push_item(Item::Skip(isolate));
+                collector.spans.push(isolate.len(), Span::detached());
             }
             current_dir = dir;
         }
+
+        let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
