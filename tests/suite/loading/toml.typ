@@ -85,3 +85,16 @@
 --- toml-decode-non-table eval ---
 // Error: 7-17 failed to parse TOML (expected `.`, `=` at 1:2)
 #toml(bytes("3"))
+
+--- toml-decode-datetime-with-timezone eval ---
+#test(
+  toml(bytes("date = 2023-02-01T14:38:57-01:00")).date,
+  datetime(
+    year: 2023,
+    month: 2,
+    day: 1,
+    hour: 15,
+    minute: 38,
+    second: 57,
+  )
+)
