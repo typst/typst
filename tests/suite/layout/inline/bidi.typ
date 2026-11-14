@@ -98,5 +98,13 @@ Lריווח #h(1cm) R
 #a#a
 
 --- bidi-embedded-dir paged ---
-// Test that setting direction inline inside opposing text stays ordered.
-Before #text(dir: rtl)[עולם שלום] After
+// Test that explicit LTR items with Arabic separators maintain RTL list order.
+#set page(width: 400pt, margin: 1cm, height: auto)
+#set text(font: ("Noto Sans Arabic"), dir: rtl)
+#let english(e) = text(lang: "en", dir: ltr)[#e]
+
+الأجهزة المتاحة:
+#english[Laptop (Pro)]،
+#english[Phone (Plus)]،
+#english[Tablet (Air)]
+
