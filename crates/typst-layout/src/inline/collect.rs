@@ -21,10 +21,8 @@ const SPACING_REPLACE: &str = " "; // Space
 const OBJ_REPLACE: &str = "\u{FFFC}"; // Object Replacement Character
 
 // Unicode BiDi control characters.
-const LTR_EMBEDDING: &str = "\u{202A}";
-const RTL_EMBEDDING: &str = "\u{202B}";
-const POP_EMBEDDING: &str = "\u{202C}";
 const LTR_ISOLATE: &str = "\u{2066}";
+const RTL_ISOLATE: &str = "\u{2067}";
 const POP_ISOLATE: &str = "\u{2069}";
 
 /// A prepared item in a inline layout.
@@ -154,32 +152,45 @@ pub fn collect<'a>(
         collector.spans.push(1, Span::detached());
     }
 
+    let mut current_dir = config.dir;
+
     for &(child, styles) in children {
+        let dir = if child.is::<SpaceElem>()
+            || child.is::<TextElem>()
+            || child.is::<SmartQuoteElem>()
+        {
+            styles.resolve(TextElem::dir)
+        } else {
+            config.dir
+        };
+
+        if dir != current_dir {
+            if current_dir != config.dir {
+                collector.push_item(Item::Skip(POP_ISOLATE));
+                collector.spans.push(POP_ISOLATE.len(), Span::detached());
+            }
+            if dir != config.dir {
+                let isolate = match dir {
+                    Dir::LTR => LTR_ISOLATE,
+                    Dir::RTL => RTL_ISOLATE,
+                    _ => unreachable!("text direction must be horizontal"),
+                };
+                collector.push_item(Item::Skip(isolate));
+                collector.spans.push(isolate.len(), Span::detached());
+            }
+            current_dir = dir;
+        }
+
         let prev_len = collector.full.len();
 
         if child.is::<SpaceElem>() {
             collector.push_text(" ", styles);
         } else if let Some(elem) = child.to_packed::<TextElem>() {
             collector.build_text(styles, |full| {
-                let dir = styles.resolve(TextElem::dir);
-                if dir != config.dir {
-                    // Insert "Explicit Directional Embedding".
-                    match dir {
-                        Dir::LTR => full.push_str(LTR_EMBEDDING),
-                        Dir::RTL => full.push_str(RTL_EMBEDDING),
-                        _ => {}
-                    }
-                }
-
                 if let Some(case) = styles.get(TextElem::case) {
                     full.push_str(&case.apply(&elem.text));
                 } else {
                     full.push_str(&elem.text);
-                }
-
-                if dir != config.dir {
-                    // Insert "Pop Directional Formatting".
-                    full.push_str(POP_EMBEDDING);
                 }
             });
         } else if let Some(elem) = child.to_packed::<HElem>() {
@@ -257,6 +268,11 @@ pub fn collect<'a>(
 
         let len = collector.full.len() - prev_len;
         collector.spans.push(len, child.span());
+    }
+
+    if current_dir != config.dir {
+        collector.push_item(Item::Skip(POP_ISOLATE));
+        collector.spans.push(POP_ISOLATE.len(), Span::detached());
     }
 
     Ok((collector.full, collector.segments, collector.spans))

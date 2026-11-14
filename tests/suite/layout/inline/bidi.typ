@@ -96,3 +96,15 @@ Lריווח #h(1cm) R
 --- issue-5276-shaping-consecutive-ltr-with-lang paged ---
 #let a = text(lang: "ar")[\u{645}]
 #a#a
+
+--- bidi-embedded-dir paged ---
+// Test that explicit LTR items with Arabic separators maintain RTL list order.
+#set page(width: 400pt, margin: 1cm, height: auto)
+#set text(font: ("Noto Sans Arabic"), dir: rtl)
+#let english(e) = text(lang: "en", dir: ltr)[#e]
+
+الأجهزة المتاحة:
+#english[Laptop (Pro)]،
+#english[Phone (Plus)]،
+#english[Tablet (Air)]
+
