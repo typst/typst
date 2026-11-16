@@ -200,7 +200,7 @@ impl OutputType for Render {
         let slot;
         let scale = crate::ARGS.scale;
         if scale != 1.0 {
-            slot = render(doc, scale as f32);
+            slot = render(doc, scale);
             pixmap_live = &slot;
         }
         pixmap_live.encode_png().unwrap()
