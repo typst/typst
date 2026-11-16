@@ -559,8 +559,8 @@ impl FileOutputType for Bundle {
 }
 
 fn text_diff(a: Option<(&Path, Old<&[u8]>)>, b: Result<(&Path, &[u8]), ()>) -> Diff {
-    let a = a.map(|(_, old)| old.map(|bytes| std::str::from_utf8(bytes).unwrap()));
-    let b = b.map(|(_, bytes)| std::str::from_utf8(bytes).unwrap());
+    let a = a.map(|(_, old)| old.map(|bytes| str::from_utf8(bytes).unwrap()));
+    let b = b.map(|(_, bytes)| str::from_utf8(bytes).unwrap());
     Diff::Text(report::text_diff(a, b))
 }
 

@@ -554,7 +554,7 @@ impl SvgDisplay for DedupId {
         }
 
         // The digits are all valid ASCII hex characters.
-        let str = std::str::from_utf8(&digits).unwrap();
+        let str = str::from_utf8(&digits).unwrap();
         f.push_str(str.trim_start_matches('0'));
 
         fn to_hex_digit(nibble: u8) -> u8 {

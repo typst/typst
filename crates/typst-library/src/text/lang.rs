@@ -477,7 +477,7 @@ impl Lang {
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
+        str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
     }
 
     /// The default direction for the language.
@@ -543,7 +543,7 @@ pub struct Region([u8; 2]);
 impl Region {
     /// Return the region code as an all uppercase string slice.
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0).unwrap_or_default()
+        str::from_utf8(&self.0).unwrap_or_default()
     }
 }
 
@@ -581,7 +581,7 @@ pub struct WritingScript([u8; 4], u8);
 impl WritingScript {
     /// Return the script as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
+        str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
     }
 
     /// Return the description of the script as raw bytes.
