@@ -1709,6 +1709,12 @@ impl<'s> Parser<'s> {
         Marker(self.nodes.len() - self.token.n_trivia)
     }
 
+    /// A marker pointing to the preceding non-trivia node (if any).
+    fn previous_marker(&self) -> Option<Marker> {
+        let trivia_start = self.nodes.len() - self.token.n_trivia;
+        trivia_start.checked_sub(1).map(Marker)
+    }
+
     /// Eat the current node and return a reference for in-place mutation.
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
@@ -1999,11 +2005,8 @@ impl Parser<'_> {
         if self.current_text().parse::<ast::Unit>().is_err() {
             return None;
         }
-        let Marker(end) = self.before_trivia();
-        if end == 0 {
-            return None;
-        }
-        let mut node = &self.nodes[end - 1];
+        let prev_m = self.previous_marker()?;
+        let mut node = &self[prev_m];
         while !matches!(node.kind(), SyntaxKind::Int | SyntaxKind::Float) {
             node = node.children().last()?;
         }
@@ -2045,8 +2048,8 @@ impl Parser<'_> {
 
     /// Whether the last non-trivia node is an error.
     fn after_error(&mut self) -> bool {
-        let m = self.before_trivia();
-        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
+        self.previous_marker()
+            .is_some_and(|prev_m| self[prev_m].kind().is_error())
     }
 
     /// Produce an error that the given `thing` was expected at the position
@@ -2056,11 +2059,11 @@ impl Parser<'_> {
         self.nodes.insert(m.0, error);
     }
 
-    /// Add a hint to a trailing error.
+    /// Add a hint to a trailing error, such as after calling [`Self::expected`]
+    /// or [`Self::unexpected`].
     fn hint(&mut self, hint: &str) {
-        let m = self.before_trivia();
-        if let Some(error) = self.nodes.get_mut(m.0 - 1) {
-            error.hint(hint);
+        if let Some(prev_m) = self.previous_marker() {
+            self[prev_m].hint(hint);
         }
     }
 
