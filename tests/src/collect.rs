@@ -87,6 +87,7 @@ bitflags! {
     struct AttrFlags: u16 {
         const LARGE = 1 << 0;
         const EMPTY = 1 << 1;
+        const TRACE = 1 << 2;
     }
 }
 
@@ -95,6 +96,8 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
+    /// Whether to insert [`Tracepoint`]s as notes.
+    pub trace: bool,
     pub features: Option<Features>,
     /// Tolerance for image comparisons. Render tests are not 100% reproducible.
     /// By default, we allow a byte difference of 1, but in rare cases, we need
@@ -664,7 +667,7 @@ impl<'a> Parser<'a> {
             }
 
             let body = self.s.from(start);
-            let body = parse_test_body(pos, body, &mut self.collector.errors);
+            let body = parse_test_body(pos, &attrs, body, &mut self.collector.errors);
 
             self.collector.tests.push(Test { name, attrs, body });
         }
@@ -723,6 +726,7 @@ impl<'a> Parser<'a> {
                 "bundle" => self.set_attr(attr_name, &mut stages, TestStages::BUNDLE),
                 "large" => self.set_attr(attr_name, &mut flags, AttrFlags::LARGE),
                 "empty" => self.set_attr(attr_name, &mut flags, AttrFlags::EMPTY),
+                "trace" => self.set_attr(attr_name, &mut flags, AttrFlags::TRACE),
                 "features" => {
                     let Some(params) = attr_params.take() else {
                         self.error("expected parameter for `features`");
@@ -767,6 +771,7 @@ impl<'a> Parser<'a> {
         Attrs {
             large: flags.contains(AttrFlags::LARGE),
             empty: flags.contains(AttrFlags::EMPTY),
+            trace: flags.contains(AttrFlags::TRACE),
             features,
             stages,
             tolerance,

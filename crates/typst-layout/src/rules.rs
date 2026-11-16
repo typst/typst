@@ -1,10 +1,10 @@
 use comemo::Track;
 use ecow::{EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, bail};
+use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, dict,
+    StyleChain, Synthesize, Target, Value, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
@@ -264,14 +264,15 @@ const HEADING_RULE: ShowFn<HeadingElem> = |elem, engine, styles| {
         if hanging_indent.is_auto() && align.x == FixedAlignment::Start {
             let pod = Region::new(Axes::splat(Abs::inf()), Axes::splat(false));
 
-            // Add weak spacing (that will collapse) on both sides to disable CJ
+            // Add spacing that cancels each other on both sides to disable CJ
             // punctuation adjustment during measurement. In the actual heading
             // the numbering will not be at the boundary (negative spacing
             // before and the body after), so there could be misalignment
             // otherwise. If there is ever a cleaner way to disable punctuation
             // adjustment, that would be preferrable.
-            let collapsing = HElem::new(Abs::pt(1.0).into()).with_weak(true).pack();
-            let measurable = collapsing.clone() + numbering.clone() + collapsing;
+            let measurable = HElem::new(Abs::pt(-1.0).into()).pack()
+                + numbering.clone()
+                + HElem::new(Abs::pt(1.0).into()).pack();
 
             // We don't have a locator for the numbering here, so we just
             // use the measurement infrastructure for now.
@@ -447,7 +448,9 @@ const OUTLINE_ENTRY_RULE: ShowFn<OutlineEntry> = |elem, engine, styles| {
         let body = prefix.unwrap_or_default() + inner;
         BlockElem::packed(body).spanned(span)
     } else {
-        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())?
+        let point = Tracepoint::process::<OutlineEntry>;
+        elem.indented(engine, context, span, prefix, inner, Em::new(0.5).into())
+            .trace(engine.world, point, span)?
     };
 
     let loc = elem.element_location().at(span)?;
@@ -460,7 +463,6 @@ const CITE_GROUP_RULE: ShowFn<CiteGroup> = |elem, engine, _| elem.realize(engine
 
 const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
     const COLUMN_GUTTER: Em = Em::new(0.65);
-    const INDENT: Em = Em::new(1.5);
 
     let loc = elem.location().unwrap();
     let span = elem.span();
@@ -507,9 +509,10 @@ const BIBLIOGRAPHY_RULE: ShowFn<BibliographyElem> = |elem, engine, styles| {
             let realized =
                 PdfMarkerTag::BibEntry(entry.body.clone().located(entry.backlink));
             let block = if bibliography.hanging_indent {
-                let body = HElem::new((-INDENT).into()).pack() + realized;
+                let indent = styles.get(ParElem::hanging_indent);
+                let body = HElem::new((-indent).into()).pack() + realized;
                 let inset = Sides::default()
-                    .with(styles.resolve(TextElem::dir).start(), Some(INDENT.into()));
+                    .with(styles.resolve(TextElem::dir).start(), Some(indent.into()));
                 BlockElem::new()
                     .with_inset(inset)
                     .with_body(Some(BlockBody::Content(body)))
@@ -754,9 +757,10 @@ const LAYOUT_RULE: ShowFn<LayoutElem> = |elem, _, _| {
             let Size { x, y } = regions.base();
             let loc = elem.location().unwrap();
             let context = Context::new(Some(loc), Some(styles));
+            let size = dict! { "width" => x, "height" => y };
             let result = elem
                 .func
-                .call(engine, context.track(), [dict! { "width" => x, "height" => y }])?
+                .call::<Value>(engine, context.track(), [size], elem.span())?
                 .display();
             crate::flow::layout_fragment(engine, &result, locator, styles, regions)
         },

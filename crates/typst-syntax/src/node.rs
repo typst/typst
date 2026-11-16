@@ -37,9 +37,9 @@ pub struct SyntaxNode {
 /// a warning depends on what it wraps.
 ///
 /// The simplest way to get the underlying data by descending into the children
-/// of warnings is via a loop and match like below. The [`SyntaxNode::node_ref`]
+/// of warnings is via a loop and match like below. The [`Node::node_ref`]
 /// helper does this for the by-reference case, but mutation is usually more
-/// involved, so only gets the [`SyntaxNode::inner_and_span_mut`] helper.
+/// involved, so only gets the [`Node::inner_mut`] helper.
 /// ```ignore
 /// let mut data = &mut node.data;
 /// let value = loop {
@@ -57,17 +57,17 @@ enum Node {
     Warning(Arc<WarningWrapper>, SyntaxKind),
 }
 
-/// Data attached to a node, accessed by reference via [`SyntaxNode::node_ref`].
+/// Data attached to a node, accessed by reference via [`Node::node_ref`].
 enum NodeRef<'a> {
     Leaf(&'a EcoString),
     Inner(&'a Arc<InnerNode>),
     Error(&'a Arc<ErrorNode>),
 }
 
-impl SyntaxNode {
+impl Node {
     /// Access the underlying node data by reference, descending past warnings.
     fn node_ref(&self) -> NodeRef<'_> {
-        let mut data = &self.data;
+        let mut data = self;
         loop {
             match data {
                 Node::Leaf(text, _) => break NodeRef::Leaf(text),
@@ -78,18 +78,13 @@ impl SyntaxNode {
         }
     }
 
-    /// Access an inner node and the node's overall span mutably, descending
-    /// past warnings. If this only returned the `&mut InnerNode`, the caller
-    /// wouldn't be able to also get a mutable reference to the span since the
-    /// inner node would borrow mutably from `self`.
-    fn inner_and_span_mut(&mut self) -> Option<(&mut InnerNode, &mut Span)> {
-        let mut data = &mut self.data;
+    /// Access an inner node mutably, descending past warnings.
+    fn inner_mut(&mut self) -> Option<&mut InnerNode> {
+        let mut data = self;
         loop {
             match data {
                 Node::Leaf(_, _) | Node::Error(_, _) => break None,
-                Node::Inner(inner, _) => {
-                    break Some((Arc::make_mut(inner), &mut self.span));
-                }
+                Node::Inner(inner, _) => break Some(Arc::make_mut(inner)),
                 Node::Warning(warn, _) => data = &mut Arc::make_mut(warn).child,
             }
         }
@@ -97,7 +92,7 @@ impl SyntaxNode {
 
     /// Access the hints for an error or warning mutably.
     fn hints_mut(&mut self) -> Option<&mut EcoVec<(EcoString, Option<SubRange>)>> {
-        match &mut self.data {
+        match self {
             Node::Leaf(_, _) | Node::Inner(_, _) => None,
             Node::Error(err, _) => Some(&mut Arc::make_mut(err).hints),
             Node::Warning(warn, _) => Some(&mut Arc::make_mut(warn).hints),
@@ -140,6 +135,10 @@ impl SyntaxNode {
     }
 
     /// Add a warning message to an existing node.
+    ///
+    /// Calling this requires that we either recursively update the parent
+    /// node's `diagnosis` (as in reparsing) or we are in the process of
+    /// constructing the parent (as in normal parsing).
     pub fn warn(&mut self, message: impl Into<EcoString>) {
         let kind = self.kind();
         let child = std::mem::replace(&mut self.data, Node::Leaf(EcoString::new(), kind));
@@ -150,6 +149,10 @@ impl SyntaxNode {
     /// Add a warning around this node at a particular sub-range of the node's
     /// text. Panics if the range is empty or exceeds the length of the wrapped
     /// text.
+    ///
+    /// Calling this requires that we either recursively update the parent
+    /// node's `diagnosis` (as in reparsing) or we are in the process of
+    /// constructing the parent (as in normal parsing).
     #[track_caller]
     pub fn warn_at(
         &mut self,
@@ -168,7 +171,7 @@ impl SyntaxNode {
     /// this is not an error or warning.
     #[track_caller]
     pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         hints.push((hint.into(), None));
     }
 
@@ -184,7 +187,7 @@ impl SyntaxNode {
     ) {
         assert!(end <= self.len()); // This isn't checked by `SubRange::new`.
         let sub_range = SubRange::new(start, end).expect("a valid sub-range");
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         hints.push((hint.into(), Some(sub_range)));
     }
 
@@ -192,7 +195,7 @@ impl SyntaxNode {
     /// not an error or warning.
     #[track_caller]
     pub fn with_hints(mut self, new_hints: impl IntoIterator<Item = EcoString>) -> Self {
-        let hints = self.hints_mut().expect("expected an error or warning");
+        let hints = self.data.hints_mut().expect("expected an error or warning");
         let iter = new_hints.into_iter().map(|h| (h, None));
         hints.extend(iter);
         self
@@ -229,7 +232,7 @@ impl SyntaxNode {
 
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(text) => text.len(),
             NodeRef::Inner(inner) => inner.len,
             NodeRef::Error(err) => err.text.len(),
@@ -246,7 +249,7 @@ impl SyntaxNode {
     /// Returns the empty string if this is an inner node.
     pub fn leaf_text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(text) => text,
             NodeRef::Inner(_) => &EMPTY,
             NodeRef::Error(err) => &err.text,
@@ -262,7 +265,7 @@ impl SyntaxNode {
             Node::Inner(_, _) | Node::Warning(_, _) => {
                 let mut buffer = EcoString::with_capacity(self.len());
                 self.traverse(|node| {
-                    match node.node_ref() {
+                    match node.data.node_ref() {
                         NodeRef::Leaf(text) => buffer.push_str(text),
                         NodeRef::Inner(_) => {}
                         NodeRef::Error(err) => buffer.push_str(&err.text),
@@ -276,7 +279,7 @@ impl SyntaxNode {
 
     /// The node's children.
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => [].iter(),
             NodeRef::Inner(inner) => inner.children.iter(),
         }
@@ -289,7 +292,7 @@ impl SyntaxNode {
     /// This can be used to determine whether [`Self::errors_and_warnings`] will
     /// return an empty vector without traversing the tree if it will not.
     pub fn diagnosis(&self) -> Diagnosis {
-        let diagnosis = match self.node_ref() {
+        let diagnosis = match self.data.node_ref() {
             NodeRef::Leaf(_) => Diagnosis::default(),
             NodeRef::Inner(inner) => inner.diagnosis,
             NodeRef::Error(_) => Diagnosis { errors: true, warnings: false },
@@ -420,11 +423,18 @@ impl SyntaxNode {
                 }
                 Node::Warning(warn, _) => {
                     let warn = Arc::make_mut(warn);
+                    let (orig_offset, orig_len) = match warn.sub_range {
+                        Some(sub_range) => {
+                            let range = sub_range.to_absolute(offset);
+                            (range.start, range.len())
+                        }
+                        None => (offset, len),
+                    };
                     update_sub_range(offset, &mut warn.sub_range);
                     for (_hint, sub_range) in warn.hints.make_mut() {
                         update_sub_range(offset, sub_range);
                     }
-                    if let Some(hint) = add_hint(offset, len) {
+                    if let Some(hint) = add_hint(orig_offset, orig_len) {
                         warn.hints.push((hint, None));
                     }
                     data = &mut warn.child;
@@ -446,7 +456,9 @@ impl SyntaxNode {
                     }
                     (Node::Error(a, _), Node::Error(b, _)) => break a == b,
                     (Node::Warning(a, _), Node::Warning(b, _))
-                        if a.message == b.message && a.hints == b.hints =>
+                        if a.sub_range == b.sub_range
+                            && a.message == b.message
+                            && a.hints == b.hints =>
                     {
                         data_a = &a.child;
                         data_b = &b.child;
@@ -521,8 +533,8 @@ impl SyntaxNode {
     ) -> NumberingResult {
         if within.start >= within.end {
             Err(Unnumberable)
-        } else if let Some((inner, span)) = self.inner_and_span_mut() {
-            inner.numberize(span, id, None, within)
+        } else if let Some(inner) = self.data.inner_mut() {
+            inner.numberize(Some(&mut self.span), id, None, within)
         } else {
             self.span =
                 Span::from_number(id, SpanNumber((within.start + within.end) / 2));
@@ -530,11 +542,15 @@ impl SyntaxNode {
         }
     }
 
-    /// Traverse the tree in-order, calling `f` on each node and recursing on
-    /// the returned nodes. Note that `f` can prune the traversal at any point
-    /// by yielding `[].iter()` instead of the actual children slice of an inner
-    /// node.
-    fn traverse(&self, mut f: impl FnMut(&Self) -> std::slice::Iter<'_, Self>) {
+    /// Traverse the tree in-order, calling `f` on each node before recursing on
+    /// the returned node slice (normally just `node.children()`).
+    ///
+    /// Note that `f` can prune the traversal at any point by yielding
+    /// `[].iter()` instead of the actual children slice of an inner node.
+    pub(super) fn traverse(
+        &self,
+        mut f: impl FnMut(&Self) -> std::slice::Iter<'_, Self>,
+    ) {
         fn recursive_step(
             node: &SyntaxNode,
             f: &mut impl FnMut(&SyntaxNode) -> std::slice::Iter<'_, SyntaxNode>,
@@ -549,18 +565,18 @@ impl SyntaxNode {
 
     /// Whether this is a leaf node.
     pub(super) fn is_leaf(&self) -> bool {
-        matches!(self.node_ref(), NodeRef::Leaf(_))
+        matches!(self.data.node_ref(), NodeRef::Leaf(_))
         // TODO: Should we also treat non-empty errors as leaves?
     }
 
     /// Whether this is an inner node.
     pub(super) fn is_inner(&self) -> bool {
-        matches!(self.node_ref(), NodeRef::Inner(_))
+        matches!(self.data.node_ref(), NodeRef::Inner(_))
     }
 
     /// The number of descendants, including the node itself.
     pub(super) fn descendants(&self) -> usize {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => 1,
             NodeRef::Inner(inner) => inner.descendants,
         }
@@ -568,63 +584,56 @@ impl SyntaxNode {
 
     /// The node's children, mutably.
     pub(super) fn children_mut(&mut self) -> &mut [SyntaxNode] {
-        if let Some((inner, _)) = self.inner_and_span_mut() {
+        if let Some(inner) = self.data.inner_mut() {
             &mut inner.children
         } else {
             &mut []
         }
     }
 
-    /// Replaces a range of children with a replacement.
-    ///
-    /// May have mutated the children if it returns `Err(_)`.
-    pub(super) fn replace_children(
-        &mut self,
-        range: Range<usize>,
-        replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
-        if let Some((inner, span)) = self.inner_and_span_mut() {
-            inner.replace_children(span, range, replacement)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Update this node after changes were made to one of its children.
-    pub(super) fn update_parent(
-        &mut self,
-        prev_len: usize,
-        new_len: usize,
-        prev_descendants: usize,
-        new_descendants: usize,
-    ) {
-        if let Some((inner, _)) = self.inner_and_span_mut() {
-            inner.update_parent(prev_len, new_len, prev_descendants, new_descendants);
-        }
-    }
-
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
-        match self.node_ref() {
+        match self.data.node_ref() {
             NodeRef::Leaf(_) | NodeRef::Error(_) => self.span.number() + 1,
             NodeRef::Inner(inner) => inner.upper,
+        }
+    }
+
+    /// Access an inner node mutably for incremental reparsing. Also returns the
+    /// node's span and syntax kind since those are needed.
+    ///
+    /// Unlike [`Node::inner_mut`], this does not descend past wrapped warnings
+    /// since reparsing under syntax warnings cannot be made sound. A warning's
+    /// message, hints, or sub-ranges could target or include subsets of the
+    /// replaced text, and trying to match and update those subsets correctly is
+    /// not feasible in the general case.
+    ///
+    /// Luckily, avoiding reparsing under syntax warnings is unlikely to have a
+    /// performance impact in real documents.
+    pub(super) fn reparse_inner_node_mut(
+        &mut self,
+    ) -> Option<(&mut InnerNode, SyntaxKind, Span)> {
+        match &mut self.data {
+            Node::Inner(inner, kind) => Some((Arc::make_mut(inner), *kind, self.span)),
+            _ => None,
         }
     }
 }
 
 impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.data.fmt(f)
+        self.data.debug_fmt_span(f, self.span)
     }
 }
 
-impl Debug for Node {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Node {
+    /// Write with debug formatting using the node's overall span.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         match self {
             Node::Leaf(text, kind) => write!(f, "{kind:?}: {text:?}"),
-            Node::Inner(inner, kind) => inner.debug_fmt(f, *kind),
-            Node::Error(err, _) => err.fmt(f),
-            Node::Warning(warn, _) => warn.fmt(f),
+            Node::Inner(inner, kind) => inner.debug_fmt_kind(f, *kind),
+            Node::Error(err, _) => err.debug_fmt_span(f, span),
+            Node::Warning(warn, _) => warn.debug_fmt_span(f, span),
         }
     }
 }
@@ -637,18 +646,18 @@ impl Default for SyntaxNode {
 
 /// An inner node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
-struct InnerNode {
+pub(super) struct InnerNode {
     /// The byte length of the node in the source.
-    len: usize,
+    pub len: usize,
     /// The number of nodes in the whole subtree, including this node.
-    descendants: usize,
+    pub descendants: usize,
     /// Whether this node or any of its children contain an error/warning
     /// diagnostic.
-    diagnosis: Diagnosis,
+    pub diagnosis: Diagnosis,
     /// The upper bound of this node's numbering range.
-    upper: u64,
+    pub upper: u64,
     /// This node's children, losslessly make up this node.
-    children: Vec<SyntaxNode>,
+    pub children: Vec<SyntaxNode>,
 }
 
 impl InnerNode {
@@ -669,9 +678,9 @@ impl InnerNode {
 
     /// Assign span numbers `within` an interval to this node's subtree or just
     /// a `range` of its children.
-    fn numberize(
+    pub fn numberize(
         &mut self,
-        span: &mut Span,
+        span: Option<&mut Span>,
         id: FileId,
         range: Option<Range<usize>>,
         within: Range<u64>,
@@ -692,7 +701,7 @@ impl InnerNode {
         let space = within.end - within.start;
         let mut stride = space / (2 * descendants as u64);
         if stride == 0 {
-            stride = space / self.descendants as u64;
+            stride = space / descendants as u64;
             if stride == 0 {
                 return Err(Unnumberable);
             }
@@ -700,7 +709,8 @@ impl InnerNode {
 
         // Number the node itself.
         let mut start = within.start;
-        if range.is_none() {
+        if let Some(span) = span {
+            debug_assert!(range.is_none(), "`node_span` and `range` are exclusive");
             let end = start + stride;
             *span = Span::from_number(id, SpanNumber((start + end) / 2));
             self.upper = within.end;
@@ -731,134 +741,8 @@ impl InnerNode {
                 .all(|(a, b)| a.spanless_eq(b))
     }
 
-    /// Replaces a range of children with a replacement.
-    ///
-    /// May have mutated the children if it returns `Err(_)`.
-    fn replace_children(
-        &mut self,
-        span: &mut Span,
-        mut range: Range<usize>,
-        replacement: Vec<SyntaxNode>,
-    ) -> NumberingResult {
-        let Some(id) = span.id() else { return Err(Unnumberable) };
-        let mut replacement_range = 0..replacement.len();
-
-        // Trim off common prefix.
-        while range.start < range.end
-            && replacement_range.start < replacement_range.end
-            && self.children[range.start]
-                .spanless_eq(&replacement[replacement_range.start])
-        {
-            range.start += 1;
-            replacement_range.start += 1;
-        }
-
-        // Trim off common suffix.
-        while range.start < range.end
-            && replacement_range.start < replacement_range.end
-            && self.children[range.end - 1]
-                .spanless_eq(&replacement[replacement_range.end - 1])
-        {
-            range.end -= 1;
-            replacement_range.end -= 1;
-        }
-
-        let mut replacement_vec = replacement;
-        let replacement = &replacement_vec[replacement_range.clone()];
-        let superseded = &self.children[range.clone()];
-
-        // Compute the new byte length.
-        self.len = self.len + replacement.iter().map(SyntaxNode::len).sum::<usize>()
-            - superseded.iter().map(SyntaxNode::len).sum::<usize>();
-
-        // Compute the new number of descendants.
-        self.descendants = self.descendants
-            + replacement.iter().map(SyntaxNode::descendants).sum::<usize>()
-            - superseded.iter().map(SyntaxNode::descendants).sum::<usize>();
-
-        // Update our diagnosis after the replacement.
-        // - If we had no errors/warnings before, we can just use the replaced
-        //   diagnosis
-        // - Or, if our replacement has errors _and_ warnings, we can use that
-        // - Otherwise, we need to update based on all of the children _outside_
-        //   the replaced range in case we replaced the erroneous children
-        let replaced_diagnosis = Diagnosis::any(replacement);
-        if !self.diagnosis.either() || replaced_diagnosis.both() {
-            self.diagnosis = replaced_diagnosis;
-        } else {
-            self.diagnosis = replaced_diagnosis.or(Diagnosis::or(
-                Diagnosis::any(&self.children[..range.start]),
-                Diagnosis::any(&self.children[range.end..]),
-            ));
-        }
-
-        // Perform the replacement.
-        self.children
-            .splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
-        range.end = range.start + replacement_range.len();
-
-        // Renumber the new children. Retries until it works, taking
-        // exponentially more children into account.
-        let mut left = 0;
-        let mut right = 0;
-        let max_left = range.start;
-        let max_right = self.children.len() - range.end;
-        loop {
-            let renumber = range.start - left..range.end + right;
-
-            // The minimum assignable number is either
-            // - the upper bound of the node right before the to-be-renumbered
-            //   children,
-            // - or this inner node's span number plus one if renumbering starts
-            //   at the first child.
-            let start_number = renumber
-                .start
-                .checked_sub(1)
-                .and_then(|i| self.children.get(i))
-                .map_or(span.number() + 1, |child| child.upper());
-
-            // The upper bound for renumbering is either
-            // - the span number of the first child after the to-be-renumbered
-            //   children,
-            // - or this node's upper bound if renumbering ends behind the last
-            //   child.
-            let end_number = self
-                .children
-                .get(renumber.end)
-                .map_or(self.upper, |next| next.span().number());
-
-            // Try to renumber.
-            let within = start_number..end_number;
-            if self.numberize(span, id, Some(renumber), within).is_ok() {
-                return Ok(());
-            }
-
-            // If it didn't even work with all children, we give up.
-            if left == max_left && right == max_right {
-                return Err(Unnumberable);
-            }
-
-            // Exponential expansion to both sides.
-            left = (left + 1).next_power_of_two().min(max_left);
-            right = (right + 1).next_power_of_two().min(max_right);
-        }
-    }
-
-    /// Update this node after changes were made to one of its children.
-    fn update_parent(
-        &mut self,
-        prev_len: usize,
-        new_len: usize,
-        prev_descendants: usize,
-        new_descendants: usize,
-    ) {
-        self.len = self.len + new_len - prev_len;
-        self.descendants = self.descendants + new_descendants - prev_descendants;
-        self.diagnosis = Diagnosis::any(&self.children);
-    }
-
-    /// Format the inner node with its `SyntaxKind` for debugging.
-    fn debug_fmt(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
+    /// Write with debug formatting using the node's syntax kind.
+    fn debug_fmt_kind(&self, f: &mut Formatter, kind: SyntaxKind) -> fmt::Result {
         write!(f, "{kind:?}: {}", self.len)?;
         if !self.children.is_empty() {
             f.write_str(" ")?;
@@ -894,7 +778,7 @@ impl Diagnosis {
     }
 
     /// Whether any node in the given slice has errors or warnings.
-    fn any(slice: &[SyntaxNode]) -> Self {
+    pub fn any(slice: &[SyntaxNode]) -> Self {
         slice
             .iter()
             .map(SyntaxNode::diagnosis)
@@ -944,10 +828,11 @@ impl ErrorNode {
             hints: build_diagnostic_hints(span, &self.hints),
         }
     }
-}
 
-impl Debug for ErrorNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    /// Write with debug formatting using the node's overall span.
+    ///
+    /// See [`WarningWrapper::debug_fmt_span`] for more explanation.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         if self.text.is_empty() && self.hints.is_empty() {
             write!(f, "Error: {:?}", self.message)
         } else {
@@ -955,9 +840,14 @@ impl Debug for ErrorNode {
             out.field("text", &self.text);
             out.field("message", &self.message);
             for (hint, sub_range) in &self.hints {
-                let field = if let Some(sub_range) = sub_range {
-                    let selected = &self.text[sub_range.to_relative()];
-                    &format!("hint @({selected:?})")
+                let field = if let Some(sr) = sub_range {
+                    if let SpanKind::Range { id: _, range } = span.get() {
+                        let new_range = sr.to_absolute(range.start);
+                        &format!("hint @mapped({new_range:?})")
+                    } else {
+                        let selected = &self.text[sr.to_relative()];
+                        &format!("hint @text({selected:?})")
+                    }
                 } else {
                     "hint"
                 };
@@ -972,8 +862,8 @@ impl Debug for ErrorNode {
 ///
 /// Warnings transparently wrap another node and do not have spans or text of
 /// their own. This means their child cannot be directly found or mutated, only
-/// affected _through_ the warning, usually via the [`SyntaxNode::node_ref`] and
-/// [`SyntaxNode::inner_and_span_mut`] methods.
+/// affected _through_ the warning, usually via the [`Node::node_ref`] and
+/// [`Node::inner_mut`] methods.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct WarningWrapper {
     /// The wrapped node data.
@@ -1005,10 +895,15 @@ impl WarningWrapper {
             hints: build_diagnostic_hints(span, &self.hints),
         }
     }
-}
 
-impl Debug for WarningWrapper {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    /// Write with debug formatting using the node's overall span.
+    ///
+    /// The overall span is needed to correctly format sub-ranges. If the syntax
+    /// tree used range-mapping ([`SyntaxNode::synthesize_mapped`]), we can't
+    /// know the actual text being warned/hinted at without accessing the source
+    /// file. So instead of showing the text included by the sub-range, we fall
+    /// back to showing the mapped indices of the sub-range.
+    fn debug_fmt_span(&self, f: &mut Formatter, span: Span) -> fmt::Result {
         let full_text = LazyCell::new(|| {
             let data = self.child.clone();
             let temp_node = SyntaxNode { data, span: Span::detached() };
@@ -1019,8 +914,13 @@ impl Debug for WarningWrapper {
             let full_text = &full_text;
             debug(move |f| {
                 if let Some(sr) = sub_range {
-                    let selected = &full_text[sr.to_relative()];
-                    write!(f, "{field} @({selected:?}): {message:?}")
+                    if let SpanKind::Range { id: _, range } = span.get() {
+                        let new_range = sr.to_absolute(range.start);
+                        write!(f, "{field} @mapped({new_range:?}): {message:?}")
+                    } else {
+                        let selected = &full_text[sr.to_relative()];
+                        write!(f, "{field} @text({selected:?}): {message:?}")
+                    }
                 } else {
                     write!(f, "{field}: {message:?}")
                 }
@@ -1035,7 +935,7 @@ impl Debug for WarningWrapper {
         for (hint, sub_range) in &self.hints {
             out.entry(&debug_field("hint", hint, *sub_range));
         }
-        out.entry(&self.child);
+        out.entry(&debug(move |f| self.child.debug_fmt_span(f, span)));
         out.finish()
     }
 }
@@ -1483,7 +1383,7 @@ mod tests {
     use super::*;
     use crate::Source;
 
-    /// Test the debug output of a `SyntaxNode`.
+    /// Test the debug output of a [`SyntaxNode`].
     #[test]
     fn test_debug() {
         // A standard syntax tree:
@@ -1543,6 +1443,8 @@ Markup: 2 [
         );
     }
 
+    /// Test the debug output of a [`SyntaxNode`] containing errors and warnings
+    /// that use sub-ranges.
     #[test]
     fn test_debug_sub_range() {
         // An example warning for text at a sub-range:
@@ -1555,7 +1457,7 @@ Markup: 2 [
             "\
 Markup: 7 [
     Warning: {
-        message @(\"= =\"): \"equal space equal!\",
+        message @text(\"= =\"): \"equal space equal!\",
         hint: \"try equal equal space?\",
         Heading: 7 [
             HeadingMarker: \"=\",
@@ -1582,22 +1484,389 @@ Markup: 7 [
             "\
 Markup: 9 [
     Warning: {
-        message @(\"closed\"): \"opened?\",
-        hint @(\"<unclosed\"): \"full text\",
+        message @text(\"closed\"): \"opened?\",
+        hint @text(\"<unclosed\"): \"full text\",
         Error: {
             text: \"<unclosed\",
             message: \"unclosed label\",
-            hint @(\"<\"): \"greater\",
-            hint @(\"close\"): \"open!\",
+            hint @text(\"<\"): \"greater\",
+            hint @text(\"close\"): \"open!\",
         },
     },
 ]"
         );
     }
 
+    /// Test the debug output of a [`SyntaxNode`] containing errors and warnings
+    /// when synthesizing spans and range mappings.
+    #[test]
+    fn test_debug_synthesized_ranges() {
+        // An example for hints at sub-ranges:
+        let mut root = crate::parse("<unclosed");
+        let node = &mut root.children_mut()[0];
+        // Hint on the "unclosed label" error:
+        node.hint_at(0..1, "greater");
+        node.hint_at(3..8, "open!");
+        // Adding a warning with hints around the error:
+        node.warn_at(3..9, "opened?");
+        node.hint_at(0..9, "full text");
+
+        // Synthesize sub-ranges with a range mapping:
+        let mut synth_mapped = root.clone();
+        let range_mapper = RangeMapper::new([10..13, 23..29]).unwrap();
+        assert_eq!(synth_mapped.len(), range_mapper.total_len());
+
+        let id = crate::FileId::new_for_test("synth_mapped");
+        synth_mapped.synthesize_mapped(id, &range_mapper).unwrap();
+        assert_eq!(
+            format!("{synth_mapped:#?}"),
+            "\
+Markup: 9 [
+    Warning: {
+        message @mapped(23..29): \"opened?\",
+        hint @mapped(10..29): \"full text\",
+        Error: {
+            text: \"<unclosed\",
+            message: \"unclosed label\",
+            hint @mapped(10..11): \"greater\",
+            hint @mapped(23..28): \"open!\",
+        },
+    },
+]"
+        );
+
+        // Synthesize sub-ranges with a detached span. The `message` and `hint`
+        // output no longer includes the related text, but we add a new hint
+        // reading: "from index `a` to `b`".
+        let mut synth_detached = root.clone();
+        synth_detached.synthesize(Span::detached());
+        assert_eq!(
+            format!("{synth_detached:#?}"),
+            "\
+Markup: 9 [
+    Warning: {
+        message: \"opened?\",
+        hint: \"full text\",
+        hint: \"from index `3` to `9`\",
+        Error: {
+            text: \"<unclosed\",
+            message: \"unclosed label\",
+            hint: \"greater\",
+            hint: \"open!\",
+            hint: \"from index `0` to `9`\",
+        },
+    },
+]"
+        );
+
+        // Synthesize an error that surrounds empty text. This has a slightly
+        // different hint than when the text is not empty.
+        let mut root = crate::parse("#");
+        root.synthesize(Span::detached());
+        assert_eq!(
+            format!("{root:#?}"),
+            "\
+Markup: 1 [
+    Hash: \"#\",
+    Error: {
+        text: \"\",
+        message: \"expected expression\",
+        hint: \"at index `1`\",
+    },
+]"
+        );
+    }
+
+    /// Return a vector of the span numbers from an in-order traversal of the
+    /// tree.
+    fn span_numbers(root: &SyntaxNode) -> Vec<u64> {
+        let mut vec = vec![];
+        root.traverse(|node| {
+            vec.push(node.span().number());
+            node.children()
+        });
+        vec
+    }
+
+    /// Basic test for span numbering.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_basic() {
+        let id = FileId::new_for_test("numberize_basic");
+
+        // Simplest actual example.
+        let mut root = crate::parse("A");
+        assert_eq!(format!("{root:?}"), "Markup: 1 [Text: \"A\"]");
+        let range_numberings = [
+            (2..(2 + 02), [2, 3]), // +0, +1
+            (2..(2 + 07), [2, 3]),
+            (2..(2 + 08), [3, 5]), // +1, +2
+            (2..(2 + 11), [3, 5]),
+            (2..(2 + 12), [3, 6]),  // +1, +3
+            (2..(2 + 16), [4, 8]),  // +2, +4
+            (2..(2 + 20), [4, 9]),  // +2, +5
+            (2..(2 + 24), [5, 11]), // +3, +6
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                [0, 1].map(|i| start + stride / 2 + i * stride)
+            }),
+        ];
+        for (range, numbers) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbers);
+        }
+
+        // Two extra nodes.
+        let mut root = crate::parse(" A ");
+        assert_eq!(
+            format!("{root:?}"),
+            "Markup: 3 [SpaceNoNewline: \" \", Text: \"A\", SpaceNoNewline: \" \"]",
+        );
+        // This has a simple pattern since it has no nesting.
+        let range_numberings = [
+            (2..(2 + 04), [2, 3, 4, 5]), // +0, iter by 1
+            (2..(2 + 05), [2, 3, 4, 5]),
+            (2..(2 + 08), [2, 3, 4, 5]), // +0, iter by 1 (since 8/16==0, 8/8==1)
+            (2..(2 + 15), [2, 3, 4, 5]),
+            (2..(2 + 16), [3, 5, 7, 9]), // +1, iter by 2 (since 16/16==1, 16/8==2)
+            (2..(2 + 23), [3, 5, 7, 9]),
+            (2..(2 + 24), [3, 6, 9, 12]), // +1, iter by 3 (since 24/16==1, 24/8==3)
+            (2..(2 + 32), [4, 8, 12, 16]), // +2, iter by 4 (etc.)
+            (2..(2 + 40), [4, 9, 14, 19]), // +2, iter by 5
+            (2..(2 + 48), [5, 11, 17, 23]), // +3, iter by 6
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                [0, 1, 2, 3].map(|i| start + stride / 2 + i * stride)
+            }),
+        ];
+        for (range, numbering) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbering);
+        }
+
+        // More nesting and an empty inner node.
+        let mut root = crate::parse("1.");
+        assert_eq!(
+            format!("{root:?}"),
+            "Markup: 2 [EnumItem: 2 [EnumMarker: \"1.\", Markup: 0]]",
+        );
+        // This pattern is harder. The first node always matches the previous
+        // pattern, but the `EnumItem` node only counts 3 descendants, so starts
+        // a different stride for its children.
+        let range_numberings = [
+            (2..(2 + 04), [2, 3, 4, 5]), // Start simple
+            (2..(2 + 05), [2, 3, 4, 5]),
+            (2..(2 + 08), [2, 3, 4, 5]),
+            (2..(2 + 15), [2, 3, 4, 5]), // +1, +1, iter by 1 (15/8==1)
+            (2..(2 + 16), [3, 4, 5, 6]), // +2, +1, iter by 1 (16/8==2)
+            (2..(2 + 23), [3, 4, 5, 6]),
+            (2..(2 + 24), [3, 5, 6, 7]), // +2, +2, iter by 1 (24/8==3)
+            (2..(2 + 31), [3, 5, 6, 7]),
+            (2..(2 + 32), [4, 7, 9, 10]), // +3, +3, iter by 1 (32/8==4)
+            (2..(2 + 40), [4, 8, 10, 11]),
+            (2..(2 + 47), [4, 8, 10, 11]),
+            (2..(2 + 48), [5, 9, 12, 14]),
+            (Span::FULL, {
+                let Range { start, end } = Span::FULL;
+                let desc = root.descendants() as u64;
+                let stride = (end - start) / (2 * desc);
+                let markup_1 = start + stride / 2;
+                let enum_item = markup_1 + stride * 3 / 4; // stride/4 + stride/2
+                let enum_marker = enum_item + stride / 2;
+                let markup_2 = enum_marker + stride * 3 / 8; // stride/4 + stride/8
+                [markup_1, enum_item, enum_marker, markup_2]
+            }),
+        ];
+        for (range, numbering) in range_numberings {
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), numbering);
+        }
+    }
+
+    impl SyntaxNode {
+        /// Helper to call [`InnerNode::replace_children`] and
+        /// [`InnerNode::renumber_children`] more easily.
+        fn replace_and_renumber(
+            &mut self,
+            range: Range<usize>,
+            replacement: &[SyntaxNode],
+        ) -> NumberingResult {
+            let inner = self.data.inner_mut().unwrap();
+            let replaced_range = inner.replace_children(range, replacement.to_vec());
+            inner.renumber_children(self.span, replaced_range)
+        }
+    }
+
+    /// Test span numbering when replacing a single child.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_replace() {
+        let id = FileId::new_for_test("numberize_replace");
+
+        let orig_root = crate::parse("A");
+        assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
+
+        // Test replacing a single child with one or two nodes.
+        let one_node = &[SyntaxNode::leaf(SyntaxKind::Text, "B")];
+        let two_nodes = &[
+            SyntaxNode::leaf(SyntaxKind::Text, "C"),
+            SyntaxNode::leaf(SyntaxKind::Text, "D"),
+        ];
+        let range_numbering_replacements = [
+            // (1) The range of numbers, (2) the initial numbering for that
+            // range, (3) the numbering when one node replaces "A", (4) the
+            // numbering when two nodes replace "A".
+            (2..(2 + 02), [2, 3], Some([2, 3]), None),
+            (2..(2 + 03), [2, 3], Some([2, 3]), Some([2, 3, 4])),
+            (2..(2 + 04), [2, 3], Some([2, 3]), Some([2, 3, 4])),
+            (2..(2 + 07), [2, 3], Some([2, 4]), Some([2, 3, 4])), // init/one differ
+            (2..(2 + 08), [3, 5], Some([3, 5]), Some([3, 4, 5])),
+            (2..(2 + 10), [3, 5], Some([3, 6]), Some([3, 5, 7])), // init/one differ
+            (2..(2 + 16), [4, 8], Some([4, 8]), Some([4, 6, 9])),
+            (2..(2 + 19), [4, 8], Some([4, 9]), Some([4, 7, 11])), // init/one differ
+        ];
+        for (range, num_init, replace_one, replace_two) in range_numbering_replacements {
+            let mut root = orig_root.clone();
+            root.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&root), num_init);
+
+            // Replace with a single node.
+            let num_result = root.replace_and_renumber(0..1, one_node);
+            if let Some(expected) = replace_one {
+                assert!(num_result.is_ok(), "numbering should succeed");
+                assert_eq!(span_numbers(&root), expected);
+            } else {
+                assert!(num_result.is_err(), "numbering should fail");
+            }
+
+            // Replace with two nodes.
+            let num_result = root.replace_and_renumber(0..1, two_nodes);
+            if let Some(expected) = replace_two {
+                assert!(num_result.is_ok(), "numbering should succeed");
+                assert_eq!(span_numbers(&root), expected);
+            } else {
+                assert!(num_result.is_err(), "numbering should fail");
+            }
+        }
+    }
+
+    /// Test how many nodes we can insert at the front/back of an inner node
+    /// until we change any of the spans.
+    #[test]
+    #[expect(clippy::zero_prefixed_literal)]
+    fn test_numberize_insertion() {
+        let id = FileId::new_for_test("numberize_insertion");
+        let one_node = &[SyntaxNode::leaf(SyntaxKind::Text, "X")];
+
+        let orig_root = crate::parse("A");
+        assert_eq!(format!("{orig_root:?}"), "Markup: 1 [Text: \"A\"]");
+
+        let back_insertion = [
+            // (1) The range of numbers, (2) the initial numbering for
+            // that range, (3) the numbers inserted at the _back_ until one of
+            // the spans changes.
+            (2..(2 + 02), [2, 3], &[] as &[u64]),
+            (2..(2 + 03), [2, 3], &[4]),
+            (2..(2 + 04), [2, 3], &[4, 5]),
+            (2..(2 + 07), [2, 3], &[5, 6, 7, 8]),
+            (2..(2 + 08), [3, 5], &[7, 8, 9]),
+            (2..(2 + 09), [3, 5], &[7, 8, 9, 10]),
+            (2..(2 + 10), [3, 5], &[7, 9, 10, 11]),
+            (2..(2 + 12), [3, 6], &[8, 10, 11, 12, 13]),
+            (2..(2 + 13), [3, 6], &[9, 11, 12, 13, 14]),
+            (2..(2 + 14), [3, 6], &[9, 11, 13, 14, 15]),
+            (2..(2 + 15), [3, 6], &[9, 11, 13, 14, 15, 16]),
+            (2..(2 + 16), [4, 8], &[11, 13, 15, 16, 17]),
+        ];
+        for (range, nums_init, inserted_nums) in back_insertion {
+            let mut expected = nums_init.to_vec();
+
+            let mut back = orig_root.clone();
+            back.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&back), expected);
+
+            expected.extend_from_slice(inserted_nums);
+
+            // Insert nodes in the back one at a time until the span number of
+            // one of nodes changes.
+            let mut prev = back.clone();
+            let mut n = 1;
+            while back.replace_and_renumber(n..n, one_node).is_ok()
+                && prev
+                    .children()
+                    .zip(back.children().take(n))
+                    .all(|(a, b)| a.span() == b.span())
+            {
+                n += 1;
+                prev = back.clone();
+            }
+            assert_eq!(span_numbers(&prev), expected);
+        }
+
+        let front_insertion = [
+            // (1) The range of numbers, (2) the initial numbering for that
+            // range, (3) the numbers inserted at the _front_ until one of the
+            // spans changes.
+            (2..(2 + 02), [2, 3], &[] as &[u64]),
+            (2..(2 + 07), [2, 3], &[]),
+            (2..(2 + 08), [3, 5], &[4]),
+            (2..(2 + 09), [3, 5], &[4]),
+            (2..(2 + 10), [3, 5], &[4]),
+            (2..(2 + 11), [3, 5], &[4]),
+            (2..(2 + 12), [3, 6], &[4]),
+            (2..(2 + 16), [4, 8], &[5]),
+            (2..(2 + 20), [4, 9], &[5, 6]),
+            // To understand these patterns, recall that the last span number
+            // will be the first node inserted (since we insert one at a time).
+            // For example, we insert 7 between 5 and 11 because we split the
+            // range of 5 numbers (6,7,8,9,10) in half: `5 / 2 == 2` and we
+            // insert `5 + 2 == 7`. We then insert 6 because it is the only
+            // number between 5 and 7, and we stop there since another insertion
+            // would be forced to modify one of the existing numbers.
+            (2..(2 + 24), [5, 11], &[6, 7]),
+            (2..(2 + 28), [5, 12], &[6, 7]),
+            (2..(2 + 32), [6, 14], &[7, 8]),
+            (2..(2 + 40), [7, 17], &[8, 10]),
+            (2..(2 + 48), [8, 20], &[9, 11]),
+            (2..(2 + 56), [9, 23], &[10, 13]),
+            (2..(2 + 80), [12, 32], &[13, 14, 17]),
+            (2..(2 + 88), [13, 35], &[14, 15, 19]),
+            (2..(2 + 144), [20, 56], &[21, 23, 29]),
+            (2..(2 + 152), [21, 59], &[22, 24, 31]),
+            (2..(2 + 160), [22, 62], &[23, 25, 32]),
+        ];
+        for (range, num_init, inserted_nums) in front_insertion {
+            let mut expected = num_init.to_vec();
+
+            let mut front = orig_root.clone();
+            front.numberize(id, range).unwrap();
+            assert_eq!(span_numbers(&front), expected);
+
+            expected.splice(1..1, inserted_nums.iter().copied());
+
+            // Insert nodes in the front one at a time until the span number of
+            // one of nodes changes.
+            let mut prev = front.clone();
+            while front.replace_and_renumber(0..0, one_node).is_ok()
+                && prev
+                    .children()
+                    .zip(front.children().skip(1))
+                    .all(|(a, b)| a.span() == b.span())
+            {
+                prev = front.clone();
+            }
+            assert_eq!(span_numbers(&prev), expected);
+        }
+    }
+
     #[test]
     fn test_linked_node() {
-        let source = Source::detached("#set text(12pt, red)");
+        let test_id = FileId::new_for_test("test_linked_node");
+        let source = Source::new(test_id, "#set text(12pt, red)");
 
         // Find "text" with Before.
         let node = LinkedNode::new(source.root()).leaf_at(7, Side::Before).unwrap();
@@ -1617,14 +1886,15 @@ Markup: 9 [
 
     #[test]
     fn test_linked_node_non_trivia_leaf() {
-        let source = Source::detached("#set fun(12pt, red)");
+        let test_id = FileId::new_for_test("test_linked_node_non_trivia_leaf");
+        let source = Source::new(test_id, "#set fun(12pt, red)");
         let leaf = LinkedNode::new(source.root()).leaf_at(6, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert_eq!(leaf.leaf_text(), "fun");
         assert_eq!(prev.leaf_text(), "set");
 
         // Check position 9 with Before.
-        let source = Source::detached("#let x = 10");
+        let source = Source::new(test_id, "#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::Before).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         let next = leaf.next_leaf().unwrap();
@@ -1633,7 +1903,7 @@ Markup: 9 [
         assert_eq!(next.leaf_text(), "10");
 
         // Check position 9 with After.
-        let source = Source::detached("#let x = 10");
+        let source = Source::new(test_id, "#let x = 10");
         let leaf = LinkedNode::new(source.root()).leaf_at(9, Side::After).unwrap();
         let prev = leaf.prev_leaf().unwrap();
         assert!(leaf.next_leaf().is_none());

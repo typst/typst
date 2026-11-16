@@ -53,3 +53,16 @@ Was: #context {
 // Hint: 2-26 try wrapping this in a `context` expression
 // Hint: 2-26 the `context` expression should wrap everything that depends on this function
 #state("key").at(<label>)
+
+--- state-update-panic paged trace ---
+// Error: 22-29 panicked
+#let page-count(n) = panic()
+
+// Trace: 2-34 (1) while calling `page-count`
+#state("page").update(page-count)
+
+// Trace: 1:10-3:2 (3) while evaluating contextual content
+#context {
+  // Trace: 3-24 (2) while calling `final`
+  state("page").final()
+}

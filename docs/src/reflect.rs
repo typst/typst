@@ -85,6 +85,7 @@ fn describe_func(func: &Func) -> Dict {
         "docs" => func.docs(),
         "def-site" => func.def_site().map(describe_def_site),
         "element" => func.to_element().is_some(),
+        "locatable" => func.to_element().is_some_and(|elem| elem.is_locatable()),
         "contextual" => func.contextual(),
         "params" => func
             .params()

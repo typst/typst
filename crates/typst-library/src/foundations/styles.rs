@@ -8,14 +8,14 @@ use ecow::{EcoString, EcoVec, eco_vec};
 use indexmap::IndexMap;
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
-use typst_syntax::Span;
+use typst_syntax::{Span, Spanned};
 use typst_utils::LazyHash;
 
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::engine::Engine;
 use crate::foundations::{
     Content, Context, Element, Field, Func, NativeElement, OneOrMultiple, Packed,
-    RefableProperty, Repr, Selector, SettableProperty, Target, cast, ty,
+    RefableProperty, Repr, Selector, SettableProperty, Target, Value, cast, ty,
 };
 use crate::introspection::TagElem;
 
@@ -503,11 +503,17 @@ impl Recipe {
         let mut content = match &self.transform {
             Transformation::Content(content) => content.clone(),
             Transformation::Func(func) => {
-                let mut result = func.call(engine, context, [content.clone()]);
+                // This already adds definition site of the show rule to the
+                // trace.
+                let mut result =
+                    func.call::<Value>(engine, context, [content.clone()], self.span);
+
+                // Also add the application site of the show rule to the trace.
                 if self.selector.is_some() {
                     let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(engine.world, point, content.span());
                 }
+
                 result?.display()
             }
             Transformation::Style(styles) => content.styled_with_map(styles.clone()),
@@ -880,6 +886,14 @@ impl<T: Resolve> Resolve for Option<T> {
     }
 }
 
+impl<T: Resolve, const SPAN_EQ: bool> Resolve for Spanned<T, Span, SPAN_EQ> {
+    type Output = Spanned<T::Output, Span, SPAN_EQ>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        self.map(|v| v.resolve(styles))
+    }
+}
+
 /// A property that is folded to determine its final value.
 ///
 /// In the example below, the chain of stroke values is folded into a single
@@ -933,6 +947,12 @@ impl<T> Fold for OneOrMultiple<T> {
     fn fold(self, mut outer: Self) -> Self {
         outer.0.extend(self.0);
         outer
+    }
+}
+
+impl<T: Fold, const SPAN_EQ: bool> Fold for Spanned<T, Span, SPAN_EQ> {
+    fn fold(self, outer: Self) -> Self {
+        Spanned::new(self.v.fold(outer.v), self.span.or(outer.span))
     }
 }
 

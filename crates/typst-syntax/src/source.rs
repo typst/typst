@@ -8,10 +8,7 @@ use typst_utils::LazyHash;
 
 use crate::lines::Lines;
 use crate::reparser::reparse;
-use crate::{
-    FileId, LinkedNode, RootedPath, Span, SpanNumber, SubRange, SyntaxNode, VirtualPath,
-    VirtualRoot, parse,
-};
+use crate::{FileId, LinkedNode, Span, SpanNumber, SubRange, SyntaxNode, parse};
 
 /// A Typst source file containing the full source text, a mapping from byte
 /// indices to lines/columns, and the parsed syntax tree.
@@ -32,22 +29,15 @@ struct SourceInner {
 }
 
 impl Source {
-    /// Create a new source file.
-    pub fn new(id: FileId, text: String) -> Self {
+    /// Create a new source file. This parses the input text and assigns span
+    /// numbers to the parsed tree.
+    pub fn new(id: FileId, text: impl Into<String>) -> Self {
+        let text: String = text.into();
         #[cfg(feature = "timing")]
         let _scope = typst_timing::TimingScope::new("create source");
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();
         Self(Arc::new(LazyHash::new(SourceInner { id, lines: Lines::new(text), root })))
-    }
-
-    /// Create a source file without a real id and path, usually for testing.
-    pub fn detached(text: impl Into<String>) -> Self {
-        Self::new(
-            RootedPath::new(VirtualRoot::Project, VirtualPath::new("main.typ").unwrap())
-                .intern(),
-            text.into(),
-        )
     }
 
     /// Create a new source file with an already created syntax tree.
@@ -159,12 +149,13 @@ impl AsRef<str> for Source {
 #[cfg(test)]
 mod test {
     use super::Source;
-    use crate::{LinkedNode, Side, Span, SubRange};
+    use crate::{FileId, LinkedNode, Side, Span, SubRange};
 
     #[test]
     fn test_source_sub_ranges() {
+        let test_id = FileId::new_for_test("test_source_sub_ranges");
         let text = "= head <label>";
-        let source = Source::detached(text);
+        let source = Source::new(test_id, text);
         let get = |span: Span, sub_range| {
             let num = crate::SpanNumber(span.number());
             &text[source.range(num, sub_range).unwrap()]

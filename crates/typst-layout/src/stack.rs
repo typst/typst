@@ -311,7 +311,7 @@ impl<'a> StackLayouter<'a> {
         // Expand fully if there are fr spacings.
         let full = self.initial.get(self.axis);
         let remaining = full - self.used.main;
-        if self.fr.get() > 0.0 && full.is_finite() {
+        if !self.fr.is_zero() && full.is_finite() {
             self.used.main = full;
             size.set(self.axis, full);
         }

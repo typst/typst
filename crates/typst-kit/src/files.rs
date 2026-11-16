@@ -220,7 +220,7 @@ impl FileSlot {
         } else if let Some(rest) = without_bom {
             // If we had a BOM, we can't reuse the bytes for a string, so we
             // just create a source with a cloned string.
-            (str::from_utf8(rest).map(|text| Source::new(id, text.into())), bytes)
+            (str::from_utf8(rest).map(|text| Source::new(id, text)), bytes)
         } else {
             // If we had no BOM, we attempt to reuse an existing `String` or
             // `Vec<u8>` within the `Bytes`, backing the `Bytes` with the

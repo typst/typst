@@ -50,7 +50,7 @@ impl SvgPathBuilder {
     }
 
     /// Finish building the path.
-    pub fn finsish(self) -> EcoString {
+    pub fn finish(self) -> EcoString {
         self.path
     }
 

@@ -288,7 +288,7 @@
 #test("aaa".replace("a", m => str(m.captures.len())), "000")
 
 --- string-replace-function-bad-type eval ---
-// Error: 23-24 expected string, found integer
+// Error: 23-29 expected string, found integer
 #"123".replace("123", m => 1)
 
 --- string-replace-bad-type eval ---

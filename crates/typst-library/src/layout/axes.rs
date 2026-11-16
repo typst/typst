@@ -108,7 +108,7 @@ impl<T: Ord> Axes<T> {
         Self { x: self.x.min(other.x), y: self.y.min(other.y) }
     }
 
-    /// The component-wise minimum of this and another instance.
+    /// The component-wise maximum of this and another instance.
     pub fn max(self, other: Self) -> Self {
         Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
@@ -118,7 +118,7 @@ impl<T: Ord> Axes<T> {
         self.x.min(self.y)
     }
 
-    /// The minimum of width and height.
+    /// The maximum of width and height.
     pub fn max_by_side(self) -> T {
         self.x.max(self.y)
     }

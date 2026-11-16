@@ -9,7 +9,7 @@ use serde::de::IgnoredAny;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use unscanny::Scanner;
 
-use crate::is_ident;
+use crate::{VirtualPath, is_ident};
 
 /// A type alias for a map of key-value pairs used to collect unknown fields
 /// where values are completely discarded.
@@ -80,14 +80,14 @@ pub struct ToolInfo {
 pub struct TemplateInfo {
     /// The directory within the package that contains the files that should be
     /// copied into the user's new project directory.
-    pub path: EcoString,
+    pub path: VirtualPath,
     /// A path relative to the template's path that points to the file serving
     /// as the compilation target.
-    pub entrypoint: EcoString,
+    pub entrypoint: VirtualPath,
     /// A path relative to the package's root that points to a PNG or lossless
     /// WebP thumbnail for the template.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub thumbnail: Option<EcoString>,
+    pub thumbnail: Option<VirtualPath>,
     /// All parsed but unknown fields, this can be used for validation.
     #[serde(flatten, skip_serializing)]
     pub unknown_fields: UnknownFields,
@@ -103,7 +103,7 @@ pub struct PackageInfo {
     /// The package's version.
     pub version: PackageVersion,
     /// The path of the entrypoint into the package.
-    pub entrypoint: EcoString,
+    pub entrypoint: VirtualPath,
     /// A list of the package's authors.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub authors: Vec<EcoString>,
@@ -185,10 +185,10 @@ impl PackageManifest {
 
 impl TemplateInfo {
     /// Create a new template info with only required fields.
-    pub fn new(path: impl Into<EcoString>, entrypoint: impl Into<EcoString>) -> Self {
+    pub fn new(path: VirtualPath, entrypoint: VirtualPath) -> Self {
         TemplateInfo {
-            path: path.into(),
-            entrypoint: entrypoint.into(),
+            path,
+            entrypoint,
             thumbnail: None,
             unknown_fields: UnknownFields::new(),
         }
@@ -200,12 +200,12 @@ impl PackageInfo {
     pub fn new(
         name: impl Into<EcoString>,
         version: PackageVersion,
-        entrypoint: impl Into<EcoString>,
+        entrypoint: VirtualPath,
     ) -> Self {
         PackageInfo {
             name: name.into(),
             version,
-            entrypoint: entrypoint.into(),
+            entrypoint,
             authors: vec![],
             categories: vec![],
             compiler: None,
@@ -587,7 +587,7 @@ mod tests {
                 package: PackageInfo::new(
                     "package",
                     PackageVersion { major: 0, minor: 1, patch: 0 },
-                    "src/lib.typ"
+                    VirtualPath::new("src/lib.typ").unwrap(),
                 ),
                 template: None,
                 tool: ToolInfo { sections: BTreeMap::new() },

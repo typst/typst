@@ -184,7 +184,7 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
             return convert_curve(Point::zero(), p);
         }
     }
-    builder.finsish()
+    builder.finish()
 }
 
 pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
@@ -197,5 +197,5 @@ pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
             CurveItem::Close => builder.close(),
         }
     }
-    builder.finsish()
+    builder.finish()
 }

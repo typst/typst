@@ -309,3 +309,10 @@ HI#footnote.entry(clearance: 2.5em)[There]
 )
 
 #c
+
+--- issue-8823-figure-alt-text html ---
+// Test that alt text is output on html figures.
+#figure(
+  html.frame(square(width: 10pt, fill: red)),
+  alt: "A red square",
+)

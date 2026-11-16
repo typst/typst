@@ -28,7 +28,7 @@ impl TestWorld {
     /// This is cheap because the shared base for all test runs is lazily
     /// initialized just once.
     pub fn new(text: &str) -> Self {
-        let main = Source::new(Self::main_id(), text.into());
+        let main = Source::new(Self::main_id(), text);
         Self {
             main,
             files: Arc::new(TestFiles::default()),
@@ -41,7 +41,7 @@ impl TestWorld {
     pub fn with_source(mut self, path: &str, text: &str) -> Self {
         let id = RootedPath::new(VirtualRoot::Project, VirtualPath::new(path).unwrap())
             .intern();
-        let source = Source::new(id, text.into());
+        let source = Source::new(id, text);
         Arc::make_mut(&mut self.files).sources.insert(id, source);
         self
     }

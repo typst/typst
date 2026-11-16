@@ -32,17 +32,16 @@ use crate::visualize::{Color, Gradient, Paint, Tiling};
 /// combination of the two. Specifically, wherever a stroke is expected you can
 /// pass any of the following values:
 ///
-/// - A length specifying the stroke's thickness. The color is inherited,
+/// - A @length specifying the stroke's thickness. The color is inherited,
 ///   defaulting to black.
-/// - A color to use for the stroke. The thickness is inherited, defaulting to
+/// - A @color to use for the stroke. The thickness is inherited, defaulting to
 ///   `{1pt}`.
 /// - A stroke combined from color and thickness using the `+` operator as in
 ///   `{2pt + red}`.
 ///
-/// For full control, you can also provide a @dictionary[dictionary] or a
-/// `{stroke}` object to any function that expects a stroke. The dictionary's
-/// keys may include any of the parameters for the constructor function, shown
-/// below.
+/// For full control, you can also provide a @dictionary or a `{stroke}` object
+/// to any function that expects a stroke. The dictionary's keys may include any
+/// of the parameters for the constructor function, shown below.
 ///
 /// = Fields <fields>
 /// On a stroke object, you can access any of the fields listed in the
@@ -89,12 +88,16 @@ impl Stroke {
     ///
     /// ```example
     /// #let my-func(x) = {
-    ///     x = stroke(x) // Convert to a stroke
-    ///     [Stroke has thickness #x.thickness.]
+    ///   // Convert `x` to a stroke.
+    ///   x = stroke(x)
+    ///   [Thickness is #x.thickness.]
     /// }
     /// #my-func(3pt) \
     /// #my-func(red) \
-    /// #my-func(stroke(cap: "round", thickness: 1pt))
+    /// #my-func(stroke(
+    ///   cap: "round",
+    ///   thickness: 1pt,
+    /// ))
     /// ```
     #[func(constructor, since = "forever")]
     pub fn construct(
@@ -104,26 +107,68 @@ impl Stroke {
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{black}`.
         #[external]
+        #[named]
+        #[default]
         paint: Smart<Paint>,
 
         /// The stroke's thickness.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to `{1pt}`.
         #[external]
+        #[named]
+        #[default]
         thickness: Smart<Length>,
 
         /// How the ends of the stroke are rendered.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to
         /// `{"butt"}`.
+        ///
+        /// ```example
+        /// #set line(length: 100%, stroke: 10pt)
+        /// #stack(
+        ///   spacing: 20pt,
+        ///   line(stroke: (cap: "butt")),
+        ///   line(stroke: (cap: "round")),
+        ///   line(stroke: (cap: "square")),
+        /// )
+        /// ```
         #[external]
+        #[named]
+        #[default]
         cap: Smart<LineCap>,
 
         /// How sharp turns are rendered.
         ///
         /// If set to `{auto}`, the value is inherited, defaulting to
         /// `{"miter"}`.
+        ///
+        /// ```example
+        /// #set align(center)
+        /// #set curve(stroke: (
+        ///   paint: blue,
+        ///   thickness: 8pt,
+        ///   miter-limit: 10,
+        /// ))
+        ///
+        /// #let example(s) = curve(
+        ///   stroke: s,
+        ///   curve.move((30pt, 0pt)),
+        ///   curve.line((0pt, 60pt)),
+        ///   curve.line((60pt, 60pt)),
+        ///   curve.line((20pt, 40pt)),
+        /// )
+        ///
+        /// #stack(
+        ///   spacing: 10pt,
+        ///   example((join: "miter")),
+        ///   example((join: "round")),
+        ///   example((join: "bevel")),
+        /// )
+        /// ```
         #[external]
+        #[named]
+        #[default]
         join: Smart<LineJoin>,
 
         /// The dash pattern to use. This can be:
@@ -193,6 +238,8 @@ impl Stroke {
         ///   ```
         /// )
         #[external]
+        #[named]
+        #[default]
         dash: Smart<Option<DashPattern>>,
 
         /// Number at which protruding sharp bends are rendered with a bevel
@@ -206,25 +253,30 @@ impl Stroke {
         /// If set to `{auto}`, the value is inherited, defaulting to `{4.0}`.
         ///
         /// ```example
-        /// #let items = (
-        ///   curve.move((15pt, 0pt)),
-        ///   curve.line((0pt, 30pt)),
-        ///   curve.line((30pt, 30pt)),
-        ///   curve.line((10pt, 20pt)),
+        /// #set align(center)
+        /// #set curve(stroke: 8pt + blue)
+        ///
+        /// #let example(s) = curve(
+        ///   stroke: s,
+        ///   curve.move((30pt, 0pt)),
+        ///   curve.line((0pt, 60pt)),
+        ///   curve.line((60pt, 60pt)),
+        ///   curve.line((20pt, 40pt)),
         /// )
         ///
-        /// #set curve(stroke: 6pt + blue)
         /// #stack(
-        ///   dir: ltr,
-        ///   spacing: 1cm,
-        ///   curve(stroke: (miter-limit: 1), ..items),
-        ///   curve(stroke: (miter-limit: 4), ..items),
-        ///   curve(stroke: (miter-limit: 5), ..items),
+        ///   spacing: 10pt,
+        ///   example((miter-limit: 1)),
+        ///   example((miter-limit: 4)),
+        ///   example((miter-limit: 5)),
         /// )
         /// ```
         #[external]
+        #[named]
+        #[default]
         miter_limit: Smart<f64>,
     ) -> SourceResult<Stroke> {
+        // TODO: Document this behavior.
         if let Some(stroke) = args.eat::<Stroke>()? {
             return Ok(stroke);
         }

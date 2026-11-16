@@ -5,7 +5,7 @@ use crate::layout::{Length, Ratio, Rel};
 
 /// Separates a region into multiple equally sized columns.
 ///
-/// The `column` function lets you separate the contents of any container into
+/// The `columns` function lets you separate the contents of any container into
 /// multiple columns. By default, columns take up the height of their container
 /// or the remaining height on the page and are filled up one after another.
 /// Use @colbreak to explicitly end a column and continue in the next one.

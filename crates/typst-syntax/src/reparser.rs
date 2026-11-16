@@ -1,6 +1,9 @@
 use std::ops::Range;
 
-use crate::{Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup};
+use crate::node::{InnerNode, NumberingResult, Unnumberable};
+use crate::{
+    Diagnosis, Span, SyntaxKind, SyntaxNode, parse, reparse_block, reparse_markup,
+};
 
 /// Refresh the given syntax node with as little parsing as possible.
 ///
@@ -16,18 +19,34 @@ pub fn reparse(
     replaced: Range<usize>,
     replacement_len: usize,
 ) -> Range<usize> {
-    try_reparse(text, replaced, replacement_len, None, root, 0).unwrap_or_else(|| {
-        let id = root.span().id();
+    let root_id = root.span().id();
+
+    let mut renumber = true;
+    let mut reparsed_range = 0..text.len();
+    if let Some(inner) = root.reparse_inner_node_mut()
+        && let Some((range, num_result)) =
+            try_reparse_and_renumber(text, replaced, replacement_len, None, inner, 0)
+    {
+        reparsed_range = range;
+        renumber = num_result.is_err();
+    } else {
         *root = parse(text);
-        if let Some(id) = id {
-            root.numberize(id, Span::FULL).unwrap();
-        }
-        0..text.len()
-    })
+    }
+
+    if renumber && let Some(id) = root_id {
+        root.numberize(id, Span::FULL).unwrap();
+    }
+
+    reparsed_range
 }
 
-/// Try to reparse inside the given node, returning the range that was
-/// ultimately reparsed.
+/// Try to reparse inside the given node, returning the range of new text that
+/// was ultimately reparsed.
+///
+/// If reparsing succeeds, also tries to assign span numbers to the new nodes,
+/// returning a [`NumberingResult`]. If the numbering result is an error, i.e.
+/// we're out of span numbers at this level, the caller is in charge of
+/// assigning span numbers (this should be rare).
 ///
 /// We start by doing a depth-first search for the innermost node or nodes which
 /// fully surround the replaced range. This can be a single node that is a
@@ -43,99 +62,120 @@ pub fn reparse(
 /// inside lists or headings, etc. In the past we did reparse those, but the
 /// implementation was very buggy due to edge cases surrounding indentation and
 /// newlines, and was eventually removed without much performance impact. It's
-/// still potentially desireable to handle some of those cases (individual list
+/// still potentially desirable to handle some of those cases (individual list
 /// items can get quite long in practice), but only if the implementation can be
 /// easily reasoned as correct and shows a measured performance improvement.
 ///
 /// We also do not currently reparse math in any capacity, but it would not be
 /// too difficult to include equations as another kind of block, or reparse math
 /// expressions similarly to markup expressions.
-fn try_reparse(
+fn try_reparse_and_renumber(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
     parent_kind: Option<SyntaxKind>,
-    node: &mut SyntaxNode,
+    (node, node_kind, node_span): (&mut InnerNode, SyntaxKind, Span),
     offset: usize,
-) -> Option<Range<usize>> {
+) -> Option<(Range<usize>, NumberingResult)> {
     let (overlap, start_offset) = overlapping_children(node, replaced.clone(), offset)?;
 
-    let node_kind = node.kind();
-    let children = node.children_mut();
-
-    if let [child] = &mut children[overlap.clone()]
+    if let [child_node] = &mut node.children[overlap.clone()]
+        && let Some((child, child_kind, child_span)) = child_node.reparse_inner_node_mut()
         && start_offset < replaced.start
-        && replaced.end < start_offset + child.len()
-        && child.is_inner()
+        && replaced.end < start_offset + child.len
     {
         // A single child fully surrounds the edit. We either reparse within the
         // child, or reparse the child itself (if the child is a block).
-        let prev_len = child.len();
-        let prev_desc = child.descendants();
+        let prev_len = child.len;
+        let prev_desc = child.descendants;
+        let prev_diag = child.diagnosis;
         let new_len = prev_len + replacement_len - replaced.len();
         let new_range = start_offset..start_offset + new_len;
 
         // Recursively descend and try to reparse at a lower level.
-        if let Some(range) = try_reparse(
+        if let Some((new_range, mut num_result)) = try_reparse_and_renumber(
             text,
             replaced.clone(),
             replacement_len,
             Some(node_kind),
-            child,
+            (child, child_kind, child_span),
             start_offset,
         ) {
             // A lower level reparse succeeded! Update this node and return the
             // reparsed range.
-            assert_eq!(child.len(), new_len);
-            let new_desc = child.descendants();
-            node.update_parent(prev_len, new_len, prev_desc, new_desc);
-            return Some(range);
+            assert_eq!(child.len, new_len);
+            let new_desc = child.descendants;
+            let new_diag = child.diagnosis;
+            node.update_parent(
+                prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
+            );
+            if num_result.is_err() {
+                num_result = node.renumber_children(node_span, overlap);
+            }
+            return Some((new_range, num_result));
         }
 
-        // This is the innermost block which fully surrounds the text (and
+        // The child is the innermost block which fully surrounds the text (and
         // hasn't failed at reparsing yet), reparse!
-        if child.kind().is_block()
-            && let Some(reparsed) = reparse_block(text, new_range.clone())
+        if child_kind.is_block()
+            && let Some(new_child) = reparse_block(text, new_range.clone())
         {
-            // Reparsing succeeded, but we can still fail if we're out of span
-            // numbers to assign to nodes (this is rare).
-            return node
-                .replace_children(overlap, vec![reparsed])
-                .is_ok()
-                .then_some(new_range);
+            let new_desc = new_child.descendants();
+            let new_diag = new_child.diagnosis();
+            *child_node = new_child;
+            node.update_parent(
+                prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag,
+            );
+            // Reparsing succeeded! Now try to assign span numbers to the nodes.
+            let num_result = node.renumber_children(node_span, overlap);
+            return Some((new_range, num_result));
         }
     }
 
     if node_kind == SyntaxKind::Markup
         && matches!(parent_kind, None | Some(SyntaxKind::ContentBlock))
+        && let Some(MarkupReparse { newborns, prev_children, new_range }) =
+            expand_and_reparse_markup(
+                text,
+                replaced,
+                replacement_len,
+                &node.children,
+                overlap,
+                offset,
+                parent_kind.is_none(),
+            )
     {
-        expand_and_reparse_markup(
-            text,
-            replaced,
-            replacement_len,
-            node,
-            overlap,
-            offset,
-            parent_kind.is_none(),
-        )
+        let reparsed_children = node.replace_children(prev_children, newborns);
+        // Reparsing succeeded! Now try to assign span numbers to the nodes.
+        let num_result = node.renumber_children(node_span, reparsed_children);
+        Some((new_range, num_result))
     } else {
         None
     }
 }
 
+/// Reparsed markup expressions. We use a struct to avoid ambiguity since the
+/// two [`Range<usize>`] values have different meanings.
+struct MarkupReparse {
+    /// The newly parsed expressions.
+    newborns: Vec<SyntaxNode>,
+    /// The range of children that were replaced.
+    prev_children: Range<usize>,
+    /// The range of new text that was reparsed.
+    new_range: Range<usize>,
+}
+
 /// Reparse a range of markup expressions, expanding the range exponentially on
-/// each iteration.
+/// each iteration until reparsing succeeds.
 fn expand_and_reparse_markup(
     text: &str,
     replaced: Range<usize>,
     replacement_len: usize,
-    node: &mut SyntaxNode,
+    children: &[SyntaxNode],
     overlap: Range<usize>,
     offset: usize,
     top_level: bool,
-) -> Option<Range<usize>> {
-    let children = node.children().as_slice();
-
+) -> Option<MarkupReparse> {
     // Reparse a segment. Retries until it works, taking exponentially more
     // children into account.
     let mut expansion = 1;
@@ -196,31 +236,37 @@ fn expand_and_reparse_markup(
         );
 
         if let Some(newborns) = reparsed {
-            // If more children follow, at_start must match its previous value.
-            // Similarly, if we children follow or we not top-level the nesting
-            // must match its previous value.
+            // Generally, `at_start` and `nesting` need to match their previous
+            // values or else the reparse could affect adjacent/surrounding
+            // nodes. For example, `= Head` is only a heading at the start of a
+            // line, not in the middle of some text. And the outer content block
+            // in `#[a[b]c]` would group differently if the first `[` were
+            // deleted.
+            //
+            // But they can safely differ from their previous values under the
+            // right conditions:
+            // - `at_start` can differ if we're at the end of this markup node,
+            //   since no following markup nodes could be affected.
+            // - `nesting` can differ if we're _both_ at the end of this markup
+            //   node and are reparsing the top-level markup node (i.e. we're
+            //   inserting at the very end of a file), since only the top-level
+            //   markup node has no surrounding blocks.
             if (at_end || at_start == prev_at_start_after)
                 && ((at_end && top_level) || nesting == prev_nesting_after)
             {
-                // Reparsing succeeded, but we can still fail if we're out of
-                // span numbers to assign to nodes (this is rare).
-                return node
-                    .replace_children(start..end, newborns)
-                    .is_ok()
-                    .then_some(new_range);
+                let prev_children = start..end;
+                return Some(MarkupReparse { newborns, prev_children, new_range });
             }
         }
 
         // If it didn't even work with all children, we give up.
         if start == 0 && at_end {
-            break;
+            return None;
         }
 
         // Exponential expansion to both sides.
         expansion *= 2;
     }
-
-    None
 }
 
 /// The indices and start offset of the children which overlap a replaced range.
@@ -230,18 +276,18 @@ fn expand_and_reparse_markup(
 /// Note that the returned `Range<usize>` is the range of children in the
 /// parent, but the returned `usize` is a byte offset in the source text.
 fn overlapping_children(
-    node: &SyntaxNode,
+    node: &InnerNode,
     range: Range<usize>,
     mut offset: usize,
 ) -> Option<(Range<usize>, usize)> {
-    if !node.is_inner() || offset > range.start || range.end > offset + node.len() {
+    if offset > range.start || range.end > offset + node.len {
         // No set of children will fully cover the range, no need to search.
         return None;
     }
     let mut index = 0;
     let mut start = 0;
     let mut start_offset = offset;
-    for child in node.children() {
+    for child in &node.children {
         if offset < range.start {
             start = index;
             start_offset = offset;
@@ -289,11 +335,151 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
     }
 }
 
+impl InnerNode {
+    /// Update this node after one or more of its children were replaced or
+    /// updated. The new children must already be in `self.children`.
+    ///
+    /// `prev_*` variables should come from the previous range of children.
+    /// `new_*` are for the new range of children.
+    fn update_parent(
+        &mut self,
+        prev_len: usize,
+        new_len: usize,
+        prev_descendants: usize,
+        new_descendants: usize,
+        prev_diagnosis: Diagnosis,
+        new_diagnosis: Diagnosis,
+    ) {
+        // Length and descendants are numerical, can update with algebra.
+        // Subtract the previous values first to avoid potential overflow.
+        self.len = (self.len - prev_len) + new_len;
+        self.descendants = (self.descendants - prev_descendants) + new_descendants;
+
+        // Our diagnosis is the `OR` of all our children's diagnoses.
+        if !self.diagnosis.either() || new_diagnosis.both() {
+            // We can avoid iterating our children if our previous overall state
+            // had no errors/warnings, or if the new children have both.
+            self.diagnosis = new_diagnosis;
+        } else if prev_diagnosis != new_diagnosis {
+            // Otherwise, we recompute using all the children since we don't
+            // know if there were multiple children with errors or warnings.
+            self.diagnosis = Diagnosis::any(&self.children);
+        }
+    }
+
+    /// Replace a range of children and calls [`Self::update_parent`].
+    /// [`Self::renumber_children`] should be called immediately after this.
+    ///
+    /// To increase the stability of span numbers, this does not replace nodes
+    /// at the front/back that are equal to the previous nodes. Returns the
+    /// final indices of the inserted nodes.
+    pub fn replace_children(
+        &mut self,
+        mut range: Range<usize>,
+        mut replacement: Vec<SyntaxNode>,
+    ) -> Range<usize> {
+        let mut replacement_range = 0..replacement.len();
+
+        // Trim off common prefix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.start]
+                .spanless_eq(&replacement[replacement_range.start])
+        {
+            range.start += 1;
+            replacement_range.start += 1;
+        }
+
+        // Trim off common suffix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.end - 1]
+                .spanless_eq(&replacement[replacement_range.end - 1])
+        {
+            range.end -= 1;
+            replacement_range.end -= 1;
+        }
+
+        // Compute child information for the `update_parent` call.
+        let new = &replacement[replacement_range.clone()];
+        let new_len = new.iter().map(SyntaxNode::len).sum::<usize>();
+        let new_desc = new.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let new_diag = Diagnosis::any(new);
+
+        let prev = &self.children[range.clone()];
+        let prev_len = prev.iter().map(SyntaxNode::len).sum::<usize>();
+        let prev_desc = prev.iter().map(SyntaxNode::descendants).sum::<usize>();
+        let prev_diag = Diagnosis::any(prev);
+
+        let replaced_range = range.start..range.start + new.len();
+
+        self.children.splice(range, replacement.drain(replacement_range));
+        self.update_parent(prev_len, new_len, prev_desc, new_desc, prev_diag, new_diag);
+
+        replaced_range
+    }
+
+    /// Try to assign span numbers to a range of children. If there are not
+    /// enough numbers, retries taking exponentially more children into account.
+    pub fn renumber_children(
+        &mut self,
+        span: Span,
+        range: Range<usize>,
+    ) -> NumberingResult {
+        let Some(id) = span.id() else { return Err(Unnumberable) };
+
+        let mut left = 0;
+        let mut right = 0;
+        let max_left = range.start;
+        let max_right = self.children.len() - range.end;
+        loop {
+            let renumber = range.start - left..range.end + right;
+
+            // The minimum assignable number is either
+            // - the upper bound of the node right before the to-be-renumbered
+            //   children,
+            // - or this inner node's span number plus one if renumbering starts
+            //   at the first child.
+            let start_number = renumber
+                .start
+                .checked_sub(1)
+                .and_then(|i| self.children.get(i))
+                .map_or(span.number() + 1, |child| child.upper());
+
+            // The upper bound for renumbering is either
+            // - the span number of the first child after the to-be-renumbered
+            //   children,
+            // - or this node's upper bound if renumbering ends behind the last
+            //   child.
+            let end_number = self
+                .children
+                .get(renumber.end)
+                .map_or(self.upper, |next| next.span().number());
+
+            // Try to renumber.
+            let within = start_number..end_number;
+            if self.numberize(None, id, Some(renumber), within).is_ok() {
+                return Ok(());
+            }
+
+            // If it didn't even work with all children, we give up.
+            if left == max_left && right == max_right {
+                return Err(Unnumberable);
+            }
+
+            // Exponential expansion to both sides.
+            left = (left + 1).next_power_of_two().min(max_left);
+            right = (right + 1).next_power_of_two().min(max_right);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
 
-    use crate::{Source, Span, parse};
+    use super::*;
+    use crate::{FileId, Source};
 
     /// How to replace text in the test string.
     enum Edit {
@@ -305,7 +491,7 @@ mod tests {
         Range(Range<usize>),
         /// Replace the first match in the original.
         Match(&'static str),
-        /// Replace at the index after the first match of this string.
+        /// Insert at the index after the first match of this string.
         After(&'static str),
     }
 
@@ -344,17 +530,32 @@ mod tests {
         Incr(&'a str),
     }
 
+    /// Assert that all spans in the tree are valid and not detached.
+    #[track_caller]
+    fn check_valid_spans(root: &SyntaxNode) {
+        root.traverse(|node| {
+            assert!(
+                !node.span().is_detached(),
+                "found a detached span for {:?}: '{}'",
+                node.kind(),
+                node.full_text(),
+            );
+            node.children()
+        });
+    }
+
     #[track_caller]
     fn test(text: &str, edit: Edit, with: &str, expected: Reparse) {
-        let mut source = Source::detached(text);
+        let mut source = Source::new(FileId::new_for_test("test_reparse"), text);
         let orig_tree = source.root().clone();
         // `Source::edit()` is the public interface for reparsing.
         let replaced_range = source.edit(edit.into_range(text), with);
-        let mut reparsed_tree = source.root().clone();
-        let mut normal_parse = parse(source.text());
-        reparsed_tree.synthesize(Span::detached());
-        normal_parse.synthesize(Span::detached());
-        if reparsed_tree != normal_parse {
+        let reparsed_tree = source.root().clone();
+        check_valid_spans(&orig_tree);
+        check_valid_spans(&reparsed_tree);
+        let normal_parse = parse(source.text());
+        assert!(normal_parse.span().is_detached(), "should be detached");
+        if !reparsed_tree.spanless_eq(&normal_parse) {
             eprintln!("Original source text: {text:?}");
             eprintln!("Original tree:\n{orig_tree:#?}");
             eprintln!("New source text: {:?}", source.text());
@@ -469,5 +670,129 @@ mod tests {
         test("#if x $a\nb\nc", Edit::End, "$", All);
         test("#for x in \"a\nb\nc", Edit::End, "\"", All);
         test("#for x \"a\nb\nc", Edit::After("x "), "in ", All);
+    }
+
+    /// Test basic reparsing correctness when modifying, inserting, or removing
+    /// syntax warnings.
+    #[test]
+    fn test_reparse_syntax_warnings() {
+        use Reparse::*;
+        test("*strong*", Edit::Match("strong"), "", All);
+        test("**", Edit::At(1), "strong", All);
+        test("**", Edit::At(1), "__", All);
+        test("```warn--empty```", Edit::Match("warn-"), "still", All);
+        test("```yes-empty```", Edit::Match("yes-"), "not ", All);
+    }
+
+    /// Test reparsing with deeply nested code and markup blocks.
+    ///
+    /// FUTURE: Above `n == 127`, normal parsing hits the max parsing depth, but
+    /// reparsing doesn't since we don't track the depth anywhere right now.
+    /// This is a bug (it yields different trees when reparsing), but it will
+    /// require a bit more effort to solve.
+    #[test]
+    fn test_reparse_nested_code() {
+        let mut text = "#{A;B}".to_string();
+        let mut prev_n = 1_usize;
+        // Values chosen mostly arbitrarily, but some had interesting span
+        // numbering differences when originally experimenting.
+        for n in [10, 19, 20, 21, 22, 30, 50, 51, 62, 63, 100, 127] {
+            for _ in prev_n..n {
+                text.insert(1, '{');
+                text.push('}');
+            }
+            prev_n = n;
+            println!("n: {n}");
+
+            // Decrease the number of nodes:
+            test(&text, Edit::Match(";"), "1", Reparse::Incr("{A1B}"));
+            test(&text, Edit::Match("A;B"), "2", Reparse::Incr("{2}"));
+
+            // Leave the number of nodes the same:
+            test(&text, Edit::Match("A;B"), "A;B", Reparse::Incr("{A;B}"));
+            test(&text, Edit::Match("A;B"), "B;C", Reparse::Incr("{B;C}"));
+            test(&text, Edit::Match(";"), "+", Reparse::Incr("{A+B}"));
+            test(&text, Edit::After("A"), "3", Reparse::Incr("{A3;B}"));
+
+            // Increase the number of nodes:
+            test(&text, Edit::After("A"), ";5", Reparse::Incr("{A;5;B}"));
+            test(&text, Edit::At(n + 3), "6;", Reparse::Incr("{A;6;B}"));
+        }
+    }
+
+    /// Test reparsing with deeply nested code and markup blocks.
+    #[test]
+    fn test_reparse_nested_markup() {
+        let mut text = "#[ A~B ]".to_string();
+        let mut prev_n = 1_usize;
+        // Values chosen mostly arbitrarily, but some had interesting span
+        // numbering differences when originally experimenting.
+        for n in [10, 19, 20, 21, 22, 30, 50, 51, 62, 63, 100, 127] {
+            for _ in prev_n..n {
+                text.insert_str(0, "#[");
+                text.push(']');
+            }
+            prev_n = n;
+            println!("n: {n}");
+
+            // Decrease the number of nodes:
+            test(&text, Edit::Match("~"), "1", Reparse::Incr(" A1B "));
+            test(&text, Edit::Match("A~B"), "2", Reparse::Incr(" 2 "));
+
+            // Leave the number of nodes the same:
+            test(&text, Edit::Match("A~B"), "A~B", Reparse::Incr(" A~B "));
+            test(&text, Edit::Match("A~B"), "3~B", Reparse::Incr(" 3~B "));
+            test(&text, Edit::After("A"), "3", Reparse::Incr(" A3~B "));
+
+            // Increase the number of nodes:
+            test(&text, Edit::After("A"), "~4", Reparse::Incr(" A~4~B "));
+            test(&text, Edit::At(2 * n + 3), "5~", Reparse::Incr(" A~5~B "));
+        }
+    }
+
+    /// Don't incrementally reparse ranges inside a syntax warning.
+    #[test]
+    fn test_reparse_within_warnings() {
+        // We build a custom tree with a warning since we don't currently
+        // produce any syntax warnings that would trigger this bug.
+        let text = "#[nor~mal] #[warn~ing]".to_string();
+        let mut root = parse(&text);
+
+        let root_inner = root.reparse_inner_node_mut().unwrap().0;
+        let second_block = &mut root_inner.children[4];
+        assert_eq!(second_block.full_text(), "[warn~ing]");
+        // Note how the warning message can include text from within the node
+        // arbitrarily. This is the primary reason reparsing within warnings is
+        // unsound: there's no way to know how to update the message/hints!
+        second_block.warn_at(5..6, "tilde between `warn` and `ing`: `~`");
+        // We have to update the parent's diagnosis due to the new warning.
+        let warning_diagnosis = Diagnosis { warnings: true, errors: false };
+        // `{new,prev}_{len,desc}` are 0 since only their difference matters.
+        root_inner.update_parent(0, 0, 0, 0, Diagnosis::default(), warning_diagnosis);
+        assert!(root.diagnosis().warnings);
+
+        // Assign initial span numbers so we can properly reparse.
+        let id = FileId::new_for_test("reparse_within_warnings");
+        root.numberize(id, Span::FULL).unwrap();
+        let mut source = Source::with_root(id, text, root);
+
+        // First we edit and reparse `nor~mal` into `normal`. The reparsed range
+        // should stay within the content block.
+        let replaced = Edit::Match("r~m").into_range(source.text());
+        let replace_with = "rm";
+        let reparsed = source.edit(replaced, replace_with);
+        assert_eq!(&source.text()[reparsed], "normal");
+        // Reparsing `normal` should not affect the warning:
+        assert!(source.root().diagnosis().warnings);
+
+        // Then we edit and reparse `warn~ing` into `warning`. Even though the
+        // edit is fully inside the warned content block, the reparsed range
+        // should expand to the outer code block since we can't soundly reparse
+        // within warnings.
+        let replaced = Edit::Match("n~i").into_range(source.text());
+        let replace_with = "ni";
+        let reparsed = source.edit(replaced, replace_with);
+        assert_eq!(&source.text()[reparsed], "#[normal] #[warning]");
+        assert!(!source.root().diagnosis().warnings);
     }
 }

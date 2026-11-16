@@ -232,7 +232,7 @@ impl SVGRenderer<'_> {
                         // Add the path to the pattern.
                         pattern
                             .elem("path")
-                            .attr("d", builder.finsish())
+                            .attr("d", builder.finish())
                             .attr("fill", SvgUrl(id))
                             .attr("stroke", "none")
                             .attr("shape-rendering", "optimizeSpeed");

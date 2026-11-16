@@ -126,7 +126,7 @@ pub fn prepare<'a>(
 fn add_cjk_latin_spacing(items: &mut [(Range, Item)]) {
     let mut iter = items
         .iter_mut()
-        .filter(|(_, item)| !matches!(item, Item::Tag(_)))
+        .filter(|(_, item)| !item.is_skippable())
         .flat_map(|(_, item)| match item {
             Item::Text(text) => Either::Left({
                 // Check whether the text is normal, sub- or superscript. At

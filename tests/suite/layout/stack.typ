@@ -53,6 +53,21 @@ from #h(1fr) the #h(1fr) wonderful
 #v(1fr)
 World! 🌍
 
+--- stack-fr-negative paged ---
+#set page(height: 150pt, width: 100pt)
+
+#let items = ([1], 2fr, [2], -1fr, [3], 2fr, [4])
+
+#stack(dir: ltr, ..items)
+#stack(dir: rtl, ..items)
+
+#grid(
+  columns: (1fr, 1fr),
+  align: (left, right),
+  stack(dir: ttb, ..items),
+  stack(dir: btt, ..items),
+)
+
 --- stack-rtl-align-and-fr paged ---
 // Test aligning things in RTL stack with align function & fr units.
 #set page(width: 50pt, margin: 5pt)

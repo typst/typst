@@ -278,6 +278,7 @@ const FIGURE_RULE: ShowFn<FigureElem> = |elem, _, styles| {
     Ok(BlockElem::packed(
         HtmlElem::new(tag::figure)
             .with_body(Some(realized))
+            .with_optional_attr(attr::aria_label, elem.alt.get_cloned(styles))
             .pack()
             .spanned(elem.span()),
     ))

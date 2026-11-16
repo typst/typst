@@ -134,3 +134,7 @@
 --- content-try-to-access-internal-field eval ---
 // Error: 9-15 hide does not have field "hidden"
 #hide[].hidden
+
+--- content-spanned-field-equality eval ---
+#assert.eq(heading(supplement: [A])[B], heading(supplement: [A])[B])
+#assert.ne(heading(supplement: [A])[B], heading(supplement: [C])[B])

@@ -22,6 +22,29 @@ Apart
 // Test fr box.
 Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
 
+--- box-fr-width-negative paged ---
+// A negative fraction will produce negative spacing when the sum of fractions
+// is positive, so this should look as follows:
+// - only the red box for the first third of the width,
+// - the red, green, and blue boxes in the middle third,
+// - and only the green box in the final third
+#set page(width: 40pt, margin: 0.5pt)
+#set block(spacing: 5pt)
+
+#block(height: 15pt, {
+  box(width: 2fr, stroke: red, height: 100%)
+  box(width: -1fr, stroke: blue, height: 50%)
+  box(width: 2fr, stroke: green, height: 100%)
+})
+
+// A negative fraction will produce positive spacing when the sum of fractions
+// is negative, so this should look identical.
+#block(height: 15pt, {
+  box(width: -2fr, stroke: red, height: 100%)
+  box(width: 1fr, stroke: blue, height: 50%)
+  box(width: -2fr, stroke: green, height: 100%)
+})
+
 --- block-fr-height paged ---
 #set page(height: 100pt)
 #rect(height: 10pt, width: 100%)

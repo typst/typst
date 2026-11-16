@@ -10,6 +10,7 @@ use std::sync::{LazyLock, RwLock};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::package::PackageSpec;
 
@@ -139,6 +140,21 @@ impl FileId {
     /// path still matter as they define how paths within the identified file
     /// will resolve. For the example of content read from stdin, it will define
     /// how a relative path in the stdin content is resolved.
+    ///
+    /// ## Example
+    /// To create a globally available [`FileId`], use [`std::sync::LazyLock`]
+    /// and build a [`RootedPath`] using [`VirtualRoot::Project`] and a custom
+    /// [`VirtualPath`].
+    /// ```
+    /// use std::sync::LazyLock;
+    /// use typst_syntax::*;
+    /// static STDIN_ID: LazyLock<FileId> = LazyLock::new(|| {
+    ///     FileId::unique(RootedPath::new(
+    ///         VirtualRoot::Project,
+    ///         VirtualPath::new("<stdin>").unwrap(),
+    ///     ))
+    /// });
+    /// ```
     #[track_caller]
     pub fn unique(path: RootedPath) -> Self {
         let mut interner = INTERNER.write().unwrap();
@@ -150,6 +166,14 @@ impl FileId {
         let leaked = Box::leak(Box::new(path));
         interner.from_id.push(leaked);
         id
+    }
+
+    /// Create a new interned file id for use in tests. This should not be used
+    /// for normal code, instead consider [`Self::unique`].
+    #[track_caller]
+    pub fn new_for_test(test_name: &'static str) -> Self {
+        let vpath = VirtualPath::new(test_name).unwrap();
+        RootedPath::new(VirtualRoot::Project, vpath).intern()
     }
 
     /// Construct from a raw number.
@@ -386,6 +410,26 @@ impl VirtualPath {
 impl Debug for VirtualPath {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         self.get_with_slash().fmt(f)
+    }
+}
+
+impl<'de> Deserialize<'de> for VirtualPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let str = EcoString::deserialize(deserializer)?;
+        VirtualPath::new(str)
+            .map_err(|err| serde::de::Error::custom(format_args!("{err}")))
+    }
+}
+
+impl Serialize for VirtualPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.get_without_slash())
     }
 }
 
@@ -630,7 +674,7 @@ pub enum PathError {
 impl fmt::Display for PathError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Escapes => write!(f, "path escapes project root"),
+            Self::Escapes => write!(f, "path escapes root"),
             Self::Backslash => write!(f, "path contains backslash"),
         }
     }
@@ -890,5 +934,19 @@ mod tests {
         assert_eq!(Segment::new(""), Err(""));
         assert_eq!(Segment::new("."), Err("."));
         assert_eq!(Segment::new(".."), Err(".."));
+    }
+
+    #[test]
+    fn test_virtual_path_deserialize() {
+        #[derive(Debug, Deserialize)]
+        struct Example {
+            path: VirtualPath,
+        }
+
+        let m = toml::de::from_str::<Example>(r#"path = "hello""#).unwrap();
+        assert_eq!(m.path, VirtualPath::new("/hello").unwrap());
+
+        let e = toml::de::from_str::<Example>(r#"path = "../hello""#).unwrap_err();
+        assert_eq!(e.message(), "path escapes root");
     }
 }

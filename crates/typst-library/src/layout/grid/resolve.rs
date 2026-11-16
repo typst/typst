@@ -17,7 +17,7 @@ use typst_library::model::{TableCell, TableChild, TableElem, TableItem};
 use typst_library::text::TextElem;
 use typst_library::visualize::{Paint, Stroke};
 
-use typst_syntax::Span;
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::{NonZeroExt, SmallBitSet};
 
 use crate::model::{TableCellKind, TableHeaderScope};
@@ -41,7 +41,6 @@ pub fn grid_to_cellgrid(
     let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
     // Use trace to link back to the grid when a specific cell errors
-    let tracepoint = || Tracepoint::Call(Some(eco_format!("grid")));
     let resolve_item = |item: &GridItem| grid_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
         GridChild::Header(header) => ResolvableGridChild::Header {
@@ -71,7 +70,7 @@ pub fn grid_to_cellgrid(
         styles,
         elem.span(),
     )
-    .trace(engine.world, tracepoint, elem.span())
+    .trace(engine.world, Tracepoint::process::<GridElem>, elem.span())
 }
 
 /// Convert a table to a cell grid.
@@ -93,7 +92,6 @@ pub fn table_to_cellgrid(
     let tracks = Axes::new(columns.0.as_slice(), rows.0.as_slice());
     let gutter = Axes::new(column_gutter.0.as_slice(), row_gutter.0.as_slice());
     // Use trace to link back to the table when a specific cell errors
-    let tracepoint = || Tracepoint::Call(Some(eco_format!("table")));
     let resolve_item = |item: &TableItem| table_item_to_resolvable(item, styles);
     let children = elem.children.iter().map(|child| match child {
         TableChild::Header(header) => ResolvableGridChild::Header {
@@ -123,7 +121,7 @@ pub fn table_to_cellgrid(
         styles,
         elem.span(),
     )
-    .trace(engine.world, tracepoint, elem.span())
+    .trace(engine.world, Tracepoint::process::<TableElem>, elem.span())
 }
 
 fn grid_item_to_resolvable(
@@ -208,7 +206,7 @@ impl ResolvableCell for Packed<TableCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
-        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        stroke: Sides<GridStroke<Abs>>,
         breakable: bool,
         styles: StyleChain,
         kind: Smart<TableCellKind>,
@@ -305,7 +303,7 @@ impl ResolvableCell for Packed<GridCell> {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
-        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        stroke: Sides<GridStroke<Abs>>,
         breakable: bool,
         styles: StyleChain,
         _: Smart<TableCellKind>,
@@ -512,7 +510,7 @@ pub trait ResolvableCell {
         fill: &Option<Paint>,
         align: Smart<Alignment>,
         inset: Sides<Option<Rel<Length>>>,
-        stroke: Sides<Option<Option<Arc<Stroke<Abs>>>>>,
+        stroke: Sides<GridStroke<Abs>>,
         breakable: bool,
         styles: StyleChain,
         kind: Smart<TableCellKind>,
@@ -898,6 +896,9 @@ impl CellGrid {
     }
 }
 
+/// A stroke that can be folded with the cell and parent element values.
+pub type GridStroke<T = Length> = Option<Option<Arc<Stroke<T>>>>;
+
 /// Resolves and positions all cells in the grid before creating it.
 /// Allows them to keep track of their final properties and positions
 /// and adjust their fields accordingly.
@@ -909,10 +910,10 @@ pub fn resolve_cellgrid<'a, T, C, I>(
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
     children: C,
-    fill: &'a Celled<Option<Paint>>,
-    align: &'a Celled<Smart<Alignment>>,
-    inset: &'a Celled<Sides<Option<Rel<Length>>>>,
-    stroke: &'a ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
+    fill: &'a LooselySpanned<Celled<Option<Paint>>>,
+    align: &'a LooselySpanned<Celled<Smart<Alignment>>>,
+    inset: &'a LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
+    stroke: &'a LooselySpanned<ResolvedCelled<Sides<GridStroke>>>,
     engine: &'a mut Engine,
     styles: StyleChain<'a>,
     span: Span,
@@ -940,10 +941,10 @@ where
 struct CellGridResolver<'a, 'b> {
     tracks: Axes<&'a [Sizing]>,
     gutter: Axes<&'a [Sizing]>,
-    fill: &'a Celled<Option<Paint>>,
-    align: &'a Celled<Smart<Alignment>>,
-    inset: &'a Celled<Sides<Option<Rel<Length>>>>,
-    stroke: &'a ResolvedCelled<Sides<Option<Option<Arc<Stroke>>>>>,
+    fill: &'a LooselySpanned<Celled<Option<Paint>>>,
+    align: &'a LooselySpanned<Celled<Smart<Alignment>>>,
+    inset: &'a LooselySpanned<Celled<Sides<Option<Rel<Length>>>>>,
+    stroke: &'a LooselySpanned<ResolvedCelled<Sides<GridStroke>>>,
     engine: &'a mut Engine<'b>,
     styles: StyleChain<'a>,
     span: Span,
@@ -1978,10 +1979,10 @@ impl CellGridResolver<'_, '_> {
         Ok(cell.resolve_cell(
             x,
             y,
-            &self.fill.resolve(self.engine, self.styles, x, y)?,
-            self.align.resolve(self.engine, self.styles, x, y)?,
-            self.inset.resolve(self.engine, self.styles, x, y)?,
-            self.stroke.resolve(self.engine, self.styles, x, y)?,
+            &(self.fill.v).resolve(self.engine, self.styles, x, y, self.fill.span)?,
+            (self.align.v).resolve(self.engine, self.styles, x, y, self.align.span)?,
+            (self.inset.v).resolve(self.engine, self.styles, x, y, self.inset.span)?,
+            (self.stroke.v).resolve(self.engine, self.styles, x, y, self.stroke.span)?,
             breakable,
             self.styles,
             kind,

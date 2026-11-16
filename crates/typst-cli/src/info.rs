@@ -12,7 +12,7 @@ use typst::diag::StrResult;
 use typst_kit::packages::FsPackages;
 
 use crate::CliArguments;
-use crate::args::{Feature, InfoCommand};
+use crate::args::{ENV_PATH_SEP, Feature, InfoCommand};
 use crate::terminal::{self, TermOut};
 
 /// A struct holding the machine readable output of the environment command.
@@ -309,10 +309,10 @@ pub fn info(command: &InfoCommand) -> StrResult<()> {
     let font_paths = env
         .typst_font_paths
         .as_deref()
-        .unwrap_or_default()
-        .split(':')
-        .filter(|s| !s.is_empty())
-        .map(PathBuf::from)
+        .into_iter()
+        .flat_map(|paths| {
+            paths.split(ENV_PATH_SEP).filter(|s| !s.is_empty()).map(Into::into)
+        })
         .collect::<_>();
 
     let version = typst::utils::version();

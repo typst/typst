@@ -18,7 +18,7 @@ use typst_library::text::{
     ShiftSettings, TextEdgeBounds, TextElem, TextItem, families, features,
     is_default_ignorable, language, variant,
 };
-use typst_utils::SliceExt;
+use typst_utils::{Numeric, SliceExt};
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -135,6 +135,8 @@ pub struct ShapedGlyph {
     pub font: FontInstance,
     /// The glyph's index in the font.
     pub glyph_id: u16,
+    /// Whether tracking was applied to the advance width.
+    pub tracking_applied: bool,
     /// The advance width of the glyph.
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
@@ -230,7 +232,6 @@ impl ShapedGlyph {
         &self,
         style: CjkPunctStyle,
         limits: &JustificationLimits,
-        font_size: Abs,
         stretchable: bool,
     ) -> Adjustability {
         let width = self.x_advance;
@@ -249,7 +250,7 @@ impl ShapedGlyph {
                 stretchability: (
                     Em::zero(),
                     (max - Rel::one())
-                        .map(|length| Em::from_length(length, font_size))
+                        .map(|length| Em::from_length(length, self.size))
                         .relative_to(width)
                         .max(Em::zero()),
                 ),
@@ -257,7 +258,7 @@ impl ShapedGlyph {
                     Em::zero(),
                     limited(
                         (Rel::one() - min)
-                            .map(|length| Em::from_length(length, font_size))
+                            .map(|length| Em::from_length(length, self.size))
                             .relative_to(width),
                     ),
                 ),
@@ -281,11 +282,11 @@ impl ShapedGlyph {
             Adjustability {
                 stretchability: (
                     Em::zero(),
-                    Em::from_length(limits.tracking().max, font_size).max(Em::zero()),
+                    Em::from_length(limits.tracking().max, self.size).max(Em::zero()),
                 ),
                 shrinkability: (
                     Em::zero(),
-                    limited(Em::from_length(-limits.tracking().min, font_size)),
+                    limited(Em::from_length(-limits.tracking().min, self.size)),
                 ),
             }
         } else {
@@ -622,6 +623,7 @@ impl<'a> ShapedText<'a> {
                 glyphs: Glyphs::from_vec(vec![ShapedGlyph {
                     font,
                     glyph_id: glyph_id.0,
+                    tracking_applied: false,
                     x_advance,
                     x_offset: Em::zero(),
                     y_offset: Em::zero(),
@@ -811,8 +813,9 @@ fn shape<'a>(
         shape_segment(&mut ctx, base, text, families(styles));
     }
 
-    track_and_space(&mut ctx);
+    apply_spacing(&mut ctx);
     calculate_adjustability(&mut ctx, lang, region);
+    apply_tracking(&mut ctx);
 
     #[cfg(debug_assertions)]
     assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
@@ -1090,6 +1093,7 @@ fn shape_segment<'a>(
             ctx.glyphs.push(ShapedGlyph {
                 font: font.clone(),
                 glyph_id: info.glyph_id as u16,
+                tracking_applied: false,
                 // TODO: Don't ignore y_advance.
                 x_advance,
                 x_offset: font.to_em(pos[i].x_offset) + script_compensation,
@@ -1242,6 +1246,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
             glyph_id: 0,
+            tracking_applied: false,
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
@@ -1266,30 +1271,38 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: &FontIns
     }
 }
 
-/// Apply tracking and spacing to the shaped glyphs.
-fn track_and_space(ctx: &mut ShapingContext) {
-    let tracking = Em::from_abs(ctx.styles.resolve(TextElem::tracking), ctx.size);
-    let spacing = ctx
-        .styles
-        .resolve(TextElem::spacing)
-        .map(|abs| Em::from_abs(abs, ctx.size));
+/// Apply text spacing to the shaped glyphs.
+fn apply_spacing(ctx: &mut ShapingContext) {
+    let spacing = ctx.styles.get(TextElem::spacing);
+
+    for glyph in &mut ctx.glyphs {
+        if glyph.is_space() {
+            // Make non-breaking space same width as normal space.
+            if glyph.c == '\u{00A0}' {
+                glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
+            }
+            glyph.x_advance = spacing
+                .map(|length| Em::from_length(length, glyph.size))
+                .relative_to(glyph.x_advance);
+        }
+    }
+}
+
+/// Apply tracking to the shaped glyphs.
+fn apply_tracking(ctx: &mut ShapingContext) {
+    let tracking = ctx.styles.get(TextElem::tracking);
+    if tracking.is_zero() {
+        return;
+    }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
-        // Make non-breaking space same width as normal space.
-        if glyph.c == '\u{00A0}' {
-            glyph.x_advance -= nbsp_delta(&glyph.font).unwrap_or_default();
-        }
-
-        if glyph.is_space() {
-            glyph.x_advance = spacing.relative_to(glyph.x_advance);
-        }
-
         if glyphs
             .peek()
             .is_some_and(|next| glyph.range.start != next.range.start)
         {
-            glyph.x_advance += tracking;
+            glyph.x_advance += Em::from_length(tracking, glyph.size);
+            glyph.tracking_applied = true;
         }
     }
 }
@@ -1299,7 +1312,6 @@ fn track_and_space(ctx: &mut ShapingContext) {
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let style = cjk_punct_style(lang, region);
     let limits = ctx.styles.get(ParElem::justification_limits);
-    let font_size = ctx.size;
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
@@ -1308,8 +1320,7 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
         let stretchable =
             glyphs.peek().is_none_or(|next| glyph.range.start != next.range.start);
 
-        glyph.adjustability =
-            glyph.base_adjustability(style, &limits, font_size, stretchable);
+        glyph.adjustability = glyph.base_adjustability(style, &limits, stretchable);
     }
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
@@ -1382,16 +1393,6 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
     }
 }
 
-// The CJK punctuation that can appear at the beginning or end of a line.
-pub const BEGIN_PUNCT_PAT: &[char] = &[
-    '“', '‘', '《', '〈', '（', '『', '「', '【', '〖', '〔', '［', '｛', '｟', '〘',
-    '〝',
-];
-pub const END_PUNCT_PAT: &[char] = &[
-    '”', '’', '，', '．', '。', '、', '：', '；', '》', '〉', '）', '』', '」', '】',
-    '〗', '〕', '］', '｝', '｠', '〙', '〟', '？', '！',
-];
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum CjkPunctStyle {
     /// Standard GB/T 15834-2011, used mostly in mainland China.
@@ -1414,11 +1415,6 @@ pub fn cjk_punct_style(lang: Lang, region: Option<Region>) -> CjkPunctStyle {
 /// Whether the glyph is a space.
 fn is_space(c: char) -> bool {
     matches!(c, ' ' | '\u{00A0}' | '　')
-}
-
-/// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).
-pub fn is_of_cj_script(c: char) -> bool {
-    is_cj_script(c, c.script())
 }
 
 /// Whether the glyph is part of Chinese or Japanese script (i.e. CJ, not CJK).

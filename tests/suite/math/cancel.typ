@@ -40,3 +40,10 @@ $cancel(x, angle: #0deg) + cancel(x, angle: #45deg) + cancel(x, angle: #90deg) +
 // Specifying cancel line angle with a function
 $x + cancel(y, angle: #{angle => angle + 90deg}) - cancel(z, angle: #(angle => angle + 135deg))$
 $ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), angle: #(angle => angle + 30deg)) $
+
+--- math-cancel-angle-func-panic paged trace ---
+// Error: 29-41 panicked with: 47.92deg
+#let compute-angle(angle) = panic(angle)
+
+// Trace: 35-48 (1) while calling `compute-angle`
+$ cancel((j + e)/(f + e), angle: #compute-angle) $

@@ -510,7 +510,7 @@ impl Str {
         ///
         /// The dictionary passed to the function has the same shape as the
         /// dictionary returned by @str.match[`match`].
-        replacement: Replacement,
+        replacement: Spanned<Replacement>,
         /// If given, only the first `count` matches of the pattern are
         /// replaced.
         #[named]
@@ -528,13 +528,11 @@ impl Str {
             last_match = range.end;
 
             // Determine and push the replacement.
-            match &replacement {
+            match &replacement.v {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let piece = func
-                        .call(engine, context, [dict])?
-                        .cast::<Str>()
-                        .at(func.span())?;
+                    let piece =
+                        func.call::<Str>(engine, context, [dict], replacement.span)?;
                     output.push_str(&piece);
                 }
             }

@@ -38,7 +38,7 @@ use crate::layout::{BlockElem, Em, HElem, PadElem};
 use crate::loading::{DataSource, Load, LoadSource, Loaded, format_yaml_error};
 use crate::model::{
     CitationForm, CiteElem, CiteGroup, Destination, DirectLinkElem, FootnoteElem,
-    HeadingElem, LinkElem, Url,
+    HeadingElem, LinkElem, ParElem, Url,
 };
 use crate::routines::SpanMode;
 use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, TextElem};
@@ -107,6 +107,31 @@ use crate::text::{Lang, LocalName, Region, SmallcapsElem, SubElem, SuperElem, Te
 /// thematic bibliographies. For more fine-grained control, citations can be
 /// explicitly targeted by a bibliography through a
 /// @bibliography.target[`target`] selector.
+///
+/// = Styling <styling>
+/// Some bibliography styles format entries with hanging indent. By default,
+/// such styles apply an indent of `{1.5em}` through a built-in show-set rule on
+/// @par.hanging-indent. To override this default, you can write your own
+/// show-set rule
+/// #footnote[
+///   A bare `{set par(hanging-indent: ..)}` will have no effect on the
+///   bibliography since show-set rules (including built-in ones) take
+///   precedence over plain set rules.
+/// ],
+/// targeting the bibliography:
+///
+/// ```example
+/// #show bibliography: set par(
+///   hanging-indent: 3em
+/// )
+///
+/// The Net Wok is ... @netwok
+///
+/// #bibliography(
+///   "works.bib",
+///   style: "apa",
+/// )
+/// ```
 #[elem(since = "forever", Locatable, Synthesize, ShowSet, LocalName)]
 pub struct BibliographyElem {
     /// One or multiple paths to or raw bytes for Hayagriva `.yaml` and/or
@@ -339,6 +364,7 @@ impl ShowSet for Packed<BibliographyElem> {
         let mut out = Styles::new();
         out.set(HeadingElem::numbering, None);
         out.set(PadElem::left, INDENT.into());
+        out.set(ParElem::hanging_indent, Em::new(1.5).into());
         out
     }
 }

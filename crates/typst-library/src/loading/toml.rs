@@ -79,9 +79,9 @@ use crate::loading::{DataSource, Load};
 /// )
 ///
 /// == Notes <notes>
-/// - Be aware that TOML integers larger than 2#super[63]-1 or smaller
-///   than -2#super[63] cannot be represented losslessly in Typst, and an error
-///   will be thrown according to the
+/// - Be aware that TOML integers larger than $2^63-1$ or smaller than $-2^63$
+///   cannot be represented losslessly in Typst, and an error will be thrown
+///   according to the
 ///   #link("https://toml.io/en/v1.0.0#integer")[specification].
 ///
 /// - Bytes are not encoded as TOML arrays for performance and readability

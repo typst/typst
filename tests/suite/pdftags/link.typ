@@ -65,6 +65,11 @@ Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 --- link-tags-with-parbreak pdftags ---
 Look #link("https://github.com/typst/typst")[this #parbreak() thing].
 
+--- link-tags-with-linebreak pdftags ---
+#set pdf(standard: "ua-1")
+// This forces the use of `QuadPoints`.
+The following #link("https://github.com/typst/typst")[link breaks across] a line.
+
 --- issue-7301-link-tags-empty-link-body pdftags ---
 #link("asf")[#none\ #none]
 

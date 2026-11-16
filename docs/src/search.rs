@@ -35,17 +35,20 @@ pub struct SearchIndex {
 ///   "route": "/reference/model/heading/"
 /// },
 /// {
-///   "kind": "Parameter of caption",
+///   "kind": "Parameter",
 ///   "title": "Separator",
 ///   "route": "/reference/model/figure/#definitions-caption-separator"
 /// },
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct IndexItem {
-    /// The category of item. Shown next to the match.
+    /// The kind of item. Shown below the match.
     pub kind: EcoString,
     /// The title-case name of the item. Shown as the match.
     pub title: EcoString,
+    /// The canonical path for this item, if any. Shown below the match.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<EcoString>,
     /// The full route to the matching page. May include a fragment.
     pub route: EcoString,
     /// Keywords with which the page can be found. The keywords are stored in
@@ -59,6 +62,7 @@ cast! {
     mut v: Dict => Self {
         kind: v.take("kind")?.cast()?,
         title: v.take("title")?.cast()?,
+        path: v.take("path")?.cast()?,
         route: v.take("route")?.cast()?,
         keywords: v.take("keywords")?.cast()?,
     }
@@ -135,6 +139,7 @@ fn parse_item_metadata(
     let mut dict = value.cast::<Dict>()?;
     let kind = dict.take("kind")?.cast()?;
     let title = dict.take("title")?.cast()?;
+    let path = dict.take("path")?.cast()?;
     let dest = dict.take("dest")?.cast::<ItemDestination>()?;
     let keywords = dict.take("keywords")?.cast()?;
     let route = match dest {
@@ -156,7 +161,7 @@ fn parse_item_metadata(
             if anchor.is_empty() { path.into() } else { eco_format!("{path}#{anchor}") }
         }
     };
-    Ok(IndexItem { kind, title, route, keywords })
+    Ok(IndexItem { kind, title, path, route, keywords })
 }
 
 /// The two kinds of destinations that can be stored in an index item's

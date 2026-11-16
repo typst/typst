@@ -25,15 +25,17 @@ use crate::model::Numbering;
 ///
 /// = #short-or-long[Locatable][Locatable elements] <locatable>
 /// Elements that are automatically assigned a location are called _locatable_
-/// and can be found with @query[queries]:
+/// and can be found with @query[queries]. Locatable elements are marked as such
+/// on their respective documentation pages, but you can also find an exhaustive
+/// list below.
 ///
 /// - In the @reference:model[Model category], the following elements are
-///   locatable: @asset, @bibliography, @cite, @document, @emph, @enum, @figure,
-///   @figure.caption, @footnote, @footnote.entry, @heading, @link, @list,
-///   @outline, @outline.entry, @par, @quote, @ref, @strong, @table, @terms, and
-///   @title. Most of the elements in the _Model_ category are locatable because
-///   semantic elements like headings and figures are often
-///   used with introspection.
+///   locatable: @asset, @bibliography, @cite, @divider, @document, @emph,
+///   @enum, @figure, @figure.caption, @footnote, @footnote.entry, @heading,
+///   @link, @list, @outline, @outline.entry, @par, @quote, @ref, @strong,
+///   @table, @terms, and @title. Most of the elements in the _Model_ category
+///   are locatable because semantic elements like headings and figures are
+///   often used with introspection.
 ///
 /// - In the @reference:text[Text category], the @raw element and the
 ///   decoration elements @underline, @overline, @strike, and @highlight are
@@ -88,13 +90,11 @@ impl Location {
     /// this function returns `{none}`.
     ///
     /// This method can be used in combination with @here to retrieve the
-    /// physical page position of the current context:
+    /// physical page position of the current context.
     ///
     /// ```example
-    /// #context [
-    ///   I am located on
-    ///   page #here().page()
-    /// ]
+    /// I am located on page
+    /// #context here().page()
     /// ```
     #[func(since = "forever")]
     pub fn page(self, engine: &mut Engine, span: Span) -> Option<NonZeroUsize> {
@@ -108,6 +108,17 @@ impl Location {
     ///
     /// If the page numbering is set to `{none}` at that location, this function
     /// returns `{none}`.
+    ///
+    /// ```example
+    /// >>> #set page(margin: (bottom: 25pt))
+    /// #set page(numbering: "1")
+    /// #context {
+    ///   locate(<h>).page-numbering()
+    /// }
+    ///
+    /// #set page(numbering: "i")
+    /// = Heading <h>
+    /// ```
     #[func(since = "forever")]
     pub fn page_numbering(self, engine: &mut Engine, span: Span) -> Option<Numbering> {
         engine.introspect(PageNumberingIntrospection(self, span))
@@ -125,6 +136,10 @@ impl Location {
     /// exception as these are laid out using Typst's layout engine. For
     /// locations within such frames, this function returns a dictionary with
     /// just the `x` and `y` coordinates within the frame, but no `page` key.
+    ///
+    /// ```example
+    /// #context here().position()
+    /// ```
     #[func(since = "forever")]
     pub fn position(self, engine: &mut Engine, span: Span) -> Option<Dict> {
         engine

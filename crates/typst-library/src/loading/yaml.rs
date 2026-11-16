@@ -80,9 +80,8 @@ use crate::loading::{DataSource, Load};
 /// == Notes <notes>
 /// - In most cases, YAML numbers will be converted to floats or integers
 ///   depending on whether they are whole numbers. However, be aware that
-///   integers larger than 2#super[63]-1 or smaller than -2#super[63] will be
-///   converted to floating-point numbers, which may result in an approximative
-///   value.
+///   integers larger than $2^63-1$ or smaller than $-2^63$ will be converted to
+///   floating-point numbers, which may result in an approximative value.
 ///
 /// - Custom YAML tags are ignored, though the loaded value will still be
 ///   present.
