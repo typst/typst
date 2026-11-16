@@ -671,7 +671,7 @@ impl Escape<'_> {
             let hex = s.eat_while(char::is_ascii_hexdigit);
             u32::from_str_radix(hex, 16)
                 .ok()
-                .and_then(std::char::from_u32)
+                .and_then(char::from_u32)
                 .unwrap_or_default()
         } else {
             s.eat().unwrap_or_default()
@@ -1630,9 +1630,7 @@ impl Str<'_> {
                     let sequence = s.eat_while(char::is_ascii_hexdigit);
                     s.eat_if('}');
 
-                    match u32::from_str_radix(sequence, 16)
-                        .ok()
-                        .and_then(std::char::from_u32)
+                    match u32::from_str_radix(sequence, 16).ok().and_then(char::from_u32)
                     {
                         Some(c) => out.push(c),
                         Option::None => out.push_str(s.from(start)),

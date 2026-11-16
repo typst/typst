@@ -516,11 +516,7 @@ impl Lexer<'_> {
                 return self.error("unclosed Unicode escape sequence");
             }
 
-            if u32::from_str_radix(hex, 16)
-                .ok()
-                .and_then(std::char::from_u32)
-                .is_none()
-            {
+            if u32::from_str_radix(hex, 16).ok().and_then(char::from_u32).is_none() {
                 return self.error(eco_format!("invalid Unicode codepoint: {hex}"));
             }
 
