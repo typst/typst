@@ -944,7 +944,7 @@ fn import_items(p: &mut Parser) {
         }
 
         if !p.current().is_terminator() {
-            p.expect(SyntaxKind::Comma);
+            expect_comma(p);
         }
     }
 
@@ -1091,7 +1091,7 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
             array_or_dict_item(p, &mut state);
             state.count += 1;
 
-            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+            if !p.current().is_terminator() && expect_comma(p) {
                 state.maybe_just_parens = false;
             }
         }
@@ -1198,7 +1198,7 @@ fn args(p: &mut Parser) {
                 arg(p, &mut seen);
 
                 if !p.current().is_terminator() {
-                    p.expect(SyntaxKind::Comma);
+                    expect_comma(p);
                 }
             }
 
@@ -1263,7 +1263,7 @@ fn params(p: &mut Parser) {
             param(p, &mut seen, &mut sink);
 
             if !p.current().is_terminator() {
-                p.expect(SyntaxKind::Comma);
+                expect_comma(p);
             }
         }
 
@@ -1343,7 +1343,7 @@ fn destructuring_or_parenthesized<'s>(
             destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
             count += 1;
 
-            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+            if !p.current().is_terminator() && expect_comma(p) {
                 maybe_just_parens = false;
             }
         }
@@ -1356,6 +1356,60 @@ fn destructuring_or_parenthesized<'s>(
     } else {
         p.wrap(m, SyntaxKind::Destructuring);
     }
+}
+
+/// Parses an expected comma in a parenthesized grouping or adds an error if
+/// there was no comma. Returns whether a comma was parsed.
+///
+/// Also adds a nice error/hint for a common case where users accidentally
+/// insert a space between a number and a numeric suffix, e.g. `(1.5 pt,)`
+/// instead of `(1.5pt,)`. And if there is a comma after the suffix, we do eat
+/// it and return `true`.
+fn expect_comma(p: &mut Parser) -> bool {
+    if p.eat_if(SyntaxKind::Comma) {
+        true
+    } else if let Some(number) = number_before_suffix(p) {
+        let suffix = p.current_text();
+        // We don't use `convert_to_error` here because we want to overwrite the
+        // error message for any suffix nodes that were a lexer error. For
+        // instance if a `%` is treated as an invalid character in code mode.
+        p.token.kind = SyntaxKind::Error;
+        p.token.node =
+            SyntaxNode::error("expected comma, but found numeric suffix", suffix);
+        p.token.node.hint(eco_format!(
+            "if you meant to use a unit, try `{number}{suffix}` instead",
+        ));
+        // Match how `expected` treats errors, and still eat a following comma.
+        p.trim_errors();
+        p.eat();
+        p.eat_if(SyntaxKind::Comma)
+    } else {
+        p.expected("comma");
+        false
+    }
+}
+
+/// If the current token is a numeric suffix (a unit name like `pt` or `%`)
+/// directly preceded by a number, return the number's text.
+///
+/// Does not check for nondecimal integers.
+fn number_before_suffix<'s>(p: &Parser<'s>) -> Option<&'s str> {
+    if p.had_newline() || p.current_text().parse::<ast::Unit>().is_err() {
+        return None;
+    }
+
+    // Find the rightmost child of the previous node.
+    let prev_m = p.previous_marker()?;
+    let mut prev = &p[prev_m];
+    while !matches!(prev.kind(), SyntaxKind::Int | SyntaxKind::Float) {
+        prev = prev.children().last()?;
+    }
+
+    // Get the number's text directly from `p.text` to avoid lifetime troubles
+    // when we mutate the parser's token.
+    let number_end = p.prev_end();
+    let number_start = number_end - prev.len();
+    Some(&p.text[number_start..number_end])
 }
 
 /// Parses an item in a destructuring pattern.
@@ -1968,49 +2022,18 @@ impl Parser<'_> {
 impl Parser<'_> {
     /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
+        debug_assert_ne!(kind, SyntaxKind::Comma, "use `expect_comma` instead");
         let at = self.at(kind);
         if at {
             self.eat();
         } else if kind == SyntaxKind::Ident && self.token.kind.is_keyword() {
             self.trim_errors();
             self.eat_and_get().expected(kind.name());
-        } else if kind == SyntaxKind::Comma
-            && !self.had_newline()
-            && let Some(number) = self.check_unit_spacing()
-        {
-            let hint = eco_format!(
-                "if you meant to use a unit, try `{number}{}` instead",
-                self.current_text(),
-            );
-            self.token.node = SyntaxNode::error(
-                "expected comma, but found numeric suffix",
-                self.current_text(),
-            );
-            self.token.node.hint(hint);
-            // Match `expected`'s handling of errors, but also eat the following
-            // comma to suppress a spurious `unexpected comma` error.
-            self.trim_errors();
-            self.eat();
-            self.eat_if(SyntaxKind::Comma);
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
         }
         at
-    }
-
-    /// If the current token is a numeric suffix (a unit name like `pt` or `%`)
-    /// directly preceded by a number, return the number's text.
-    fn check_unit_spacing(&self) -> Option<&str> {
-        if self.current_text().parse::<ast::Unit>().is_err() {
-            return None;
-        }
-        let prev_m = self.previous_marker()?;
-        let mut node = &self[prev_m];
-        while !matches!(node.kind(), SyntaxKind::Int | SyntaxKind::Float) {
-            node = node.children().last()?;
-        }
-        Some(node.leaf_text().as_str())
     }
 
     /// Consume the given closing delimiter or produce an error for the matching
