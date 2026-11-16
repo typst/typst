@@ -1,8 +1,7 @@
-use std::error;
-use std::fmt;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
+use std::{error, fmt};
 
 use ecow::{EcoString, eco_format};
 use typst::diag::{FileError, FileResult};
