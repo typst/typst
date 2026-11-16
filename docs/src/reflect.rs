@@ -258,7 +258,7 @@ pub fn latex_name(c: Cluster) -> Option<Str> {
     static NAMES: LazyLock<FxHashMap<u32, &'static str>> = LazyLock::new(|| {
         let data = typst_dev_assets::get("latex/unicode-math-table.tex").unwrap();
         let mut map = FxHashMap::default();
-        for line in std::str::from_utf8(data).unwrap().lines() {
+        for line in str::from_utf8(data).unwrap().lines() {
             let mut s = Scanner::new(line);
             if !s.eat_if("\\UnicodeMathSymbol{\"") {
                 continue;

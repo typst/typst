@@ -1622,7 +1622,7 @@ mod tests {
     #[test]
     fn test_text_tag_parsing() {
         let tag = |v: &[u8]| {
-            std::str::from_utf8(v)
+            str::from_utf8(v)
                 .unwrap()
                 .into_value()
                 .cast::<Tag>()

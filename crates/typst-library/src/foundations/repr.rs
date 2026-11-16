@@ -84,7 +84,7 @@ pub fn format_int_with_base(mut n: i64, base: i64) -> EcoString {
         digits[i..prev].copy_from_slice(MINUS_SIGN.as_bytes());
     }
 
-    std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
+    str::from_utf8(&digits[i..]).unwrap_or_default().into()
 }
 
 /// Converts a float to a string representation with a specific precision and a

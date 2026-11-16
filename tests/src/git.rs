@@ -30,7 +30,7 @@ pub fn blame_file(
         .args(revision)
         .arg(path)
         .run()?;
-    let blame = std::str::from_utf8(&blame).map_err(|err| err.to_string())?;
+    let blame = str::from_utf8(&blame).map_err(|err| err.to_string())?;
 
     // Format of git blame is:
     // `{hash} (<{email}> {date} {padded_nr}) {text}`
@@ -93,7 +93,7 @@ impl Run for std::process::Command {
     fn run(&mut self) -> StrResult<Vec<u8>> {
         let output = self.output().map_err(|err| err.to_string())?;
         if !output.stderr.is_empty() {
-            let message = match std::str::from_utf8(&output.stderr) {
+            let message = match str::from_utf8(&output.stderr) {
                 Ok(msg) => EcoString::from(msg),
                 Err(err) => bail!("{err}"),
             };

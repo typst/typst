@@ -359,7 +359,7 @@ impl ResolvedPicoStr {
     pub fn as_str(&self) -> &str {
         match &self.0 {
             ResolvedPicoStrInner::Inline(buf, len) => unsafe {
-                std::str::from_utf8_unchecked(&buf[..*len as usize])
+                str::from_utf8_unchecked(&buf[..*len as usize])
             },
             ResolvedPicoStrInner::Static(s) => s,
         }
@@ -452,7 +452,7 @@ const fn failed_to_compile_time_intern(
     push(&mut dest, " to intern longer strings.");
 
     let (slice, _) = dest.0.split_at(dest.1);
-    let Ok(message) = std::str::from_utf8(slice) else { panic!() };
+    let Ok(message) = str::from_utf8(slice) else { panic!() };
 
     panic!("{}", message);
 }
