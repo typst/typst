@@ -5,16 +5,15 @@ use std::fmt::Display;
 use ecow::{EcoString, eco_format};
 use krilla::color::separation as ks;
 use krilla::configure::{Validator, Validators};
-use krilla::geom as kg;
 use krilla::geom::PathBuilder;
-use krilla::paint as kp;
-use krilla::tagging as kt;
+use krilla::{geom as kg, paint as kp, tagging as kt};
 use smallvec::SmallVec;
 use typst_library::foundations::Repr;
 use typst_library::layout::{Point, Sides, Size, Transform};
 use typst_library::text::FontInstance;
-use typst_library::visualize::SpotColorantName;
-use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
+use typst_library::visualize::{
+    Curve, CurveItem, FillRule, LineCap, LineJoin, SpotColorantName,
+};
 
 pub(crate) trait SidesExt<T> {
     /// Map to the [`kt::Sides`] struct assuming [`kt::WritingMode::LrTb`].

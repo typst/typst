@@ -1,6 +1,5 @@
 use std::collections::hash_map::Entry;
-use std::fmt::Display;
-use std::fmt::Write as _;
+use std::fmt::{Display, Write as _};
 
 use ecow::{EcoString, eco_format};
 use rustc_hash::FxHashMap;

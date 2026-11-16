@@ -1,5 +1,4 @@
-use krilla::tagging::TagKind;
-use krilla::tagging::{self as kt, Tag};
+use krilla::tagging::{self as kt, Tag, TagKind};
 use smallvec::SmallVec;
 use typst_library::foundations::Packed;
 use typst_library::model::FigureElem;
