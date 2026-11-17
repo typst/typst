@@ -295,7 +295,7 @@ a06aab3d3484f5fb88103db01e5e0654 footnote-styling
 1530bbbbbfc94e0fdb6c830d2ae4b602 gradient-angle-rotation-aspect
 8b2684981c2ac55a162a57fcd8ce35be gradient-conic
 815b11a1b4307f59e9ff402c67613cbb gradient-conic-angled
-3d64395db6dd2ad5725481e4ce568d4c gradient-conic-angled-aspect-ratio
+c20f2dec689bf2d72b6322e81a6b8c91 gradient-conic-angled-aspect-ratio
 8f7274ed038476f30e963f98cb5a048f gradient-conic-center-shifted-1
 e57a9453325e16c22e105e984e3916a2 gradient-conic-center-shifted-2
 99b3fa8daba262291343c1bcf422100d gradient-conic-hsl
@@ -305,7 +305,7 @@ a4d784778fb98d30668d77e6bde22e3d gradient-conic-oklab
 414105f3b1e014fdcd9dbd54b105007e gradient-conic-relative-parent
 f3be8b1133ae3f29c27772c5876d58dd gradient-conic-relative-self
 5560157434553368e9cdb40ae84d407e gradient-conic-stroke
-2671daff729bf176611523d1824a4b72 gradient-conic-text
+d60b0a2d480732e4a35a818f08057964 gradient-conic-text
 e19f8a85e4068e81b09f5d61ef0df01a gradient-curve-stroke
 0517a29c0b1926b40298488d8102d998 gradient-curve-stroke-quad
 72056a964d651f0ed7d243a49f50d4d8 gradient-fill-and-stroke
@@ -328,8 +328,8 @@ d8fedab28bcd1560e1c1716dccdde5c4 gradient-linear-sharp-repeat-and-mirror
 e7ea6e7aa97ee2f03e880cb2d1bb9143 gradient-linear-spaces
 04aeea2d87539e818e90a105591d4ed5 gradient-linear-stroke
 f8902f466235fe941d986846b6dc03f7 gradient-linear-stroke-relative-parent
-4ec7be966915ca5ea646a6f03211ed4f gradient-math-cancel
-e3e4c611a18e0496be5867378450d218 gradient-math-conic
+3ebb0bd2f1a9769b88e3cbccbb95454f gradient-math-cancel
+418900ee253e8e119b99400179dd8cc0 gradient-math-conic
 9fa56a86738b3400c359359339bdf88b gradient-math-dir
 1b966947571b753248cf1017239f5d4f gradient-math-frac
 75cf11c7221bc14f291f7e02b8b4b366 gradient-math-mat

@@ -238,8 +238,8 @@ fn convert_gradient(
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_pt_f32() as f64),
-                        Ratio::new(size.y.to_pt_f32() as f64),
+                        Ratio::new(size.x.to_pt()),
+                        Ratio::new(size.y.to_pt()),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -260,8 +260,8 @@ fn convert_gradient(
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_pt_f32() as f64),
-                        Ratio::new(size.y.to_pt_f32() as f64),
+                        Ratio::new(size.x.to_pt()),
+                        Ratio::new(size.y.to_pt()),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -273,20 +273,16 @@ fn convert_gradient(
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle.
-            let cx = size.x.to_pt_f32() * conic.center.x.get_f32();
-            let cy = size.y.to_pt_f32() * conic.center.y.get_f32();
+            let cx = conic.center.x.of(size.x);
+            let cy = conic.center.y.of(size.y);
             let actual_transform = base_transform
                 // Adjust for the angle.
-                .pre_concat(Transform::rotate_at(
-                    angle + Angle::rad(PI),
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ))
+                .pre_concat(Transform::rotate_at(angle + Angle::rad(PI), cx, cy))
                 .pre_concat(Transform::translate(offset.x, offset.y));
 
             let sweep = SweepGradient {
-                cx,
-                cy,
+                cx: cx.to_pt_f32(),
+                cy: cy.to_pt_f32(),
                 start_angle: 0.0,
                 end_angle: 360.0,
                 transform: actual_transform.to_krilla(),
