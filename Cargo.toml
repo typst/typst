@@ -18,10 +18,8 @@ readme = "README.md"
 [workspace.dependencies]
 typst = { path = "crates/typst", version = "0.15.1" }
 typst-bundle = { path = "crates/typst-bundle", version = "0.15.1" }
-typst-cli = { path = "crates/typst-cli", version = "0.15.1" }
 typst-eval = { path = "crates/typst-eval", version = "0.15.1" }
 typst-html = { path = "crates/typst-html", version = "0.15.1" }
-typst-ide = { path = "crates/typst-ide", version = "0.15.1" }
 typst-kit = { path = "crates/typst-kit", version = "0.15.1", default-features = false }
 typst-layout = { path = "crates/typst-layout", version = "0.15.1" }
 typst-library = { path = "crates/typst-library", version = "0.15.1" }
@@ -52,7 +50,6 @@ codex = { git = "https://github.com/typst/codex", rev = "2e43ab9" }
 color-print = "0.3.6"
 comemo = "0.5.1"
 csv = "1"
-ctrlc = "3.4.1"
 dirs = "6"
 ecow = { version = "0.2.6", features = ["serde"] }
 either = "1"
