@@ -444,7 +444,7 @@ impl Gradient {
 
         Ok(Gradient::Radial(Arc::new(RadialGradient {
             stops,
-            center: center.map(From::from),
+            center,
             radius: radius.v,
             focal_center,
             focal_radius: focal_radius.v,
@@ -521,7 +521,7 @@ impl Gradient {
         Ok(Gradient::Conic(Arc::new(ConicGradient {
             stops,
             angle,
-            center: center.map(From::from),
+            center,
             space,
             relative,
             anti_alias: true,
