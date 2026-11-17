@@ -14,7 +14,7 @@ use crate::convert::{GlobalContext, to_span};
 use crate::tags::context::{self, Annotations, BBoxCtx, Ctx};
 use crate::tags::groups::{Group, GroupId, GroupKind, TagStorage};
 use crate::tags::resolve::accumulator::Accumulator;
-use crate::tags::tree::ResolvedTextAttrs;
+use crate::tags::tree::{ResolvedTextAttrs, TextRun};
 use crate::tags::util::{self, IdVec, PropertyOptRef, PropertyValCopied};
 use crate::tags::{AnnotationId, disabled};
 use crate::util::ValidatorsExt;
@@ -30,7 +30,7 @@ pub enum TagNode {
     Annotation(AnnotationId),
     /// If the attributes are non-empty this will resolve to a [`Tag::Span`],
     /// otherwise the items are inserted directly.
-    Text(ResolvedTextAttrs, Vec<Identifier>),
+    Text(ResolvedTextAttrs, Vec<TextRun>),
 }
 
 struct Resolver<'a> {
@@ -113,8 +113,8 @@ fn resolve_node(
         TagNode::Annotation(id) => {
             accum.push(rs.annotations.take(*id));
         }
-        TagNode::Text(attrs, ids) => {
-            resolve_text(accum, attrs, ids);
+        TagNode::Text(attrs, runs) => {
+            resolve_text(accum, attrs, runs);
         }
     }
 }
@@ -200,50 +200,62 @@ fn resolve_group_node(
     accum.push(Node::Group(kt::TagGroup::with_children(tag, nodes)));
 }
 
-fn resolve_text(
-    accum: &mut Accumulator,
-    attrs: &ResolvedTextAttrs,
-    children: &[kt::Identifier],
-) {
-    enum Prev<'a> {
-        Children(&'a [kt::Identifier]),
-        Group(kt::TagGroup),
+fn resolve_text(accum: &mut Accumulator, attrs: &ResolvedTextAttrs, runs: &[TextRun]) {
+    fn group(tag: impl Into<TagKind>, children: Vec<Node>) -> Node {
+        Node::Group(kt::TagGroup::with_children(tag, children))
     }
 
-    impl Prev<'_> {
-        fn into_nodes(self) -> Vec<Node> {
-            match self {
-                Prev::Children(ids) => ids.iter().map(|id| Node::Leaf(*id)).collect(),
-                Prev::Group(group) => vec![Node::Group(group)],
-            }
+    enum Nodes {
+        Single(Node),
+        Multiple(Vec<Node>),
+    }
+
+    impl Nodes {
+        fn wrap(self, tag: impl Into<TagKind>) -> Self {
+            let children = match self {
+                Nodes::Single(node) => vec![node],
+                Nodes::Multiple(nodes) => nodes,
+            };
+            Nodes::Single(group(tag, children))
         }
     }
 
-    let mut prev = Prev::Children(children);
-    if attrs.script.is_some() || attrs.background.is_some() || attrs.deco.is_some() {
-        let tag = Tag::Span
-            .with_line_height(attrs.script.map(|s| s.lineheight))
-            .with_baseline_shift(attrs.script.map(|s| s.baseline_shift))
-            .with_background_color(attrs.background.flatten())
-            .with_text_decoration_type(attrs.deco.map(|d| d.kind.to_krilla()))
-            .with_text_decoration_color(attrs.deco.and_then(|d| d.color))
-            .with_text_decoration_thickness(attrs.deco.and_then(|d| d.thickness));
+    let span_tag = attrs.span_tag();
 
-        let group = kt::TagGroup::with_children(tag, prev.into_nodes());
-        prev = Prev::Group(group);
-    }
+    let mut nodes = if runs.iter().any(|run| run.actual_text.is_some()) {
+        // Each run with replacement text gets its own span.
+        Nodes::Multiple(
+            runs.iter()
+                .map(|run| {
+                    if span_tag.is_none() && run.actual_text.is_none() {
+                        Node::Leaf(run.id)
+                    } else {
+                        let tag = span_tag.clone().unwrap_or(Tag::Span);
+                        let actual_text = run.actual_text.as_deref().map(String::from);
+                        group(tag.with_actual_text(actual_text), vec![Node::Leaf(run.id)])
+                    }
+                })
+                .collect(),
+        )
+    } else {
+        // Without replacement text, all runs can share a single span if needed.
+        let leaves = runs.iter().map(|run| Node::Leaf(run.id)).collect();
+        match span_tag {
+            Some(tag) => Nodes::Single(group(tag, leaves)),
+            None => Nodes::Multiple(leaves),
+        }
+    };
+
     if attrs.strong == Some(true) {
-        let group = kt::TagGroup::with_children(Tag::Strong, prev.into_nodes());
-        prev = Prev::Group(group);
+        nodes = nodes.wrap(Tag::Strong);
     }
     if attrs.emph == Some(true) {
-        let group = kt::TagGroup::with_children(Tag::Em, prev.into_nodes());
-        prev = Prev::Group(group);
+        nodes = nodes.wrap(Tag::Em);
     }
 
-    match prev {
-        Prev::Group(group) => accum.push(Node::Group(group)),
-        Prev::Children(ids) => accum.extend(ids.iter().map(|id| Node::Leaf(*id))),
+    match nodes {
+        Nodes::Single(node) => accum.push(node),
+        Nodes::Multiple(nodes) => accum.extend(nodes.into_iter()),
     }
 }
 

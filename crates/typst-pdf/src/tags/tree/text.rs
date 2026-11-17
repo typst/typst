@@ -1,4 +1,7 @@
-use krilla::tagging::{LineHeight, NaiveRgbColor, TextDecorationType};
+use ecow::EcoString;
+use krilla::tagging::{
+    self as kt, Identifier, LineHeight, NaiveRgbColor, Tag, TextDecorationType,
+};
 use typst_library::diag::{SourceDiagnostic, error};
 use typst_library::format::Complete;
 use typst_library::foundations::{Content, Packed, Smart};
@@ -14,6 +17,14 @@ use crate::tags::tree::Tree;
 use crate::tags::util::{PropertyOptRef, PropertyValCloned, PropertyValCopied};
 use crate::tags::{GroupId, util};
 use crate::util::AbsExt;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextRun {
+    /// The identifier of the run's marked content.
+    pub id: Identifier,
+    /// Replacement text for the run, emitted as `/ActualText`.
+    pub actual_text: Option<EcoString>,
+}
 
 #[derive(Debug, Clone)]
 pub struct TextAttrs {
@@ -81,6 +92,23 @@ impl ResolvedTextAttrs {
 
     pub fn is_empty(&self) -> bool {
         self == &Self::EMPTY
+    }
+
+    pub fn span_tag(&self) -> Option<Tag<kt::kind::Span>> {
+        if self.is_empty() {
+            return None;
+        }
+
+        let tag = Tag::Span
+            .with_line_height(self.script.map(|s| s.lineheight))
+            .with_baseline_shift(self.script.map(|s| s.baseline_shift))
+            .with_background_color(self.background.flatten())
+            .with_text_decoration_type(self.deco.map(|d| d.kind.to_krilla()))
+            .with_text_decoration_color(self.deco.and_then(|d| d.color))
+            .with_text_decoration_thickness(self.deco.and_then(|d| d.thickness));
+
+        // Not all attrs need a span.
+        (tag != Tag::Span).then_some(tag)
     }
 }
 
