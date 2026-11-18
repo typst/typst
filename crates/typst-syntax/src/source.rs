@@ -8,7 +8,10 @@ use typst_utils::LazyHash;
 
 use crate::lines::Lines;
 use crate::reparser::reparse;
-use crate::{FileId, LinkedNode, Span, SpanNumber, SubRange, SyntaxNode, parse};
+use crate::{
+    FileId, LinkedNode, PreferredCompilerVersion, Span, SpanNumber, SubRange, SyntaxNode,
+    parse,
+};
 
 /// A Typst source file containing the full source text, a mapping from byte
 /// indices to lines/columns, and the parsed syntax tree.
@@ -31,11 +34,15 @@ struct SourceInner {
 impl Source {
     /// Create a new source file. This parses the input text and assigns span
     /// numbers to the parsed tree.
-    pub fn new(id: FileId, text: impl Into<String>) -> Self {
+    pub fn new(
+        id: FileId,
+        text: impl Into<String>,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Self {
         let text: String = text.into();
         #[cfg(feature = "timing")]
         let _scope = typst_timing::TimingScope::new("create source");
-        let mut root = parse(&text);
+        let mut root = parse(&text, preferred_version);
         root.numberize(id, Span::FULL).unwrap();
         Self(Arc::new(LazyHash::new(SourceInner { id, lines: Lines::new(text), root })))
     }
@@ -73,7 +80,11 @@ impl Source {
     /// then calls [`edit`](Self::edit) with it.
     ///
     /// Returns the range in the new source that was ultimately reparsed.
-    pub fn replace(&mut self, new: &str) -> Range<usize> {
+    pub fn replace(
+        &mut self,
+        new: &str,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Range<usize> {
         #[cfg(feature = "timing")]
         let _scope = typst_timing::TimingScope::new("replace source");
 
@@ -84,7 +95,7 @@ impl Source {
         let old = self.text();
         let replace = prefix..old.len() - suffix;
         let with = &new[prefix..new.len() - suffix];
-        self.edit(replace, with)
+        self.edit(replace, with, preferred_version)
     }
 
     /// Edit the source file by replacing the given range.
@@ -93,14 +104,25 @@ impl Source {
     ///
     /// The method panics if the `replace` range is out of bounds.
     #[track_caller]
-    pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
+    pub fn edit(
+        &mut self,
+        replace: Range<usize>,
+        with: &str,
+        preferred_version: PreferredCompilerVersion,
+    ) -> Range<usize> {
         let inner = &mut **Arc::make_mut(&mut self.0);
 
         // Update the text and lines.
         inner.lines.edit(replace.clone(), with);
 
         // Incrementally reparse the replaced range.
-        reparse(&mut inner.root, inner.lines.text(), replace, with.len())
+        reparse(
+            &mut inner.root,
+            inner.lines.text(),
+            replace,
+            with.len(),
+            preferred_version,
+        )
     }
 
     /// Find the node with the given span.
@@ -149,13 +171,13 @@ impl AsRef<str> for Source {
 #[cfg(test)]
 mod test {
     use super::Source;
-    use crate::{FileId, LinkedNode, Side, Span, SubRange};
+    use crate::{FileId, LinkedNode, PreferredCompilerVersion, Side, Span, SubRange};
 
     #[test]
     fn test_source_sub_ranges() {
         let test_id = FileId::new_for_test("test_source_sub_ranges");
         let text = "= head <label>";
-        let source = Source::new(test_id, text);
+        let source = Source::new(test_id, text, PreferredCompilerVersion::current());
         let get = |span: Span, sub_range| {
             let num = crate::SpanNumber(span.number());
             &text[source.range(num, sub_range).unwrap()]

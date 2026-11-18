@@ -65,7 +65,7 @@ PDF export was fully rewritten to use the new #link("https://github.com/LaurenzV
 - Empty attributes are now encoded with shorthand syntax (e.g. ```html <div hidden></div>```) #pr(6479)
 - Zero-sized horizontal weak spacing (`{h(0pt, weak: true)}`) does not cause a "was ignored during HTML export" warning anymore, so it can be used to destruct surrounding spaces without producing any output, as in paged export #pr(6917)
 - Fixed encoding of `<pre>` and `<textarea>` elements that start with a newline #pr(6487) #pr(6497)
-- Fixed encoding of #link("https://html.spec.whatwg.org/#raw-text-elements")[raw text elements] #pr(6487) #pr(6720)
+- Fixed encoding of #link("https://html.spec.whatwg.org/\#raw-text-elements")[raw text elements] #pr(6487) #pr(6720)
 - Fixed sizing of @html.frame #pr(6505)
 - Fixed @measure in HTML export #pr(7186)
 - Fixed nested @html.frame[`html.frame`s] #pr(6509)
@@ -82,7 +82,7 @@ PDF export was fully rewritten to use the new #link("https://github.com/LaurenzV
 = Visualize <visualize>
 - Added support for using PDFs as @image[images] using the new #link("https://github.com/LaurenzV/hayro")[`hayro`] library. PDFs will be embedded directly in PDF export, rasterized in PNG export, and turned into SVGs in SVG and HTML export. _(Thanks to #gh("LaurenzV") for creating hayro!)_ #pr(6623)
 - Added support for WebP images #pr(6311)
-- Various minor improvements for SVG images (see the #link("https://github.com/linebender/resvg/blob/v0.45.1/CHANGELOG.md#0450---2025-02-26")[resvg 0.44 and 0.45 changelogs])
+- Various minor improvements for SVG images (see the #link("https://github.com/linebender/resvg/blob/v0.45.1/CHANGELOG.md\#0450---2025-02-26")[resvg 0.44 and 0.45 changelogs])
 - SVG images can now refer to external image files #pr(6794)
 - Clip paths are now properly anti-aliased #pr(6570)
 - Fixed gradients on curves where the last segment is @curve.line #pr(6647)
@@ -148,7 +148,7 @@ _Thanks to #gh("mkorje") for his work on math!_
   - Added support for locator/supplement in alphanumeric style #pr(307, repo: "typst/hayagriva")
 
 - Hayagriva format
-  - Added #link("https://github.com/typst/hayagriva/blob/v0.9.1/docs/file-format.md#chapter")[`chapter` field] corresponding to CSL `chapter-number` and BibLaTeX `chapter` #pr(383, repo: "typst/hayagriva")
+  - Added #link("https://github.com/typst/hayagriva/blob/v0.9.1/docs/file-format.md\#chapter")[`chapter` field] corresponding to CSL `chapter-number` and BibLaTeX `chapter` #pr(383, repo: "typst/hayagriva")
 
 - BibLaTeX format
   - Fixed parsing of alphanumeric page ranges #pr(86, repo: "typst/biblatex")
@@ -269,7 +269,7 @@ _Thanks to #gh("mkorje") for his work on math!_
 - Fixed jump from click (jumping to the source panel with a click in the preview) in presence of transformations and clipping #pr(6037)
 
 = Symbols <symbols>
-- Added many new symbols and variants; many more than could be listed here. View #link("https://github.com/typst/codex/blob/v0.2.0/CHANGELOG.md#version-020-october-7-2025")[the dedicated changelog] for a full listing.
+- Added many new symbols and variants; many more than could be listed here. View #link("https://github.com/typst/codex/blob/v0.2.0/CHANGELOG.md\#version-020-october-7-2025")[the dedicated changelog] for a full listing.
 - Code points that have a symbol and emoji presentation now have the correct variation selector attached depending on whether they appear in `sym` or `emoji`. That said, they still don't render consistently in Typst due to how font fallback works. #pr(114, repo: "typst/codex")
 - The @symbol function can now be used to create symbols that comprise not just one character, but one full grapheme cluster #pr(6489)
 
@@ -278,7 +278,7 @@ _Thanks to #gh("mkorje") for his work on math!_
 - The `{"chicago-fullnotes"}` bibliography style in favor of `{"chicago-notes"}` #pr(6920)
 - The `{"modern-humanities-research-association"}` bibliography style in favor of `{"modern-humanities-research-association-notes"}` #pr(6994)
 - The `--make-deps` CLI flag in favor of `--deps` with `--deps-format make` #pr(7022)
-- Various symbols, see the #link("https://github.com/typst/codex/blob/v0.2.0/CHANGELOG.md#deprecated")[deprecation section in the dedicated changelog] for a full listing
+- Various symbols, see the #link("https://github.com/typst/codex/blob/v0.2.0/CHANGELOG.md\#deprecated")[deprecation section in the dedicated changelog] for a full listing
 
 = Removals <removals>
 - Removed compatibility behavior of type/str comparisons (e.g. `{int == "integer"}`), which was temporarily introduced in Typst 0.8 and deprecated in Typst 0.13 *(Breaking change)*

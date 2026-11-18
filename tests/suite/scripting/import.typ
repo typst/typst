@@ -435,6 +435,22 @@ This is never reached.
 #import "@test/adder:0.1.0": add
 #test(add(2, 8), 10)
 
+--- import-from-package-no-compat eval ---
+// Test import with no compatibility. If none is given the current one is used.
+#import "@test/compat-none:0.1.0": preferred
+#test(preferred, compiler-current-version())
+
+--- import-from-package-implicit-compat eval ---
+// Test import with implicit compatibility. If only a minimum is given the
+// minimum is used as preferred too.
+#import "@test/compat-minimum:0.1.0": preferred
+#test(preferred, version(0, 14))
+
+--- import-from-package-explicit-compat eval ---
+// Test import with explicit compatibility.
+#import "@test/compat-preferred:0.1.0": preferred
+#test(preferred, version(0, 15))
+
 --- import-from-package-required-compiler-version eval ---
 // Test too high required compiler version.
 // Error: 9-29 package requires Typst 1.0.0 or newer (current version is VERSION)
@@ -489,8 +505,8 @@ This is never reached.
 #import "@test/mypkg:0.3.": *
 
 --- import-from-file-package-lookalike eval ---
-// Error: 9-28 file not found (searched at tests/suite/scripting/#test/mypkg:1.0.0)
-#import "#test/mypkg:1.0.0": *
+// Error: 9-28 file not found (searched at tests/suite/scripting/$test/mypkg:1.0.0)
+#import "$test/mypkg:1.0.0": *
 
 --- import-feature-gated-item eval features() ---
 // Error: 14-18 cannot import `html` because the `html` feature is not enabled
@@ -555,7 +571,7 @@ b
 c
 
 --- issue-7393-import-error-extra-quote eval ---
-// Error: 1:31-4:1 unclosed string
+// Error: 31 expected semicolon or line break
 #import "@preview/unify:0.1.0""a
 b
 c
