@@ -19,7 +19,7 @@ use crate::tags::context::grid::{CtxCell, GridCells, GridEntry, GridExt};
 use crate::tags::context::{TableId, TagId};
 use crate::tags::tree::Tree;
 use crate::tags::util::{self, PropertyOptRef, PropertyValCopied, TableHeaderScopeExt};
-use crate::util::{AbsExt, SidesExt};
+use crate::util::SidesExt;
 
 #[derive(Debug)]
 pub struct TableCtx {
@@ -550,7 +550,7 @@ fn try_resolve_table_stroke(
     let Some(stroke) = stroke else { return (None, None) };
 
     // Only set a parent stroke width if the table uses one uniform stroke.
-    let thickness = uniform_stroke.then_some(stroke.thickness.to_f32());
+    let thickness = uniform_stroke.then_some(stroke.thickness.to_pt_f32());
     let color = util::paint_to_color(&stroke.paint);
 
     (thickness, color)
@@ -585,7 +585,7 @@ fn resolve_cell_border_and_background(
     // sides that should be omitted.
     let border_thickness =
         resolve_sides(&fixed, parent_border_thickness, Some(0.0), |s| {
-            Some(s.thickness.to_f32())
+            Some(s.thickness.to_pt_f32())
         });
 
     let border_color = resolve_sides(&fixed, parent_border_color, None, |s| {

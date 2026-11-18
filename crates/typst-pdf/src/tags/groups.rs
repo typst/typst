@@ -528,8 +528,8 @@ impl GroupKind {
                     let bbox = kg::Rect::from_ltrb(
                         0.0,
                         0.0,
-                        size.x.to_pt() as f32,
-                        size.y.to_pt() as f32,
+                        size.x.to_pt_f32(),
+                        size.y.to_pt_f32(),
                     )
                     .unwrap();
                     Artifact { kind: ArtifactType::Background, bbox: Some(bbox) }

@@ -181,7 +181,7 @@ impl FontVariations {
         }
 
         if let Some(axis) = axes.opsz {
-            set(axis, AxisValue(size.to_pt() as f32));
+            set(axis, AxisValue(size.to_pt_f32()));
         }
 
         variations

@@ -22,7 +22,7 @@ use typst_utils::Numeric;
 use crate::convert::{FrameContext, GlobalContext, State, handle_frame};
 use crate::tags;
 use crate::util::{
-    AbsExt, FillRuleExt, LineCapExt, LineJoinExt, SpotColorantToNameExt, TransformExt,
+    FillRuleExt, LineCapExt, LineJoinExt, SpotColorantToNameExt, TransformExt,
 };
 
 pub(crate) fn convert_fill(
@@ -57,8 +57,8 @@ pub(crate) fn convert_stroke(
 
     Ok(Stroke {
         paint,
-        width: stroke.thickness.to_f32(),
-        miter_limit: stroke.miter_limit.get() as f32,
+        width: stroke.thickness.to_pt_f32(),
+        miter_limit: stroke.miter_limit.get_f32(),
         line_join: stroke.join.to_krilla(),
         line_cap: stroke.cap.to_krilla(),
         opacity: NormalizedF32::new(opacity as f32 / 255.0).unwrap(),
@@ -190,8 +190,8 @@ fn convert_pattern(
     let pattern = Pattern {
         stream,
         transform: transform.to_krilla(),
-        width: (pattern.size().x + pattern.spacing().x).to_pt() as f32,
-        height: (pattern.size().y + pattern.spacing().y).to_pt() as f32,
+        width: (pattern.size().x + pattern.spacing().x).to_pt_f32(),
+        height: (pattern.size().y + pattern.spacing().y).to_pt_f32(),
     };
 
     Ok((pattern.into(), 255))
@@ -238,8 +238,8 @@ fn convert_gradient(
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_f32() as f64),
-                        Ratio::new(size.y.to_f32() as f64),
+                        Ratio::new(size.x.to_pt()),
+                        Ratio::new(size.y.to_pt()),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -251,17 +251,17 @@ fn convert_gradient(
         }
         Gradient::Radial(radial) => {
             let radial = RadialGradient {
-                fx: radial.focal_center.x.get() as f32,
-                fy: radial.focal_center.y.get() as f32,
-                fr: radial.focal_radius.get() as f32,
-                cx: radial.center.x.get() as f32,
-                cy: radial.center.y.get() as f32,
-                cr: radial.radius.get() as f32,
+                fx: radial.focal_center.x.get_f32(),
+                fy: radial.focal_center.y.get_f32(),
+                fr: radial.focal_radius.get_f32(),
+                cx: radial.center.x.get_f32(),
+                cy: radial.center.y.get_f32(),
+                cr: radial.radius.get_f32(),
                 transform: base_transform
                     .pre_concat(Transform::translate(offset.x, offset.y))
                     .pre_concat(Transform::scale(
-                        Ratio::new(size.x.to_f32() as f64),
-                        Ratio::new(size.y.to_f32() as f64),
+                        Ratio::new(size.x.to_pt()),
+                        Ratio::new(size.y.to_pt()),
                     ))
                     .to_krilla(),
                 spread_method: SpreadMethod::Pad,
@@ -273,20 +273,16 @@ fn convert_gradient(
         }
         Gradient::Conic(conic) => {
             // Correct the gradient's angle.
-            let cx = size.x.to_f32() * conic.center.x.get() as f32;
-            let cy = size.y.to_f32() * conic.center.y.get() as f32;
+            let cx = conic.center.x.of(size.x);
+            let cy = conic.center.y.of(size.y);
             let actual_transform = base_transform
                 // Adjust for the angle.
-                .pre_concat(Transform::rotate_at(
-                    angle + Angle::rad(PI),
-                    Abs::pt(cx as f64),
-                    Abs::pt(cy as f64),
-                ))
+                .pre_concat(Transform::rotate_at(angle + Angle::rad(PI), cx, cy))
                 .pre_concat(Transform::translate(offset.x, offset.y));
 
             let sweep = SweepGradient {
-                cx,
-                cy,
+                cx: cx.to_pt_f32(),
+                cy: cy.to_pt_f32(),
                 start_angle: 0.0,
                 end_angle: 360.0,
                 transform: actual_transform.to_krilla(),
@@ -307,7 +303,7 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
         let (color, opacity) = convert_solid(color);
 
         let opacity = NormalizedF32::new((opacity as f32) / 255.0).unwrap();
-        let offset = NormalizedF32::new(offset.get() as f32).unwrap();
+        let offset = NormalizedF32::new(offset.get_f32()).unwrap();
         let stop = Stop { offset, color, opacity };
         stops.push(stop);
     };
@@ -403,8 +399,8 @@ fn convert_gradient_stops(gradient: &Gradient) -> Vec<Stop> {
 
 fn convert_dash(dash: &DashPattern<Abs, Abs>) -> StrokeDash {
     StrokeDash {
-        array: dash.array.iter().map(|e| e.to_f32()).collect(),
-        offset: dash.phase.to_f32(),
+        array: dash.array.iter().map(|e| e.to_pt_f32()).collect(),
+        offset: dash.phase.to_pt_f32(),
     }
 }
 

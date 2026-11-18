@@ -81,7 +81,12 @@ impl Ratio {
 
     /// Get the underlying ratio.
     pub const fn get(self) -> f64 {
-        (self.0).get()
+        self.0.get()
+    }
+
+    /// Get the underlying ratio as an [`f32`].
+    pub const fn get_f32(self) -> f32 {
+        self.0.get() as f32
     }
 
     /// Get the underlying ratio.

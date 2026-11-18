@@ -9,7 +9,7 @@ use typst_library::text::{FontInstance, TextItem};
 use typst_library::visualize::{FixedStroke, Paint};
 
 use crate::paint::{self, GradientSampler, PaintSampler, TilingSampler};
-use crate::{AbsExt, State, shape};
+use crate::{State, shape};
 
 /// Render a text run into the canvas.
 pub fn render_text(canvas: &mut sk::Pixmap, state: State, text: &TextItem) {
@@ -48,7 +48,7 @@ fn render_outline_glyph(
     id: GlyphId,
 ) -> Option<()> {
     let ts = &state.transform;
-    let ppem = text.size.to_f32() * ts.sy;
+    let ppem = text.size.to_pt_f32() * ts.sy;
 
     // Render a glyph directly as a path. This only happens when the fast glyph
     // rasterization can't be used due to very large text size or weird
@@ -66,7 +66,7 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        let scale = text.size.to_f32() / text.font.units_per_em() as f32;
+        let scale = text.size.to_pt_f32() / text.font.units_per_em() as f32;
 
         let mut pixmap = None;
 
@@ -82,18 +82,18 @@ fn render_outline_glyph(
 
         if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
             &text.stroke
-            && thickness.to_f32() > 0.0
+            && thickness.to_pt_f32() > 0.0
         {
             let dash = dash.as_ref().and_then(shape::to_sk_dash_pattern);
 
             let paint =
                 paint::to_sk_paint(paint, state_ts, true, &mut pixmap, None, false);
             let stroke = sk::Stroke {
-                width: thickness.to_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
+                width: thickness.to_pt_f32() / scale, // When we scale the path, we need to scale the stroke width, too.
                 line_cap: shape::to_sk_line_cap(*cap),
                 line_join: shape::to_sk_line_join(*join),
                 dash,
-                miter_limit: miter_limit.get() as f32,
+                miter_limit: miter_limit.get_f32(),
             };
 
             canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
