@@ -1,5 +1,6 @@
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::{EcoString, eco_format};
@@ -213,10 +214,11 @@ pub struct LinkElem {
     })]
     pub body: Content,
 
-    /// A destination style that should be applied to elements.
+    /// A destination style that should be applied to elements, including the location
+    /// of the [`LinkMarker`] that applied this change.
     #[internal]
     #[ghost]
-    pub current: Option<Destination>,
+    pub current: Option<Arc<Linkage>>,
 }
 
 impl LinkElem {
@@ -306,6 +308,22 @@ cast! {
 impl From<Destination> for LinkTarget {
     fn from(dest: Destination) -> Self {
         Self::Dest(dest)
+    }
+}
+
+/// A linkage from a [`LinkMarker`] to a [`Destination`].
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct Linkage {
+    /// The location of the [`LinkMarker`] of this link.
+    pub origin: Location,
+    /// The destination of the link.
+    pub dest: Destination,
+}
+
+impl Linkage {
+    /// Create a new linkage.
+    pub fn new(origin: Location, dest: Destination) -> Self {
+        Self { origin, dest }
     }
 }
 
@@ -477,7 +495,7 @@ impl Construct for DirectLinkElem {
 }
 
 /// An element that wraps all content that is @Content::linked to a destination.
-#[elem(Tagged, Construct)]
+#[elem(Tagged, Construct, ShowSet)]
 pub struct LinkMarker {
     /// The content.
     #[internal]
@@ -486,11 +504,23 @@ pub struct LinkMarker {
     #[internal]
     #[required]
     pub alt: Option<EcoString>,
+    #[internal]
+    #[required]
+    pub dest: Destination,
 }
 
 impl Construct for LinkMarker {
     fn construct(_: &mut Engine, args: &mut Args) -> SourceResult<Content> {
         bail!(args.span, "cannot be constructed manually");
+    }
+}
+
+impl ShowSet for Packed<LinkMarker> {
+    fn show_set(&self, _: StyleChain) -> Styles {
+        let mut out = Styles::new();
+        let link = Arc::new(Linkage::new(self.location().unwrap(), self.dest.clone()));
+        out.set(LinkElem::current, Some(link));
+        out
     }
 }
 

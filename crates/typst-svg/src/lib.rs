@@ -331,7 +331,9 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Image(image, size, _) => {
                     self.render_image(svg, &state, image, size);
                 }
-                FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
+                FrameItem::Link(link, size) => {
+                    self.render_link(svg, &state, &link.dest, *size);
+                }
                 FrameItem::Tag(_) => {}
             }
         }

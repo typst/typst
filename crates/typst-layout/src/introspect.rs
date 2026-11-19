@@ -196,9 +196,9 @@ impl PagedIntrospectorBuilder {
                         self.discover_frame(&group.frame, ts, to_pos);
                     }
                 }
-                FrameItem::Link(dest, _) => {
-                    if let Destination::Location(loc) = dest {
-                        self.frame_link_targets.insert(*loc);
+                FrameItem::Link(link, _) => {
+                    if let Destination::Location(loc) = link.dest {
+                        self.frame_link_targets.insert(loc);
                     }
                 }
                 FrameItem::Text(..) | FrameItem::Shape(..) | FrameItem::Image(..) => {}
