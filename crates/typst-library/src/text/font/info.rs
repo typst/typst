@@ -141,9 +141,17 @@ impl FontInfo {
             .raw_face()
             .table(ttf_parser::Tag::from_bytes(b"OS/2"))
             .and_then(|os2| os2.get(32..45))
-            && matches!(panose, [2, 2..=10, ..])
         {
-            flags.insert(FontFlags::SERIF);
+            // Some fonts miss the relevant bits for serif (notably Typst's
+            // default font, Libertinus Serif), so we also try to infer that from
+            // the font family name.
+            let family = family.to_ascii_lowercase();
+            if matches!(panose, [2, 2..=10, ..])
+                || (matches!(panose, [0, 0, ..])
+                    && (family.contains("serif") || family.contains("slab")))
+            {
+                flags.insert(FontFlags::SERIF);
+            }
         }
 
         let axes = ttf

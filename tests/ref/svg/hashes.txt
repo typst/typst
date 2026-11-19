@@ -198,7 +198,7 @@ e32d85331a6c4dff9620a3eb6e282a2b document-set-after-content
 53dc54710f181c49a14575407ddf0387 ellipse-auto-sizing
 0499c7cfac4ae5fdfec1d21031c4535d emph-and-strong-call-in-word
 2d62691b1060642de6ad5062702e9688 emph-double-underscore-empty-hint
-2704e3f06bda6f7422088ff157f0bbc3 emph-syntax
+f378ef08b12c6d05843a4ebb310d1fbf emph-syntax
 45e229323da8b6f4802838a0a25c47e4 enum-built-in-loop
 cd7410ddeb1ae680e382efc0ebb15551 enum-function-call
 419acd031a6770bf70e2687799a11a9c enum-in-align-centering
@@ -701,7 +701,7 @@ df7389f1ef0245aee8178dd1cfb6b9dc issue-2128-block-width-box
 62f8304a63bf4ecab5e77c9224759a4a issue-2199-place-spacing-bottom
 3a214027c3487f9e6eb18d0b5d256a21 issue-2199-place-spacing-default
 2a14a1963c36e8b8bd9c5a132874f0b2 issue-2213-align-fr
-e3cf07b2d0add6f46fb349c411ffdaf8 issue-2214-baseline-math
+c74cf9662292b3dc1531dcd94ffa9674 issue-2214-baseline-math
 c41d51f569dcf27f881bd7d3d3648396 issue-2259-raw-color-overwrite
 64574ea652fc253da6b6ccc52e61086f issue-2268-mat-augment-color
 1728a5c539e06e657bd36624b31341fc issue-2326-context-set-page
@@ -845,7 +845,7 @@ eaaca053bc6feddd3f1b9b585d92246c issue-6666-auto-hlines-around-header
 f1003f00895ba8e491665370131ce322 issue-6869-image-zero-sized
 c1e125e744728bcf7eb4d563a4350ed3 issue-6961-tab-crlf-raw-indent
 3d2d1e25d75788136e8b71bcb22d1a8f issue-7103-wrong-state-calculation
-c2fd24dc7f7827ac741c1648357aba29 issue-7113-cjk-latin-spacing-shift
+1dc2d0f50bce002d4feed28a0f48f0ab issue-7113-cjk-latin-spacing-shift
 5cf6982fdd43b0c975bb3e0ed981dd54 issue-7178-svg-fallback-deadlock
 1bfcbf2b46965ea10db47c6aa8edde40 issue-7188-grid-counter-order
 dd4ae7847c8f91e65ff77f284adfca73 issue-7249-multiple-lookup-tables
