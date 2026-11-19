@@ -129,6 +129,8 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
+        self.engine.route.increase();
+
         let pairs = (self.engine.library.routines.realize)(
             RealizationKind::Math,
             self.engine,
@@ -141,6 +143,8 @@ impl<'a, 'v, 'e> MathResolver<'a, 'v, 'e> {
         for (elem, styles) in pairs {
             resolve_realized(elem, self, styles)?;
         }
+
+        self.engine.route.decrease();
 
         Ok(())
     }
