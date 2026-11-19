@@ -874,6 +874,7 @@ d2c75477a39f501e64b586e9154160c4 issue-8520-script-stylistic-set
 32f5c5d2ec1fa8f20c77ac7552e25131 issue-8648-enum-gap
 da43cee0ff9ba707d843f89147cd6be0 issue-886-args-sink
 740b4fe285259a40f74da27ae44d4e63 issue-8931-justify-trailing-tracking
+650e1692f89c9102c6c7a78e51bed4de issue-8954-short-lived-subheader-panic
 9693e8d3687688b8ed78ae16ae815352 issue-color-mix-luma
 4c01dfc0d145e59abdb4413234dfd836 issue-columns-heading
 cab381623b5669d286f1d9f1f96996f9 issue-curve-in-sized-container
