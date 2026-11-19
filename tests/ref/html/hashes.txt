@@ -89,6 +89,8 @@ a606359ed2edd035026fc92f0fc9fd89 issue-3973-math-equation-align
 9b9cc62e1c579a65d36cde16496ad4fb issue-4188-lr-corner-brackets
 c7fdf53834e30a25e43dd1d2e08590fe issue-4828-math-number-multi-char
 0b59c30e66c5370819c6d5d695bb835a issue-4985-up-tack-is-normal-perp-is-relation
+b281c11b28f8388d85d835b994db41a5 issue-5615-outline-skip-level
+5a540cb14b36d8718bf3c787f1e17c2e issue-5615-outline-skip-multiple-levels
 325212ec038fa5008495a7ecc678cf79 issue-6090-math-overhang
 8c0b68b8c3a7633f72fb0ccd7afaec3f issue-6170-equation-stroke
 33952b2eeda5761fca8d943d0d8721ef issue-7437-math-accent-text-presentation
