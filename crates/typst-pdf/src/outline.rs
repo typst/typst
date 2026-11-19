@@ -23,7 +23,7 @@ pub(crate) fn build_outline(gc: &GlobalContext) -> KrillaOutline {
                 .unwrap_or_else(|| heading.outlined.get(StyleChain::default()));
 
             let visible = gc.options.format.pages.v.as_ref().is_none_or(|ranges| {
-                !ranges.includes_page(
+                ranges.includes_page(
                     gc.document
                         .introspector()
                         .page(elem.location().unwrap())
