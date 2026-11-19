@@ -14,7 +14,7 @@ use typst_syntax::Span;
 use typst_utils::Numeric;
 
 use super::*;
-use crate::modifiers::{FrameModifiers, FrameModify, layout_and_modify_without_links};
+use crate::modifiers::layout_and_modify_without_links;
 
 // The characters by which spacing, inline content and pins are replaced in the
 // full text.
@@ -254,13 +254,17 @@ pub fn collect<'a>(
         } else if let Some(elem) = child.to_packed::<InlineElem>() {
             collector.push_item(Item::Skip(LTR_ISOLATE));
 
-            for item in elem.layout(engine, locator.next(&elem.span()), styles, region)? {
+            let loc = locator.next(&elem.span());
+            let items = layout_and_modify_without_links(styles, |styles| {
+                elem.layout(engine, loc, styles, region)
+            })?;
+
+            for item in items {
                 match item {
                     InlineItem::Space(space, weak) => {
                         collector.push_item(Item::Absolute(space, weak));
                     }
                     InlineItem::Frame(mut frame) => {
-                        frame.modify(&FrameModifiers::get_in(styles));
                         apply_shift(&engine.world, &mut frame, styles);
                         collector.push_item(Item::Frame(frame));
                     }

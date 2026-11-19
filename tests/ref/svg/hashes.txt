@@ -891,6 +891,7 @@ f11fa08a8d3fd9b85096ad3e37ce443a issue-grid-skip
 6ab766b37554d34dd2a9ebd3d03eb05d issue-grid-skip-list
 f8d05b655ac2955f1fb28b328f7c05ed issue-hyphenate-after-tag
 102be7fd5fb132de2b4ef30682ffe8bc issue-hyphenate-in-link
+67a21d67ec51a6443704621a4e61d49a issue-link-math
 38ae7d393e6732cadd8a57f1fbb5a190 issue-math-realize-hide
 1fdf09766d0faa89be2497d15cf8617c issue-math-realize-scripting
 fe24199fd63b5fc6d1dd18bbbaa7af39 issue-math-realize-show

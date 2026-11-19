@@ -353,3 +353,7 @@ See #metadata(none) <t8>
 #document("%20.html")[Percent]
 #document("文.html")[Non-ASCII]
 #document("文/b/文.html")[With slash]
+
+--- issue-link-math paged ---
+// Ensure that math in links doesn't generate redundant nested links.
+#link("https://typst.org")[$a + b$]

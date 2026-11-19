@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use typst_library::foundations::StyleChain;
-use typst_library::layout::{Abs, Fragment, Frame, FrameItem, HideElem, Point, Sides};
+use typst_library::layout::{
+    Abs, Fragment, Frame, FrameItem, HideElem, InlineItem, Point, Sides,
+};
 use typst_library::model::{LinkElem, Linkage};
 
 /// Frame-level modifications resulting from styles that do not impose any
@@ -66,6 +68,16 @@ impl FrameModify for Fragment {
     fn modify(&mut self, modifiers: &FrameModifiers) {
         for frame in self.iter_mut() {
             frame.modify(modifiers);
+        }
+    }
+}
+
+impl FrameModify for Vec<InlineItem> {
+    fn modify(&mut self, modifiers: &FrameModifiers) {
+        for item in self {
+            if let InlineItem::Frame(frame) = item {
+                frame.modify(modifiers);
+            }
         }
     }
 }
