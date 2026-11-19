@@ -261,8 +261,11 @@ pub fn collect<'a>(
 
             for item in items {
                 match item {
-                    InlineItem::Space(space, weak) => {
+                    InlineItem::Absolute(space, weak) => {
                         collector.push_item(Item::Absolute(space, weak));
+                    }
+                    InlineItem::Fractional(fr) => {
+                        collector.push_item(Item::Fractional(fr, None));
                     }
                     InlineItem::Frame(mut frame) => {
                         apply_shift(&engine.world, &mut frame, styles);

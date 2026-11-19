@@ -256,15 +256,16 @@ fn resolve_h(
     ctx: &mut MathResolver,
     styles: StyleChain,
 ) -> SourceResult<()> {
-    if let Spacing::Rel(rel) = elem.amount
-        && rel.rel.is_zero()
-    {
-        ctx.push(MathItem::Spacing(
-            rel.abs,
-            styles.resolve(TextElem::size),
-            elem.weak.get(styles),
-        ));
+    if elem.amount.is_zero() {
+        return Ok(());
     }
+
+    ctx.push(match elem.amount {
+        Spacing::Fr(fr) => MathItem::Fractional(fr),
+        Spacing::Rel(rel) => {
+            MathItem::Absolute(rel, styles.resolve(TextElem::size), elem.weak.get(styles))
+        }
+    });
     Ok(())
 }
 
@@ -959,7 +960,7 @@ fn resolve_lr<'a>(
     inner_items.retain(|item| {
         let discard = (index == 1 && opening_exists
             || index + 2 == len && closing_exists)
-            && matches!(item, RawMathItem::Item(MathItem::Spacing(_, _, true)));
+            && matches!(item, RawMathItem::Item(MathItem::Absolute(_, _, true)));
         index += 1;
         !discard
     });
