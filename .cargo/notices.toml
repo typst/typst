@@ -1,0 +1,80 @@
+# Allowed licenses. When a dependency offers a choice of licenses, the first
+# one in this list that it offers is chosen for a release.
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "Zlib",
+  "ISC",
+  "OFL-1.1",
+  "Unlicense",
+  "Ubuntu-font-1.0",
+  "FSFAP-no-warranty-disclaimer",
+  "0BSD",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "NCSA",
+  "Unicode-3.0",
+  "Unicode-DFS-2016",
+  "LPPL-1.3c",
+  "CC0-1.0",
+  "W3C-20150513",
+  "CC-BY-4.0",
+  "MPL-1.1",
+  "MPL-2.0",
+]
+
+targets = [
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+  "armv7-unknown-linux-musleabi",
+  "riscv64gc-unknown-linux-gnu",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+]
+
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+private = { ignore = true }
+
+# Only used by the unpublished `tests` and `docs` crates, never shipped.
+omit = ["typst-dev-assets"]
+
+[[exceptions]]
+crate = "hayagriva"
+# Hayagriva ships CSL styles and locales under this license. We have reassurance
+# from the CSL project that Typst is a collective work bundling the styles, not
+# a derivative work covered by copyleft.
+allow = ["CC-BY-SA-3.0"]
+
+[[exceptions]]
+crate = "hypher"
+# Custom permissive hyphenation pattern licenses, and the LaTeX Project Public
+# License 1.3 for patterns that do not allow using a later version.
+allow = ["LicenseRef-hyph-bg", "LicenseRef-hyph-sa", "LicenseRef-LPPL-1.3"]
+
+[[exceptions]]
+crate = "typst-assets"
+# Fonts embedded in the Typst binary.
+allow = [
+  "LicenseRef-GUST-Font-License",
+  "LicenseRef-DejaVu-Fonts-License",
+  "GPL-3.0-or-later WITH AdditionRef-Font-and-Distribution-exception",
+]
+
+[[exceptions]]
+crate = "typst-dev-assets"
+# Fonts, images, and data used only by the test suite and the documentation.
+allow = [
+  "DL-DE-BY-2.0",
+  "LicenseRef-GUST-Font-License",
+  "LicenseRef-DejaVu-Fonts-License",
+  "LicenseRef-Unsplash-License",
+]
+
+# The license headers of kamadak-exif's source files would otherwise be picked
+# up as separate license texts.
+[clarify.kamadak-exif]
+license = "BSD-2-Clause"
+files = [{ path = "LICENSE", checksum = "17c496a77909a1f26006427d27e58a1d1514baa6a332240aa5fc543e3fa7295d" }]
