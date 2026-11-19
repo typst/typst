@@ -24,6 +24,44 @@ $ binom(n, k_1, k_2, k_3) $
 // Error: 3-13 missing argument: lower
 $ binom(x^2) $
 
+--- math-atop paged html ---
+// Test atop.
+$ atop(circle, square) $
+
+--- math-atop-delim paged html ---
+// Test atop with delimiters.
+$
+  atop(n, k, delim: chevron.l)
+  quad
+  atop(n, k, delim: #("{", sym.chevron.r.double))
+  \
+  atop(n, k, delim: "(")
+  quad
+  binom(n, k)
+$
+
+--- math-atop-spacing paged ---
+// Using `atop.delim` should have slightly nicer spacing than `lr` or `vec`.
+#set page(width: 120pt)
+#place(dy: 2.1em, line(
+  length: 100%,
+  stroke: red + .5pt,
+))
+$
+  atop(n, k, delim: #("(", "]"))
+  quad lr(\( atop(n, k) \])
+  quad vec(n, k, delim: #("(", "]"))
+$
+
+--- math-atop-missing-lower eval ---
+// Error: 3-12 missing argument: lower
+$ atop(x^2) $
+
+--- math-atop-multiple-error eval ---
+// `atop` does not inherit this feature from `binom`.
+// Error: 14-15 unexpected argument
+$ atop(1, 2, 3) $
+
 --- math-dif paged html ---
 // Test dif.
 $ (dif y)/(dif x), dif/x, x/dif, dif/dif \
