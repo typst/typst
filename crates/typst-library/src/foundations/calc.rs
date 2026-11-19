@@ -137,7 +137,7 @@ pub fn module() -> Module {
 /// #calc.abs(-5) \
 /// #calc.abs(5pt - 2cm) \
 /// #calc.abs(2fr) \
-/// #calc.abs(decimal("-342.440"))
+/// #calc.abs(-342.440d)
 /// ```
 #[func(title = "Absolute", since = "forever")]
 pub fn abs(
@@ -166,7 +166,7 @@ cast! {
 ///
 /// ```example
 /// #calc.pow(2, 3) \
-/// #calc.pow(decimal("2.5"), 2)
+/// #calc.pow(2.5d, 2)
 /// ```
 #[func(title = "Power", since = "forever")]
 pub fn pow(
@@ -795,7 +795,7 @@ pub fn lcm(
 /// #calc.floor(500.1)
 /// #assert(calc.floor(3) == 3)
 /// #assert(calc.floor(3.14) == 3)
-/// #assert(calc.floor(decimal("-3.14")) == -4)
+/// #assert(calc.floor(-3.14d) == -4)
 /// ```
 #[func(since = "forever")]
 pub fn floor(
@@ -822,7 +822,7 @@ pub fn floor(
 /// #calc.ceil(500.1)
 /// #assert(calc.ceil(3) == 3)
 /// #assert(calc.ceil(3.14) == 4)
-/// #assert(calc.ceil(decimal("-3.14")) == -3)
+/// #assert(calc.ceil(-3.14d) == -3)
 /// ```
 #[func(since = "forever")]
 pub fn ceil(
@@ -849,7 +849,7 @@ pub fn ceil(
 /// #calc.trunc(15.9)
 /// #assert(calc.trunc(3) == 3)
 /// #assert(calc.trunc(-3.7) == -3)
-/// #assert(calc.trunc(decimal("8493.12949582390")) == 8493)
+/// #assert(calc.trunc(8493.12949582390d) == 8493)
 /// ```
 #[func(title = "Truncate", since = "0.3.0")]
 pub fn trunc(
@@ -871,7 +871,7 @@ pub fn trunc(
 /// ```example
 /// #calc.fract(-3.1)
 /// #assert(calc.fract(3) == 0)
-/// #assert(calc.fract(decimal("234.23949211")) == decimal("0.23949211"))
+/// #assert(calc.fract(234.23949211d) == 0.23949211d)
 /// ```
 #[func(title = "Fractional", since = "0.3.0")]
 pub fn fract(
@@ -914,10 +914,10 @@ pub fn fract(
 /// #assert(calc.round(-48953.45, digits: -3) == -49000.0)
 /// #assert(calc.round(3333, digits: -2) == 3300)
 /// #assert(calc.round(-48953, digits: -3) == -49000)
-/// #assert(calc.round(decimal("-6.5")) == decimal("-7"))
-/// #assert(calc.round(decimal("7.123456789"), digits: 6) == decimal("7.123457"))
-/// #assert(calc.round(decimal("3333.45"), digits: -2) == decimal("3300"))
-/// #assert(calc.round(decimal("-48953.45"), digits: -3) == decimal("-49000"))
+/// #assert(calc.round(-6.5d) == -7d)
+/// #assert(calc.round(7.123456789d, digits: 6) == 7.123457d)
+/// #assert(calc.round(3333.45d, digits: -2) == 3300d)
+/// #assert(calc.round(-48953.45d, digits: -3) == -49000d)
 /// ```
 #[func(since = "forever")]
 pub fn round(
@@ -951,8 +951,8 @@ pub fn round(
 /// #calc.clamp(5, 0, 4)
 /// #assert(calc.clamp(5, 0, 10) == 5)
 /// #assert(calc.clamp(5, 6, 10) == 6)
-/// #assert(calc.clamp(decimal("5.45"), 2, decimal("45.9")) == decimal("5.45"))
-/// #assert(calc.clamp(decimal("5.45"), decimal("6.75"), 12) == decimal("6.75"))
+/// #assert(calc.clamp(5.45d, 2, 45.9d) == 5.45d)
+/// #assert(calc.clamp(5.45d, 6.75d, 12) == 6.75d)
 /// ```
 #[func(since = "forever")]
 pub fn clamp(
@@ -1122,7 +1122,7 @@ pub fn rem(
 /// #calc.div-euclid(-7, 3) \
 /// #calc.div-euclid(-7, -3) \
 /// #calc.div-euclid(1.75, 0.5) \
-/// #calc.div-euclid(decimal("1.75"), decimal("0.5"))
+/// #calc.div-euclid(1.75d, 0.5d)
 /// ```
 #[func(title = "Euclidean Division", since = "0.10.0")]
 pub fn div_euclid(
@@ -1166,7 +1166,7 @@ pub fn div_euclid(
 /// #calc.rem-euclid(-7, 3) \
 /// #calc.rem-euclid(-7, -3) \
 /// #calc.rem-euclid(1.75, 0.5) \
-/// #calc.rem-euclid(decimal("1.75"), decimal("0.5"))
+/// #calc.rem-euclid(1.75d, 0.5d)
 /// ```
 #[func(title = "Euclidean Remainder", since = "0.10.0", keywords = ["modulo", "modulus"])]
 pub fn rem_euclid(

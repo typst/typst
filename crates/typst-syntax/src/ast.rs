@@ -337,6 +337,8 @@ pub enum Expr<'a> {
     Int(Int<'a>),
     /// A floating-point number: `1.2`, `10e-4`.
     Float(Float<'a>),
+    /// A decimal number: `1.234d`.
+    Decimal(Decimal<'a>),
     /// A numeric value with a unit: `12pt`, `3cm`, `2em`, `90deg`, `50%`.
     Numeric(Numeric<'a>),
     /// A quoted string: `"..."`.
@@ -447,6 +449,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::Bool => Some(Self::Bool(Bool(node))),
             SyntaxKind::Int => Some(Self::Int(Int(node))),
             SyntaxKind::Float => Some(Self::Float(Float(node))),
+            SyntaxKind::Decimal => Some(Self::Decimal(Decimal(node))),
             SyntaxKind::Numeric => Some(Self::Numeric(Numeric(node))),
             SyntaxKind::Str => Some(Self::Str(Str(node))),
             SyntaxKind::CodeBlock => Some(Self::CodeBlock(CodeBlock(node))),
@@ -520,6 +523,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::Bool(v) => v.to_untyped(),
             Self::Int(v) => v.to_untyped(),
             Self::Float(v) => v.to_untyped(),
+            Self::Decimal(v) => v.to_untyped(),
             Self::Numeric(v) => v.to_untyped(),
             Self::Str(v) => v.to_untyped(),
             Self::CodeBlock(v) => v.to_untyped(),
@@ -1536,6 +1540,22 @@ impl Float<'_> {
     /// Get the floating-point value.
     pub fn get(self) -> f64 {
         self.0.leaf_text().parse().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A decimal number: `1.234d`
+    struct Decimal
+}
+impl<'a> Decimal<'a> {
+    /// Get the number as text, excluding the `d` suffix.
+    ///
+    /// We do not include the `rust_decimal` crate in `typst_syntax` to reduce
+    /// dependencies and also to avoid confusing `typst_library::Decimal` with
+    /// `rust_decimal::Decimal`.
+    pub fn number_text(self) -> &'a str {
+        let text = self.0.leaf_text();
+        &text[..text.len() - 1]
     }
 }
 

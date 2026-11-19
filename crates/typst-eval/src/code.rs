@@ -1,10 +1,11 @@
 use std::ops::Range;
+use std::str::FromStr;
 
 use ecow::{EcoVec, eco_format, eco_vec};
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, bail, error, warning};
 use typst_library::engine::Engine;
 use typst_library::foundations::{
-    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Dict, Func,
+    Array, Capturer, Closure, ClosureNode, Content, ContextElem, Decimal, Dict, Func,
     NativeElement, Selector, Str, Value, ops,
 };
 use typst_library::introspection::{Counter, State};
@@ -123,6 +124,7 @@ impl Eval for ast::Expr<'_> {
             Self::Bool(v) => v.eval(vm),
             Self::Int(v) => v.eval(vm),
             Self::Float(v) => v.eval(vm),
+            Self::Decimal(v) => v.eval(vm),
             Self::Numeric(v) => v.eval(vm),
             Self::Str(v) => v.eval(vm),
             Self::CodeBlock(v) => v.eval(vm),
@@ -208,6 +210,15 @@ impl Eval for ast::Float<'_> {
 
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
         Ok(Value::Float(self.get()))
+    }
+}
+
+impl Eval for ast::Decimal<'_> {
+    type Output = Value;
+
+    fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
+        let number_text = self.number_text();
+        Decimal::from_str(number_text).at(self.span()).map(Value::Decimal)
     }
 }
 
