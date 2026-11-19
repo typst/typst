@@ -94,6 +94,26 @@
 // Error: 8 expected comma
 #func(1 2)
 
+--- call-args-unit-spacing eval ---
+// Error: 9-11 expected comma, but found numeric suffix
+// Hint: 9-11 if you meant to use a unit, try `1pt` instead
+#func(1 pt)
+
+--- call-args-unit-spacing-percent eval ---
+// Error: 9-10 expected comma, but found numeric suffix
+// Hint: 9-10 if you meant to use a unit, try `1%` instead
+#func(1 %)
+
+--- call-args-unit-spacing-named eval ---
+// Error: 16-18 expected comma, but found numeric suffix
+// Hint: 16-18 if you meant to use a unit, try `1pt` instead
+#box(stroke: 1 pt, [a])
+
+--- call-args-unit-spacing-named-negative eval ---
+// Error: 17-19 expected comma, but found numeric suffix
+// Hint: 17-19 if you meant to use a unit, try `1pt` instead
+#box(stroke: -1 pt, [a])
+
 --- call-args-bad-name-and-incomplete-pair eval ---
 // Error: 7-8 expected identifier, found integer
 // Error: 9 expected expression

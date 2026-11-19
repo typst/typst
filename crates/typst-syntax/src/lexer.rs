@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
 use crate::ast::NonDecimalBase;
-use crate::{SyntaxKind, SyntaxMode, SyntaxNode};
+use crate::{SyntaxKind, SyntaxMode, SyntaxNode, ast};
 
 /// An iterator over a source code string which returns tokens.
 #[derive(Clone)]
@@ -1014,10 +1014,12 @@ impl Lexer<'_> {
         let number = self.s.from(start);
         let suffix = self.s.eat_while(|c: char| c.is_ascii_alphanumeric() || c == '%');
 
-        let mut suffix_result = match suffix {
-            "" => Ok(None),
-            "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%" => Ok(Some(())),
-            _ => Err(eco_format!("invalid number suffix: `{suffix}`")),
+        let mut suffix_result = if suffix.is_empty() {
+            Ok(None)
+        } else if suffix.parse::<ast::Unit>().is_ok() {
+            Ok(Some(()))
+        } else {
+            Err(eco_format!("invalid number suffix: `{suffix}`"))
         };
 
         let number_result = if is_float {
