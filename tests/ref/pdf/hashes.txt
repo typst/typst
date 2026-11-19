@@ -36,12 +36,13 @@ c9a54e72fd5506cd4e2134e8f867a791 bibliography-multiple-files
 197e2d44765e5a218e36076e5b05fbae bibliography-ordering
 91062ea123482f831f232f710606e65a bidi-consecutive-embedded-ltr-runs
 a92486b91c250646a35e0df4b8545441 bidi-consecutive-embedded-rtl-runs
+f2e5e01e469e6e3477cde1ab36a6251d bidi-embedded-dir
 d8430951ff1beeb7c697400bcffb869c bidi-en-he-top-level
-ea60343c1f82d1e001b315886a1640a9 bidi-explicit-dir
+b70a47f7a23f800fc6087069c13c3200 bidi-explicit-dir
 67863421fb8bc79569880fcb67f8c9e9 bidi-manual-linebreak
 005ab55a5f6d28090beeab7ed058f6a9 bidi-nesting
 24dd79af82d4a90af51df8318549b584 bidi-obj
-338b58bf719ed4206e21c643fb726ac1 bidi-raw
+684efa7de673885616794af1e4c2d250 bidi-raw
 eb97a319d56dbc3c3bfd21aa5e4ea251 bidi-spacing
 fbb1f26d0c0a84055509aec693c29938 bidi-whitespace-reset
 62aa4c4f67f4b9ac946bd60b6c037d49 block-box-fill
@@ -799,8 +800,8 @@ b935d536e48bace6128390fa892be4d2 issue-5359-column-override-stays-inside-header
 cbd90c0eb261adbcdf6a5cb7ad5da9c6 issue-5360-unnecessary-hyphenation
 9dda8618e0a590bd1d059fa442cde692 issue-5435-footnote-migration-in-floats
 287f99c470cc2f2c1b0cb88b25d8a1dc issue-5489-matrix-stray-linebreak
-a66b3bd3b5f6795867e8bad5e0a85244 issue-5490-bidi-invalid-range
-bc5e80de4ed8ddad8c554d667c5933ea issue-5490-bidi-invalid-range-2
+247408d1d0f7fc1740834547a2b43776 issue-5490-bidi-invalid-range
+691dcb6cff90e60a6187f27cdccd849b issue-5490-bidi-invalid-range-2
 3054b1fcd7ff17dfd04fc446e773fb99 issue-5496-footnote-in-float-never-fits
 e1ef4a7d57832ec510b96b36abe1256e issue-5496-footnote-never-fits
 c1b1066be60f785086827d87bc44e243 issue-5496-footnote-never-fits-multiple
