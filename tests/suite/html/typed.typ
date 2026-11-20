@@ -106,6 +106,11 @@
 // Icon size.
 #html.link(rel: "icon", sizes: ((32, 24), (64, 48)))
 
+--- html-typed-arg-override html ---
+// Argument override in constructor.
+#html.div(..(id: "A"), id: "B")
+#html.div(..(hidden: true), hidden: false)
+
 --- html-typed-dir-str eval ---
 // Error: 16-21 expected direction or auto, found string
 #html.div(dir: "ltr")
