@@ -394,7 +394,7 @@ where
     }
 
     fn as_str(&self) -> Result<&str, Utf8Error> {
-        std::str::from_utf8(self.as_ref())
+        str::from_utf8(self.as_ref())
     }
 }
 

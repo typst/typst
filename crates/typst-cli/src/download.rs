@@ -8,8 +8,7 @@ use typst_kit::downloader::{
     Downloader, Progress, ProgressDownloader, ProgressReporter, SystemDownloader,
 };
 
-use crate::ARGS;
-use crate::terminal;
+use crate::{ARGS, terminal};
 
 /// Returns a new downloader.
 pub fn downloader() -> impl Downloader {

@@ -5,8 +5,7 @@ use std::sync::{Arc, LazyLock};
 use ecow::eco_format;
 use hayro_syntax::content::ops::TypedInstruction;
 use hayro_syntax::object::dict::keys;
-use hayro_syntax::object::{Array, Dict, Name, Object, Stream};
-use hayro_syntax::object::{Number, ObjRef};
+use hayro_syntax::object::{Array, Dict, Name, Number, ObjRef, Object, Stream};
 use indexmap::IndexMap;
 use roxmltree::{Document, Node};
 use typst::diag::{StrResult, bail};
@@ -158,7 +157,7 @@ fn format_xmp_metadata(f: &mut Formatter, stream: Stream) -> StrResult<()> {
         .decoded()
         .map_err(|e| eco_format!("failed to decode stream: {e:?}"))?;
     let xml_str =
-        std::str::from_utf8(&bytes).map_err(|e| eco_format!("invalid UTF-8: {e}"))?;
+        str::from_utf8(&bytes).map_err(|e| eco_format!("invalid UTF-8: {e}"))?;
     let xmp = Document::parse(xml_str).map_err(|e| eco_format!("invalid XML: {e}"))?;
 
     let xmpmeta = xmp.root_element();
@@ -481,12 +480,10 @@ fn format_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     if let Some(data) = bytes.strip_prefix(&UTF_16_BE_BOM) {
         let (chunks, []) = data.as_chunks::<2>() else { return Err(()) };
         let code_units = chunks.iter().copied().map(u16::from_be_bytes);
-        let str = std::char::decode_utf16(code_units)
-            .collect::<Result<String, _>>()
-            .unwrap();
+        let str = char::decode_utf16(code_units).collect::<Result<String, _>>().unwrap();
         write!(f, "{str:?}").ok();
     } else {
-        let str = std::str::from_utf8(bytes).unwrap();
+        let str = str::from_utf8(bytes).unwrap();
         write!(f, "{str:?}").ok();
     }
     Ok(())
@@ -498,7 +495,7 @@ fn format_byte_str(f: &mut Formatter, val: &Object) -> Result<(), ()> {
     if bytes.iter().all(
         |b| matches!(b, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b' ' | b'-' | b'_'),
     ) {
-        let str = std::str::from_utf8(bytes).unwrap();
+        let str = str::from_utf8(bytes).unwrap();
         write!(f, "{str:?}").ok();
     } else {
         write!(f, "0x").ok();
@@ -586,7 +583,7 @@ fn assert_type(obj: &Dict, expected: &[u8]) -> StrResult<()> {
     let ty = obj.get::<Name>(keys::TYPE).ok_or("missing object type")?;
     if &*ty != expected {
         let found = ty.as_str();
-        let expected = std::str::from_utf8(expected).unwrap();
+        let expected = str::from_utf8(expected).unwrap();
         bail!("expected object type `{expected}` found `{found}`")
     }
     Ok(())

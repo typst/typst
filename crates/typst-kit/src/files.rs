@@ -1,11 +1,9 @@
 //! File loading and management.
 
-use std::fs;
-use std::mem;
 use std::path::{Path, PathBuf};
-use std::str;
 use std::str::Utf8Error;
 use std::sync::Arc;
+use std::{fs, mem};
 
 use parking_lot::Mutex;
 use rustc_hash::FxHashMap;

@@ -1,8 +1,7 @@
 use std::num::NonZeroU16;
 
 use ecow::EcoVec;
-use krilla::tagging::{self as kt, Node, Tag, TagKind};
-use krilla::tagging::{Identifier, TagTree};
+use krilla::tagging::{self as kt, Identifier, Node, Tag, TagKind, TagTree};
 use smallvec::SmallVec;
 use typst_library::diag::{At, SourceDiagnostic, SourceResult, error};
 use typst_library::format::Complete;

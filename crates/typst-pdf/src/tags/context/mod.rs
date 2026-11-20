@@ -10,8 +10,7 @@ use crate::tags::context::figure::build_figure;
 use crate::tags::context::grid::build_grid;
 use crate::tags::context::table::build_table;
 use crate::tags::groups::GroupKind;
-use crate::tags::tree::ResolvedTextAttrs;
-use crate::tags::tree::Tree;
+use crate::tags::tree::{ResolvedTextAttrs, Tree};
 use crate::tags::util::{Id, IdVec, PropertyOptRef};
 
 pub use crate::tags::context::figure::FigureCtx;

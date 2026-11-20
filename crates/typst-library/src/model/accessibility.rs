@@ -1,7 +1,6 @@
 use typst_macros::{Cast, elem};
 
-use crate::diag::SourceResult;
-use crate::diag::bail;
+use crate::diag::{SourceResult, bail};
 use crate::engine::Engine;
 use crate::foundations::{Args, Construct, Content, NativeElement};
 

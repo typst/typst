@@ -103,7 +103,7 @@ fn test() {
         hashes = HASH_OUTPUTS.map(|output| {
             git::read_file(rev, &output.hash_refs_path())
                 .and_then(|data| {
-                    let string = std::str::from_utf8(&data).ok()?;
+                    let string = str::from_utf8(&data).ok()?;
                     HashedRefs::from_str(string).ok()
                 })
                 .unwrap_or_default()

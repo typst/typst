@@ -62,9 +62,9 @@ impl SvgImage {
         let decoded;
         let text = if data.starts_with(&[0x1f, 0x8b]) {
             decoded = usvg::decompress_svgz(&data).map_err(format_usvg_error)?;
-            std::str::from_utf8(&decoded)
+            str::from_utf8(&decoded)
         } else {
-            std::str::from_utf8(&data)
+            str::from_utf8(&data)
         }
         .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
 

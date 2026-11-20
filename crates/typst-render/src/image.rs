@@ -1,8 +1,7 @@
-use hayro::RenderCache;
-use hayro::RenderSettings;
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_interpret::font::{FontData, FontQuery, StandardFont};
 use hayro::vello_cpu::color::palette::css::TRANSPARENT;
+use hayro::{RenderCache, RenderSettings};
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use std::sync::Arc;
