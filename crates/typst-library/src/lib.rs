@@ -134,7 +134,7 @@ macro_rules! world_impl {
     };
 }
 
-world_impl!(W for std::boxed::Box<W>);
+world_impl!(W for Box<W>);
 world_impl!(W for std::sync::Arc<W>);
 world_impl!(W for &W);
 

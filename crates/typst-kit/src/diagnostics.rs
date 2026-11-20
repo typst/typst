@@ -204,11 +204,7 @@ impl<'a> Files<'a> for WorldFiles<'_> {
             .ok_or_else(|| CodespanError::IndexTooLarge { given, max: lines.len_bytes() })
     }
 
-    fn line_range(
-        &'a self,
-        id: FileId,
-        given: usize,
-    ) -> CodespanResult<std::ops::Range<usize>> {
+    fn line_range(&'a self, id: FileId, given: usize) -> CodespanResult<Range<usize>> {
         let lines = self.lines(id)?;
         lines
             .line_to_range(given)
