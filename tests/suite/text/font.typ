@@ -185,15 +185,15 @@ The number 123.
 --- text-font-covers-reflection paged empty ---
 // reflect "latin-in-cjk" covers
 #set text(font: (name: "Ubuntu", covers: "latin-in-cjk"))
-#context test(text.font, (name: "ubuntu", covers: "latin-in-cjk"))
+#context test(text.font, (name: "Ubuntu", covers: "latin-in-cjk"))
 
 // reflect regex covers
 #set text(font: (name: "Ubuntu", covers: regex("\d")))
-#context test(text.font, (name: "ubuntu", covers: regex("\d")))
+#context test(text.font, (name: "Ubuntu", covers: regex("\d")))
 
 // reflect font list with covers
 #set text(font: ((name: "Ubuntu", covers: regex("\d")), "IBM Plex Serif"))
-#context test(text.font, ((name: "ubuntu", covers: regex("\d")), "ibm plex serif"))
+#context test(text.font, ((name: "Ubuntu", covers: regex("\d")), "IBM Plex Serif"))
 
 --- issue-5262-text-negative-size paged ---
 #set text(-1pt)
