@@ -27,8 +27,8 @@ use typst_library::layout::{
 };
 use typst_library::math::{EquationElem, Mathy};
 use typst_library::model::{
-    CiteElem, CiteGroup, DocumentElem, EnumElem, ListElem, ListItemLike, ListLike,
-    ParElem, ParbreakElem, TermsElem,
+    CiteElem, CiteGroup, DocumentElem, EnumElem, FootnoteElem, FootnoteGroup, ListElem,
+    ListItemLike, ListLike, ParElem, ParbreakElem, TermsElem,
 };
 use typst_library::routines::{Arenas, FragmentKind, Pair, RealizationKind};
 use typst_library::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
@@ -1023,13 +1023,15 @@ const MAX_GROUP_NESTING: usize = 3;
 static BUNDLE_RULES: &[&GroupingRule] = &[];
 
 /// Grouping rules used in normal realization.
-static FLOW_RULES: &[&GroupingRule] = &[&TEXTUAL, &PAR, &CITES, &LIST, &ENUM, &TERMS];
+static FLOW_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &PAR, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in paragraph realization.
-static PAR_RULES: &[&GroupingRule] = &[&TEXTUAL, &CITES, &LIST, &ENUM, &TERMS];
+static PAR_RULES: &[&GroupingRule] =
+    &[&TEXTUAL, &CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Grouping rules used in math realization.
-static MATH_RULES: &[&GroupingRule] = &[&CITES, &LIST, &ENUM, &TERMS];
+static MATH_RULES: &[&GroupingRule] = &[&CITES, &FOOTNOTES, &LIST, &ENUM, &TERMS];
 
 /// Groups adjacent textual elements for text show rule application.
 static TEXTUAL: GroupingRule = GroupingRule {
@@ -1087,7 +1089,7 @@ static PAR: GroupingRule = GroupingRule {
     finish: finish_par,
 };
 
-/// Collects `CiteElem`s into `CiteGroup`s.
+/// Collects [`CiteElem`]s into [`CiteGroup`]s.
 static CITES: GroupingRule = GroupingRule {
     priority: 2,
     tags: false,
@@ -1105,6 +1107,26 @@ static CITES: GroupingRule = GroupingRule {
         elem == CiteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
     },
     finish: finish_cites,
+};
+
+/// Collects consecutive [`FootnoteElem`]s into [`FootnoteGroup`]s.
+static FOOTNOTES: GroupingRule = GroupingRule {
+    priority: 2,
+    tags: false,
+    effect: |content| {
+        let elem = content.elem();
+        if elem == FootnoteElem::ELEM {
+            GroupingEffect::Trigger
+        } else if elem == SpaceElem::ELEM {
+            GroupingEffect::Inner
+        } else {
+            GroupingEffect::Interrupt
+        }
+    },
+    interrupt: |elem| {
+        elem == FootnoteGroup::ELEM || elem == ParElem::ELEM || elem == AlignElem::ELEM
+    },
+    finish: finish_footnotes,
 };
 
 /// Builds a `ListElem` from grouped `ListItems`s.
@@ -1219,7 +1241,7 @@ fn finish_par(mut grouped: Grouped) -> SourceResult<()> {
     visit(s, s.store(elem), trunk)
 }
 
-/// Builds the `CiteGroup` from `CiteElem`s.
+/// Builds the [`CiteGroup`] from [`CiteElem`]s.
 fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Collect the children.
     let elems = grouped.get();
@@ -1230,6 +1252,24 @@ fn finish_cites(grouped: Grouped) -> SourceResult<()> {
     // Create and visit the citation group.
     let s = grouped.end();
     let elem = CiteGroup::new(children).pack().spanned(span);
+    visit(s, s.store(elem), trunk)
+}
+
+/// Builds the [`FootnoteGroup`] from [`FootnoteElem`]s.
+fn finish_footnotes(grouped: Grouped) -> SourceResult<()> {
+    // Collect the children.
+    let elems = grouped.get();
+    let span = select_span(elems);
+    let trunk = elems[0].1;
+    let children = elems
+        .iter()
+        .filter_map(|(c, _)| c.to_packed::<FootnoteElem>())
+        .cloned()
+        .collect();
+
+    // Create and visit the footnote group.
+    let s = grouped.end();
+    let elem = FootnoteGroup::new(children).pack().spanned(span);
     visit(s, s.store(elem), trunk)
 }
 
