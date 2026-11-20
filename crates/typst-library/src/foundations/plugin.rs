@@ -507,7 +507,7 @@ impl PluginInstance {
         // Parse the functions return value.
         match code {
             wasmi::Val::I32(0) => {}
-            wasmi::Val::I32(1) => match std::str::from_utf8(&output) {
+            wasmi::Val::I32(1) => match str::from_utf8(&output) {
                 Ok(message) => bail!("plugin errored with: {message}"),
                 Err(_) => {
                     bail!("plugin errored, but did not return a valid error message")

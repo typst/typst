@@ -248,7 +248,7 @@ fn draw_svg_glyph(font: &FontInstance, glyph_id: GlyphId) -> Option<GlyphFrameIt
     }
 
     // Parse and simplify the SVG.
-    let xml = std::str::from_utf8(data).ok()?;
+    let xml = str::from_utf8(data).ok()?;
     let document = roxmltree::Document::parse(xml).ok()?;
     let opts = usvg::Options::default();
     let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
