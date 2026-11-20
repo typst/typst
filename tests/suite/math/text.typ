@@ -1,6 +1,7 @@
 // Test that setting font features in math.equation has an effect.
 
 --- math-font-fallback paged html ---
+#set text(fallback: true)
 // Test font fallback.
 $ よ and 🏳️‍🌈 $
 
@@ -15,6 +16,7 @@ $ 𝒟 𝒟︀ 𝒟︁ $
 $ 𝒟 𝒟︀ 𝒟︁ $
 
 --- math-text-grapheme-cluster-fallback paged ---
+#set text(fallback: true)
 // Test fallback with grapheme clusters.
 #let bird = symbol("🐦‍⬛")
 #bird or 🐦‍⬛
@@ -59,6 +61,7 @@ $ product.co_(B in scr(B))^(B in scr(bold(B))) cal(B)(X) $
 $ cal(P)_i (X) * cal(C)_1 $
 
 --- math-font-warning paged ---
+#set text(fallback: true)
 #show math.equation: set text(font: "Libertinus Serif")
 // Warning: 1-14 font family is not designed for math: Libertinus Serif
 // Hint: 1-14 rendering may be poor

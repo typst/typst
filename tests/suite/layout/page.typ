@@ -210,6 +210,7 @@ Z
 
 // Pre: ほ, Pre: ろ, Pre: は, Pre: に. No style opt. Uses prefix field entirely.
 // Counter update without numbering change.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP"))
 #set page(numbering: "Pre: い")
 #filler
 #pagebreak()

@@ -76,7 +76,7 @@
 )
 
 --- stroke-text paged ---
-#set text(size: 20pt)
+#set text(size: 20pt, font: ("Libertinus Serif", "Noto Serif CJK SC"))
 #set page(width: auto)
 #let v = [测试字体Test]
 

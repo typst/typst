@@ -8,10 +8,15 @@ _Emphasized and *strong* words!_
 hello_world Nutzer*innen
 
 // CJK characters will not need spaces.
+// TODO(font): In the current typst-dev-assets, some glyphs are missing in the SC font, while the JP font does not provide bold.
+#set text(font: ("Libertinus Serif", "Noto Serif CJK JP", "Noto Serif CJK KR", "Noto Serif CJK SC"))
+#show strong: set text(font: ("Libertinus Serif", "Noto Serif CJK SC"))
 中文一般使用*粗体*或者_楷体_来表示强调。
 
 日本語では、*太字*や_斜体_を使って強調します。
 
+// TODO(font): How can Garamond-Math provide a `.` glyph for the CJ period mark `。`?
+#set text(font: ("Libertinus Serif", "Garamond-Math", "Noto Serif CJK JP", "Noto Serif CJK SC"))
 中文中混有*Strong*和_Emphasis_。
 
 // Can contain paragraph in nested content block.

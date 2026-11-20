@@ -16,7 +16,7 @@
 #eval("let")
 
 --- eval-in-show-rule paged ---
-#show raw: it => text(font: "PT Sans", eval("[" + it.text + "]"))
+#show raw: it => text(font: ("PT Sans", "Twitter Color Emoji"), eval("[" + it.text + "]"))
 
 Interacting
 ```
