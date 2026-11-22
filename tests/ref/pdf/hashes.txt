@@ -970,7 +970,7 @@ d190e120731dd688c8f86840bd71c2de line-numbers-place-out-of-order
 051dd1931b7e4cdd06b30936e63c5797 linebreak-manual-directly-after-automatic
 6b675225bbb5b0fb187566d8624747a1 linebreak-manual-justified
 38e8dcbf13e5c53feec5936e2ecbc612 linebreak-manual-trailing-multiple
-1edc90013996e2ecb6d8a6bd28290470 linebreak-math-punctuation
+d62999f6cd9a110669264a93544a3259 linebreak-math-punctuation
 f09c93f450eb2ce0e98b87e48108d729 linebreak-narrow-nbsp
 5b12ab4c59c1591793db3f6a905ece6a linebreak-overflow
 9cac8800042b743fa64d17ad8247cfda linebreak-overflow-double
