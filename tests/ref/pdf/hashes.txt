@@ -835,6 +835,7 @@ c8bfc870e2c22600bc5400b72e9c3a5d issue-622-hide-meta-cite
 eb78b55109a3d59ec64e9be46fe3f97a issue-6242-tight-list-attach-spacing
 a299c14bf02d941242fd1e5ac1d5f1cf issue-6267-clip-anti-alias
 905959ca52ea56fa4f9c6fca0bd69f39 issue-6304-block-skip-label
+93f380a0153c18bb65b3e52e9ac0f8d3 issue-6353-inline-math-hyphen-no-linebreak
 c3ae70dde0a58fabe80f17cfd440d6ae issue-6399-grid-cell-colspan-set-rule
 6159bb04fd889f363da3807f82f043ef issue-6399-grid-cell-rowspan-set-rule
 74394d1b5b3efe400aa50797b8ac9a92 issue-6539-cjk-latin-spacing-at-manual-linebreak

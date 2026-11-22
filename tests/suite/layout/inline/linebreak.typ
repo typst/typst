@@ -174,7 +174,7 @@ pleasing way.
   columns: (70pt,) * 1,
   align: horizon + center,
   stroke: 0.6pt,
-  [$mat(2241/2210,-71/1105;-71/1105,147/1105)$],
+  [$mat(2241/2210, -71/1105; -71/1105, 147/1105)$],
 )
 
 --- linebreak-default-ignorables paged ---
@@ -192,3 +192,7 @@ Et les autres ‹ guillemets › en français & suisse romande.
 
 #set text(lang: "de")
 Alternative »Anführungszeichen« in DE & AT.
+
+--- issue-6353-inline-math-hyphen-no-linebreak paged ---
+#set page(width: 2cm)
+#block(width: 1cm)[test $x$-axis]
