@@ -135,9 +135,10 @@ use crate::foundations::{
 /// they always return the same result. They cannot "remember" things to produce
 /// another value when they are called a second time.
 ///
-/// The only exception are built-in methods like
-/// @array.push[`array.push(value)`]. These can modify the values they are
-/// called on.
+/// The only exceptions are a few special built-in functions in the @array[`array`]
+/// and @dictionary[`dictionary`] modules, like @array.push[`array.push(value)`]
+/// and @array.pop[`array.pop()`]. These modify the item they are called on and
+/// must be called with @reference:scripting:methods[method syntax].
 #[ty(scope, cast, name = "function", since = "forever")]
 #[derive(Clone, Hash)]
 pub struct Func {

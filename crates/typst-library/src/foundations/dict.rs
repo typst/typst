@@ -210,10 +210,9 @@ impl Dict {
     }
 
     /// Returns the value associated with the specified key in the dictionary.
-    ///
-    /// May be used on the left-hand side of an assignment if the key is already
-    /// present in the dictionary. Returns the default value if the key is not
-    /// part of the dictionary or fails with an error if no default value was
+    /// This method may be used on the left-hand side of an assignment (if the
+    /// key is already present), to update a dictionary in-place. Fails with an
+    /// error if the key is not part of the dictionary and no default value was
     /// specified.
     ///
     /// Values may also be accessed with field syntax (e.g. `{(key: 42).key}`)
@@ -234,8 +233,8 @@ impl Dict {
             .ok_or_else(|| missing_key_no_default(&key))
     }
 
-    /// Inserts a new pair into the dictionary. If the dictionary already
-    /// contains this key, the value is updated.
+    /// Inserts a new pair into the dictionary, updating the dictionary in-place.
+    /// If the dictionary already contains the key, its associated value is updated.
     ///
     /// To insert multiple pairs at once, you can alternatively add another
     /// dictionary with the `+=` operator.
@@ -250,7 +249,9 @@ impl Dict {
         Arc::make_mut(&mut self.0).insert(key, value);
     }
 
-    /// Removes a pair from the dictionary by key and return the value.
+    /// Removes a pair from the dictionary by a key, returning the value and updating
+    /// the dictionary in-place. Fails with an error if the key is not part of
+    /// the dictionary and no default value was specified.
     #[func(since = "forever")]
     pub fn remove(
         &mut self,
@@ -288,7 +289,7 @@ impl Dict {
             .collect()
     }
 
-    /// Produces a new dictionary with only the pairs from the original one for
+    /// Creates a new dictionary with only the pairs from the original one for
     /// which the given function returns `{true}`.
     ///
     /// #example(
@@ -326,7 +327,7 @@ impl Dict {
             .collect()
     }
 
-    /// Produces a new dictionary where the keys are the same, but the values
+    /// Creates a new dictionary where the keys are the same, but the values
     /// are transformed with the given function.
     ///
     /// ```example
