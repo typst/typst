@@ -188,7 +188,15 @@ pub struct DocumentElem {
     /// The document's keywords.
     pub keywords: OneOrMultiple<EcoString>,
 
-    /// The document's version.
+    /// A revision identifier for the document.
+    /// When exported to PDF, it is embedded in the file's metadata.
+    ///
+    /// Use a non-empty string for a revision label, or a structured version
+    /// such as: `{version(0, 0, 7)}`. For example, to label a draft report:
+    ///
+    /// ```typ
+    /// #set document(version: "first-draft")
+    /// ```
     pub version: Option<DocumentVersion>,
 
     /// The document's creation date.
