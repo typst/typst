@@ -1,6 +1,6 @@
-use ecow::EcoString;
 use std::fmt::{self, Display, Formatter};
 
+use ecow::EcoString;
 use typst_syntax::VirtualPath;
 
 use crate::diag::{HintedStrResult, bail, error};
