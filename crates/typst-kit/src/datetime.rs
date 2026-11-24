@@ -7,7 +7,7 @@
 
 use std::sync::OnceLock;
 
-use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveTime, Timelike, Utc};
 use chrono::{NaiveDate, NaiveDateTime};
 
 use typst_library::diag::{StrResult, bail};
@@ -73,14 +73,7 @@ impl Time {
         Time(TimeInner::System(OnceLock::new()))
     }
 
-    /// The current date.
-    ///
-    /// A timezone offset can be given to obtain the current date in this
-    /// timezone.
-    ///
-    /// This can directly be used to implement
-    /// [`World::today`](typst_library::World::today).
-    pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
+    pub fn now(&self, offset: Option<Duration>) -> Option<Datetime> {
         let now = match &self.0 {
             TimeInner::Fixed(time) => time.fixed_offset(),
             TimeInner::System(time) => {
@@ -110,11 +103,26 @@ impl Time {
             }
         };
 
-        Datetime::from_ymd(
+        Datetime::from_ymd_hms(
             with_offset.year(),
             with_offset.month().try_into().ok()?,
             with_offset.day().try_into().ok()?,
+            with_offset.hour().try_into().ok()?,
+            with_offset.minute().try_into().ok()?,
+            with_offset.second().try_into().ok()?,
         )
+    }
+    /// The current date.
+    ///
+    /// A timezone offset can be given to obtain the current date in this
+    /// timezone.
+    ///
+    /// This can directly be used to implement
+    /// [`World::today`](typst_library::World::today).
+    pub fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
+        let now = self.now(offset)?;
+
+        Datetime::from_ymd(now.year()?, now.month()?, now.day()?)
     }
 
     /// If not a fixed time, resets the memoized time fetched from the system.

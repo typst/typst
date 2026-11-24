@@ -68,4 +68,8 @@ impl World for FuzzWorld {
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
     }
+
+    fn now(&self, _: Option<Duration>) -> Option<Datetime> {
+        None
+    }
 }

@@ -114,6 +114,10 @@ impl World for DocWorld {
     fn today(&self, offset: Option<Duration>) -> Option<Datetime> {
         self.now.today(offset)
     }
+
+    fn now(&self, offset: Option<Duration>) -> Option<Datetime> {
+        self.now.now(offset)
+    }
 }
 
 impl DiagnosticWorld for DocWorld {

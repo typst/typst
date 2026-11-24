@@ -354,6 +354,23 @@ impl Datetime {
         })
     }
 
+    /// Returns the current date, and time
+    #[func]
+    pub fn now(
+        engine: &mut Engine,
+        /// An offset to apply to the current UTC date. If set to `{auto}`, the
+        /// offset will be the local offset.
+        ///
+        /// When an integer offset is given, it will be treated as a duration in
+        /// hours.
+        #[named]
+        #[default]
+        offset: Smart<TodayOffset>,
+    ) -> StrResult<Datetime> {
+        let offset = offset.custom().map(|v| v.0);
+        Ok(engine.world.now(offset).ok_or("unable to get the current date")?)
+    }
+
     /// Returns the current date.
     ///
     /// In the CLI, this can be overridden with the `--creation-timestamp`

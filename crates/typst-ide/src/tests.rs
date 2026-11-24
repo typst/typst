@@ -110,6 +110,10 @@ impl World for TestWorld {
     fn today(&self, _: Option<Duration>) -> Option<Datetime> {
         None
     }
+
+    fn now(&self, _: Option<Duration>) -> Option<Datetime> {
+        None
+    }
 }
 
 impl IdeWorld for TestWorld {
