@@ -87,6 +87,11 @@ impl World for TestWorld {
         let datetime = Datetime::from_ymd_hms(1970, 1, 1, 12, 0, 0).unwrap();
         Time::fixed(datetime).unwrap().today(offset)
     }
+
+    fn now(&self, offset: Option<Duration>) -> Option<Datetime> {
+        let datetime = Datetime::from_ymd_hms(1970, 1, 1, 12, 0, 0).unwrap();
+        Time::fixed(datetime).unwrap().now(offset)
+    }
 }
 
 /// Shared foundation of all test worlds.
