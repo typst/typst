@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::text::FontFlags;
+
 use super::{FontStretch, FontStyle, FontWeight};
 
 pub fn find_exception(postscript_name: &str) -> Option<&'static Exception> {
@@ -12,6 +14,7 @@ pub struct Exception {
     pub style: Option<FontStyle>,
     pub weight: Option<FontWeight>,
     pub stretch: Option<FontStretch>,
+    pub flags: Option<FontFlags>,
 }
 
 impl Exception {
@@ -21,6 +24,7 @@ impl Exception {
             style: None,
             weight: None,
             stretch: None,
+            flags: None,
         }
     }
 
@@ -38,6 +42,10 @@ impl Exception {
 
     const fn stretch(self, stretch: u16) -> Self {
         Self { stretch: Some(FontStretch(stretch)), ..self }
+    }
+
+    const fn flags(self, flags: FontFlags) -> Self {
+        Self { flags: Some(flags), ..self }
     }
 }
 
@@ -119,6 +127,18 @@ static EXCEPTION_MAP: phf::Map<&'static str, Exception> = phf::phf_map! {
     // KpMath
     "KpMath-Sans" => E.family("KpMath Sans"),
     "KpMath-SansBold" => E.family("KpMath Sans"),
+
+    // Libertinus
+    "LibertinusMath-Regular" => E.flags(FontFlags::SERIF.union(FontFlags::MATH)),
+    "LibertinusMono-Regular" => E.flags(FontFlags::SERIF.union(FontFlags::MONOSPACE)),
+    "LibertinusSerif-Bold" => E.flags(FontFlags::SERIF),
+    "LibertinusSerif-BoldItalic" => E.flags(FontFlags::SERIF),
+    "LibertinusSerif-Italic" => E.flags(FontFlags::SERIF),
+    "LibertinusSerif-Regular" => E.flags(FontFlags::SERIF),
+    "LibertinusSerif-Semibold" => E.flags(FontFlags::SERIF),
+    "LibertinusSerif-SemiboldItalic" => E.flags(FontFlags::SERIF),
+    "LibertinusSerifDisplay-Regular" => E.flags(FontFlags::SERIF),
+    "LibertinusSerifInitials-Regular" => E.flags(FontFlags::SERIF),
 
     // Latin Modern
     "LMMono8-Regular" => E.family("Latin Modern Mono 8"),
