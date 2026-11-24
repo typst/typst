@@ -376,7 +376,12 @@ cast! {
         Self::String(version) => version.into_value(),
         Self::Version(version) => version.into_value(),
     },
-    v: EcoString => Self::String(v),
+    v: EcoString => {
+        if v.is_empty() {
+            bail!("document version must not be empty");
+        }
+        Self::String(v)
+    },
     v: Version => Self::Version(v),
 }
 

@@ -13,6 +13,10 @@ What's up?
 --- document-set-version-string pdftags ---
 #set document(version: "v1.2.3-beta")
 
+--- document-set-version-empty eval ---
+// Error: 24-26 document version must not be empty
+#set document(version: "")
+
 --- document-date-bad eval ---
 // Error: 21-28 expected datetime, none, or auto, found string
 #set document(date: "today")
