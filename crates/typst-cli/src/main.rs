@@ -110,8 +110,7 @@ fn print_hint(msg: &str) -> io::Result<()> {
     writeln!(output, ": {msg}")
 }
 
-/// Serialize data to the output format and convert the error to an
-/// [`EcoString`].
+/// Serialize data to the output format and convert the error to a [`String`].
 fn serialize(
     data: &impl Serialize,
     format: SerializationFormat,
