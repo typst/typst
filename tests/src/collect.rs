@@ -96,7 +96,7 @@ bitflags! {
 pub struct Attrs {
     pub large: bool,
     pub empty: bool,
-    /// Whether to insert [`Tracepoint`]s as notes.
+    /// Whether to insert diagnostic traces as test annotations.
     pub trace: bool,
     pub features: Option<Features>,
     /// Tolerance for image comparisons. Render tests are not 100% reproducible.
@@ -255,7 +255,7 @@ impl Display for TestEval {
     }
 }
 
-/// A compilation target, analog to [`typst::Target`].
+/// A compilation target, analog to [`Target`].
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum TestTarget {

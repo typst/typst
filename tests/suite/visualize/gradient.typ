@@ -117,6 +117,37 @@
   #place(bottom + center, rotate(45deg, my-rect))
 ]
 
+--- gradient-linear-relative-parent-nested-block paged ---
+// The image should look as if there are three nested gradients, one for the page
+// and two for nested blocks. The innermost gradient is top-left aligned with the middle gradient.
+// The rotated rectangles are not visible because they are relative to the block.
+
+#let grad = gradient.linear(red, blue, green, purple, relative: "parent")
+#let my-rect = rect(width: 50%, height: 50%, fill: grad)
+#set page(
+  height: 50pt,
+  width: 50pt,
+  margin: 5pt,
+  fill: grad,
+  background: place(top + left, my-rect),
+)
+#block(
+  width: 40pt,
+  height: 40pt,
+  inset: 0pt,
+  fill: grad,
+)[
+  #block(
+    width: 20pt,
+    height: 20pt,
+    fill: grad,
+  )[
+    #place(top + right, my-rect)
+    #place(bottom + center, dy: -2.5pt, rotate(45deg, my-rect))
+  ]
+]
+
+
 --- gradient-linear-repeat-and-mirror-1 paged ---
 // Test repeated gradients.
 #rect(
