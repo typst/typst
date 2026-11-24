@@ -99,6 +99,13 @@ pub trait World: Send + Sync {
     /// return an error.
     fn today(&self, offset: Option<Duration>) -> Option<Datetime>;
 
+    /// Get the current date, and time.
+    ///
+    /// If no offset is specified, the local date should be chosen. Otherwise,
+    /// the UTC date should be chosen with the corresponding offset.
+    ///
+    /// If this function returns `None`, Typst's `datetime` function will
+    /// return an error.
     fn now(&self, offset: Option<Duration>) -> Option<Datetime>;
 }
 

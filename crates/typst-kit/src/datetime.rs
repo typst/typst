@@ -73,6 +73,13 @@ impl Time {
         Time(TimeInner::System(OnceLock::new()))
     }
 
+    /// The current date, and time.
+    ///
+    /// A timezone offset can be given to obtain the current date in this
+    /// timezone.
+    ///
+    /// This can directly be used to implement
+    /// [`World::today`](typst_library::World::now).
     pub fn now(&self, offset: Option<Duration>) -> Option<Datetime> {
         let now = match &self.0 {
             TimeInner::Fixed(time) => time.fixed_offset(),
@@ -112,6 +119,7 @@ impl Time {
             with_offset.second().try_into().ok()?,
         )
     }
+
     /// The current date.
     ///
     /// A timezone offset can be given to obtain the current date in this
