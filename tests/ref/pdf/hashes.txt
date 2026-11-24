@@ -200,7 +200,7 @@ dd9b5fe57e921c62917743d9272d68ac ellipse
 25efdbbd0077acd6ef2d011cb1bb64cb ellipse-auto-sizing
 7032b2bfab9dd86c1b4c4a6ea99765a6 emph-and-strong-call-in-word
 ee4b834945e3d4ee98adbb83cc24e440 emph-double-underscore-empty-hint
-5e5bd91b7531b364c972a4b54c5bca3e emph-syntax
+60ec32b843da0f3b84e44b223733dba1 emph-syntax
 1fbee69c2a83c9ebad54eaa13ff4a2e8 enum-built-in-loop
 25c9b6cb4ef0514e8e10d9fcb175f04c enum-function-call
 ab546e776c589625d584cc2fb8d3f931 enum-in-align-centering
@@ -317,6 +317,7 @@ d7a74ad2598d721e8b72089fd676bc8a gradient-linear-cmyk
 008284e96ce3b2f9e43120ba6de0f1c7 gradient-linear-line
 6642347b90d1e0c0ea94aac590b9d958 gradient-linear-relative-parent
 6533dfbfb930bbca87a6afdacb4bde25 gradient-linear-relative-parent-block
+99baa38b2a29b8119e08a1b3f39c1c57 gradient-linear-relative-parent-nested-block
 28c4871232576a3e5ee33c3711e1ef32 gradient-linear-relative-self
 0cb8234274cbb638a2b20364f7fb63e8 gradient-linear-repeat-and-mirror-1
 d5a171d5a36e3a689871c259486e4b18 gradient-linear-repeat-and-mirror-2
@@ -847,7 +848,7 @@ ff9ffb70bb4aad13c86fe697e97649d1 issue-6666-auto-hlines-around-footer
 0193206bf0e046bb87528d6a6df9d60a issue-6869-image-zero-sized
 235e60046edf64f088ea9a8483e9ffaa issue-6961-tab-crlf-raw-indent
 e6c3701e2842f398fcb0758a4f9533ab issue-7103-wrong-state-calculation
-db8f9c5dfa35d2bc3d14d90b43e77392 issue-7113-cjk-latin-spacing-shift
+e19aaad7a712a59642990b57813fb76e issue-7113-cjk-latin-spacing-shift
 4f81a8ca1011318abd32f9cbdf0dee3e issue-7178-svg-fallback-deadlock
 e19de6f6cc98aee84f9224675d8d3982 issue-7188-grid-counter-order
 d53e781aebb56c78a58c1997e2a4982b issue-7249-multiple-lookup-tables
@@ -877,6 +878,7 @@ d6fad9e9256e5df7dd2d7f631ad16e40 issue-8520-script-stylistic-set
 f438c7e72e95fc4b812c573b9ff9494d issue-8648-enum-gap
 6e13c8a43b0a4afd9a41a2d503ae5d5d issue-886-args-sink
 72ecaed94d6ad59e774229528faf4964 issue-8931-justify-trailing-tracking
+32aaedacfd8d40385f1aa95ab94aa123 issue-9054-clipped-path-transform
 aa87ad6ade20c3470dd44d260dfa6811 issue-color-mix-luma
 5b94002ca5168ccda6d3200861bb81af issue-columns-heading
 e25632812e0d462690ecab2c99ebe912 issue-curve-in-sized-container

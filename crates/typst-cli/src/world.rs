@@ -33,7 +33,9 @@ pub struct SystemWorld {
     files: FileStore<SystemFiles>,
     /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation.
-    /// Reset between compilations if not [`Time::Fixed`].
+    ///
+    /// This is reset between compilations if not given by
+    /// [`WorldArgs::creation_timestamp`].
     now: Time,
 }
 
