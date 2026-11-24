@@ -11,7 +11,7 @@ use typst_syntax::Span;
 use typst_utils::defer;
 
 use crate::convert::{FrameContext, GlobalContext};
-use crate::util::{AbsExt, TransformExt, display_font};
+use crate::util::{TransformExt, display_font};
 use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]
@@ -52,7 +52,7 @@ pub(crate) fn handle_text(
         glyphs,
         font.clone(),
         text,
-        size.to_f32(),
+        size.to_pt_f32(),
         false,
     );
 

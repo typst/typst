@@ -27,8 +27,8 @@ pub fn render(page: &Page, opts: &RenderOptions<Complete>) -> sk::Pixmap {
 
     let size = page.frame.size() + bleed.sum_by_axis();
     let pixel_per_pt = opts.format.ppi.v.get() as f32 / 72.0;
-    let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
-    let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
+    let pxw = (pixel_per_pt * size.x.to_pt_f32()).round().max(1.0) as u32;
+    let pxh = (pixel_per_pt * size.y.to_pt_f32()).round().max(1.0) as u32;
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
     let state = State::new(size, ts, pixel_per_pt);
@@ -63,7 +63,7 @@ pub fn render_merged(
         document.pages().iter().map(|page| render(page, &opts)).collect();
 
     let pixel_per_pt = opts.format.ppi.v.get() as f32 / 72.0;
-    let gap = (pixel_per_pt * gap.to_f32()).round() as u32;
+    let gap = (pixel_per_pt * gap.to_pt_f32()).round() as u32;
     let pxw = pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
     let pxh = pixmaps.iter().map(|pixmap| pixmap.height()).sum::<u32>()
         + gap * pixmaps.len().saturating_sub(1) as u32;
@@ -142,14 +142,14 @@ impl<'a> State<'a> {
     /// Pre translate the current item's transform.
     fn pre_translate(self, pos: Point) -> Self {
         Self {
-            transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),
+            transform: self.transform.pre_translate(pos.x.to_pt_f32(), pos.y.to_pt_f32()),
             ..self
         }
     }
 
     fn pre_scale(self, scale: Axes<Abs>) -> Self {
         Self {
-            transform: self.transform.pre_scale(scale.x.to_f32(), scale.y.to_f32()),
+            transform: self.transform.pre_scale(scale.x.to_pt_f32(), scale.y.to_pt_f32()),
             ..self
         }
     }
@@ -265,23 +265,11 @@ fn render_group(canvas: &mut sk::Pixmap, state: State, pos: Point, group: &Group
 fn to_sk_transform(transform: &Transform) -> sk::Transform {
     let Transform { sx, ky, kx, sy, tx, ty } = *transform;
     sk::Transform::from_row(
-        sx.get() as f32,
-        ky.get() as f32,
-        kx.get() as f32,
-        sy.get() as f32,
-        tx.to_f32(),
-        ty.to_f32(),
+        sx.get_f32(),
+        ky.get_f32(),
+        kx.get_f32(),
+        sy.get_f32(),
+        tx.to_pt_f32(),
+        ty.to_pt_f32(),
     )
-}
-
-/// Additional methods for [`Abs`].
-trait AbsExt {
-    /// Convert to a number of points as f32.
-    fn to_f32(self) -> f32;
-}
-
-impl AbsExt for Abs {
-    fn to_f32(self) -> f32 {
-        self.to_pt() as f32
-    }
 }

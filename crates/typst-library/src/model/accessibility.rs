@@ -131,7 +131,7 @@ macro_rules! pdf_marker_tag {
 
 pdf_marker_tag! {
     /// `TOC`.
-    OutlineBody,
+    Outline,
     /// `L` bibliography list.
     Bibliography(numbered: bool),
     /// `LBody` wrapping `BibEntry`.

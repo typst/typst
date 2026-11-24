@@ -10,6 +10,7 @@ pub use ecow::{EcoString, EcoVec, eco_format, eco_vec};
 use std::backtrace::{Backtrace, BacktraceStatus};
 use std::fmt::{self, Display, Formatter, Write as _};
 use std::io;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
@@ -1098,17 +1099,17 @@ fn load_err_in_binary(
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub enum ReportTextPos {
     /// Contains a range, and a line/column pair.
-    Full(std::ops::Range<u32>, LineCol),
+    Full(Range<u32>, LineCol),
     /// Contains a range.
-    Range(std::ops::Range<u32>),
+    Range(Range<u32>),
     /// Contains a line/column pair.
     LineCol(LineCol),
     #[default]
     None,
 }
 
-impl From<std::ops::Range<usize>> for ReportTextPos {
-    fn from(value: std::ops::Range<usize>) -> Self {
+impl From<Range<usize>> for ReportTextPos {
+    fn from(value: Range<usize>) -> Self {
         Self::Range(value.start.saturating_as()..value.end.saturating_as())
     }
 }
@@ -1121,13 +1122,13 @@ impl From<LineCol> for ReportTextPos {
 
 impl ReportTextPos {
     /// Creates a position from a pre-existing range and line-column pair.
-    pub fn full(range: std::ops::Range<usize>, pair: LineCol) -> Self {
+    pub fn full(range: Range<usize>, pair: LineCol) -> Self {
         let range = range.start.saturating_as()..range.end.saturating_as();
         Self::Full(range, pair)
     }
 
     /// Tries to determine the byte range for this position.
-    fn range(&self, lines: &Lines<String>) -> Option<std::ops::Range<usize>> {
+    fn range(&self, lines: &Lines<String>) -> Option<Range<usize>> {
         match self {
             ReportTextPos::Full(range, _) => {
                 Some(range.start as usize..range.end as usize)

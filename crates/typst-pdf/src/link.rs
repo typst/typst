@@ -5,7 +5,7 @@ use krilla::geom as kg;
 use typst_library::diag::{At, ExpectInternal, SourceResult, bail};
 use typst_library::introspection::PagedPosition;
 use typst_library::layout::{Abs, Point, Size};
-use typst_library::model::{Destination, ResolvedLink};
+use typst_library::model::{Destination, Linkage, ResolvedLink};
 use typst_syntax::Span;
 
 use crate::convert::{FrameContext, GlobalContext, PageIndexConverter};
@@ -30,10 +30,10 @@ pub(crate) enum LinkAnnotationKind {
 pub(crate) fn handle_link(
     fc: &mut FrameContext,
     gc: &mut GlobalContext,
-    dest: &Destination,
+    link: &Linkage,
     size: Size,
 ) -> SourceResult<()> {
-    let target = match dest {
+    let target = match &link.dest {
         Destination::Url(u) => {
             Target::Action(Action::Link(LinkAction::new(u.to_string())))
         }
@@ -103,7 +103,7 @@ pub(crate) fn handle_link(
         return Ok(());
     }
 
-    let (group_id, link) = (gc.tags.tree.parent_link())
+    let (group_id, link) = (gc.tags.tree.parent_link(link.origin))
         .expect_internal("expected link ancestor in logical tree")
         .at(Span::detached())?;
     let alt = link.alt.as_ref().map(Into::into);

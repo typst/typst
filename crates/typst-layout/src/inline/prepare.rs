@@ -21,6 +21,9 @@ pub struct Preparation<'a> {
     /// This is `None` if all text directions are uniform (all the base
     /// direction).
     pub bidi: Option<BidiInfo<'a>>,
+    /// Link events that started before the current paragraph, so they can be
+    /// preprocessed appropriately by each line.
+    pub initial_events: Vec<Arc<Linkage>>,
     /// Text runs, spacing and layouted elements.
     pub items: Vec<(Range, Item<'a>)>,
     /// Maps from byte indices to item indices.
@@ -67,6 +70,7 @@ pub fn prepare<'a>(
     engine: &mut Engine,
     config: &'a Config,
     text: &'a str,
+    initial_events: Vec<Arc<Linkage>>,
     segments: Vec<Segment<'a>>,
     spans: SpanMapper,
 ) -> SourceResult<Preparation<'a>> {
@@ -114,6 +118,7 @@ pub fn prepare<'a>(
         config,
         text,
         bidi: is_bidi.then_some(bidi),
+        initial_events,
         items,
         indices,
         spans,

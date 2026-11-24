@@ -11,7 +11,7 @@ use krilla::paint as kp;
 use krilla::tagging as kt;
 use smallvec::SmallVec;
 use typst_library::foundations::Repr;
-use typst_library::layout::{Abs, Point, Sides, Size, Transform};
+use typst_library::layout::{Point, Sides, Size, Transform};
 use typst_library::text::FontInstance;
 use typst_library::visualize::SpotColorantName;
 use typst_library::visualize::{Curve, CurveItem, FillRule, LineCap, LineJoin};
@@ -38,7 +38,7 @@ pub(crate) trait SizeExt {
 
 impl SizeExt for Size {
     fn to_krilla(&self) -> Option<kg::Size> {
-        kg::Size::from_wh(self.x.to_f32(), self.y.to_f32())
+        kg::Size::from_wh(self.x.to_pt_f32(), self.y.to_pt_f32())
     }
 }
 
@@ -48,7 +48,7 @@ pub(crate) trait PointExt {
 
 impl PointExt for Point {
     fn to_krilla(&self) -> kg::Point {
-        kg::Point::from_xy(self.x.to_f32(), self.y.to_f32())
+        kg::Point::from_xy(self.x.to_pt_f32(), self.y.to_pt_f32())
     }
 }
 
@@ -87,12 +87,12 @@ pub(crate) trait TransformExt {
 impl TransformExt for Transform {
     fn to_krilla(&self) -> kg::Transform {
         kg::Transform::from_row(
-            self.sx.get() as f32,
-            self.ky.get() as f32,
-            self.kx.get() as f32,
-            self.sy.get() as f32,
-            self.tx.to_f32(),
-            self.ty.to_f32(),
+            self.sx.get_f32(),
+            self.ky.get_f32(),
+            self.kx.get_f32(),
+            self.sy.get_f32(),
+            self.tx.to_pt_f32(),
+            self.ty.to_pt_f32(),
         )
     }
 }
@@ -107,16 +107,6 @@ impl FillRuleExt for FillRule {
             FillRule::NonZero => kp::FillRule::NonZero,
             FillRule::EvenOdd => kp::FillRule::EvenOdd,
         }
-    }
-}
-
-pub(crate) trait AbsExt {
-    fn to_f32(self) -> f32;
-}
-
-impl AbsExt for Abs {
-    fn to_f32(self) -> f32 {
-        self.to_pt() as f32
     }
 }
 
@@ -209,15 +199,15 @@ pub(crate) fn display_font(font: Option<&FontInstance>) -> EcoString {
 pub(crate) fn convert_path(path: &Curve, builder: &mut PathBuilder) {
     for item in &path.0 {
         match item {
-            CurveItem::Move(p) => builder.move_to(p.x.to_f32(), p.y.to_f32()),
-            CurveItem::Line(p) => builder.line_to(p.x.to_f32(), p.y.to_f32()),
+            CurveItem::Move(p) => builder.move_to(p.x.to_pt_f32(), p.y.to_pt_f32()),
+            CurveItem::Line(p) => builder.line_to(p.x.to_pt_f32(), p.y.to_pt_f32()),
             CurveItem::Cubic(p1, p2, p3) => builder.cubic_to(
-                p1.x.to_f32(),
-                p1.y.to_f32(),
-                p2.x.to_f32(),
-                p2.y.to_f32(),
-                p3.x.to_f32(),
-                p3.y.to_f32(),
+                p1.x.to_pt_f32(),
+                p1.y.to_pt_f32(),
+                p2.x.to_pt_f32(),
+                p2.y.to_pt_f32(),
+                p3.x.to_pt_f32(),
+                p3.y.to_pt_f32(),
             ),
             CurveItem::Close => builder.close(),
         }

@@ -6,7 +6,7 @@ use typst_library::visualize::{
     Geometry, Gradient, Paint, ProcessColor, RelativeTo, Shape, Tiling,
 };
 
-use crate::{AbsExt, State, to_sk_transform};
+use crate::{State, to_sk_transform};
 
 /// Trait for sampling of a paint, used as a generic
 /// abstraction over solid colors and gradients.
@@ -70,7 +70,10 @@ impl PaintSampler for GradientSampler<'_> {
             self.gradient
                 .sample_at(
                     (point.x, point.y),
-                    (self.container_size.x.to_f32(), self.container_size.y.to_f32()),
+                    (
+                        self.container_size.x.to_pt_f32(),
+                        self.container_size.y.to_pt_f32(),
+                    ),
                 )
                 .to_process(),
         )
@@ -121,10 +124,12 @@ impl PaintSampler for TilingSampler<'_> {
         let mut point = sk::Point { x: x as f32, y: y as f32 };
         self.transform_to_parent.map_point(&mut point);
 
-        let x =
-            (point.x * self.pixel_per_pt).rem_euclid(self.size.x.to_f32()).floor() as u32;
-        let y =
-            (point.y * self.pixel_per_pt).rem_euclid(self.size.y.to_f32()).floor() as u32;
+        let x = (point.x * self.pixel_per_pt)
+            .rem_euclid(self.size.x.to_pt_f32())
+            .floor() as u32;
+        let y = (point.y * self.pixel_per_pt)
+            .rem_euclid(self.size.y.to_pt_f32())
+            .floor() as u32;
 
         // Sample the tilings
         self.pixmap.pixel(x, y).unwrap()
@@ -159,8 +164,8 @@ pub fn to_sk_paint<'a>(
             for y in 0..height {
                 let color = gradient.sample_at(
                     (
-                        (x as f32 + offset.x.to_f32()) * scale.x.get() as f32,
-                        (y as f32 + offset.y.to_f32()) * scale.y.get() as f32,
+                        (x as f32 + offset.x.to_pt_f32()) * scale.x.get_f32(),
+                        (y as f32 + offset.y.to_pt_f32()) * scale.y.get_f32(),
                     ),
                     (width as f32, height as f32),
                 );
@@ -176,7 +181,7 @@ pub fn to_sk_paint<'a>(
     let (item_size, fill_transform, gradient_map) = if let Some(shape) = shape {
         let bbox = shape.bbox(include_stroke_in_bbox);
         let fill_transform =
-            sk::Transform::from_translate(bbox.min.x.to_f32(), bbox.min.y.to_f32());
+            sk::Transform::from_translate(bbox.min.x.to_pt_f32(), bbox.min.y.to_pt_f32());
         let gradient_map = match shape.geometry {
             // Special handling for rectangles (mirrors gradients for negative sizes)
             Geometry::Rect(rect) => Some((
@@ -219,9 +224,9 @@ pub fn to_sk_paint<'a>(
             };
 
             let width =
-                (container_size.x.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
+                (container_size.x.to_pt_f32().abs() * state.pixel_per_pt).ceil() as u32;
             let height =
-                (container_size.y.to_f32().abs() * state.pixel_per_pt).ceil() as u32;
+                (container_size.y.to_pt_f32().abs() * state.pixel_per_pt).ceil() as u32;
 
             *pixmap = Some(cached(
                 gradient,
@@ -274,7 +279,7 @@ pub fn to_sk_paint<'a>(
                 fill_transform
                     .pre_concat(to_sk_transform(&tilings.transform()))
                     .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt)
-                    .pre_translate(base_offset.x.to_f32(), base_offset.y.to_f32()),
+                    .pre_translate(base_offset.x.to_pt_f32(), base_offset.y.to_pt_f32()),
             );
         }
     }
@@ -296,8 +301,8 @@ pub fn to_sk_color_u8(color: ProcessColor) -> sk::ColorU8 {
 pub fn render_tiling_frame(state: &State, tilings: &Tiling) -> sk::Pixmap {
     let size = tilings.size() + tilings.spacing();
     let mut canvas = sk::Pixmap::new(
-        (size.x.to_f32() * state.pixel_per_pt).round() as u32,
-        (size.y.to_f32() * state.pixel_per_pt).round() as u32,
+        (size.x.to_pt_f32() * state.pixel_per_pt).round() as u32,
+        (size.y.to_pt_f32() * state.pixel_per_pt).round() as u32,
     )
     .unwrap();
 

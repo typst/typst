@@ -331,7 +331,9 @@ impl<'a> SVGRenderer<'a> {
                 FrameItem::Image(image, size, _) => {
                     self.render_image(svg, &state, image, size);
                 }
-                FrameItem::Link(dest, size) => self.render_link(svg, &state, dest, *size),
+                FrameItem::Link(link, size) => {
+                    self.render_link(svg, &state, &link.dest, *size);
+                }
                 FrameItem::Tag(_) => {}
             }
         }
@@ -423,13 +425,13 @@ impl<'a> SVGRenderer<'a> {
 
     /// Finalize the SVG file. This must be called after all rendering is done.
     fn finalize(mut self, mut svg: SvgElem) {
-        self.write_glyph_defs(&mut svg);
         self.write_clip_path_defs(&mut svg);
         self.write_gradients(&mut svg);
         self.write_gradient_refs(&mut svg);
         self.write_subgradients(&mut svg);
         self.write_tilings(&mut svg);
         self.write_tiling_refs(&mut svg);
+        self.write_glyph_defs(&mut svg);
     }
 
     /// Build the clip path definitions.

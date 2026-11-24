@@ -5,7 +5,7 @@ use typst_library::visualize::{
     Paint, Shape,
 };
 
-use crate::{AbsExt, State, paint};
+use crate::{State, paint};
 
 /// Render a geometrical shape into the canvas.
 pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<()> {
@@ -13,12 +13,12 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
     let path = match &shape.geometry {
         Geometry::Line(target) => {
             let mut builder = sk::PathBuilder::new();
-            builder.line_to(target.x.to_f32(), target.y.to_f32());
+            builder.line_to(target.x.to_pt_f32(), target.y.to_pt_f32());
             builder.finish()?
         }
         Geometry::Rect(size) => {
-            let w = size.x.to_f32();
-            let h = size.y.to_f32();
+            let w = size.x.to_pt_f32();
+            let h = size.y.to_pt_f32();
             let rect = if w < 0.0 || h < 0.0 {
                 // Skia doesn't normally allow for negative dimensions, but
                 // Typst supports them, so we apply a transform if needed
@@ -55,7 +55,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
     if let Some(FixedStroke { paint, thickness, cap, join, dash, miter_limit }) =
         &shape.stroke
     {
-        let width = thickness.to_f32();
+        let width = thickness.to_pt_f32();
 
         // Don't draw zero-pt stroke.
         if width > 0.0 {
@@ -74,7 +74,7 @@ pub fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Opt
                 line_cap: to_sk_line_cap(*cap),
                 line_join: to_sk_line_join(*join),
                 dash,
-                miter_limit: miter_limit.get() as f32,
+                miter_limit: miter_limit.get_f32(),
             };
             canvas.stroke_path(&path, &paint, &stroke, ts, state.mask);
         }
@@ -89,19 +89,19 @@ pub fn convert_curve(curve: &Curve) -> Option<sk::Path> {
     for elem in &curve.0 {
         match elem {
             CurveItem::Move(p) => {
-                builder.move_to(p.x.to_f32(), p.y.to_f32());
+                builder.move_to(p.x.to_pt_f32(), p.y.to_pt_f32());
             }
             CurveItem::Line(p) => {
-                builder.line_to(p.x.to_f32(), p.y.to_f32());
+                builder.line_to(p.x.to_pt_f32(), p.y.to_pt_f32());
             }
             CurveItem::Cubic(p1, p2, p3) => {
                 builder.cubic_to(
-                    p1.x.to_f32(),
-                    p1.y.to_f32(),
-                    p2.x.to_f32(),
-                    p2.y.to_f32(),
-                    p3.x.to_f32(),
-                    p3.y.to_f32(),
+                    p1.x.to_pt_f32(),
+                    p1.y.to_pt_f32(),
+                    p2.x.to_pt_f32(),
+                    p2.y.to_pt_f32(),
+                    p3.x.to_pt_f32(),
+                    p3.y.to_pt_f32(),
                 );
             }
             CurveItem::Close => {
@@ -133,6 +133,6 @@ pub fn to_sk_dash_pattern(dash: &DashPattern<Abs, Abs>) -> Option<sk::StrokeDash
     // while pdf allows any number.
     let pattern_len = dash.array.len();
     let len = if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
-    let dash_array = dash.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
-    sk::StrokeDash::new(dash_array, dash.phase.to_f32())
+    let dash_array = dash.array.iter().map(|l| l.to_pt_f32()).cycle().take(len).collect();
+    sk::StrokeDash::new(dash_array, dash.phase.to_pt_f32())
 }

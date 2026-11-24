@@ -261,7 +261,7 @@ impl FontStretch {
 
     /// Maps an OpenType `wdth` font variation value to a stretch.
     pub fn to_wdth(self) -> AxisValue {
-        AxisValue(self.to_ratio().get() as f32 * 100.0)
+        AxisValue(self.to_ratio().get_f32() * 100.0)
     }
 
     /// Round to one of the pre-defined variants.

@@ -47,7 +47,7 @@ use typst_syntax::Span;
 
 use crate::PdfOptions;
 use crate::tags::GroupId;
-use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, OutlineCtx, TableCtx};
+use crate::tags::context::{Ctx, FigureCtx, GridCtx, ListCtx, TableCtx};
 use crate::tags::groups::{BreakOpportunity, BreakPriority, GroupKind, Groups};
 use crate::tags::tree::text::TextAttr;
 use crate::tags::tree::{Break, TraversalStates, Tree, Unfinished};
@@ -202,7 +202,7 @@ pub fn build(
     // Insert logical children into the tree.
     #[expect(clippy::iter_over_hash_type)]
     for (loc, children) in &tree.logical_children {
-        let located = (tree.groups.by_loc(loc))
+        let located = (tree.groups.locations.get(loc))
             .expect_internal("parent group")
             .at(Span::detached())?;
 
@@ -210,7 +210,7 @@ pub fn build(
             && located.multiple_parents
         {
             let validator = a11y.as_str();
-            let group = tree.groups.get(located.id);
+            let group = tree.groups.get(located.id());
             bail!(
                 group.span,
                 "{validator} error: ambiguous logical parent";
@@ -219,17 +219,17 @@ pub fn build(
         }
 
         for child in children {
-            let child = tree.groups.get_mut(*child);
+            let child = tree.groups.list.get_mut(*child);
 
             let GroupKind::LogicalChild(inherit, logical_parent) = &mut child.kind else {
                 unreachable!()
             };
-            *logical_parent = located.id;
+            *logical_parent = located.id();
 
             // Move the child into its logical parent, so artifact, bbox, and
             // text attributes are inherited.
             if *inherit == Inherit::Yes {
-                child.parent = located.id;
+                child.parent = located.id();
             }
         }
     }
@@ -352,10 +352,7 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
     // Elements
     } else if let Some(tag) = elem.to_packed::<PdfMarkerTag>() {
         match &tag.kind {
-            PdfMarkerTagKind::OutlineBody => {
-                let id = tree.ctx.outlines.push(OutlineCtx::new());
-                push_group(tree, elem, GroupKind::Outline(id, None))
-            }
+            PdfMarkerTagKind::Outline => push_tag(tree, elem, Tag::TOC),
             PdfMarkerTagKind::Bibliography(numbered) => {
                 let numbering =
                     if *numbered { ListNumbering::Decimal } else { ListNumbering::None };
@@ -380,11 +377,11 @@ fn progress_tree_start(tree: &mut TreeBuilder, elem: &Content) -> GroupId {
             PdfMarkerTagKind::Label => push_tag(tree, elem, Tag::Lbl),
         }
     } else if let Some(link) = elem.to_packed::<LinkMarker>() {
-        push_group(tree, elem, GroupKind::Link(link.clone(), None))
+        push_located(tree, elem, GroupKind::Link(link.clone(), None))
     } else if let Some(_) = elem.to_packed::<TitleElem>() {
         push_tag(tree, elem, Tag::Title)
-    } else if let Some(entry) = elem.to_packed::<OutlineEntry>() {
-        push_group(tree, elem, GroupKind::OutlineEntry(entry.clone(), None))
+    } else if let Some(_) = elem.to_packed::<OutlineEntry>() {
+        push_group(tree, elem, GroupKind::OutlineEntry(None))
     } else if let Some(_) = elem.to_packed::<ListElem>() {
         // TODO: infer numbering from `list.marker`
         let numbering = ListNumbering::Circle;

@@ -15,7 +15,7 @@ use typst_library::layout::{
     Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
-use typst_library::model::{ArtifactElem, ArtifactKind, PdfMarkerTag};
+use typst_library::model::{ArtifactElem, ArtifactKind, OutlineNode, PdfMarkerTag};
 use typst_library::model::{
     Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
     Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
@@ -225,10 +225,7 @@ const LINK_RULE: ShowFn<LinkElem> = |elem, engine, styles| {
     let alt = dest.alt_text(engine, styles, span)?;
     // Manually construct link marker that spans the whole link elem, not just
     // the body.
-    Ok(LinkMarker::new(body, Some(alt))
-        .pack()
-        .spanned(span)
-        .set(LinkElem::current, Some(dest)))
+    Ok(LinkMarker::new(body, Some(alt), dest).pack().spanned(span))
 };
 
 const DIRECT_LINK_RULE: ShowFn<DirectLinkElem> = |elem, _, _| {
@@ -412,10 +409,19 @@ const FOOTNOTE_ENTRY_RULE: ShowFn<FootnoteEntry> = |elem, engine, styles| {
 };
 
 const OUTLINE_RULE: ShowFn<OutlineElem> = |elem, engine, styles| {
+    fn convert_list(list: Vec<OutlineNode>) -> Content {
+        let items = list.into_iter().flat_map(convert_node);
+        PdfMarkerTag::Outline(Content::sequence(items))
+    }
+
+    fn convert_node(node: OutlineNode) -> impl Iterator<Item = Content> {
+        let children = (!node.children.is_empty()).then(|| convert_list(node.children));
+        [node.entry.pack()].into_iter().chain(children)
+    }
+
     let title = elem.realize_title(styles);
-    let entries = elem.realize_flat(engine, styles)?;
-    let entries = entries.into_iter().map(|entry| entry.pack());
-    let body = PdfMarkerTag::OutlineBody(Content::sequence(entries));
+    let tree = elem.realize_tree(engine, styles)?;
+    let body = convert_list(tree);
     Ok(Content::sequence(title.into_iter().chain(Some(body))))
 };
 
