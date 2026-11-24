@@ -366,7 +366,7 @@ impl<'a> SVGRenderer<'a> {
 
         if let Some(clip_curve) = &group.clip {
             let id = self.clip_paths.insert_with((clip_curve, state.transform), || {
-                (shape::convert_curve(Point::zero(), clip_curve), state.transform)
+                (shape::convert_curve(clip_curve), state.transform)
             });
             svg.init().attr("clip-path", SvgUrl(id));
         }

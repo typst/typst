@@ -197,8 +197,9 @@ impl SVGRenderer<'_> {
                         );
 
                         // Create the path for the segment.
-                        let mut builder = SvgPathBuilder::empty();
-                        builder.move_to(correct_tiling_pos(center.x, center.y));
+                        let mut builder = SvgPathBuilder::with_translate(
+                            correct_tiling_pos(center.x, center.y),
+                        );
 
                         builder.line_to(correct_tiling_pos(
                             Ratio::new(-2.0 * theta1.cos()) + center.x,
