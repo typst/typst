@@ -296,7 +296,7 @@ This section documents all changes to the Typst language and compiler between Ty
 = Deprecations <deprecations>
 - Certain unclear/ambiguous ways to write a raw language tag; these will now emit a warning in anticipation of an @raw:language-tag-changes[upcoming change to how they are parsed] #pr(8257)
 - Fallback to Arabic numerals for @numbering systems that do not support the number zero (e.g. for `{"⓵"}`) #pr(7936)
-- Various symbols were renamed, see the #link(changelogs.codex + "#deprecations-in-sym")[deprecation section in the dedicated changelog] for a full listing
+- Various symbols were renamed, see the #link(changelogs.codex + "\#deprecations-in-sym")[deprecation section in the dedicated changelog] for a full listing
 - Some citation styles that were renamed or superseded #pr(404, repo: "typst/hayagriva") #pr(424, repo: "typst/hayagriva") #pr(453, repo: "typst/hayagriva")
   - `council-of-science-editors` is now called `cse-citation-sequence-brackets-8th-edition`
   - `council-of-science-editors-author-date` is now called `cse-name-year`
@@ -310,7 +310,7 @@ This section documents all changes to the Typst language and compiler between Ty
 - The `pattern` type, use @tiling instead #pr(8252) #breaking
 - The `pdf.embed` element, use @pdf.attach instead #pr(8252) #breaking
 - The scoped functions `cbor.decode`, `csv.decode`, `json.decode`, `toml.decode`, `xml.decode`, `yaml.decode`, and `image.decode`; directly pass @bytes to the top-level functions instead #pr(8252) #breaking
-- Various previously deprecated symbols, see the #link(changelogs.codex + "#removals-in-sym-breaking-change")[removals section in the dedicated changelog] for a full listing #breaking
+- Various previously deprecated symbols, see the #link(changelogs.codex + "\#removals-in-sym-breaking-change")[removals section in the dedicated changelog] for a full listing #breaking
 
 = Development <development>
 - The `typst-kit` crate was completely reworked to make it easier to create a Typst `World` implementation #pr(7710) #pr(8026)
@@ -321,7 +321,7 @@ This section documents all changes to the Typst language and compiler between Ty
 = Migration guide <migration-guide>
 This section walks you through changes you may need to make to your existing documents to ensure compatibility with Typst 0.15.
 
-Typst 0.15 @changelog:0.15.0:removals[removes] definitions from the Typst standard library that were already deprecated in previous Typst versions. If you are still relying on those, also refer to the #link("https://typst.app/blog/2025/typst-0.14#migrating")[Typst 0.14] and #link("https://typst.app/blog/2025/typst-0.13#migrating")[Typst 0.13] migration guides.
+Typst 0.15 @changelog:0.15.0:removals[removes] definitions from the Typst standard library that were already deprecated in previous Typst versions. If you are still relying on those, also refer to the #link("https://typst.app/blog/2025/typst-0.14\#migrating")[Typst 0.14] and #link("https://typst.app/blog/2025/typst-0.13\#migrating")[Typst 0.13] migration guides.
 
 == Baselines <baselines>
 Typst now retains baseline information in more parts of the layout engine (most importantly for @box[boxes], @block[blocks], @list.item[list items], and @math.equation[equations]). This may lead to silent layout shifts. These are generally improvements, but if you've previously counter-acted bad-looking output through explicit adjustments, you may need to revisit those.
@@ -460,4 +460,4 @@ The @array.slice function, @str constructor, and @text.features parameter now pe
 Typst 0.15 @changelog:0.15.0:deprecations[renames] some citation styles to stay aligned with upstream CSL changes. If you are relying on any of these, the compiler will warn you and suggest the new name.
 
 == #short-or-long[Symbols][Renamed symbols] <citation-styles>
-Typst 0.15 also #link(changelogs.codex + "#deprecations-in-sym")[renames] a few symbols in @sym. If you are using any of these, the compiler will warn you and suggest the new name.
+Typst 0.15 also #link(changelogs.codex + "\#deprecations-in-sym")[renames] a few symbols in @sym. If you are using any of these, the compiler will warn you and suggest the new name.

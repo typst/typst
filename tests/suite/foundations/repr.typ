@@ -61,11 +61,11 @@ sequence(
 ```)
 
 // Colors and strokes.
-#t(rgb("f7a205"), `rgb("#f7a205")`)
-#t(2pt + rgb("f7a205"), `2pt + rgb("#f7a205")`)
+#t(rgb("f7a205"), `rgb("f7a205")`)
+#t(2pt + rgb("f7a205"), `2pt + rgb("f7a205")`)
 #t(stroke(), `stroke()`)
 #t(stroke(cap: "round", thickness: 2pt), `(thickness: 2pt, cap: "round")`)
-#t(blue, `rgb("#0074d9")`)
+#t(blue, `rgb("0074d9")`)
 #t(color.linear-rgb(blue), `color.linear-rgb(0%, 17.46%, 69.39%)`)
 #t(oklab(blue), `oklab(56.22%, -0.05, -0.17)`)
 #t(oklch(blue), `oklch(56.22%, 0.177, 253.71deg)`)
@@ -81,13 +81,13 @@ sequence(
 )
 #t(
   gradient.linear(blue, red, dir: ttb, space: rgb),
-  `gradient.linear(dir: rtl, space: rgb, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  `gradient.linear(dir: rtl, space: rgb, (rgb("0074d9"), 0%), (rgb("ff4136"), 100%))`,
 )
 #t(
   gradient.linear(blue, red, relative: "self", angle: 45deg, space: rgb),
-  `gradient.linear(angle: 45deg, space: rgb, relative: "self", (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  `gradient.linear(angle: 45deg, space: rgb, relative: "self", (rgb("0074d9"), 0%), (rgb("ff4136"), 100%))`,
 )
 #t(
   gradient.linear(blue, red, space: rgb, angle: 45deg),
-  `gradient.linear(angle: 45deg, space: rgb, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
+  `gradient.linear(angle: 45deg, space: rgb, (rgb("0074d9"), 0%), (rgb("ff4136"), 100%))`,
 )

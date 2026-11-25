@@ -281,7 +281,7 @@ It is important that the sequence of headings you use is sequential: Never skip 
 === Third level heading
 ```
 
-Note that in order to pass the #link("https://helpx.adobe.com/acrobat/using/create-verify-pdf-accessibility.html#Bookmarks")[automated accessibility check in Adobe Acrobat], documents with 21 pages or more must contain outlined headings.
+Note that in order to pass the #link("https://helpx.adobe.com/acrobat/using/create-verify-pdf-accessibility.html\#Bookmarks")[automated accessibility check in Adobe Acrobat], documents with 21 pages or more must contain outlined headings.
 
 = Accessibility Standards and Legislation <accessibility-standards-and-legislation>
 Typst can help you to assert that your document is accessible by checking it against international standards. For PDF export, there are multiple standards for accessible files, most notably the PDF/UA standard. Its first part (PDF/UA-1) is already supported by Typst while support for the second part (PDF/UA-2) is planned for the future. Below, you can find an explanation of all relevant standards:

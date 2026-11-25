@@ -1,0 +1,6 @@
+[package]
+name = "compat-preferred"
+version = "0.1.0"
+entrypoint = "lib.typ"
+compiler.minimum = "0.14.0"
+compiler.preferred = "0.15"

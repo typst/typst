@@ -128,7 +128,7 @@ pub fn register(rules: &mut NativeRuleMap) {
 /// you might want introspections to consider each document in isolation.
 /// Currently, you'll have to do this manually (e.g. by resetting counters,
 /// adjusting selectors, etc.) We
-/// #link("https://github.com/typst/typst/issues/7735#issuecomment-3908841853")[plan
+/// #link("https://github.com/typst/typst/issues/7735\#issuecomment-3908841853")[plan
 /// to provide more tools] for managing the precise scope of introspection in
 /// the future.
 #[elem(scope, name = "bundle", since = "unreleased", Construct)]
