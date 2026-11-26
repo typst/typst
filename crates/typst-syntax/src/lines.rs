@@ -190,7 +190,7 @@ impl Lines<String> {
         while !old.is_char_boundary(old.len() - suffix)
             || !new.is_char_boundary(new.len() - suffix)
         {
-            suffix += 1;
+            suffix -= 1;
         }
 
         Some((prefix, suffix))
@@ -284,6 +284,7 @@ fn len_utf16(string: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{FileId, Source};
 
     const TEST: &str = "ä\tcde\nf💛g\r\nhi\rjkl";
 
@@ -402,5 +403,19 @@ mod tests {
 
         // Test removing everything.
         test(TEST, 0..21, "", "");
+    }
+
+    #[test]
+    fn test_unicode_replacement() {
+        let test_id = FileId::new_for_test("test_unicode_replacement");
+        let mut source = Source::new(test_id, "é");
+
+        // Test replacing `é` with `©`.
+        source.replace("©");
+        assert_eq!(source.text(), "©");
+
+        // Test replacing `©` with `₩`.
+        source.replace("₩");
+        assert_eq!(source.text(), "₩");
     }
 }
