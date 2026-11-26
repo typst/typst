@@ -168,6 +168,9 @@ pub struct OutlineElem {
     /// selector. See the section on
     /// @outline:alternative-outlines[alternative outlines] for more details.
     ///
+    /// Note that not all elements can be outlined: The only outlinable elements
+    /// are @math.equation, @figure, and @heading.
+    ///
     /// ```example
     /// #outline(
     ///   title: [List of Tables],
@@ -177,8 +180,8 @@ pub struct OutlineElem {
     /// #figure(
     ///   table(
     ///     columns: 4,
-    ///     [t], [1], [2], [3],
-    ///     [y], [0.3], [0.7], [0.5],
+    ///     $t$, [1], [2], [3],
+    ///     $y$, [0.3], [0.7], [0.5],
     ///   ),
     ///   caption: [Experiment results],
     /// )
