@@ -199,4 +199,4 @@ The calls to the first box function and the image function did not require a lea
 = Review <review>
 You now know how to apply basic formatting to your Typst documents. You learned how to set the font, justify your paragraphs, change the page dimensions, and add numbering to your headings with set rules. You also learned how to use a basic show rule to change how text appears throughout your document.
 
-You have handed in your report. Your supervisor was so happy with it that they want to adapt it into a conference paper! In the next section, we will learn how to format your document as a paper using more advanced show rules and functions.
+You have handed in your report. Your supervisor was so happy with it that they want to adapt it into a conference paper! In the next chapter, we will learn how to format your document as a paper using more advanced show rules and functions.

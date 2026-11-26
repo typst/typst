@@ -207,4 +207,4 @@ This notation is also available in markup mode, but the symbol name must be prec
 = Review <review>
 You have now seen how to write a basic document in Typst. You learned how to emphasize text, write lists, insert images, align content, and typeset mathematical expressions. You also learned about Typst's functions. There are many more kinds of content that Typst lets you insert into your document, such as @table[tables], @reference:visualize[shapes], and @raw[code blocks]. You can peruse the @reference[reference] to learn more about these and other features.
 
-For the moment, you have completed writing your report. You have already saved a PDF by clicking on the download button in the top right corner. However, you think the report could look a bit less plain. In the next section, we'll learn how to customize the look of our document.
+For the moment, you have completed writing your report. You have already saved a PDF by clicking on the download button in the top right corner. However, you think the report could look a bit less plain. In the next chapter, we'll learn how to customize the look of our document.

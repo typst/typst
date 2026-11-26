@@ -413,7 +413,7 @@ Another thing that you can do to make applying templates just a bit more elegant
 We have now converted the conference paper into a reusable template for that conference! Why not share it in the #link("https://forum.typst.app/")[Typst Forum] or on #link("https://discord.gg/2uDybryKPe")[Typst's Discord server] so that others can use it too?
 
 = Review <review>
-Congratulations, you have completed Typst's Tutorial! In this section, you have learned how to define your own functions and how to create and apply templates that define reusable document styles. You've made it far and learned a lot. You can now use Typst to write your own documents and share them with others.
+Congratulations, you have completed Typst's Tutorial! In this chapter, you have learned how to define your own functions and how to create and apply templates that define reusable document styles. You've made it far and learned a lot. You can now use Typst to write your own documents and share them with others.
 
 We are still a super young project and are looking for feedback. If you have any questions, suggestions or you found a bug, please let us know in the #link("https://forum.typst.app/")[Forum], on our #link("https://discord.gg/2uDybryKPe")[Discord server], on #link("https://github.com/typst/typst/")[GitHub], or via the web app's feedback form (always available in the Help menu).
 
