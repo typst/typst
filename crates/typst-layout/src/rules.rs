@@ -15,13 +15,13 @@ use typst_library::layout::{
     Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
 };
 use typst_library::math::EquationElem;
-use typst_library::model::{ArtifactElem, ArtifactKind, OutlineNode, PdfMarkerTag};
 use typst_library::model::{
-    Attribution, BibliographyElem, CiteElem, CiteGroup, CslIndentElem, CslLightElem,
-    Destination, DirectLinkElem, DividerElem, EmphElem, EnumElem, FigureCaption,
-    FigureElem, FootnoteElem, FootnoteEntry, HeadingElem, LinkElem, LinkMarker, ListElem,
-    OutlineElem, OutlineEntry, ParElem, ParbreakElem, QuoteElem, RefElem, StrongElem,
-    TableCell, TableElem, TermsElem, TitleElem, Works,
+    ArtifactElem, ArtifactKind, Attribution, BibliographyElem, CiteElem, CiteGroup,
+    CslIndentElem, CslLightElem, Destination, DirectLinkElem, DividerElem, EmphElem,
+    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
+    LinkElem, LinkMarker, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem,
+    ParbreakElem, PdfMarkerTag, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
+    TermsElem, TitleElem, Works,
 };
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,

@@ -1,7 +1,6 @@
 //! Calculations and processing of numeric values.
 
-use std::cmp;
-use std::cmp::Ordering;
+use std::cmp::{self, Ordering};
 
 use az::SaturatingAs;
 use typst_syntax::{Span, Spanned};
