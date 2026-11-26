@@ -25,7 +25,7 @@ impl SvgPathBuilder {
             path,
             scale: Ratio::one(),
             last_close_point: pos,
-            last_point: Point::zero(),
+            last_point: pos,
         }
     }
 
@@ -34,16 +34,6 @@ impl SvgPathBuilder {
         Self {
             path: EcoString::from("M 0 0"),
             scale,
-            last_close_point: Point::zero(),
-            last_point: Point::zero(),
-        }
-    }
-
-    /// Creates an empty path builder.
-    pub fn empty() -> Self {
-        Self {
-            path: EcoString::new(),
-            scale: Ratio::one(),
             last_close_point: Point::zero(),
             last_point: Point::zero(),
         }

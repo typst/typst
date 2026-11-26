@@ -181,14 +181,14 @@ fn convert_geometry_to_path(geometry: &Geometry) -> EcoString {
         &Geometry::Line(t) => builder.line_to(t),
         &Geometry::Rect(size) => builder.rect(size),
         Geometry::Curve(p) => {
-            return convert_curve(Point::zero(), p);
+            return convert_curve(p);
         }
     }
     builder.finish()
 }
 
-pub fn convert_curve(initial_point: Point, curve: &Curve) -> EcoString {
-    let mut builder = SvgPathBuilder::with_translate(initial_point);
+pub fn convert_curve(curve: &Curve) -> EcoString {
+    let mut builder = SvgPathBuilder::with_translate(Point::zero());
     for item in &curve.0 {
         match *item {
             CurveItem::Move(pos) => builder.move_to(pos),
