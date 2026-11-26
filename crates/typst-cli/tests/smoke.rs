@@ -723,7 +723,7 @@ impl<T: AsRef<[u8]>> Stream<T> {
     }
 
     fn lines(&self) -> impl Iterator<Item = &str> {
-        std::str::from_utf8(self.0.as_ref())
+        str::from_utf8(self.0.as_ref())
             .unwrap_or_else(|_| panic!("{self} is not valid utf-8"))
             .lines()
     }

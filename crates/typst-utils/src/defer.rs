@@ -1,4 +1,4 @@
-use std::ops::DerefMut;
+use std::ops::{Deref, DerefMut};
 
 /// Automatically calls a deferred function when the returned handle is dropped.
 pub fn defer<T, F: FnOnce(&mut T)>(
@@ -16,7 +16,7 @@ pub fn defer<T, F: FnOnce(&mut T)>(
         }
     }
 
-    impl<T, F: FnOnce(&mut T)> std::ops::Deref for DeferHandle<'_, T, F> {
+    impl<T, F: FnOnce(&mut T)> Deref for DeferHandle<'_, T, F> {
         type Target = T;
 
         fn deref(&self) -> &Self::Target {
@@ -24,7 +24,7 @@ pub fn defer<T, F: FnOnce(&mut T)>(
         }
     }
 
-    impl<T, F: FnOnce(&mut T)> std::ops::DerefMut for DeferHandle<'_, T, F> {
+    impl<T, F: FnOnce(&mut T)> DerefMut for DeferHandle<'_, T, F> {
         fn deref_mut(&mut self) -> &mut Self::Target {
             self.thing
         }
