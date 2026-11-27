@@ -63,7 +63,7 @@ pub enum Value {
     Label(Label),
     /// A datetime
     Datetime(Datetime),
-    /// A decimal value: `decimal("123.4500")`
+    /// A decimal value: `123.4500d`.
     Decimal(Decimal),
     /// A duration
     Duration(Duration),

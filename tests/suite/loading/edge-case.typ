@@ -27,7 +27,7 @@
 // data formats. They should fall back to strings via `repr` when encoded, but
 // the specific output can be changed.
 #let special-types = (
-  decimal("2.99792458"),
+  2.99792458d,
   3.14159pt,
   2.99em,
   <sec:intro>,

@@ -184,7 +184,7 @@ d468514613fb94b2d2ee3ff3dc97b723 curve-line
 75badae7d0f7158a26000c0697b80847 curve-quad-mirror
 dbacd9461d0ee380f833a52e446f5fe9 curve-stroke-gradient
 9462018f824c67d373ad60307a17b958 curve-stroke-gradient-sharp
-042e247060546045b2378d63beab4b12 decimal-display
+01df058f42d60ef09c070b15b763cb12 decimal-display
 ebda4b71993f85b655c5a75f8b4bb716 decimal-display-round
 5ec1449d68065518fb345131d9b7e927 destructuring-during-loop-continue
 0ed24425c87bd8198fb9c9bba693b8c5 dict-basic-syntax
