@@ -219,7 +219,7 @@ The structure of a method call is `{value.method(..args)}` and its equivalent fu
 #str.len("abc")
 ```
 
-There are a few special functions that modify the value they are called on (e.g. @array.push). These functions _must_ be called in method form. In some cases, when the method is only called for its side effect, its return value should be ignored (and not participate in joining). The canonical way to discard a value is with a let binding: `{let _ = array.remove(1)}`.
+There are a few special functions that modify the value they are called on, within the @array[`array`] and @dictionary[`dictionary`] modules. These functions _must_ be called in method form. In some cases, when the method is only called for its side effect, its return value should be ignored (and not participate in joining). The canonical way to discard a value is with a throwaway let binding: `{let _ = array.remove(1)}`.
 
 = Modules <modules>
 You can split up your Typst projects into multiple files called _modules._ A module can refer to the content and definitions of another module in multiple ways:

@@ -175,9 +175,9 @@ impl Array {
         self.0.len()
     }
 
-    /// Returns the first item in the array. May be used on the left-hand side of
-    /// an assignment. Returns the default value if the array is empty or fails
-    /// with an error if no default value was specified.
+    /// Returns the first item in the array. This method may be used on the
+    /// left-hand side of an assignment, to update an array in-place. Fails
+    /// with an error if the array is empty and no default value was specified.
     #[func(since = "forever")]
     pub fn first(
         &self,
@@ -188,9 +188,9 @@ impl Array {
         self.0.first().cloned().or(default).ok_or_else(array_is_empty)
     }
 
-    /// Returns the last item in the array. May be used on the left-hand side of
-    /// an assignment. Returns the default value if the array is empty or fails
-    /// with an error if no default value was specified.
+    /// Returns the last item in the array. This method may be used on the
+    /// left-hand side of an assignment, to update an array in-place. Fails
+    /// with an error if the array is empty and no default value was specified.
     #[func(since = "forever")]
     pub fn last(
         &self,
@@ -201,10 +201,10 @@ impl Array {
         self.0.last().cloned().or(default).ok_or_else(array_is_empty)
     }
 
-    /// Returns the item at the specified index in the array. May be used on the
-    /// left-hand side of an assignment. Returns the default value if the index
-    /// is out of bounds or fails with an error if no default value was
-    /// specified.
+    /// Returns the value at the specified index in the array. This method may be
+    /// used on the left-hand side of an assignment, to update an array in-place.
+    /// Fails with an error if the index is out of bounds and no default value
+    /// was specified.
     #[func(since = "forever")]
     pub fn at(
         &self,
@@ -221,7 +221,7 @@ impl Array {
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Adds a value to the end of the array.
+    /// Adds a value to the end of the array, updating the array in-place.
     #[func(since = "forever")]
     pub fn push(
         &mut self,
@@ -231,16 +231,16 @@ impl Array {
         self.0.push(value);
     }
 
-    /// Removes the last item from the array and returns it. Fails with an error
-    /// if the array is empty.
+    /// Removes the last item from the array and returns it, updating the array
+    /// in-place. Fails with an error if the array is empty.
     #[func(since = "forever")]
     pub fn pop(&mut self) -> StrResult<Value> {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
     /// Inserts a value into the array at the specified index, shifting all
-    /// subsequent elements to the right. Fails with an error if the index is
-    /// out of bounds.
+    /// subsequent elements to the right, updating the array in-place.
+    /// Fails with an error if the index is out of bounds.
     ///
     /// To replace an element of an array, use @array.at[`at`].
     #[func(since = "forever")]
@@ -257,7 +257,9 @@ impl Array {
         Ok(())
     }
 
-    /// Removes the value at the specified index from the array and return it.
+    /// Removes and returns the value at the specified index into the array,
+    /// updating the array in-place. Fails with an error if the index is out of
+    /// bounds and no default value was specified.
     #[func(since = "forever")]
     pub fn remove(
         &mut self,
@@ -274,8 +276,8 @@ impl Array {
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Extracts a subslice of the array. Fails with an error if the start or
-    /// end index is out of bounds.
+    /// Creates a new array extracted from a slice of an existing array.
+    /// Fails with an error if the start or end index is out of bounds.
     #[func(since = "forever")]
     pub fn slice(
         &self,
@@ -313,8 +315,8 @@ impl Array {
         self.0.contains(&value)
     }
 
-    /// Searches for an item for which the given function returns `{true}` and
-    /// returns the first match or `{none}` if there is no match.
+    /// Searches for an item for which the given function returns `{true}`.
+    /// Returns the first match, or `{none}` if there is no match.
     #[func(since = "forever")]
     pub fn find(
         &self,
@@ -331,8 +333,8 @@ impl Array {
         Ok(None)
     }
 
-    /// Searches for an item for which the given function returns `{true}` and
-    /// returns the index of the first match or `{none}` if there is no match.
+    /// Searches for an item for which the given function returns `{true}`.
+    /// Returns the index of the first match, or `{none}` if there is no match.
     #[func(since = "forever")]
     pub fn position(
         &self,
@@ -357,7 +359,7 @@ impl Array {
         Ok(None)
     }
 
-    /// Create an array consisting of a sequence of numbers.
+    /// Creates an array consisting of a sequence of numbers.
     ///
     /// If you pass just one positional parameter, it is interpreted as the
     /// `end` of the range. If you pass two, they describe the `start` and `end`
@@ -435,7 +437,7 @@ impl Array {
         Ok(array)
     }
 
-    /// Produces a new array with only the items from the original one for which
+    /// Creates a new array with only the values from the original one for which
     /// the given function returns `{true}`.
     #[func(since = "forever")]
     pub fn filter(
@@ -454,7 +456,7 @@ impl Array {
         Ok(kept.into())
     }
 
-    /// Produces a new array in which all items from the original one were
+    /// Creates a new array in which all items from the original one are
     /// transformed with the given function.
     #[func(since = "forever")]
     pub fn map(
@@ -722,7 +724,7 @@ impl Array {
         self.into_iter().rev().collect()
     }
 
-    /// Split the array at occurrences of the specified value.
+    /// Creates a new array split at occurrences of the specified value.
     ///
     /// ```example
     /// #(1, 1, 2, 3, 2, 4, 5).split(2)
@@ -781,8 +783,8 @@ impl Array {
         Ok(result)
     }
 
-    /// Returns an array with a copy of the separator value placed between
-    /// adjacent elements.
+    /// Creates a new array with a separator value placed between adjacent
+    /// elements.
     ///
     /// ```example
     /// #("A", "B", "C").intersperse("-")
@@ -814,8 +816,8 @@ impl Array {
         Array(vec)
     }
 
-    /// Splits an array into non-overlapping chunks, starting at the beginning,
-    /// ending with a single remainder chunk.
+    /// Creates a new array split into non-overlapping chunks, starting at the
+    /// beginning, ending with a single remainder chunk.
     ///
     /// All chunks but the last have `chunk-size` elements. If `exact` is set to
     /// `{true}`, the remainder is dropped if it contains less than `chunk-size`
