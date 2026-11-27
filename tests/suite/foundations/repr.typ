@@ -80,6 +80,8 @@ sequence(
   `gradient.linear((oklab(56.22%, -0.05, -0.17), 0%), (oklab(65.95%, 0.2, 0.108), 100%))`,
 )
 #t(
+  // Warning: 35-38 the `dir` parameter is deprecated
+  // Hint: 35-38 use the `angle` parameter instead, which also accepts a direction
   gradient.linear(blue, red, dir: ttb, space: rgb),
   `gradient.linear(dir: rtl, space: rgb, (rgb("#0074d9"), 0%), (rgb("#ff4136"), 100%))`,
 )
