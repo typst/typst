@@ -944,7 +944,7 @@ fn import_items(p: &mut Parser) {
         }
 
         if !p.current().is_terminator() {
-            p.expect(SyntaxKind::Comma);
+            expect_comma(p);
         }
     }
 
@@ -1091,7 +1091,7 @@ fn parenthesized_or_array_or_dict(p: &mut Parser) -> SyntaxKind {
             array_or_dict_item(p, &mut state);
             state.count += 1;
 
-            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+            if !p.current().is_terminator() && expect_comma(p) {
                 state.maybe_just_parens = false;
             }
         }
@@ -1198,7 +1198,7 @@ fn args(p: &mut Parser) {
                 arg(p, &mut seen);
 
                 if !p.current().is_terminator() {
-                    p.expect(SyntaxKind::Comma);
+                    expect_comma(p);
                 }
             }
 
@@ -1263,7 +1263,7 @@ fn params(p: &mut Parser) {
             param(p, &mut seen, &mut sink);
 
             if !p.current().is_terminator() {
-                p.expect(SyntaxKind::Comma);
+                expect_comma(p);
             }
         }
 
@@ -1343,7 +1343,7 @@ fn destructuring_or_parenthesized<'s>(
             destructuring_item(p, reassignment, seen, &mut maybe_just_parens, &mut sink);
             count += 1;
 
-            if !p.current().is_terminator() && p.expect(SyntaxKind::Comma) {
+            if !p.current().is_terminator() && expect_comma(p) {
                 maybe_just_parens = false;
             }
         }
@@ -1356,6 +1356,60 @@ fn destructuring_or_parenthesized<'s>(
     } else {
         p.wrap(m, SyntaxKind::Destructuring);
     }
+}
+
+/// Parses an expected comma in a parenthesized grouping or adds an error if
+/// there was no comma. Returns whether a comma was parsed.
+///
+/// Also adds a nice error/hint for a common case where users accidentally
+/// insert a space between a number and a numeric suffix, e.g. `(1.5 pt,)`
+/// instead of `(1.5pt,)`. And if there is a comma after the suffix, we do eat
+/// it and return `true`.
+fn expect_comma(p: &mut Parser) -> bool {
+    if p.eat_if(SyntaxKind::Comma) {
+        true
+    } else if let Some(number) = number_before_suffix(p) {
+        let suffix = p.current_text();
+        // We don't use `convert_to_error` here because we want to overwrite the
+        // error message for any suffix nodes that were a lexer error. For
+        // instance if a `%` is treated as an invalid character in code mode.
+        p.token.kind = SyntaxKind::Error;
+        p.token.node =
+            SyntaxNode::error("expected comma, but found numeric suffix", suffix);
+        p.token.node.hint(eco_format!(
+            "if you meant to use a unit, try `{number}{suffix}` instead",
+        ));
+        // Match how `expected` treats errors, and still eat a following comma.
+        p.trim_errors();
+        p.eat();
+        p.eat_if(SyntaxKind::Comma)
+    } else {
+        p.expected("comma");
+        false
+    }
+}
+
+/// If the current token is a numeric suffix (a unit name like `pt` or `%`)
+/// directly preceded by a number, return the number's text.
+///
+/// Does not check for nondecimal integers.
+fn number_before_suffix<'s>(p: &Parser<'s>) -> Option<&'s str> {
+    if p.had_newline() || p.current_text().parse::<ast::Unit>().is_err() {
+        return None;
+    }
+
+    // Find the rightmost child of the previous node.
+    let prev_m = p.previous_marker()?;
+    let mut prev = &p[prev_m];
+    while !matches!(prev.kind(), SyntaxKind::Int | SyntaxKind::Float) {
+        prev = prev.children().last()?;
+    }
+
+    // Get the number's text directly from `p.text` to avoid lifetime troubles
+    // when we mutate the parser's token.
+    let number_end = p.prev_end();
+    let number_start = number_end - prev.len();
+    Some(&p.text[number_start..number_end])
 }
 
 /// Parses an item in a destructuring pattern.
@@ -1709,6 +1763,12 @@ impl<'s> Parser<'s> {
         Marker(self.nodes.len() - self.token.n_trivia)
     }
 
+    /// A marker pointing to the preceding non-trivia node (if any).
+    fn previous_marker(&self) -> Option<Marker> {
+        let trivia_start = self.nodes.len() - self.token.n_trivia;
+        trivia_start.checked_sub(1).map(Marker)
+    }
+
     /// Eat the current node and return a reference for in-place mutation.
     #[track_caller]
     fn eat_and_get(&mut self) -> &mut SyntaxNode {
@@ -1962,6 +2022,7 @@ impl Parser<'_> {
 impl Parser<'_> {
     /// Consume the given `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
+        debug_assert_ne!(kind, SyntaxKind::Comma, "use `expect_comma` instead");
         let at = self.at(kind);
         if at {
             self.eat();
@@ -2010,8 +2071,8 @@ impl Parser<'_> {
 
     /// Whether the last non-trivia node is an error.
     fn after_error(&mut self) -> bool {
-        let m = self.before_trivia();
-        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
+        self.previous_marker()
+            .is_some_and(|prev_m| self[prev_m].kind().is_error())
     }
 
     /// Produce an error that the given `thing` was expected at the position
@@ -2021,11 +2082,11 @@ impl Parser<'_> {
         self.nodes.insert(m.0, error);
     }
 
-    /// Add a hint to a trailing error.
+    /// Add a hint to a trailing error, such as after calling [`Self::expected`]
+    /// or [`Self::unexpected`].
     fn hint(&mut self, hint: &str) {
-        let m = self.before_trivia();
-        if let Some(error) = self.nodes.get_mut(m.0 - 1) {
-            error.hint(hint);
+        if let Some(prev_m) = self.previous_marker() {
+            self[prev_m].hint(hint);
         }
     }
 
