@@ -3444,6 +3444,7 @@ dependencies = [
  "serde_json",
  "tar",
  "tiny_http",
+ "toml",
  "typst-assets",
  "typst-bundle",
  "typst-library",

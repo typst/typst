@@ -10,7 +10,8 @@ use typst::foundations::{
 use typst::introspection::Introspector;
 use typst::routines::SpanMode;
 use typst::syntax::{
-    FileId, RangeMapper, RootedPath, Source, Span, SyntaxMode, VirtualPath, VirtualRoot,
+    FileId, PreferredCompilerVersion, RangeMapper, RootedPath, Source, Span, SyntaxMode,
+    VirtualPath, VirtualRoot,
 };
 use typst::text::{Font, FontBook};
 use typst::{Library, World};
@@ -241,6 +242,13 @@ impl World for ExpressionWorld {
         } else {
             self.world.file(id)
         }
+    }
+
+    fn preferred_version(
+        &self,
+        root: &VirtualRoot,
+    ) -> FileResult<PreferredCompilerVersion> {
+        self.world.preferred_version(root)
     }
 
     fn font(&self, index: usize) -> Option<Font> {
