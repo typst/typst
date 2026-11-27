@@ -857,25 +857,45 @@ fn hyphenations(
 }
 
 /// Produce linebreak opportunities for a link.
+///
+/// The link should be a full URL, usually starting with `https://`.
 fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
+    // First cut the link into pieces according to the classes of characters.
+    // Then for each piece:
+    // - if it is bearably long, emit it as one;
+    // - if it gets very long (e.g. a hash in the URL), just allow a break at
+    //   every char.
+
     #[derive(PartialEq)]
     enum Class {
         Alphabetic,
         Digit,
+        Slash,
+        /// Opening delimiters.
         Open,
+        /// Other characters, including closing delimiters.
         Other,
     }
 
     impl Class {
         fn of(c: char) -> Self {
-            if c.is_alphabetic() {
-                Class::Alphabetic
-            } else if c.is_numeric() {
-                Class::Digit
-            } else if matches!(c, '(' | '[') {
-                Class::Open
-            } else {
-                Class::Other
+            match c {
+                c if c.is_alphabetic() => Class::Alphabetic,
+                c if c.is_numeric() => Class::Digit,
+                '/' => Class::Slash,
+                '(' | '[' => Class::Open,
+                _ => Class::Other,
+            }
+        }
+    }
+
+    /// If the `piece` is very long, allow a break at every char.
+    fn break_all_if_too_long(piece: &str, mut f: impl FnMut(usize)) {
+        if piece.len() >= 16 {
+            // The start and the end of the `piece` will be handled elsewhere,
+            // so this function skips them.
+            for (i, _) in piece.char_indices().skip(1) {
+                f(i);
             }
         }
     }
@@ -886,32 +906,39 @@ fn linebreak_link(link: &str, mut f: impl FnMut(usize)) {
     for (end, c) in link.char_indices() {
         let class = Class::of(c);
 
-        // Emit opportunities when going from
-        // - other -> other
-        // - alphabetic -> numeric
-        // - numeric -> alphabetic
-        // Never before/after opening delimiters.
-        if end > 0
-            && prev != Class::Open
-            && if class == Class::Other { prev == Class::Other } else { class != prev }
-        {
-            let piece = &link[offset..end];
-            if piece.len() < 16 {
-                // For bearably long segments, emit them as one.
-                offset = end;
-                f(offset);
-            } else {
-                // If it gets very long (e.g. a hash in the URL), just allow a
-                // break at every char.
-                for c in piece.chars() {
-                    offset += c.len_utf8();
-                    f(offset);
-                }
+        let breakable = if end == 0 {
+            // Do not emit a line break opportunity at the start of the link.
+            false
+        } else {
+            match (prev, &class) {
+                // Do not break after opening delimiters.
+                (Class::Open, _) => false,
+                // Do not break before slashes.
+                // This keeps a trailing slash attached to the text before it,
+                // and keeps `://` in `https://` on the same line.
+                (_, Class::Slash) => false,
+                // Break when going from
+                // - other -> other
+                // - alphabetic -> numeric
+                // - numeric -> alphabetic
+                // - a few cases involving slashes and delimiters
+                // Note that alphabetic -> other is excluded to prevent breaks
+                // before periods and closing delimiters.
+                (prev, Class::Other) => prev == Class::Other,
+                (prev, class) => prev != *class,
             }
+        };
+
+        if breakable {
+            break_all_if_too_long(&link[offset..end], |i| f(offset + i));
+            f(end);
+            offset = end;
         }
 
         prev = class;
     }
+
+    break_all_if_too_long(&link[offset..], |i| f(offset + i));
 }
 
 /// Whether hyphenation is enabled at the given offset.
@@ -1066,5 +1093,87 @@ where
             None => T::default(),
             Some(i) => self.summed[i],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test `linebreak_link`.
+    #[test]
+    fn test_linebreak_link() {
+        /// Assert that `linebreak_link` produces link break opportunities for
+        /// the given `link` as `expected`, where `|` marks an opportunity.
+        ///
+        /// Note that `linebreak_link` produces more line break opportunities
+        /// than UAX #14.
+        fn assert_linebreaks(link: &str, expected: &str) {
+            let (extracted, _) = link_prefix(link);
+            assert_eq!(
+                extracted,
+                link,
+                "this test case is unrealistic, because `{}` will use the UAX #14 algorithm instead of `linebreak_link`",
+                &link[extracted.len()..],
+            );
+
+            let mut actual = "|".to_string();
+            let mut offset = 0;
+            linebreak_link(link, |i| {
+                let slice = &link[offset..i];
+                actual.push_str(slice);
+                actual.push('|');
+                offset = i;
+            });
+            actual.push_str(&link[offset..]);
+            actual.push('|');
+
+            assert_eq!(actual, expected);
+        }
+
+        // `https://` should stay on the same line.
+        assert_linebreaks(
+            "http://example.com/foo/bar/",
+            "|http://|example.|com/|foo/|bar/|",
+        );
+
+        // Short numbers should stay on the same line.
+        assert_linebreaks(
+            "https://www.openstreetmap.org/node/436012592",
+            "|https://|www.|openstreetmap.|org/|node/|436012592|",
+        );
+
+        // IP hosts should be breakable.
+        assert_linebreaks("http://0.0.0.0:8000/", "|http://|0.|0.|0.|0:|8000/|");
+
+        // Complex schemes should be breakable.
+        assert_linebreaks(
+            "git+https://git.repo/some_pkg.git@feature",
+            "|git+|https://|git.|repo/|some_|pkg.|git@|feature|",
+        );
+        assert_linebreaks(
+            "this-is-a+cool.scheme://a.com/lorem_ipsum_dolor_sit_amet",
+            "|this-|is-|a+|cool.|scheme://|a.|com/|lorem_|ipsum_|dolor_|sit_|amet|",
+        );
+
+        // Do not break after opening delimiters or before closing delimiters.
+        assert_linebreaks(
+            "https://en.wikipedia.org/wiki/Point_(typography)",
+            "|https://|en.|wikipedia.|org/|wiki/|Point_|(typography)|",
+        );
+        assert_linebreaks(
+            "https://en.wikipedia.org/w/index.php?title=Point_(typography)&oldid=1385778993",
+            "|https://|en.|wikipedia.|org/|w/|index.|php?|title=|Point_|(typography)|&|oldid=|1385778993|",
+        );
+
+        // Long parts should be breakable.
+        assert_linebreaks(
+            "https://github.com/typst/typst/commit/32fd4cc3861e0ab99f4c42ca6bea281482ba9f51",
+            "|https://|github.|com/|typst/|typst/|commit/|32|fd|4|cc|3861|e|0|ab|99|f|4|c|42|ca|6|bea|281482|ba|9|f|51|",
+        );
+        assert_linebreaks(
+            "https://www.openstreetmap.org/#map=18/-89.98765432109876543210/0.01234567890123456789",
+            "|https://|www.|openstreetmap.|org/#|map=|18/-|89.|9|8|7|6|5|4|3|2|1|0|9|8|7|6|5|4|3|2|1|0|/|0.|0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|6|7|8|9|",
+        );
     }
 }
