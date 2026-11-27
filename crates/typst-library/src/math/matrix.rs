@@ -112,6 +112,17 @@ pub struct MatElem {
     #[default(HAlignment::Center)]
     pub align: HAlignment,
 
+    /// Whether to transpose the matrix.
+    ///
+    /// When enabled, rows become columns and columns become rows. Horizontal
+    /// and vertical augmentation lines are transposed as well.
+    ///
+    /// ```example
+    /// $ mat(1, 2, 3; 4, 5, 6; transpose: #true) $
+    /// ```
+    #[default(false)]
+    pub transpose: bool,
+
     /// Draws augmentation lines in a matrix.
     ///
     /// - `{none}`: No lines are drawn.
