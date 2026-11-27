@@ -834,6 +834,7 @@ b04a6023f31f4d12586f00c718dae63e issue-622-hide-meta-outline
 6cd26581a56421bca19c4764b7f7559c issue-6242-tight-list-attach-spacing
 f6012a2855a9d10a70e8fadcba1ef17e issue-6267-clip-anti-alias
 7c70787a97bbd9f7f25e5c0a335e3998 issue-6304-block-skip-label
+0d16fc51be660a034568b058d367c051 issue-6353-inline-math-hyphen-no-linebreak
 c783423dcbc67df08ddb0cec95b809c0 issue-6399-grid-cell-colspan-set-rule
 c783423dcbc67df08ddb0cec95b809c0 issue-6399-grid-cell-rowspan-set-rule
 65c7a926b4a1fdf13eb51013ff1f1191 issue-6539-cjk-latin-spacing-at-manual-linebreak
@@ -967,7 +968,7 @@ e4bf7dbce4ade6aa9ba00abef3e6461d linebreak-link-ip-host
 4e4aa23d1c3d6e1aeec3a19759cb5afe linebreak-manual-directly-after-automatic
 1057169d9a7d5f619e131ed69b521bc1 linebreak-manual-justified
 04199e8f20591e3a5a7a4dee0023200e linebreak-manual-trailing-multiple
-646f887aec1bc3f7776707b6126024b6 linebreak-math-punctuation
+6e34c105ea38eab1984c4563eaf8c041 linebreak-math-punctuation
 cf8f43d76050d8fdbd0e02328aab7e02 linebreak-narrow-nbsp
 6b52a8e1d92e9d3f366ef72e71f1218e linebreak-overflow
 11bbe621d5f754ac4b5b7d2bb86df40c linebreak-overflow-double

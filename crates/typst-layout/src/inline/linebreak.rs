@@ -745,6 +745,8 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
             Breakpoint::Mandatory
         } else {
             const OBJ_REPLACE: char = '\u{FFFC}';
+            const HYPHEN: char = '-';
+            const PDI: char = '\u{2069}';
             match LINEBREAK_DATA.get(c) {
                 LineBreak::MandatoryBreak
                 | LineBreak::CarriageReturn
@@ -772,6 +774,23 @@ fn breakpoints(p: &Preparation, mut f: impl FnMut(usize, Breakpoint)) {
                     continue;
                 }
 
+                // https://github.com/typst/typst/issues/6353
+                //
+                // Prioritise LB21 over LB20 to prevent breaks before hyphens
+                // following inline math (e.g. `$x$-axis`), see:
+                // https://www.unicode.org/reports/tr14/#LB21
+                //
+                // This also requires suppressing the break opportunity after
+                // a POP-ISOLATE immediately following an OBJECT-REPLACEMENT-
+                // CHARACTER.
+                LineBreak::CombiningMark
+                    if text[point..].starts_with(HYPHEN)
+                        && text[..point]
+                            .strip_suffix(PDI)
+                            .is_some_and(|s| s.ends_with(OBJ_REPLACE)) =>
+                {
+                    continue;
+                }
                 _ => Breakpoint::Normal,
             }
         };
