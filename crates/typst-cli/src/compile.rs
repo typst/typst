@@ -224,10 +224,10 @@ impl CompileConfig {
 
         let fullscreen = watch.map(|command| !command.no_fullscreen).unwrap_or(true);
 
-        let mut deps = args.deps.clone();
-        let mut deps_format = args.deps_format;
+        let mut deps = args.deps.deps.clone();
+        let mut deps_format = args.deps.deps_format;
 
-        if let Some(path) = &args.make_deps
+        if let Some(path) = &args.deps.make_deps
             && deps.is_none()
         {
             deps = Some(Output::Path(path.clone()));

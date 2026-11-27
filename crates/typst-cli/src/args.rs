@@ -233,6 +233,10 @@ pub struct EvalCommand {
     #[clap(long)]
     pub pretty: bool,
 
+    /// Dependency arguments.
+    #[clap(flatten)]
+    pub deps: DependencyArgs,
+
     /// The world arguments.
     #[clap(flatten)]
     pub world: WorldArgs,
@@ -431,24 +435,9 @@ pub struct CompileArgs {
     #[arg(long = "ppi")]
     pub ppi: Option<f64>,
 
-    /// File path to which a Makefile with the current compilation's
-    /// dependencies will be written.
-    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
-    pub make_deps: Option<PathBuf>,
-
-    /// File path to which a list of current compilation's dependencies will be
-    /// written. Use `-` to write to stdout.
-    #[clap(
-        long,
-        value_name = "PATH",
-        value_parser = output_value_parser(),
-        value_hint = ValueHint::FilePath,
-    )]
-    pub deps: Option<Output>,
-
-    /// File format to use for dependencies.
-    #[clap(long, default_value_t)]
-    pub deps_format: DepsFormat,
+    /// Dependency arguments.
+    #[clap(flatten)]
+    pub deps: DependencyArgs,
 
     /// Processing arguments.
     #[clap(flatten)]
@@ -589,6 +578,29 @@ pub struct ServerArgs {
     pub port: Option<u16>,
 }
 
+/// Arguments for dependencies.
+#[derive(Debug, Clone, Parser)]
+pub struct DependencyArgs {
+    /// File path to which a Makefile with the current compilation's
+    /// dependencies will be written.
+    #[clap(long = "make-deps", value_name = "PATH", hide = true)]
+    pub make_deps: Option<PathBuf>,
+
+    /// File path to which a list of current compilation's dependencies will be
+    /// written. Use `-` to write to stdout.
+    #[clap(
+        long,
+        value_name = "PATH",
+        value_parser = output_value_parser(),
+        value_hint = ValueHint::FilePath,
+    )]
+    pub deps: Option<Output>,
+
+    /// File format to use for dependencies.
+    #[clap(long, default_value_t)]
+    pub deps_format: DepsFormat,
+}
+
 /// An input that is either stdin or a real path.
 #[derive(Debug, Clone)]
 pub enum Input {
@@ -631,6 +643,10 @@ impl Output {
             Self::Stdout => Ok(OpenOutput::Stdout(std::io::stdout().lock())),
             Self::Path(path) => std::fs::File::create(path).map(OpenOutput::File),
         }
+    }
+
+    pub fn is_stdout(&self) -> bool {
+        matches!(self, Output::Stdout)
     }
 }
 
