@@ -1566,7 +1566,7 @@ p + .symbol-grid {
     sans-serif;
 }
 
-.symbol-grid li[data-override] .sym,
+.symbol-grid li[data-override] > button .sym,
 .symbol-flyout.override .info > button > .sym,
 .symbol-flyout .symbol-grid .override .sym {
   font-size: 18px;

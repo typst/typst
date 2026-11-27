@@ -477,7 +477,6 @@ function setUpSymbolFlyout(symbolGrid) {
   );
 
   flyout.style.display = "none";
-  symbolGrid.appendChild(flyout);
 
   /** @type {HTMLElement | null} */
   const foButton = flyout.querySelector(".info button");
@@ -706,7 +705,8 @@ function setUpSymbolFlyout(symbolGrid) {
 
   for (const item of symbolGrid.children) {
     if (item.tagName !== "LI") continue;
-    item.addEventListener("click", (e) => {
+    item.querySelector(":scope > button")?.addEventListener("click", (e) => {
+      item.appendChild(flyout);
       populateFlyout(item);
       e.preventDefault();
     });
