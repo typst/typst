@@ -124,7 +124,7 @@ pub struct TermItem {
 
 cast! {
     TermItem,
-    v: Content => v.unpack::<Self>().map_err(|_| "expected term item or array")?,
+    v: Content => v.unpack::<Self>().map_err(|_| "expected term item")?,
 }
 
 impl ListLike for TermsElem {
