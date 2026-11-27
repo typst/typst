@@ -1,11 +1,11 @@
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
+use std::str::FromStr;
 
 use arrayvec::ArrayVec;
 use ecow::{EcoString, EcoVec, eco_format};
 use time::error::{Format, InvalidFormatDescription};
-use time::macros::format_description;
 use time::{Month, PrimitiveDateTime, format_description};
 
 use crate::World;
@@ -191,40 +191,36 @@ impl Datetime {
             return None;
         };
 
-        if let Ok(d) = time::PrimitiveDateTime::parse(
-            string,
-            &format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"),
-        ) {
-            Self::from_ymd_hms(
-                d.year(),
-                d.month() as u8,
-                d.day(),
-                d.hour(),
-                d.minute(),
-                d.second(),
-            )
-        } else if let Ok(d) = time::PrimitiveDateTime::parse(
-            string,
-            &format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
-        ) {
-            Self::from_ymd_hms(
-                d.year(),
-                d.month() as u8,
-                d.day(),
-                d.hour(),
-                d.minute(),
-                d.second(),
-            )
-        } else if let Ok(d) =
-            time::Date::parse(string, &format_description!("[year]-[month]-[day]"))
-        {
-            Self::from_ymd(d.year(), d.month() as u8, d.day())
-        } else if let Ok(d) =
-            time::Time::parse(string, &format_description!("[hour]:[minute]:[second]"))
-        {
-            Self::from_hms(d.hour(), d.minute(), d.second())
-        } else {
-            None
+        use toml::value::Datetime;
+        match Datetime::from_str(string).ok()? {
+            Datetime { date: Some(d), time: Some(t), offset: Some(o) } => {
+                let d = toml_datetime_to_time_utc(d, t, o)?;
+                Self::from_ymd_hms(
+                    d.year(),
+                    d.month().into(),
+                    d.day(),
+                    d.hour(),
+                    d.minute(),
+                    d.second(),
+                )
+            }
+            Datetime { date: Some(d), time: Some(t), offset: None } => {
+                Self::from_ymd_hms(
+                    d.year.into(),
+                    d.month,
+                    d.day,
+                    t.hour,
+                    t.minute,
+                    t.second,
+                )
+            }
+            Datetime { date: Some(d), time: None, offset: None } => {
+                Self::from_ymd(d.year.into(), d.month, d.day)
+            }
+            Datetime { date: None, time: Some(t), offset: None } => {
+                Self::from_hms(t.hour, t.minute, t.second)
+            }
+            _ => None,
         }
     }
 
@@ -236,6 +232,32 @@ impl Datetime {
             Datetime::Time(_) => "time",
         }
     }
+}
+
+/// Converts `toml::value::{Date, Time, Offset}` to `time::UtcDateTime`.
+///
+/// Ad hoc implementation of `TryFrom<toml::Datetime>` for `time::UtcDateTime`.
+fn toml_datetime_to_time_utc(
+    d: toml::value::Date,
+    t: toml::value::Time,
+    o: toml::value::Offset,
+) -> Option<time::UtcDateTime> {
+    let date = time::Date::from_calendar_date(
+        d.year.into(),
+        d.month.try_into().expect("toml datetime returns month from 1-12"),
+        d.day,
+    )
+    .ok()?;
+    let time = time::Time::from_hms(t.hour, t.minute, t.second).ok()?;
+    let offset = match o {
+        toml::value::Offset::Z => Ok(time::UtcOffset::UTC),
+        toml::value::Offset::Custom { minutes } => {
+            time::UtcOffset::from_whole_seconds(minutes as i32 * 60)
+        }
+    }
+    .ok()?;
+
+    time::OffsetDateTime::new_in_offset(date, time, offset).checked_to_utc()
 }
 
 #[scope]
