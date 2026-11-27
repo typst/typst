@@ -8,7 +8,7 @@
   description: "Typst's tutorial.",
 )
 
-Let's get started! Suppose you got assigned to write a technical report for university. It will contain prose, maths, headings, and figures. To get started, you create a new project on the Typst app. You'll be taken to the editor where you see two panels: A source panel where you compose your document and a preview panel where you see the rendered document.
+Let's get started! Suppose you got assigned to write a technical report for university. It will contain prose, maths, headings, and figures. To get started, you create a new project on the Typst app. You'll be taken to the editor where you see two panels: An editor panel where you compose your document and a preview panel where you see the rendered document.
 
 #docs-figure(
   "1-writing-app.png",
@@ -167,7 +167,7 @@ by the following equation:
 $ Q = rho A v + "time offset" $
 ```
 
-You'll also need a sum formula in your paper. We can use the `sum` symbol and then specify the range of the summation in sub- and superscripts:
+You'll also need a sum formula in your report. We can use the `sum` symbol and then specify the range of the summation in sub- and superscripts:
 
 ```example
 Total displaced soil by glacial flow:
@@ -207,4 +207,4 @@ This notation is also available in markup mode, but the symbol name must be prec
 = Review <review>
 You have now seen how to write a basic document in Typst. You learned how to emphasize text, write lists, insert images, align content, and typeset mathematical expressions. You also learned about Typst's functions. There are many more kinds of content that Typst lets you insert into your document, such as @table[tables], @reference:visualize[shapes], and @raw[code blocks]. You can peruse the @reference[reference] to learn more about these and other features.
 
-For the moment, you have completed writing your report. You have already saved a PDF by clicking on the download button in the top right corner. However, you think the report could look a bit less plain. In the next section, we'll learn how to customize the look of our document.
+For the moment, you have completed writing your report. You have already saved a PDF by clicking on the download button in the top right corner. However, you think the report could look a bit less plain. In the next chapter, we'll learn how to customize the look of our document.
