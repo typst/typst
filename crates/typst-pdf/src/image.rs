@@ -45,13 +45,13 @@ pub(crate) fn handle_image(
 
     match image.kind() {
         ImageKind::Raster(raster) => {
-            let (exif_transform, new_size) = exif_transform(raster, size);
-            surface.push_transform(&exif_transform.to_krilla());
-            let mut surface = defer(surface, |s| s.pop());
+            let (image, (transform, new_size)) =
+                convert_raster(raster.clone(), size, interpolate)
+                    .map_err(|err| eco_format!("failed to process image ({err})"))
+                    .at(span)?;
 
-            let image = convert_raster(raster.clone(), interpolate)
-                .map_err(|err| eco_format!("failed to process image ({err})"))
-                .at(span)?;
+            surface.push_transform(&transform.to_krilla());
+            let mut surface = defer(surface, |s| s.pop());
 
             if !gc.image_to_spans.contains_key(&image) {
                 gc.image_to_spans.insert(image.clone(), span);
@@ -190,23 +190,43 @@ impl CustomImage for PdfRasterImage {
 #[comemo::memoize]
 fn convert_raster(
     raster: RasterImage,
+    size: Size,
     interpolate: bool,
-) -> Result<krilla::image::Image, String> {
-    if let RasterFormat::Exchange(ExchangeFormat::Jpg) = raster.format() {
-        let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
-            Arc::new(raster.data().clone());
-        let icc_profile = raster.icc().map(|i| {
-            let i: Arc<dyn AsRef<[u8]> + Send + Sync> = Arc::new(i.clone());
-            i
-        });
+) -> Result<(krilla::image::Image, ExifTransform), String> {
+    // Whether the image can be embedded into the PDF without recoding.
+    let native = match raster.format() {
+        RasterFormat::Exchange(ExchangeFormat::Jpg) => {
+            let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                Arc::new(raster.data().clone());
+            let icc_profile = raster
+                .icc()
+                .map(|i| Arc::new(i.clone()) as Arc<dyn AsRef<[u8]> + Send + Sync>);
+            Some(krilla::image::Image::from_jpeg_with_icc(
+                image_data.into(),
+                icc_profile.map(|i| i.into()),
+                interpolate,
+            )?)
+        }
+        RasterFormat::Exchange(ExchangeFormat::Png) => {
+            let image_data: Arc<dyn AsRef<[u8]> + Send + Sync> =
+                Arc::new(raster.data().clone());
+            // Krilla cannot embed some PNGs directly; fall back to the recoded custom image.
+            krilla::image::Image::from_png_native(image_data.into(), interpolate).ok()
+        }
+        _ => None,
+    };
 
-        krilla::image::Image::from_jpeg_with_icc(
-            image_data.into(),
-            icc_profile.map(|i| i.into()),
-            interpolate,
-        )
-    } else {
-        krilla::image::Image::from_custom(PdfRasterImage::new(raster), interpolate)
+    match native {
+        // Without recoding, the EXIF orientation must be applied separately.
+        Some(image) => Ok((image, exif_transform(&raster, size))),
+        // The transform is already baked into the pixel data for recoded images.
+        None => {
+            let image = krilla::image::Image::from_custom(
+                PdfRasterImage::new(raster),
+                interpolate,
+            )?;
+            Ok((image, (Transform::identity(), size)))
+        }
     }
 }
 
@@ -215,14 +235,9 @@ fn convert_pdf(pdf: &PdfImage) -> PdfDocument {
     PdfDocument::new(pdf.document().pdf().clone())
 }
 
-fn exif_transform(image: &RasterImage, size: Size) -> (Transform, Size) {
-    // For JPEGs, we want to apply the EXIF orientation as a transformation
-    // because we don't recode them. For other formats, the transform is already
-    // baked into the dynamic image data.
-    if image.format() != RasterFormat::Exchange(ExchangeFormat::Jpg) {
-        return (Transform::identity(), size);
-    }
+type ExifTransform = (Transform, Size);
 
+fn exif_transform(image: &RasterImage, size: Size) -> ExifTransform {
     let base = |hp: bool, vp: bool, mut base_ts: Transform, size: Size| {
         if hp {
             // Flip horizontally in-place.
