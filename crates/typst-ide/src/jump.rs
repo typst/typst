@@ -649,7 +649,7 @@ mod tests {
             cursor(1),
         );
 
-        let circle = "#circle(width: 30pt, height: 30pt, fill: black)";
+        let circle = "#circle(width: 30pt, fill: black)";
         test_click(circle, point(15.0, 15.0) + margin, cursor(1));
         test_click(circle, point(1.0, 1.0) + margin, None);
 
