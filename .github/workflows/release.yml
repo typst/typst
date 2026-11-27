@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@f8be11a05b1d4f3fcebe6410cc16743212b999b0 # 1.98.0
@@ -63,13 +63,20 @@ jobs:
         if: ${{ !matrix.cross }}
         run: cargo build -p typst-cli --release --target "${{ matrix.target }}" --features self-update
 
+      # The NOTICE is customized for the above target and features. We write to
+      # `target`  to avoid overriding the source file.
+      - name: Build NOTICE
+        uses: typst/notices@0f4ca0d502e099d2d32e33d81ecc55d425d43fb7 # v0.1.5
+        with:
+          args: release --manifest-path crates/typst-cli/Cargo.toml --features ${{ matrix.cross && 'self-update,vendor-openssl' || 'self-update' }} --target ${{ matrix.target }} --locked --output target/NOTICE
+
       - name: Create artifact directory
         shell: bash
         run: |
           TARGET_DIR="target/${{ matrix.target }}/release"
           ARCHIVE_DIR="typst-${{ matrix.target }}"
           mkdir "$ARCHIVE_DIR"
-          cp README.md LICENSE NOTICE "$ARCHIVE_DIR"
+          cp README.md LICENSE target/NOTICE "$ARCHIVE_DIR"
           if [ -f "$TARGET_DIR/typst.exe" ]; then
             ARCHIVE="$ARCHIVE_DIR.zip"
             cp "$TARGET_DIR/typst.exe" "$ARCHIVE_DIR"
@@ -96,7 +103,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@f8be11a05b1d4f3fcebe6410cc16743212b999b0 # 1.98.0

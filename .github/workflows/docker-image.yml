@@ -30,7 +30,7 @@ jobs:
           echo "IMAGE_NAME=${REGISTRY}/${GITHUB_REPOSITORY@L}" >> $GITHUB_ENV
 
       - name: Checkout repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Get current date
         run: echo "TYPST_BUILD_DATE=\"$(date -u +'%Y-%m-%dT%H:%M:%SZ')\" >> $GITHUB_ENV"
