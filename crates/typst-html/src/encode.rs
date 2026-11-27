@@ -51,8 +51,9 @@ pub fn html_in_bundle(
 /// The shared implementation of [`html`] and [`html_in_bundle`].
 fn html_impl(mut w: Writer, root: &HtmlElement) -> SourceResult<String> {
     w.buf.push_str("<!DOCTYPE html>");
-    write_indent(&mut w);
+    write_indent(&mut w.buf, w.level, w.pretty);
     write_element(&mut w, root)?;
+    write_defs(&mut w);
     if w.pretty {
         w.buf.push('\n');
     }
@@ -65,10 +66,18 @@ struct Writer<'a> {
     buf: String,
     /// The current indentation level
     level: usize,
-    /// Used to resolve links between the document and contained frames as well
-    /// as cross-document links in bundle export.
-    link_resolver: Tracked<'a, LateLinkResolver<'a>>,
+    /// The definitions shared by the frames, written at the end of the body.
+    /// Also owns the link resolver for the document and its frames as
+    /// well as cross-document links in bundle export.
+    defs: typst_svg::HtmlDefs<'a>,
+    defs_position: Option<DefsPosition>,
     /// Whether pretty printing is enabled.
+    pretty: bool,
+}
+
+struct DefsPosition {
+    offset: usize,
+    level: usize,
     pretty: bool,
 }
 
@@ -78,18 +87,19 @@ impl<'a> Writer<'a> {
         Self {
             buf: String::new(),
             level: 0,
-            link_resolver,
+            defs: typst_svg::HtmlDefs::new(link_resolver),
+            defs_position: None,
             pretty,
         }
     }
 }
 
 /// Writes a newline and indent, if pretty printing is enabled.
-fn write_indent(w: &mut Writer) {
-    if w.pretty {
-        w.buf.push('\n');
-        for _ in 0..w.level {
-            w.buf.push_str("  ");
+fn write_indent(buf: &mut String, level: usize, pretty: bool) {
+    if pretty {
+        buf.push('\n');
+        for _ in 0..level {
+            buf.push_str("  ");
         }
     }
 }
@@ -164,7 +174,7 @@ fn write_element(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         write_raw(w, element)?;
     } else if tag::is_escapable_raw(element.tag) {
         write_escapable_raw(w, element)?;
-    } else if !element.children.is_empty() {
+    } else {
         write_children(w, element)?;
     }
 
@@ -197,14 +207,25 @@ fn write_children(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         };
 
         if core::mem::take(&mut indent) || pretty_around {
-            write_indent(w);
+            write_indent(&mut w.buf, w.level, w.pretty);
         }
         write_node(w, c, element.pre_span)?;
         indent = pretty_around;
     }
+
+    if w.defs_position.is_none()
+        && (w.level == 1 || (w.level == 2 && element.tag == tag::body))
+    {
+        w.defs_position = Some(DefsPosition {
+            offset: w.buf.len(),
+            level: w.level,
+            pretty: w.pretty,
+        });
+    }
+
     w.level -= 1;
 
-    write_indent(w);
+    write_indent(&mut w.buf, w.level, w.pretty);
     w.pretty = pretty;
 
     Ok(())
@@ -242,16 +263,16 @@ fn write_raw(w: &mut Writer, element: &HtmlElement) -> SourceResult<()> {
         RawMode::Wrap => {
             w.buf.push('\n');
             w.buf.push_str(&text);
-            write_indent(w);
+            write_indent(&mut w.buf, w.level, w.pretty);
         }
         RawMode::Indent => {
             w.level += 1;
             for line in text.lines() {
-                write_indent(w);
+                write_indent(&mut w.buf, w.level, w.pretty);
                 w.buf.push_str(line);
             }
             w.level -= 1;
-            write_indent(w);
+            write_indent(&mut w.buf, w.level, w.pretty);
         }
     }
 
@@ -400,25 +421,40 @@ fn unencodable(c: char) -> EcoString {
 /// Encode a laid out frame into the writer.
 fn write_frame(w: &mut Writer, frame: &HtmlFrame) {
     let svg = typst_svg::svg_in_html(
+        &mut w.defs,
         &frame.inner,
         frame.text_size,
         w.pretty,
         frame.id.as_deref(),
         &eco_format!("{}", frame.css.to_inline()),
         &frame.anchors,
-        w.link_resolver,
     );
 
-    if w.pretty {
+    write_svg(&mut w.buf, &svg, w.level, w.pretty);
+}
+
+/// Encode the definitions shared by the frames into the writer.
+fn write_defs(w: &mut Writer) {
+    let Some(position) = w.defs_position.take() else { return };
+    let Some(svg) = w.defs.take_svg(position.pretty) else { return };
+    let mut buf = String::new();
+    write_indent(&mut buf, position.level, position.pretty);
+    write_svg(&mut buf, &svg, position.level, position.pretty);
+    w.buf.insert_str(position.offset, &buf);
+}
+
+/// Encode a generated SVG into the writer.
+fn write_svg(buf: &mut String, svg: &str, level: usize, pretty: bool) {
+    if pretty {
         // Indent the SVG after generation. This ensures the frame is cached no
         // matter the current indentation of the outer HTML.
         for (i, line) in svg.lines().enumerate() {
             if i != 0 {
-                write_indent(w);
+                write_indent(buf, level, pretty);
             }
-            w.buf.push_str(line);
+            buf.push_str(line);
         }
     } else {
-        w.buf.push_str(&svg);
+        buf.push_str(svg);
     }
 }

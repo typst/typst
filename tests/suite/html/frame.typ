@@ -16,3 +16,26 @@ A rectangle:
     test(here().position(), (x: 30pt, y: 20pt))
   })
 }))
+
+--- html-frame-shared-defs html ---
+// Test that definitions shared by multiple frames are written only once, at
+// the end of the body.
+#let shared = {
+  box(clip: true, fill: gradient.linear(red, blue))[A]
+  box(fill: tiling(size: (4pt, 4pt), circle(radius: 1pt)))[B]
+}
+#html.frame(shared)
+#html.frame(shared)
+
+--- html-frame-without-body html ---
+// Test a frame without being wrapped with a body.
+#html.html(html.div(html.frame(box[hi])))
+
+--- html-frame-with-dual-body html ---
+// Test a frame with two body elements.
+#html.html(
+  html.body({
+    html.div(html.elem("body", html.frame(box[hi])))
+    html.frame(box[hi])
+  }),
+)
