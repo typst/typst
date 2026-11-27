@@ -40,6 +40,6 @@
       }
     })
   } else {
-    base()
+    html.div(class: "docs-table-scroll", base())
   }
 }
