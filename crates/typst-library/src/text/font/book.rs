@@ -1,6 +1,7 @@
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
+use typst_utils::Caseless;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::text::{
@@ -12,7 +13,7 @@ use crate::text::{
 #[derive(Debug, Default, Clone, Hash)]
 pub struct FontBook {
     /// Maps from lowercased family names to font indices.
-    families: BTreeMap<String, Vec<usize>>,
+    families: BTreeMap<Caseless<String>, Vec<usize>>,
     /// Metadata about each font in the collection.
     infos: Vec<FontInfo>,
 }
@@ -40,7 +41,7 @@ impl FontBook {
     /// Insert metadata into the font book.
     pub fn push(&mut self, info: FontInfo) {
         let index = self.infos.len();
-        let family = info.family.to_lowercase();
+        let family = Caseless(info.family.clone());
         self.families.entry(family).or_default().push(index);
         self.infos.push(info);
     }
@@ -51,7 +52,7 @@ impl FontBook {
     }
 
     /// Returns true if the book contains a font family with the given name.
-    pub fn contains_family(&self, family: &str) -> bool {
+    pub fn contains_family(&self, family: &Caseless<str>) -> bool {
         self.families.contains_key(family)
     }
 
@@ -70,15 +71,16 @@ impl FontBook {
 
     /// Try to find a font from the given `family` that matches the given
     /// `variant` as closely as possible.
-    ///
-    /// The `family` should be all lowercase.
-    pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
+    pub fn select(&self, family: &Caseless<str>, variant: FontVariant) -> Option<usize> {
         let ids = self.families.get(family)?;
         self.find_best_variant(None, variant, ids.iter().copied())
     }
 
     /// Iterate over all variants of a family.
-    pub fn select_family(&self, family: &str) -> impl Iterator<Item = usize> + '_ {
+    pub fn select_family(
+        &self,
+        family: &Caseless<str>,
+    ) -> impl Iterator<Item = usize> + '_ {
         self.families
             .get(family)
             .map(|vec| vec.as_slice())
