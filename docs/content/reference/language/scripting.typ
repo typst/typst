@@ -259,6 +259,11 @@ The following table lists all available unary and binary operators with effect, 
 #docs-table(
   table.header[Operator][Effect][Arity][Precedence],
 
+  [`{^}`],
+  [Exponentiation],
+  [Binary],
+  [8],
+
   [`{-}`],
   [Negation],
   [Unary],
@@ -350,22 +355,29 @@ The following table lists all available unary and binary operators with effect, 
   [1],
 
   [`{+=}`],
-  [Add-Assignment],
+  [Addition-assignment],
   [Binary],
   [1],
 
   [`{-=}`],
-  [Subtraction-Assignment],
+  [Subtraction-assignment],
   [Binary],
   [1],
 
   [`{*=}`],
-  [Multiplication-Assignment],
+  [Multiplication-assignment],
   [Binary],
   [1],
 
   [`{/=}`],
-  [Division-Assignment],
+  [Division-assignment],
+  [Binary],
+  [1],
+
+  [`{^=}`],
+  [Exponentiation-assignment],
   [Binary],
   [1],
 )
+
+The exponentiation operator (`{^}`) is the only operator that is right-associative, meaning that e.g. `{2^3^2}` will parse as `{2^(3^2)}`, and not as `{(2^3)^2}`. It can only be used with @int[ints], @float[floats], and @decimal[decimals].
