@@ -24,9 +24,9 @@ use crate::util::{SizeExt, TransformExt};
 pub(crate) fn handle_image(
     gc: &mut GlobalContext,
     fc: &mut FrameContext,
+    surface: &mut Surface,
     image: &Image,
     size: Size,
-    surface: &mut Surface,
     span: Span,
 ) -> SourceResult<()> {
     surface.push_transform(&fc.state().transform().to_krilla());

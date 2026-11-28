@@ -16,10 +16,10 @@ use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle text")]
 pub(crate) fn handle_text(
-    fc: &mut FrameContext,
-    t: &TextItem,
-    surface: &mut Surface,
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
+    surface: &mut Surface,
+    t: &TextItem,
 ) -> SourceResult<()> {
     let mut handle = tags::text(gc, fc, surface, t);
     let surface = handle.surface();
@@ -27,15 +27,15 @@ pub(crate) fn handle_text(
     let font = convert_font(gc, t.font.clone())?;
     let fill = paint::convert_fill(
         gc,
+        fc.state(),
+        surface,
         &t.fill,
         FillRule::NonZero,
         true,
-        surface,
-        fc.state(),
         None,
     )?;
     let stroke = if let Some(stroke) = t.stroke.as_ref() {
-        Some(paint::convert_stroke(gc, stroke, true, surface, fc.state(), None)?)
+        Some(paint::convert_stroke(gc, fc.state(), surface, stroke, true, None)?)
     } else {
         None
     };

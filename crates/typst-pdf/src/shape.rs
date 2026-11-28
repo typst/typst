@@ -13,10 +13,10 @@ use crate::{paint, tags};
 
 #[typst_macros::time(name = "handle shape")]
 pub(crate) fn handle_shape(
-    fc: &mut FrameContext,
-    shape: &Shape,
-    surface: &mut Surface,
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
+    surface: &mut Surface,
+    shape: &Shape,
     span: Span,
     artifact_type: Smart<ArtifactType>,
 ) -> SourceResult<()> {
@@ -34,11 +34,11 @@ pub(crate) fn handle_shape(
         let fill = if let Some(paint) = &shape.fill {
             Some(paint::convert_fill(
                 gc,
+                fc.state(),
+                &mut surface,
                 paint,
                 shape.fill_rule,
                 false,
-                &mut surface,
-                fc.state(),
                 Some(shape),
             )?)
         } else {
@@ -50,10 +50,10 @@ pub(crate) fn handle_shape(
         {
             let stroke = paint::convert_stroke(
                 gc,
+                fc.state(),
+                &mut surface,
                 stroke,
                 false,
-                &mut surface,
-                fc.state(),
                 Some(shape),
             )?;
 
