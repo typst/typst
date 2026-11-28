@@ -27,15 +27,15 @@ use crate::util::{
 
 pub(crate) fn convert_fill(
     gc: &mut GlobalContext,
+    state: &State,
+    surface: &mut Surface,
     paint_: &Paint,
     fill_rule_: FillRule,
     on_text: bool,
-    surface: &mut Surface,
-    state: &State,
     shape: Option<&Shape>,
 ) -> SourceResult<Fill> {
     let (paint, opacity) =
-        convert_paint(gc, paint_, on_text, surface, state, shape, false)?;
+        convert_paint(gc, state, surface, paint_, on_text, shape, false)?;
 
     Ok(Fill {
         paint,
@@ -45,15 +45,15 @@ pub(crate) fn convert_fill(
 }
 
 pub(crate) fn convert_stroke(
-    fc: &mut GlobalContext,
+    gc: &mut GlobalContext,
+    state: &State,
+    surface: &mut Surface,
     stroke: &FixedStroke,
     on_text: bool,
-    surface: &mut Surface,
-    state: &State,
     shape: Option<&Shape>,
 ) -> SourceResult<Stroke> {
     let (paint, opacity) =
-        convert_paint(fc, &stroke.paint, on_text, surface, state, shape, true)?;
+        convert_paint(gc, state, surface, &stroke.paint, on_text, shape, true)?;
 
     Ok(Stroke {
         paint,
@@ -68,10 +68,10 @@ pub(crate) fn convert_stroke(
 
 fn convert_paint(
     gc: &mut GlobalContext,
+    state: &State,
+    surface: &mut Surface,
     paint: &Paint,
     on_text: bool,
-    surface: &mut Surface,
-    state: &State,
     shape: Option<&Shape>,
     include_stroke_in_bbox: bool,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
@@ -106,8 +106,8 @@ fn convert_paint(
             let (c, a) = convert_solid(c);
             Ok((c.into(), a))
         }
-        Paint::Gradient(g) => Ok(convert_gradient(g, on_text, state, size, offset)),
-        Paint::Tiling(p) => convert_pattern(gc, p, on_text, surface, state),
+        Paint::Gradient(g) => Ok(convert_gradient(state, g, on_text, size, offset)),
+        Paint::Tiling(p) => convert_pattern(gc, state, surface, p, on_text),
     }
 }
 
@@ -164,10 +164,10 @@ fn convert_spot(color: &SpotColor) -> separation::Color {
 
 fn convert_pattern(
     gc: &mut GlobalContext,
+    state: &State,
+    surface: &mut Surface,
     pattern: &Tiling,
     on_text: bool,
-    surface: &mut Surface,
-    state: &State,
 ) -> SourceResult<(krilla::paint::Paint, u8)> {
     let transform = correct_transform(state, pattern.unwrap_relative(on_text))
         .pre_concat(pattern.transform());
@@ -177,12 +177,12 @@ fn convert_pattern(
     tags::tiling(gc, &mut surface, pattern.size(), |gc, surface| {
         let mut fc = FrameContext::new(None, pattern.frame().size());
         handle_frame(
+            gc,
             &mut fc,
+            surface,
             pattern.frame(),
             Sides::splat(Abs::zero()),
             None,
-            surface,
-            gc,
         )
     })?;
     surface.finish();
@@ -198,9 +198,9 @@ fn convert_pattern(
 }
 
 fn convert_gradient(
+    state: &State,
     gradient: &Gradient,
     on_text: bool,
-    state: &State,
     size: Size,
     offset: Point,
 ) -> (krilla::paint::Paint, u8) {

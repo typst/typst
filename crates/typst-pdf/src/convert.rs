@@ -156,12 +156,12 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         tags::page(gc, &mut surface, |gc, surface| {
             handle_frame(
+                gc,
                 &mut fc,
+                surface,
                 &typst_page.frame,
                 typst_page.bleed,
                 typst_page.fill_or_transparent(),
-                surface,
-                gc,
             )
         })?;
 
@@ -328,12 +328,12 @@ impl<'a> GlobalContext<'a> {
 
 #[typst_macros::time(name = "handle page")]
 pub(crate) fn handle_frame(
+    gc: &mut GlobalContext,
     fc: &mut FrameContext,
+    surface: &mut Surface,
     frame: &Frame,
     padding: Sides<Abs>,
     fill: Option<Paint>,
-    surface: &mut Surface,
-    gc: &mut GlobalContext,
 ) -> SourceResult<()> {
     fc.push();
 
@@ -344,10 +344,10 @@ pub(crate) fn handle_frame(
     if let Some(fill) = fill {
         let shape = Geometry::Rect(frame.size() + padding.sum_by_axis()).filled(fill);
         handle_shape(
-            fc,
-            &shape,
-            surface,
             gc,
+            fc,
+            surface,
+            &shape,
             Span::detached(),
             Smart::Custom(ArtifactType::Background),
         )?;
@@ -362,15 +362,15 @@ pub(crate) fn handle_frame(
         fc.state_mut().pre_concat(Transform::translate(point.x, point.y));
 
         match item {
-            FrameItem::Group(g) => handle_group(fc, g, surface, gc)?,
-            FrameItem::Text(t) => handle_text(fc, t, surface, gc)?,
+            FrameItem::Group(g) => handle_group(gc, fc, surface, g)?,
+            FrameItem::Text(t) => handle_text(gc, fc, surface, t)?,
             FrameItem::Shape(s, span) => {
-                handle_shape(fc, s, surface, gc, *span, Smart::Auto)?;
+                handle_shape(gc, fc, surface, s, *span, Smart::Auto)?;
             }
             FrameItem::Image(image, size, span) => {
-                handle_image(gc, fc, image, *size, surface, *span)?;
+                handle_image(gc, fc, surface, image, *size, *span)?;
             }
-            FrameItem::Link(link, size) => handle_link(fc, gc, link, *size)?,
+            FrameItem::Link(link, size) => handle_link(gc, fc, link, *size)?,
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
                     tags::handle_start(gc, fc, surface);
@@ -393,10 +393,10 @@ pub(crate) fn handle_frame(
 }
 
 pub(crate) fn handle_group(
-    fc: &mut FrameContext,
-    group: &GroupItem,
-    surface: &mut Surface,
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
+    surface: &mut Surface,
+    group: &GroupItem,
 ) -> SourceResult<()> {
     fc.push();
     fc.state_mut().pre_concat(group.transform);
@@ -417,7 +417,7 @@ pub(crate) fn handle_group(
         }
 
         let res =
-            handle_frame(fc, &group.frame, Sides::splat(Abs::zero()), None, surface, gc);
+            handle_frame(gc, fc, surface, &group.frame, Sides::splat(Abs::zero()), None);
 
         if clip_path.is_some() {
             surface.pop();

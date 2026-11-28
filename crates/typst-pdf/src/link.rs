@@ -28,8 +28,8 @@ pub(crate) enum LinkAnnotationKind {
 }
 
 pub(crate) fn handle_link(
-    fc: &mut FrameContext,
     gc: &mut GlobalContext,
+    fc: &mut FrameContext,
     link: &Linkage,
     size: Size,
 ) -> SourceResult<()> {
