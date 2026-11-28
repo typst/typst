@@ -29,6 +29,7 @@ use typst_library::visualize::{Geometry, Paint, SpotColorantName};
 use typst_syntax::Span;
 
 use crate::attach::attach_files;
+use crate::form::{AcroForm, WidgetAnnotation, build_field_tree, handle_field_widget};
 use crate::image::handle_image;
 use crate::link::{LinkAnnotation, handle_link};
 use crate::metadata::build_metadata;
@@ -75,6 +76,7 @@ pub fn convert(
         anchors,
         &page_index_converter,
     );
+    let acro_form = AcroForm::collect_from_document(typst_document)?;
 
     let mut gc = GlobalContext::new(
         typst_document,
@@ -83,6 +85,8 @@ pub fn convert(
         named_destinations,
         page_index_converter,
         tags,
+        warnings,
+        acro_form,
     );
 
     convert_pages(&mut gc, &mut document)?;
@@ -92,6 +96,10 @@ pub fn convert(
     document.set_outline(build_outline(&gc));
     document.set_metadata(build_metadata(&gc, doc_lang));
     document.set_tag_tree(tree);
+
+    if !gc.acro_form.is_empty() {
+        document.set_field_tree(build_field_tree(&mut gc)?);
+    }
 
     finish(document, gc)
 }
@@ -169,6 +177,9 @@ fn convert_pages(gc: &mut GlobalContext, document: &mut Document) -> SourceResul
 
         let link_annotations = fc.link_annotations.into_values().flatten();
         tags::add_link_annotations(gc, &mut page, link_annotations);
+
+        let widget_annotations = fc.widget_annotations;
+        tags::add_widget_annotations(gc, &mut page, widget_annotations.into_iter())?;
     }
 
     Ok(())
@@ -205,6 +216,14 @@ impl State {
         self.transform = self.transform.pre_concat(transform);
     }
 
+    pub(crate) fn post_concat(&mut self, transform: Transform) {
+        self.transform = self.transform.post_concat(transform);
+    }
+
+    pub(crate) fn container_post_concat(&mut self, transform: Transform) {
+        self.container_transform = self.container_transform.post_concat(transform);
+    }
+
     pub(crate) fn transform(&self) -> Transform {
         self.transform
     }
@@ -226,6 +245,8 @@ pub(crate) struct FrameContext {
     states: Vec<State>,
     /// The link annotations belonging to a Link tag.
     link_annotations: IndexMap<GroupId, SmallVec<[LinkAnnotation; 1]>, FxBuildHasher>,
+    /// The widget annotation belonging to each field, identified by its Location.
+    widget_annotations: Vec<WidgetAnnotation>,
 }
 
 impl FrameContext {
@@ -234,6 +255,7 @@ impl FrameContext {
             page_idx,
             states: vec![State::new(size)],
             link_annotations: IndexMap::default(),
+            widget_annotations: vec![],
         }
     }
 
@@ -274,6 +296,10 @@ impl FrameContext {
         let annotations = self.link_annotations.entry(id).or_default();
         annotations.push(annotation);
     }
+
+    pub(crate) fn push_widget_annotation(&mut self, annotation: WidgetAnnotation) {
+        self.widget_annotations.push(annotation);
+    }
 }
 
 /// Globally needed context for converting a Typst document.
@@ -300,9 +326,14 @@ pub(crate) struct GlobalContext<'a> {
     pub(crate) page_index_converter: PageIndexConverter,
     /// Tagged PDF context.
     pub(crate) tags: Tags,
+    /// Warnings generated while producing the output.
+    pub(crate) warnings: &'a mut EcoVec<SourceDiagnostic>,
+    /// Form fields.
+    pub(crate) acro_form: AcroForm,
 }
 
 impl<'a> GlobalContext<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         document: &'a PagedDocument,
         options: &'a PdfOptions<Complete>,
@@ -310,6 +341,8 @@ impl<'a> GlobalContext<'a> {
         loc_to_names: FxHashMap<Location, NamedDestination>,
         page_index_converter: PageIndexConverter,
         tags: Tags,
+        warnings: &'a mut EcoVec<SourceDiagnostic>,
+        acro_form: AcroForm,
     ) -> GlobalContext<'a> {
         Self {
             fonts_forward: FxHashMap::default(),
@@ -322,6 +355,8 @@ impl<'a> GlobalContext<'a> {
             image_spans: FxHashSet::default(),
             page_index_converter,
             tags,
+            warnings,
+            acro_form,
         }
     }
 }
@@ -371,6 +406,9 @@ pub(crate) fn handle_frame(
                 handle_image(gc, fc, image, *size, surface, *span)?;
             }
             FrameItem::Link(link, size) => handle_link(fc, gc, link, *size)?,
+            FrameItem::FormField(widget) => {
+                handle_field_widget(gc, fc, surface, widget)?;
+            }
             FrameItem::Tag(Tag::Start(_, flags)) => {
                 if flags.tagged {
                     tags::handle_start(gc, fc, surface);
@@ -519,6 +557,12 @@ fn finish(document: Document, gc: GlobalContext) -> SourceResult<Vec<u8>> {
                 Span::detached(),
                 "a PDF floating point number is larger than the allowed limit";
                 hint: "set the PDF version to PDF 1.5 or later";
+            ),
+            KrillaError::StandardFont(..) => bail!(
+                Span::detached(),
+                "a PDF standard font was used, but that is not allowed in PDF 2.0";
+                hint: "these fonts are used by textboxes and choice fields";
+                hint: "set the PDF version to PDF 1.7 or earlier, or remove form fields";
             ),
         },
     }
@@ -727,7 +771,8 @@ fn convert_validation_error(
             let span = to_span(*loc);
             error!(
                 span, "{prefix} missing alt name";
-                hint: "make sure your form fields have an alt name";
+                hint: "add a `#form.label` that points to this field";
+                hint: "for `#form.radio-group`, you must set the `title` property instead";
             )
         }
         ValidationError::NoDocumentLanguage => error!(
@@ -761,12 +806,12 @@ fn convert_validation_error(
             "{prefix} missing document date";
             hint: "set the date of the document";
         ),
-        // This should never happen as Typst does not support setting rollover or down appearance
         ValidationError::AnnotationHasConditionalAppearance(loc) => {
             let span = to_span(*loc);
             error!(
-                span, "{prefix} annotation has rollover or down appearance";
-                hint: "please report this as a bug";
+                span, "{prefix} annotation has hover or down styles";
+                hint: "hover and down styles are not supported in this PDF standard";
+                hint: "remove `form.widget` show rules that vary on the widget's `state`";
             )
         }
         ValidationError::ContainsMutatingAction(loc) => {

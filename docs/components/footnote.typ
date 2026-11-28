@@ -10,6 +10,7 @@
   if notes.len() == 0 { return }
   html.elem("section", attrs: (role: "doc-endnotes"), {
     for note in notes {
+      if type(note.body) == label { continue }
       let num = counter(footnote).display(note.numbering, at: note.location())
       enum.item({
         html.elem(
@@ -26,9 +27,14 @@
 // Can be applied with `show footnote`.
 #let footnote-rule(it) = context {
   h(0pt, weak: true)
+  let loc = if type(it.body) == label {
+    locate(it.body)
+  } else {
+    it.location()
+  }
   // Would be a bit nicer to link to the `li` element, but this is good enough.
-  let dest = locate(link.where(dest: it.location()))
-  let nums = counter(footnote).display(it.numbering, at: it.location())
+  let dest = locate(link.where(dest: loc))
+  let nums = counter(footnote).display(it.numbering, at: loc)
   html.elem("sup", attrs: (role: "doc-noteref"), link(dest, nums))
 }
 

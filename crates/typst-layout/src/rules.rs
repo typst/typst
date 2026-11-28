@@ -1,27 +1,32 @@
 use comemo::Track;
-use ecow::{EcoVec, eco_format};
+use ecow::{EcoString, EcoVec, eco_format};
 use smallvec::smallvec;
-use typst_library::diag::{At, SourceResult, Trace, Tracepoint, bail};
+use typst_library::diag::{
+    At, ExpectInternal, SourceResult, Trace, Tracepoint, bail, panic_internal, warning,
+};
 use typst_library::foundations::{
     Content, Context, NativeElement, NativeRuleMap, Packed, Resolve, ShowFn, Smart,
-    StyleChain, Synthesize, Target, Value, dict,
+    StyleChain, SymbolElem, Synthesize, Target, Value, dict,
 };
 use typst_library::introspection::{Counter, Locator, LocatorLink};
 use typst_library::layout::{
-    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, ColumnsElem, Em,
-    FixedAlignment, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem, HideElem,
-    InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem, PageElem,
-    PlaceElem, PlacementScope, Region, Rel, RepeatElem, RotateElem, ScaleElem, Sides,
-    Size, Sizing, SkewElem, Spacing, StackChild, StackElem, TrackSizings, VElem,
+    Abs, AlignElem, Alignment, Axes, BlockBody, BlockElem, BoxElem, Celled, ColumnsElem,
+    Em, FixedAlignment, Fr, GridCell, GridChild, GridElem, GridItem, HAlignment, HElem,
+    HideElem, InlineElem, LayoutElem, Length, MoveElem, OuterVAlignment, PadElem,
+    PageElem, PlaceElem, PlacementScope, Ratio, Region, Rel, RepeatElem, RotateElem,
+    ScaleElem, Sides, Size, Sizing, SkewElem, Spacing, StackChild, StackElem,
+    TrackSizings, VAlignment, VElem,
 };
 use typst_library::math::EquationElem;
 use typst_library::model::{
-    ArtifactElem, ArtifactKind, Attribution, BibliographyElem, CiteElem, CiteGroup,
-    CslIndentElem, CslLightElem, Destination, DirectLinkElem, DividerElem, EmphElem,
-    EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry, HeadingElem,
-    LinkElem, LinkMarker, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem,
-    ParbreakElem, PdfMarkerTag, QuoteElem, RefElem, StrongElem, TableCell, TableElem,
-    TermsElem, TitleElem, Works,
+    ArtifactElem, ArtifactKind, Attribution, BibliographyElem, ChoiceOptions, CiteElem,
+    CiteGroup, CslIndentElem, CslLightElem, Destination, DirectLinkElem, DividerElem,
+    EmphElem, EnumElem, FigureCaption, FigureElem, FootnoteElem, FootnoteEntry,
+    FormButton, FormCheckbox, FormChoice, FormElem, FormLabel, FormRadioButton,
+    FormRadioGroup, FormSignature, FormTextbox, FormWidget, HeadingElem, LinkElem,
+    LinkMarker, ListElem, OutlineElem, OutlineEntry, OutlineNode, ParElem, ParbreakElem,
+    PdfMarkerTag, QuoteElem, RefElem, StrongElem, TableCell, TableElem, TermsElem,
+    TextboxKind, TitleElem, Works, assert_not_inside_form_field,
 };
 use typst_library::text::{
     DecoLine, Decoration, HighlightElem, ItalicToggle, LinebreakElem, LocalName,
@@ -30,9 +35,10 @@ use typst_library::text::{
     TextSize, UnderlineElem, WeightDelta,
 };
 use typst_library::visualize::{
-    CircleElem, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem, RectElem,
-    SquareElem, Stroke,
+    CircleElem, Color, CurveElem, EllipseElem, ImageElem, LineElem, PolygonElem,
+    RectElem, SquareElem, Stroke,
 };
+use typst_syntax::{LooselySpanned, Span};
 use typst_utils::{Get, Numeric};
 
 /// Register show rules for the [paged target](Target::Paged).
@@ -65,6 +71,16 @@ pub fn register(rules: &mut NativeRuleMap) {
     rules.register(Paged, CSL_INDENT_RULE);
     rules.register(Paged, TABLE_RULE);
     rules.register(Paged, TABLE_CELL_RULE);
+    rules.register(Paged, FORM_RULE);
+    rules.register(Paged, FORM_BUTTON_RULE);
+    rules.register(Paged, FORM_CHECKBOX_RULE);
+    rules.register(Paged, FORM_RADIO_GROUP_RULE);
+    rules.register(Paged, FORM_RADIO_RULE);
+    rules.register(Paged, FORM_TEXTBOX_RULE);
+    rules.register(Paged, FORM_CHOICE_RULE);
+    rules.register(Paged, FORM_SIGNATURE_RULE);
+    rules.register(Paged, FORM_LABEL_RULE);
+    rules.register(Paged, FORM_WIDGET_RULE);
 
     // Text.
     rules.register(Paged, SUB_RULE);
@@ -548,6 +564,376 @@ const TABLE_RULE: ShowFn<TableElem> = |elem, _, _| {
 const TABLE_CELL_RULE: ShowFn<TableCell> = |elem, _, styles| {
     show_cell(elem.body.clone(), elem.inset.get(styles), elem.align.get(styles))
 };
+
+/// 100% width
+const FULL_WIDTH: Smart<Rel<Length>> =
+    Smart::Custom(Rel::new(Ratio::one(), Length::zero()));
+/// 100% height
+const FULL_HEIGHT: Sizing = Sizing::Rel(Rel::new(Ratio::one(), Length::zero()));
+
+const FORM_RULE: ShowFn<FormElem> = |elem, _, styles| {
+    elem.assert_not_inside_form(styles)?;
+    Ok(elem.body.clone())
+};
+
+const FORM_BUTTON_RULE: ShowFn<FormButton> = |elem, _, styles| {
+    FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
+
+    let width = elem.width.get(styles);
+    let height = elem.height.get(styles);
+
+    Ok(BlockElem::single_layouter(elem.clone(), crate::form::layout_button)
+        .with_width(width)
+        .with_height(height)
+        .pack())
+};
+
+const FORM_CHECKBOX_RULE: ShowFn<FormCheckbox> = |elem, _, styles| {
+    FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
+
+    let width = elem.width.get(styles).or(Smart::Custom(Em::one().into()));
+    let height = elem.height.get(styles);
+    let height = if height.is_auto() { Sizing::Rel(Em::one().into()) } else { height };
+
+    Ok(BlockElem::single_layouter(elem.clone(), crate::form::layout_checkbox)
+        .with_width(width)
+        .with_height(height)
+        .pack())
+};
+
+const FORM_RADIO_GROUP_RULE: ShowFn<FormRadioGroup> = |elem, _, styles| {
+    FormElem::try_from_styles(elem, &styles)?;
+
+    let legend = elem.title.get_cloned(styles).map(|title| {
+        let span = title.span();
+        BlockElem::packed(UnderlineElem::new(title).pack().spanned(span)).spanned(span)
+    });
+
+    let body = Content::sequence([legend, Some(elem.body.clone())].into_iter().flatten())
+        .spanned(elem.span());
+
+    Ok(BlockElem::packed(body))
+};
+
+const FORM_RADIO_RULE: ShowFn<FormRadioButton> = |elem, _, styles| {
+    assert_not_inside_form_field(elem, styles)?;
+
+    let width = elem.width.get(styles).or(Smart::Custom(Em::one().into()));
+    let height = elem.height.get(styles);
+    let height = if height.is_auto() { Sizing::Rel(Em::one().into()) } else { height };
+
+    Ok(BlockElem::single_layouter(elem.clone(), crate::form::layout_radio_button)
+        .with_width(width)
+        .with_height(height)
+        .pack())
+};
+
+const FORM_TEXTBOX_RULE: ShowFn<FormTextbox> = |elem, engine, styles| {
+    let span = elem.span();
+    FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
+
+    if elem.placeholder.get_ref(styles).is_some() {
+        engine.sink.warn(warning!(
+            span, "`placeholder` property was ignored during paged export";
+            hint: "the property is not supported in this export format";
+        ));
+    }
+
+    let kind = elem.kind.get(styles);
+    let multiline = kind == TextboxKind::MultiLine;
+    let max_length = elem.max_length.get(styles);
+    if kind == TextboxKind::FixedWidth && max_length.is_none() {
+        bail!(span, "`max-length` must be set when `kind` is `\"fixed-width\"`");
+    }
+    elem.validate_value_length(styles)?;
+
+    let default_width =
+        if multiline { FULL_WIDTH } else { Smart::Custom(Em::new(18.0).into()) };
+    let default_height =
+        if multiline { Sizing::Rel(Em::new(5.0).into()) } else { Sizing::Auto };
+    let width = elem.width.get(styles).or(default_width);
+    let height = elem.height.get(styles).or(default_height);
+
+    let body = BlockElem::single_layouter(elem.clone(), crate::form::layout_textbox)
+        .with_width(FULL_WIDTH)
+        // expand if height is not auto
+        .with_height(if height.is_auto() { height } else { FULL_HEIGHT })
+        .pack()
+        .spanned(span);
+
+    Ok(RectElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_body(Some(body))
+        .pack())
+};
+
+const FORM_CHOICE_RULE: ShowFn<FormChoice> = |elem, _, styles| {
+    FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
+
+    let width = elem.width.get(styles).or(Smart::Custom(Em::new(10.0).into()));
+    let height = elem.height.get(styles);
+
+    let body = BlockElem::single_layouter(elem.clone(), crate::form::layout_choice)
+        .with_width(FULL_WIDTH)
+        // expand if height is not auto
+        .with_height(if height.is_auto() { height } else { FULL_HEIGHT })
+        .pack()
+        .spanned(elem.span());
+
+    Ok(RectElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_body(Some(body))
+        .pack())
+};
+
+const FORM_SIGNATURE_RULE: ShowFn<FormSignature> = |elem, _, styles| {
+    FormElem::try_from_styles(elem, &styles)?;
+    assert_not_inside_form_field(elem, styles)?;
+
+    let width = elem.width.get(styles);
+    let height = elem.height.get(styles);
+
+    let body = BlockElem::single_layouter(elem.clone(), crate::form::layout_signature)
+        .with_width(FULL_WIDTH)
+        .with_height(FULL_HEIGHT)
+        .pack()
+        .spanned(elem.span());
+
+    Ok(RectElem::new()
+        .with_width(Smart::Custom(width))
+        .with_height(height)
+        .with_body(Some(body))
+        .pack())
+};
+
+const FORM_LABEL_RULE: ShowFn<FormLabel> = |elem, engine, _| {
+    // Check that label exists and points to form field
+    elem.resolve_early(engine, elem.span())?;
+
+    Ok(elem.body.clone())
+};
+
+const FORM_WIDGET_RULE: ShowFn<FormWidget> = |elem, _, styles| {
+    let span = elem.span();
+    let field = styles
+        .get_ref(FormWidget::parent)
+        .as_ref()
+        .expect_internal("form widget must have a parent")
+        .at(span)?;
+
+    let content = if let Some(button) = field.to_packed::<FormButton>() {
+        button_widget_rule(
+            button.width.get(styles),
+            button.height.get(styles),
+            button.body.clone(),
+        )
+    } else if field.is::<FormCheckbox>() {
+        checkbox_widget_rule(elem.checked.get(styles).unwrap_or_default(), span)
+    } else if field.is::<FormRadioButton>() {
+        radio_widget_rule(elem.checked.get(styles).unwrap_or_default(), span)
+    } else if let Some(textbox) = field.to_packed::<FormTextbox>() {
+        let value = textbox.value.get_cloned(styles).unwrap_or_default();
+        let kind = textbox.kind.get(styles);
+        let expand_height =
+            kind == TextboxKind::MultiLine || !textbox.height.get(styles).is_auto();
+        textbox_widget_rule(
+            value,
+            textbox
+                .max_length
+                .get(styles)
+                .filter(|_| kind == TextboxKind::FixedWidth),
+            expand_height,
+            styles.get(FormWidget::font_cap_height),
+            [],
+            span,
+        )
+    } else if let Some(choice_field) = field.to_packed::<FormChoice>() {
+        let options = choice_field.options.get_ref(styles);
+        let value = choice_field.value_indices.clone().unwrap_or_default();
+        let multiple = choice_field.multiple.get(styles);
+        if multiple {
+            listbox_widget_rule(value, options, choice_field.disabled.get(styles), span)
+        } else {
+            let value = value
+                .first()
+                .and_then(|&index| {
+                    options.0.get(index).map(|opt| opt.display_or_mapping_name())
+                })
+                .unwrap_or_default();
+
+            // dropdown's appearance is very similar to a textbox
+            textbox_widget_rule(
+                value,
+                None,
+                !choice_field.height.get(styles).is_auto(),
+                styles.get(FormWidget::font_cap_height),
+                [
+                    HElem::new(Spacing::Fr(Fr::one())).pack().spanned(span),
+                    SymbolElem::packed("▾").spanned(span),
+                ],
+                span,
+            )
+        }
+    } else if field.is::<FormSignature>() {
+        Content::empty()
+    } else {
+        panic_internal("unknown field type").at(span)?
+    };
+
+    Ok(content)
+};
+
+fn button_widget_rule(
+    width: Smart<Rel<Length>>,
+    height: Sizing,
+    body: Content,
+) -> Content {
+    // Expand if button has explicit width/height
+    let width = width.map(|_| Rel::one());
+    let height = if height.is_auto() { height } else { FULL_HEIGHT };
+    RectElem::new()
+        .with_width(width)
+        .with_height(height)
+        .with_body(Some(body))
+        .pack()
+}
+
+fn checkbox_widget_rule(checked: bool, span: Span) -> Content {
+    // Always include symbol to set baseline of off frame
+    let body = SymbolElem::packed("✓")
+        .aligned(HAlignment::Center + VAlignment::Horizon)
+        .set(HideElem::hidden, !checked)
+        .spanned(span);
+    RectElem::new()
+        .with_width(FULL_WIDTH)
+        .with_height(FULL_HEIGHT)
+        .with_inset(Sides::splat(Some(Rel::zero())))
+        .with_body(Some(body))
+        .pack()
+}
+
+fn radio_widget_rule(checked: bool, span: Span) -> Content {
+    let inner_circle = if checked {
+        CircleElem::new()
+            .with_width(FULL_WIDTH)
+            .with_height(FULL_HEIGHT)
+            .with_outset(Sides::splat(Some(Rel::zero())))
+            .with_fill(Some(Color::BLACK.into()))
+            .pack()
+    } else {
+        // Include empty text to set baseline of frame
+        TextElem::packed("")
+    }
+    .aligned(HAlignment::Center + VAlignment::Horizon)
+    .spanned(span);
+    CircleElem::new()
+        .with_width(FULL_WIDTH)
+        .with_height(FULL_HEIGHT)
+        .with_inset(Sides::splat(Some(Abs::pt(1.0).into())))
+        .with_body(Some(inner_circle))
+        .pack()
+}
+
+fn textbox_widget_rule(
+    value: EcoString,
+    fixed_width: Option<u32>,
+    expand_height: bool,
+    font_cap_height: Option<Em>,
+    trailing_content: impl IntoIterator<Item = Content>,
+    span: Span,
+) -> Content {
+    let value_text = if let Some(max_length) = fixed_width {
+        GridElem::new(
+            value
+                .chars()
+                .map(|c| GridChild::try_from(TextElem::packed(c).spanned(span)).unwrap())
+                // ensure there is always at least one grid element, so that auto height works
+                .chain(value.is_empty().then(|| {
+                    GridChild::try_from(TextElem::packed("").spanned(span)).unwrap()
+                }))
+                .collect(),
+        )
+        .with_columns(TrackSizings(smallvec![Fr::one().into(); max_length as usize]))
+        .with_align(LooselySpanned::detached(Celled::Value(Smart::Custom(
+            HAlignment::Center + VAlignment::Horizon,
+        ))))
+        .pack()
+        .spanned(span)
+    } else {
+        TextElem::packed(value).spanned(span)
+    };
+    let standard_font_height = font_cap_height
+        .filter(|_| !expand_height && fixed_width.is_none())
+        .map(|height| {
+            Content::sequence([
+                BoxElem::new()
+                    .with_height(Smart::Custom(height.into()))
+                    .pack()
+                    .spanned(span),
+                // The word joiner ensures the box stays in the same line as the value
+                TextElem::packed("\u{2060}").spanned(span),
+            ])
+            .spanned(span)
+            .set(HideElem::hidden, true)
+        });
+    let body = Content::sequence(
+        [standard_font_height, Some(value_text)]
+            .into_iter()
+            .flatten()
+            .chain(trailing_content),
+    )
+    .spanned(span);
+
+    let inset_x =
+        Some(if fixed_width.is_some() { Rel::zero() } else { Em::new(0.35).into() });
+    let inset_y = Some(Em::new(0.5).into());
+    let inset = Sides::new(inset_x, inset_y, inset_x, inset_y);
+    BlockElem::new()
+        .with_breakable(false)
+        .with_width(FULL_WIDTH)
+        .with_height(if expand_height { FULL_HEIGHT } else { Sizing::Auto })
+        .with_inset(inset)
+        .with_body(Some(BlockBody::Content(body)))
+        .pack()
+}
+
+fn listbox_widget_rule(
+    value: EcoVec<usize>,
+    options: &ChoiceOptions,
+    disabled: bool,
+    span: Span,
+) -> Content {
+    let inset_x = Some(Em::new(0.35).into());
+    let inset_y = Some(Em::new(0.5).into());
+    let inset = Sides::new(inset_x, inset_y, inset_x, inset_y);
+    let children = options.0.iter().enumerate().map(|(i, option)| {
+        let name = option.display_or_mapping_name();
+        let selected = value.contains(&i);
+        let fill = selected.then_some(FormChoice::listbox_selected_paint(disabled));
+
+        let mut text = TextElem::packed(name).spanned(span);
+        if selected && !disabled {
+            text = text.set(TextElem::fill, Color::WHITE.into());
+        }
+
+        BlockElem::new()
+            .with_width(FULL_WIDTH)
+            .with_breakable(false)
+            .with_inset(inset)
+            .with_fill(fill)
+            .with_body(Some(BlockBody::Content(text)))
+            .pack()
+            .spanned(span)
+    });
+
+    StackElem::new(children.map(StackChild::Block).collect()).pack()
+}
 
 const SUB_RULE: ShowFn<SubElem> = |elem, _, styles| {
     show_script(

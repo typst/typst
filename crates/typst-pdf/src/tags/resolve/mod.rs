@@ -305,6 +305,7 @@ fn build_group_tag(rs: &mut Resolver, group: &Group) -> Option<TagKind> {
             Tag::Formula(alt).with_placement(placement).into()
         }
         GroupKind::Link(_, _) => Tag::Link.into(),
+        GroupKind::FormField(_) => Tag::Form.into(),
         GroupKind::CodeBlock(_) => {
             Tag::Code.with_placement(Some(kt::Placement::Block)).into()
         }

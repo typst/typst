@@ -1250,8 +1250,10 @@ pub fn assert_internal(cond: bool, msg: &str) -> HintedStrResult<()> {
 }
 
 /// Generates an internal compiler error with the provided message.
+// FIXME: Use never type instead of generics when it becomes available
+// (rustc 1.100).
 #[track_caller]
-pub fn panic_internal(msg: &str) -> HintedStrResult<()> {
+pub fn panic_internal<T>(msg: &str) -> HintedStrResult<T> {
     Err(internal_error(msg))
 }
 
