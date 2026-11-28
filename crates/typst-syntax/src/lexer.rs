@@ -872,7 +872,9 @@ impl Lexer<'_> {
             '+' if self.s.eat_if('=') => SyntaxKind::PlusEq,
             '-' | '\u{2212}' if self.s.eat_if('=') => SyntaxKind::HyphEq,
             '*' if self.s.eat_if('=') => SyntaxKind::StarEq,
+            '*' if self.s.eat_if('*') => self.invalid_char_in_code('*'),
             '/' if self.s.eat_if('=') => SyntaxKind::SlashEq,
+            '^' if self.s.eat_if('=') => SyntaxKind::HatEq,
             '.' if self.s.eat_if('.') => SyntaxKind::Dots,
             '=' if self.s.eat_if('>') => SyntaxKind::Arrow,
 
@@ -891,6 +893,7 @@ impl Lexer<'_> {
             '-' | '\u{2212}' => SyntaxKind::Minus,
             '*' => SyntaxKind::Star,
             '/' => SyntaxKind::Slash,
+            '^' => SyntaxKind::Hat,
             '=' => SyntaxKind::Eq,
             '<' => SyntaxKind::Lt,
             '>' => SyntaxKind::Gt,
@@ -921,6 +924,10 @@ impl Lexer<'_> {
                 self.error(invalid_char());
                 self.hint("you are already in code mode");
                 self.hint("try removing the `#`");
+            }
+            '*' if self.s.eat_if('*') => {
+                self.error(invalid_str("**"));
+                self.hint("in Typst, `^` is used for exponentiation");
             }
             '&' if self.s.eat_if('&') => {
                 self.error(invalid_str("&&"));

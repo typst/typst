@@ -369,6 +369,61 @@ fn try_div_relative(a: Rel<Length>, b: Rel<Length>) -> StrResult<f64> {
         .ok_or_else(|| "cannot divide these two relative lengths".into())
 }
 
+/// Compute one value to the power of another.
+pub fn pow(lhs: Value, rhs: Value) -> HintedStrResult<Value> {
+    use Value::*;
+    use typst_utils::Scalar;
+
+    if is_zero(&lhs) && is_zero(&rhs) {
+        bail!("zero to the power of zero is undefined");
+    }
+    if let Int(b) = rhs
+        && i32::try_from(b).is_err()
+    {
+        bail!("exponent is too large");
+    }
+
+    Ok(match (lhs, rhs) {
+        (Int(a), Int(b)) if b >= 0 => {
+            Int(a.checked_pow(b as u32).ok_or_else(too_large)?)
+        }
+        (Int(a), Int(b)) => Float(Scalar::new(a as f64).powi(b as i32).get()),
+        (Int(a), Float(b)) => Float(try_pow_float(a as f64, b)?),
+        (Float(a), Int(b)) => Float(Scalar::new(a).powi(b as i32).get()),
+        (Float(a), Float(b)) => Float(try_pow_float(a, b)?),
+
+        (Decimal(a), Int(b)) => Decimal(a.checked_powi(b).ok_or_else(too_large)?),
+
+        (Decimal(_), Float(_)) => bail!(
+            "cannot raise decimal to the power of float";
+            hint: "if loss of precision is acceptable, explicitly cast the \
+            decimal to a float with `float(value)`";
+        ),
+        (a, b) => mismatch!("cannot raise {} to the power of {}", a, b),
+    })
+}
+
+/// Try to raise a float to the power of a float.
+fn try_pow_float(a: f64, b: f64) -> StrResult<f64> {
+    if !b.is_normal() && b != 0.0 {
+        bail!("exponent may not be infinite, subnormal, or NaN");
+    }
+
+    let result = if a == std::f64::consts::E {
+        libm::exp(b)
+    } else if a == 2.0 {
+        libm::exp2(b)
+    } else {
+        libm::pow(a, b)
+    };
+
+    if result.is_nan() {
+        bail!("the result is not a real number");
+    }
+
+    Ok(result)
+}
+
 /// Compute the logical "not" of a value.
 pub fn not(value: Value) -> HintedStrResult<Value> {
     match value {
