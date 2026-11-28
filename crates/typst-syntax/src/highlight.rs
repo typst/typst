@@ -225,7 +225,10 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
             Some(SyntaxKind::MathFrac) => Tag::MathOperator,
             _ => Tag::Operator,
         }),
-        SyntaxKind::Hat => Some(Tag::MathOperator),
+        SyntaxKind::Hat => Some(match node.parent_kind() {
+            Some(SyntaxKind::MathAttach) => Tag::MathOperator,
+            _ => Tag::Operator,
+        }),
         SyntaxKind::Dot => Some(Tag::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,
@@ -241,6 +244,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::HyphEq => Some(Tag::Operator),
         SyntaxKind::StarEq => Some(Tag::Operator),
         SyntaxKind::SlashEq => Some(Tag::Operator),
+        SyntaxKind::HatEq => Some(Tag::Operator),
         SyntaxKind::Dots => Some(Tag::Operator),
         SyntaxKind::Arrow => Some(Tag::Operator),
         SyntaxKind::Root => Some(Tag::MathOperator),

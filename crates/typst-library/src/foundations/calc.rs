@@ -163,6 +163,9 @@ cast! {
 
 /// Raises a value to some exponent.
 ///
+/// Instead of this function, you can also use the built-in exponentiation
+/// syntax: `{base^exponent}`.
+///
 /// ```example
 /// #calc.pow(2, 3) \
 /// #calc.pow(decimal("2.5"), 2)

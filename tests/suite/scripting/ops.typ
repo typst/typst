@@ -113,6 +113,10 @@
   }
 }
 
+// Test that negative powers coerce ints to floats.
+#test(type(2^2), int)
+#test(type(2^-1), float)
+
 --- ops-binary-decimal eval ---
 // Addition.
 #test(decimal("40.1") + decimal("13.2"), decimal("53.3"))
@@ -314,6 +318,13 @@
 // Subtraction binds stronger than comparison.
 #test(3 == 5 - 2, true)
 
+// Exponentiation binds stronger than multiplication or unary minus.
+#test(2*3^-1, 2/3)
+#test(-2^2, -4)
+
+// Exponentiation currently doesn't defer to dedicated implementations for special bases.
+#test(calc.abs(calc.e^2 - calc.pow(calc.e, 2)) > 0, true)
+
 // Boolean operations bind stronger than '=='.
 #test("a" == "a" and 2 < 3, true)
 #test(not "b" == "b", false)
@@ -342,13 +353,14 @@
 #test({(1 + 1}, 2)
 
 --- ops-associativity-left eval ---
-// Math operators are left-associative.
+// Math operators (except exponentiation) are left-associative.
 #test(10 / 2 / 2 == (10 / 2) / 2, true)
 #test(10 / 2 / 2 == 10 / (2 / 2), false)
 #test(1 / 2 * 3, 1.5)
 
 --- ops-associativity-right eval ---
-// Assignment is right-associative.
+// Exponentiation and assignment are right-associative.
+#test(5^1^2, 5)
 #{
   let x = 1
   let y = 2
@@ -490,6 +502,43 @@ $harpoon(i, dotless: #not false)$
 // Error: 3-10 number must be at least zero
 #(-1 * "")
 
+--- ops-pow-with-units eval ---
+// Error: 3-8 cannot raise length to the power of integer
+#(3cm^2)
+
+--- ops-pow-decimal-to-power-of-float eval ---
+// Error: 3-19 cannot raise decimal to the power of float
+// Hint: 3-19 if loss of precision is acceptable, explicitly cast the decimal to a float with `float(value)`
+#(decimal("2")^2.0)
+
+--- ops-pow-to-power-of-decimal eval ---
+// Error: 3-17 cannot raise integer to the power of decimal
+#(2^decimal("2"))
+
+--- ops-pow-zero-to-power-of-zero eval ---
+// Error: 3-6 zero to the power of zero is undefined
+#(0^0)
+
+--- ops-pow-exponent-too-large eval ---
+// Error: 3-22 exponent is too large
+#(2^10000000000000000)
+
+--- ops-pow-too-large eval ---
+// Error: 3-15 value is too large
+#(2^2147483647)
+
+--- ops-pow-too-large-decimal eval ---
+// Error: 3-46 value is too large
+#(decimal("2222222222222222222222222222")^100)
+
+--- ops-pow-bad-exponent eval ---
+// Error: 3-18 exponent may not be infinite, subnormal, or NaN
+#(2^(2.0^10000.0))
+
+--- ops-pow-not-real eval ---
+// Error: 3-11 the result is not a real number
+#((-1)^0.5)
+
 --- ops-assign eval ---
 // Test assignment operators.
 
@@ -498,7 +547,8 @@ $harpoon(i, dotless: #not false)$
 #(x -= 5)       #test(x, 5)
 #(x += 1)       #test(x, 6)
 #(x *= x)       #test(x, 36)
-#(x /= 2.0)     #test(x, 18.0)
+#(x /= 4.0)     #test(x, 9.0)
+#(x ^= 0.5)     #test(x, 3.0)
 #(x = "some")   #test(x, "some")
 #(x += "thing") #test(x, "something")
 

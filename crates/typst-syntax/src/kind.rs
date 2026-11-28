@@ -166,7 +166,7 @@ pub enum SyntaxKind {
     Minus,
     /// The division operator and fraction operator in math: `/`.
     Slash,
-    /// The superscript operator in math: `^`.
+    /// The power operator and superscript operator in math: `^`.
     Hat,
     /// The field access and method call operator: `.`.
     Dot,
@@ -192,6 +192,8 @@ pub enum SyntaxKind {
     StarEq,
     /// The divide-assign operator: `/=`.
     SlashEq,
+    /// The power-assign operator: `^=`.
+    HatEq,
     /// Indicates a spread or sink: `..`.
     Dots,
     /// An arrow between a closure's parameters and body: `=>`.
@@ -501,6 +503,7 @@ impl SyntaxKind {
             Self::HyphEq => "subtract-assign operator",
             Self::StarEq => "multiply-assign operator",
             Self::SlashEq => "divide-assign operator",
+            Self::HatEq => "power-assign operator",
             Self::Dots => "dots",
             Self::Arrow => "arrow",
             Self::Root => "root",
@@ -690,8 +693,8 @@ impl SyntaxKind {
             Self::Plus => Known(Code),
             Self::Minus => Known(Code),
             Self::Slash => Parent, // code: Binary | math: MathFrac
-            Self::Hat => Known(Math),
-            Self::Dot => Parent, // code: part | math: MathFieldAccess
+            Self::Hat => Parent,   // code: Binary | math: MathAttach
+            Self::Dot => Parent,   // code: part | math: MathFieldAccess
             Self::Eq => Known(Code),
             Self::EqEq => Known(Code),
             Self::ExclEq => Known(Code),
@@ -703,6 +706,7 @@ impl SyntaxKind {
             Self::HyphEq => Known(Code),
             Self::StarEq => Known(Code),
             Self::SlashEq => Known(Code),
+            Self::HatEq => Known(Code),
             Self::Dots => Parent, // code/math: Spread
             Self::Arrow => Known(Code),
             Self::Root => Known(Math),

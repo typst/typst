@@ -1971,6 +1971,8 @@ pub enum BinOp {
     Mul,
     /// The division operator: `/`.
     Div,
+    /// The power operator: `^`.
+    Pow,
     /// The short-circuiting boolean `and`.
     And,
     /// The short-circuiting boolean `or`.
@@ -2001,6 +2003,8 @@ pub enum BinOp {
     MulAssign,
     /// The divide-assign operator: `/=`.
     DivAssign,
+    /// The power-assign operator: `^=`.
+    PowAssign,
 }
 
 impl BinOp {
@@ -2011,6 +2015,7 @@ impl BinOp {
             SyntaxKind::Minus => Self::Sub,
             SyntaxKind::Star => Self::Mul,
             SyntaxKind::Slash => Self::Div,
+            SyntaxKind::Hat => Self::Pow,
             SyntaxKind::And => Self::And,
             SyntaxKind::Or => Self::Or,
             SyntaxKind::EqEq => Self::Eq,
@@ -2025,6 +2030,7 @@ impl BinOp {
             SyntaxKind::HyphEq => Self::SubAssign,
             SyntaxKind::StarEq => Self::MulAssign,
             SyntaxKind::SlashEq => Self::DivAssign,
+            SyntaxKind::HatEq => Self::PowAssign,
             _ => return Option::None,
         })
     }
@@ -2032,6 +2038,7 @@ impl BinOp {
     /// The precedence of this operator.
     pub fn precedence(self) -> u8 {
         match self {
+            Self::Pow => 8,
             Self::Mul => 6,
             Self::Div => 6,
             Self::Add => 5,
@@ -2051,6 +2058,7 @@ impl BinOp {
             Self::SubAssign => 1,
             Self::MulAssign => 1,
             Self::DivAssign => 1,
+            Self::PowAssign => 1,
         }
     }
 
@@ -2061,6 +2069,7 @@ impl BinOp {
             Self::Sub => Assoc::Left,
             Self::Mul => Assoc::Left,
             Self::Div => Assoc::Left,
+            Self::Pow => Assoc::Right,
             Self::And => Assoc::Left,
             Self::Or => Assoc::Left,
             Self::Eq => Assoc::Left,
@@ -2076,6 +2085,7 @@ impl BinOp {
             Self::SubAssign => Assoc::Right,
             Self::MulAssign => Assoc::Right,
             Self::DivAssign => Assoc::Right,
+            Self::PowAssign => Assoc::Right,
         }
     }
 
@@ -2086,6 +2096,7 @@ impl BinOp {
             Self::Sub => "-",
             Self::Mul => "*",
             Self::Div => "/",
+            Self::Pow => "^",
             Self::And => "and",
             Self::Or => "or",
             Self::Eq => "==",
@@ -2101,6 +2112,7 @@ impl BinOp {
             Self::SubAssign => "-=",
             Self::MulAssign => "*=",
             Self::DivAssign => "/=",
+            Self::PowAssign => "^=",
         }
     }
 }
